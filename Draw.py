@@ -34,9 +34,9 @@ def restoreGLViewport():
 	# restoreGLViewport.width & height set by on_configure_event, when window resized
 	adjustGLViewport(0, 0, restoreGLViewport.width, restoreGLViewport.height)
 	
-def rotateToDefaultView():
+def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0):
 	# position (x,y,z), look at (x,y,z), up vector (x,y,z)
-	gluLookAt(0.0,0.0,-1000.0, 0.0,0.0,0.0, 0.0, 1.0, 0.0)
+	gluLookAt(0.0, 0.0, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
 	glScalef(1.0, -1.0, -1.0)
 	
 	# Rotate model into something approximating the regular ortho Lego view.
@@ -197,7 +197,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		# position (x,y,z), look at (x,y,z), up vector (x,y,z)
 		gluLookAt(0.0,0.0,-1000.0, 0.0,0.0,0.0, 0.0, 1.0, 0.0)
-		glTranslatef(0.0, 120.0, 0.0)
 		glScalef(1.0, -1.0, -1.0)
 		
 		# Rotate model into something approximating the regular ortho Lego view.
@@ -409,7 +408,7 @@ class PLI():
 	def initLayout(self):
 		b = self.box
 		b.width = b.height = UNINIT_PROP
-		x = b.internalGap
+		x = b.x + b.internalGap
 		for item in self.layout.values():
 			part = item[1]
 			
@@ -418,11 +417,11 @@ class PLI():
 				print "ERROR: Trying to init the a PLI layout containing uninitialized parts!"
 				continue
 			
-			item[3] = b.y
 			item[2] = x
+			item[3] = b.y + b.internalGap
 			x += part.width + b.internalGap
 			b.width = x - b.x
-			b.height = max(b.height, part.height)
+			b.height = max(b.height, part.height + (b.internalGap * 2))
 
 	# Must be called inside a valid gldrawable context
 	def drawParts(self, width, height):
@@ -433,7 +432,7 @@ class PLI():
 			adjustGLViewport(x, height - y - part.height, part.width, part.height)
 			glPushMatrix()
 			glLoadIdentity()
-			rotateToDefaultView()
+			rotateToDefaultView(-part.center[0], part.center[1], 0.0)
 			
 			part.drawModel()
 			glPopMatrix()
@@ -511,11 +510,12 @@ class Step():
 		# Draw any previous steps first
 		if (self.prevStep):
 			if (currentBuffers is None):
-				self.prevStep.drawModel(self.buffers)
+				self.prevStep.drawModel(self.buffers, width, height)
 			else:
-				self.prevStep.drawModel(currentBuffers)
+				self.prevStep.drawModel(currentBuffers, width, height)
 		
-		self.pli.drawParts(width, height)
+		if (currentBuffers is None):
+			self.pli.drawParts(width, height)
 		
 		# Draw this step
 		if (currentBuffers is None):
@@ -728,7 +728,7 @@ class PartOGL():
 			return
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
-		print ".",
+		print self.filename,
 		# TODO: Can look at general color piece, then color background a totally different color
 		glClearColor(1.0,1.0,1.0,0)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -753,6 +753,12 @@ class PartOGL():
 		
 		self.width = right - left + 1
 		self.height = bottom - top + 1
+		
+		x = left + (self.width/2)
+		y = top + (self.height/2)
+		w = x - (width/2)
+		h = y - (height/2)
+		self.center = (w, h)
 		
 		#im = im.crop((left, top, right+1, bottom+1))
 		#im.save("C:\\" + self.filename + ".png")
