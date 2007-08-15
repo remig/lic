@@ -118,11 +118,14 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def on_realize(self, *args):
 		""" Initialize the window. """
 		
-		gldrawable = self.get_gl_drawable()       # Obtain a reference to the drawable
-		glcontext = self.get_gl_context()         # and rendering context.
+		gldrawable = self.get_gl_drawable()
+		glcontext = self.get_gl_context()
 		
 		if not gldrawable.gl_begin(glcontext):
 			return
+		
+		adjustGLViewport(0, 0, 1000, 1000)
+		rotateToDefaultView()
 		
 		specular = [1.0, 1.0, 1.0, 1.0]
 		shininess = [50.0]
@@ -145,11 +148,13 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		print "*** Loading Model ***"
 		self.model = initEverything()
-		self.model.initDraw(self.width, self.height)
-		self.initializeTree()
+#		self.model.initDraw(self.width, self.height)
+		self.model.initDraw(1000, 1000)
+		adjustGLViewport(0, 0, self.width, self.height)
 		
 		gldrawable.gl_end()
 		
+		self.initializeTree()
 		self.cairo_context = self.window.cairo_create()
 
 	def initializeTree(self):
@@ -193,16 +198,8 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		gldrawable.gl_begin(glcontext)
 		
 		adjustGLViewport(0, 0, self.width, self.height)
-		glLoadIdentity()
-		
-		# position (x,y,z), look at (x,y,z), up vector (x,y,z)
-		gluLookAt(0.0,0.0,-1000.0, 0.0,0.0,0.0, 0.0, 1.0, 0.0)
-		glScalef(1.0, -1.0, -1.0)
-		
-		# Rotate model into something approximating the regular ortho Lego view.
-		# TODO: Figure out the exact rotation for this.
-		glRotatef( -20.0, 1.0, 0.0, 0.0,)
-		glRotatef( -135.0, 0.0, 1.0, 0.0,)
+		glLoadIdentity()	
+		rotateToDefaultView()
 		
 		gldrawable.gl_end()
 		
@@ -729,9 +726,12 @@ class PartOGL():
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
 		print self.filename,
-		# TODO: Can look at general color piece, then color background a totally different color
+		
+		# Clear the drawing buffer with white
 		glClearColor(1.0,1.0,1.0,0)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+		
+		# Draw the piece in black
 		glColor3f(0,0,0)
 		glCallList(self.oglDispID)
 		
@@ -743,7 +743,7 @@ class PartOGL():
 		
 		im = Image.new("RGBA", (width, height))
 		im.fromstring(pixels)
-		#im.save("C:\\" + self.filename + "_f.png")
+		im.save("C:\\" + self.filename + "_f.png")
 		data = im.load()
 		
 		top = checkPixels(data, 0, height, 1, 0, width, height, True)
@@ -764,14 +764,15 @@ class PartOGL():
 		#im.save("C:\\" + self.filename + ".png")
 		#self.width, self.height = im.size
 
+white = (255, 255, 255, 0)
 def checkPixels(data, start1, stop1, step1, start2, stop2, max, rightToLeft):
 	for i in range(start1, stop1, step1):
 		for j in range(start2, stop2):
 			if (rightToLeft):
-				if (data[j, i] != (255, 255, 255, 0)):
+				if (data[j, i] != white):
 					return i
 			else:
-				if (data[i, j] != (255, 255, 255, 0)):
+				if (data[i, j] != white):
 					return i
 	return max
 
