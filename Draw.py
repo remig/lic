@@ -17,8 +17,8 @@ UNINIT_OGL_DISPID = -1
 UNINIT_PROP = -1
 SCALE_WINDOW = 2
 
-#MODEL_NAME = "pyramid.dat"
-MODEL_NAME = "Blaster.mpd"
+MODEL_NAME = "pyramid.dat"
+#MODEL_NAME = "Blaster.mpd"
 
 gui_xml = gtk.glade.XML( "c:\\LDraw\\LIC\\LIC.glade")
 
@@ -47,6 +47,8 @@ def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0):
 class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def __init__(self):
 		gtk.DrawingArea.__init__(self)
+		
+		print "Initializing new DrawArea"
 		
 		self.set_events(gtk.gdk.BUTTON_MOTION_MASK  | gtk.gdk.KEY_PRESS_MASK |
 						gtk.gdk.KEY_RELEASE_MASK    | gtk.gdk.POINTER_MOTION_MASK |
@@ -118,13 +120,15 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def on_realize(self, *args):
 		""" Initialize the window. """
 		
+		print "Drawing - width: %d, height: %d" % (self.width, self.height)
+		
 		gldrawable = self.get_gl_drawable()
 		glcontext = self.get_gl_context()
 		
 		if not gldrawable.gl_begin(glcontext):
 			return
 		
-		adjustGLViewport(0, 0, 1000, 1000)
+		adjustGLViewport(0, 0, self.width, self.height)
 		rotateToDefaultView()
 		
 		specular = [1.0, 1.0, 1.0, 1.0]
@@ -148,9 +152,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		print "*** Loading Model ***"
 		self.model = initEverything()
-#		self.model.initDraw(self.width, self.height)
-		self.model.initDraw(1000, 1000)
-		adjustGLViewport(0, 0, self.width, self.height)
+		self.model.initDraw(self.width, self.height)
 		
 		gldrawable.gl_end()
 		
@@ -189,6 +191,8 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		self.width = restoreGLViewport.width = args[1].width
 		self.height = restoreGLViewport.height = args[1].height
+		
+		print "Resizing - width: %d, height: %d" % (self.width, self.height)
 		
 		if ((self.width < 5) or (self.height < 5)):
 			return  # ignore resize if window is basically invisible
@@ -876,16 +880,22 @@ def initEverything():
 	return mainModel
 	
 def go():
+	print "Creating DrawArea"
 	area = DrawArea()
 	
 	main = gui_xml.get_widget("main_window")
 	main.connect( "delete_event", on_exit )
 	
+	print "Creating box"
 	box = gui_xml.get_widget("box_opengl")
+	print "Packing box"
 	box.pack_start(area)  
 
 	#main.maximize()
 	main.set_title("First example")
+	print "Resizing window"
+	main.resize(200, 200)
+	print "Displaying window"
 	main.show_all()
 	
 	gtk.main()
