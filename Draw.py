@@ -48,8 +48,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def __init__(self):
 		gtk.DrawingArea.__init__(self)
 		
-		print "Initializing new DrawArea"
-		
 		self.set_events(gtk.gdk.BUTTON_MOTION_MASK  | gtk.gdk.KEY_PRESS_MASK |
 						gtk.gdk.KEY_RELEASE_MASK    | gtk.gdk.POINTER_MOTION_MASK |
 						gtk.gdk.BUTTON_RELEASE_MASK | gtk.gdk.BUTTON_PRESS_MASK |
@@ -120,16 +118,11 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def on_realize(self, *args):
 		""" Initialize the window. """
 		
-		print "Drawing - width: %d, height: %d" % (self.width, self.height)
-		
 		gldrawable = self.get_gl_drawable()
 		glcontext = self.get_gl_context()
 		
 		if not gldrawable.gl_begin(glcontext):
 			return
-		
-		adjustGLViewport(0, 0, self.width, self.height)
-		rotateToDefaultView()
 		
 		specular = [1.0, 1.0, 1.0, 1.0]
 		shininess = [50.0]
@@ -191,8 +184,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		self.width = restoreGLViewport.width = args[1].width
 		self.height = restoreGLViewport.height = args[1].height
-		
-		print "Resizing - width: %d, height: %d" % (self.width, self.height)
 		
 		if ((self.width < 5) or (self.height < 5)):
 			return  # ignore resize if window is basically invisible
@@ -738,7 +729,8 @@ class PartOGL():
 		# Draw the piece in black
 		glColor3f(0,0,0)
 		glCallList(self.oglDispID)
-		
+	
+		# Read the rendered pixel data to local variable
 		glReadBuffer(GL_BACK)
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
 		pixels = glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE)
@@ -747,7 +739,7 @@ class PartOGL():
 		
 		im = Image.new("RGBA", (width, height))
 		im.fromstring(pixels)
-		im.save("C:\\" + self.filename + "_f.png")
+		#im.save("C:\\" + self.filename + "_f.png")
 		data = im.load()
 		
 		top = checkPixels(data, 0, height, 1, 0, width, height, True)
@@ -880,22 +872,16 @@ def initEverything():
 	return mainModel
 	
 def go():
-	print "Creating DrawArea"
 	area = DrawArea()
 	
 	main = gui_xml.get_widget("main_window")
 	main.connect( "delete_event", on_exit )
 	
-	print "Creating box"
 	box = gui_xml.get_widget("box_opengl")
-	print "Packing box"
 	box.pack_start(area)  
 
 	#main.maximize()
 	main.set_title("First example")
-	print "Resizing window"
-	main.resize(200, 200)
-	print "Displaying window"
 	main.show_all()
 	
 	gtk.main()
