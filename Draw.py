@@ -11,7 +11,6 @@ from LDrawFileFormat import *
 
 from OpenGL.GL import *
 from OpenGL.GLU import *
-from OpenGL.GL.EXT.framebuffer_object import *
 
 # Global constants
 UNINIT_OGL_DISPID = -1
@@ -119,12 +118,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def on_realize(self, *args):
 		""" Initialize the window. """
 		
-		print "*** Loading Model ***"
-		self.model = initEverything()
-		self.model.initDraw(1000, 1000)
-	
-		return
-
 		gldrawable = self.get_gl_drawable()
 		glcontext = self.get_gl_context()
 		
@@ -152,6 +145,12 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		#glFrontFace(GL_CCW)
 		#glEnable(GL_CULL_FACE)
 		glClearColor(1.0, 1.0, 1.0, 1.0)  # Draw clear white screen
+		
+		print "*** Loading Model ***"
+		self.model = initEverything()
+#		self.model.initDraw(self.width, self.height)
+		self.model.initDraw(1000, 1000)
+		adjustGLViewport(0, 0, self.width, self.height)
 		
 		gldrawable.gl_end()
 		
@@ -187,7 +186,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	
 	def on_configure_event(self, *args):
 		""" Resize the window. """
-	
+		
 		self.width = restoreGLViewport.width = args[1].width
 		self.height = restoreGLViewport.height = args[1].height
 		
@@ -209,7 +208,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	
 	def on_expose_event(self, *args):
 		""" Draw the window. """
-	
+		
 		gldrawable = self.get_gl_drawable()
 		glcontext  = self.get_gl_context()
 		gldrawable.gl_begin(glcontext)
@@ -236,6 +235,8 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		# Draw any 2D page elements, like borders, labels, etc.
 		if (self.model and isinstance(self.model, Step)):
 			self.model.drawPageElements(context = self.cairo_context, width = self.width, height = self.height)
+		
+		return
 		
 	def displayGrid(self):
 		glBegin( GL_LINES )
@@ -712,42 +713,37 @@ class PartOGL():
 		
 		glCallList(self.oglDispID)
 
-	def initSize(self, image, w, h):
+	def initSize(self, width, height):
 		
 		# Primitive parts need not be sized
 		if (self.isPrimitive):
 			self.width = self.height = 0
-			#return
+			return
 		
 		if (self.width != UNINIT_PROP and self.height != UNINIT_PROP):
 			print "ERROR: initializing size of an already initialized part!", self.filename
-			#return
+			return
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
-		print self.filename, w, h,
-	
-		adjustGLViewport(0, 0, w, h)
-		rotateToDefaultView()
-		glLoadIdentity()
-
+		print self.filename,
+		
 		# Clear the drawing buffer with white
-		glClearColor(1.0,1.0,0.0,0)
+		glClearColor(1.0,1.0,1.0,0)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
 		# Draw the piece in black
 		glColor3f(0,0,0)
 		glCallList(self.oglDispID)
-	
-		return
-
-		#glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
-		pixels = glReadPixels(0, 0, 1000, 1000, GL_RGB, GL_UNSIGNED_BYTE)
 		
-		image.fromstring(pixels)
-		image.save("C:\\" + self.filename + "_f.png")
-
-		return
-
+		glReadBuffer(GL_BACK)
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
+		pixels = glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE)
+		
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+		
+		im = Image.new("RGBA", (width, height))
+		im.fromstring(pixels)
+		im.save("C:\\" + self.filename + "_f.png")
 		data = im.load()
 		
 		top = checkPixels(data, 0, height, 1, 0, width, height, True)
@@ -864,48 +860,9 @@ class Part():
 			glPopMatrix()
 	
 	def initDraw(self, width, height):
-		print "Initializing all part preview dimensions - should happen only once."
-
-		w = h = 1000
-		image = Image.new("RGB", (w,h), (1,0,0))
-		bits = image.tostring("raw", "RGBX", 0, -1)
-
-		framebuffer = glGenFramebuffersEXT(1)
-		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, framebuffer)
-
-		depthbuffer = glGenRenderbuffersEXT(1)
-		glBindRenderbufferEXT (GL_RENDERBUFFER_EXT,depthbuffer)
-		glRenderbufferStorageEXT (GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT, w, h)
-	
-		glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, depthbuffer);
-
-		texture = glGenTextures (1)
-		glBindTexture (GL_TEXTURE_2D, texture)
-		glTexImage2D (GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, 0)
-
-		glFramebufferTexture2DEXT (GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, texture, 0);
-
-		status = glCheckFramebufferStatusEXT (GL_FRAMEBUFFER_EXT);
-		if ((status != GL_FRAMEBUFFER_COMPLETE_EXT) and (status != 0)):
-			print "Error in framebuffer activation, status: %d" % status
-			return
-
-		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, framebuffer)
-
-		#for part in partDictionary.values():
-		part = partDictionary.values()[5]
-		part.initSize(image, w, h)
-
-		glReadBuffer(GL_BACK)
-		data = glReadPixels (0, 0, w, h, GL_RGB,  GL_UNSIGNED_BYTE)
-		image.fromstring (data)
-		image = image.transpose(Image.FLIP_TOP_BOTTOM)
-		image.save("C:\\" + part.filename + "_f.png")
-
-		glBindRenderbufferEXT (GL_RENDERBUFFER_EXT, 0)
-		glBindFramebufferEXT (GL_FRAMEBUFFER_EXT, 0)
-		glDeleteTextures (texture)
-		glDeleteFramebuffersEXT (1, [framebuffer])
+		for part in partDictionary.values():
+			part.initSize(width, height)
+		print ""
 		
 		for step in self.steps:
 			step.pli.initLayout()
