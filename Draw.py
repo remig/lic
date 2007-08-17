@@ -157,7 +157,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def initializeTree(self):
 		print "*** Loading TreeView ***"
 		root = self.insert_row(self.treemodel, None, None, self.model.name, self.model)
-		self.addStepsToTree(self.model.steps, root)
+		self.addStepsToTree(self.model.partOGL.steps, root)
 
 	def addStepsToTree(self, steps, root):
 		loadedSubModels = []
@@ -168,16 +168,17 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 			iterStep = self.insert_row(self.treemodel, root, iterStep, "Step " + str(step.number), step)
 			
 			for part in step.parts:
-				if ((part.steps != []) and (part.name not in loadedSubModels)):
+				p = part.partOGL
+				if ((p.steps != []) and (p.name not in loadedSubModels)):
 					# This part has steps of its own, so add this part to specified root.
-					subRoot = self.insert_before(self.treemodel, root, iterStep, "SubModel " + part.name, part.partOGL)
-					loadedSubModels.append(part.name)
+					subRoot = self.insert_before(self.treemodel, root, iterStep, "SubModel " + p.name, p)
+					loadedSubModels.append(p.name)
 					# Add this part's steps into this part in the tree.
-					if (part.steps != []):
-						self.addStepsToTree(part.steps, subRoot)
+					if (p.steps != []):
+						self.addStepsToTree(p.steps, subRoot)
 					
 				# Add this part to tree, placed inside the current step.
-				iterPart = self.insert_row(self.treemodel, iterStep, iterPart, part.name, part)
+				iterPart = self.insert_row(self.treemodel, iterStep, iterPart, p.name, p)
 				
 			iterPart = None
 	
@@ -397,15 +398,17 @@ class PLI():
 		else:
 			self.layout[part.filename] = [1, part, 0, 0]
 		
-		#self.initLayout()
-
 	def initLayout(self):
+
 		b = self.box
 		b.width = b.height = UNINIT_PROP
 		x = b.x + b.internalGap
 		for item in self.layout.values():
 			part = item[1]
-			
+
+			for step in part.steps:
+				step.pli.initLayout()
+
 			if (part.width == UNINIT_PROP or part.height == UNINIT_PROP):
 				# TODO: Get rid of this check once all is initialized properly
 				print "ERROR: Trying to init the a PLI layout containing uninitialized parts!"
@@ -562,7 +565,7 @@ class PartOGL():
 			self._loadFromFile(preLoadedFile)
 		
 		# Check if the last step in model is empty - occurs often, since we've implicitly
-		# created a step before adding any parts, and many models end with a Step.
+		# created a step before adding any parts and many models end with a Step.
 		if (len(self.steps) > 0 and self.steps[-1].parts == []):
 			self.steps.pop()
 		
@@ -858,7 +861,6 @@ class Part():
 			self.partOGL = partDictionary[filename] = PartOGL(filename, preLoadedFile)
 		
 		self.name = self.partOGL.name
-		self.steps = self.partOGL.steps
 
 	def shouldBeDrawn(self, currentBuffer):
 		
@@ -924,7 +926,6 @@ class Part():
 	
 	def initDraw(self, width, height):
 		
-		# TODO: This only loads PLIs for this one part's steps - what about subModels and their steps?
 		for part in partDictionary.values():
 			part.initSize(width, height)
 		print ""
@@ -935,7 +936,7 @@ class Part():
 #		part.initSize(width, height)
 #		print ""
 		
-		for step in self.steps:
+		for step in self.partOGL.steps:
 			step.pli.initLayout()
 			
 		glLoadIdentity()
