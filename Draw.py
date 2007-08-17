@@ -15,10 +15,10 @@ from OpenGL.GLU import *
 # Global constants
 UNINIT_OGL_DISPID = -1
 UNINIT_PROP = -1
-SCALE_WINDOW = 2
+SCALE_WINDOW = 1
 
-MODEL_NAME = "pyramid.dat"
-#MODEL_NAME = "Blaster.mpd"
+#MODEL_NAME = "pyramid.dat"
+MODEL_NAME = "Blaster.mpd"
 
 gui_xml = gtk.glade.XML( "c:\\LDraw\\LIC\\LIC.glade")
 
@@ -27,6 +27,8 @@ def adjustGLViewport(x, y, width, height):
 	glMatrixMode(GL_PROJECTION)
 	glLoadIdentity()
 	#viewing box (left, right) (bottom, top), (near, far)
+	width /= 2
+	height /= 2
 	glOrtho( -(width/SCALE_WINDOW), width/SCALE_WINDOW, -(height/SCALE_WINDOW), height/SCALE_WINDOW, -3000, 3000 )
 	glMatrixMode(GL_MODELVIEW)
 	
@@ -36,7 +38,7 @@ def restoreGLViewport():
 	
 def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0):
 	# position (x,y,z), look at (x,y,z), up vector (x,y,z)
-	gluLookAt(0.0, 0.0, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
+	gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
 	glScalef(1.0, -1.0, -1.0)
 	
 	# Rotate model into something approximating the regular ortho Lego view.
@@ -424,7 +426,8 @@ class PLI():
 			adjustGLViewport(x, height - y - part.height, part.width, part.height)
 			glPushMatrix()
 			glLoadIdentity()
-			rotateToDefaultView(-part.center[0], part.center[1], 0.0)
+			rotateToDefaultView(-part.center[0], -part.center[1], 0.0)
+#			rotateToDefaultView()
 			
 			part.drawModel()
 			glPopMatrix()
@@ -708,6 +711,54 @@ class PartOGL():
 		
 		glCallList(self.oglDispID)
 
+	def checkMaxBounds(self, top, bottom, left, right, width, height):
+		
+		if ((top == 0) and (bottom == height-1)): 
+			print "top & bottom out of bounds - hosed"
+			return True
+		
+		if ((left == 0) and (right == width-1)):
+			print "left & right out of bounds - hosed"
+			return True
+		
+		if ((top == height) and (bottom == 0)):
+			print "blank page - hosed"
+			return True
+		
+		if ((left == width) and (right == 0)):
+			print "blank page - hosed"
+			return True
+		
+		return False
+
+	def initSize_getBounds(self, width, height, first = '_first'):
+		
+		# Clear the drawing buffer with white
+		glClearColor(1.0,1.0,1.0,0)
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+		
+		# Draw the piece in black
+		glColor3f(0,0,0)
+		glCallList(self.oglDispID)
+		
+		# Read the rendered pixel data to local variable
+		glReadBuffer(GL_BACK)
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
+		pixels = glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE)
+		
+		im = Image.new("RGBA", (width, height))
+		im.fromstring(pixels)
+		im = im.transpose( Image.FLIP_TOP_BOTTOM)
+		#im.save("C:\\LDraw\\tmp\\" + self.filename + first + "_img.png")
+		data = im.load()
+		
+		top = checkPixels(data, 0, height, 1, 0, width, height, True)
+		bottom = checkPixels(data, height-1, top, -1, 0, width, 0, True)
+		left = checkPixels(data, 0, width, 1, top, bottom+1, 0, False)
+		right = checkPixels(data, width-1, left, -1, top, bottom+1, width, False)
+		
+		return (top, bottom, left, right)
+
 	def initSize(self, width, height):
 		
 		# Primitive parts need not be sized
@@ -721,40 +772,56 @@ class PartOGL():
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
 		print self.filename,
+			
+		# Draw piece to frame buffer, then calculate bounding box
+		glLoadIdentity()
+		rotateToDefaultView()
+		top, bottom, left, right = self.initSize_getBounds(width, height)
 		
-		# Clear the drawing buffer with white
-		glClearColor(1.0,1.0,1.0,0)
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+		if self.checkMaxBounds(top, bottom, left, right, width, height):
+			self.width = self.height = 10
+			self.center = (0, 0)
+			return
 		
-		# Draw the piece in black
-		glColor3f(0,0,0)
-		glCallList(self.oglDispID)
-	
-		# Read the rendered pixel data to local variable
-		glReadBuffer(GL_BACK)
-		glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
-		pixels = glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE)
+		# If we hit one of these cases, at least one edge was drawn off screen
+		# Try to reposition the drawing and draw again, see if we can fit it on screen
+		# TODO: Blaster_big_stock_arms_instructions.ldr - one displacement not enough - fix
+		# TODO: Same with Blaster_big_stand_instructions.ldr
+		x = y = 0
+		if (top == 0):
+			y = bottom
 		
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+		if (bottom == height-1):
+			y = -top + 1
 		
-		im = Image.new("RGBA", (width, height))
-		im.fromstring(pixels)
-		#im.save("C:\\" + self.filename + "_f.png")
-		data = im.load()
+		if (left == 0):
+			x = width - right - 2
 		
-		top = checkPixels(data, 0, height, 1, 0, width, height, True)
-		bottom = checkPixels(data, height-1, -1, -1, 0, width, 0, True)
-		left = checkPixels(data, 0, width, 1, top, bottom+1, 0, False)
-		right = checkPixels(data, width-1, -1, -1, top, bottom+1, width, False)
+		if (right == width-1):
+			x = -left + 1
+		
+		if ((x != 0) or (y != 0)):
+			#print self.filename
+			#print "old t: %d, b: %d, l: %d, r: %d" % (top, bottom, left, right)
+			#rint "displacing by x: %d, y: %d" % (x, y)
+			glLoadIdentity()
+			rotateToDefaultView(x, y, 0.0)
+			top, bottom, left, right = self.initSize_getBounds(width, height, '_second')
+			#print "new t: %d, b: %d, l: %d, r: %d" % (top, bottom, left, right)
+		
+		if self.checkMaxBounds(top, bottom, left, right, width, height):
+			self.width = self.height = 10
+			self.center = (0, 0)
+			return
 		
 		self.width = right - left + 1
 		self.height = bottom - top + 1
 		
-		x = left + (self.width/2)
-		y = top + (self.height/2)
-		w = x - (width/2)
-		h = y - (height/2)
-		self.center = (w, h)
+		dx = left + (self.width/2)
+		dy = top + (self.height/2)
+		w = dx - (width/2)
+		h = dy - (height/2)
+		self.center = (w - x, h - y)
 		
 		#im = im.crop((left, top, right+1, bottom+1))
 		#im.save("C:\\" + self.filename + ".png")
@@ -789,7 +856,7 @@ class Part():
 			self.partOGL = partDictionary[filename]
 		else:
 			self.partOGL = partDictionary[filename] = PartOGL(filename, preLoadedFile)
-			
+		
 		self.name = self.partOGL.name
 		self.steps = self.partOGL.steps
 
@@ -856,13 +923,24 @@ class Part():
 			glPopMatrix()
 	
 	def initDraw(self, width, height):
+		
+		# TODO: This only loads PLIs for this one part's steps - what about subModels and their steps?
 		for part in partDictionary.values():
 			part.initSize(width, height)
 		print ""
 		
+#		part = partDictionary['Blaster_big_stock_arms_instructions.ldr']
+#		part = partDictionary['Blaster_big_stand_instructions.ldr']
+#		part = partDictionary['Blaster_big_emitter_core_instructions.ldr']
+#		part.initSize(width, height)
+#		print ""
+		
 		for step in self.steps:
 			step.pli.initLayout()
-	
+			
+		glLoadIdentity()
+		rotateToDefaultView()
+
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 ldrawFile = LDrawFile(MODEL_NAME)
 
