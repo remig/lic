@@ -558,7 +558,11 @@ class PartOGL():
 		self.steps = []
 		self.buffers = []  #[(bufID, stepNumber)]
 		self.pli_ign = False
-		
+	
+		self.width = 0
+		self.height = 0
+		self.center = (0, 0)
+
 		if (filename in ldrawFile.subModelsInFile):
 			self._loadFromSubModelArray()
 		else:
@@ -766,11 +770,6 @@ class PartOGL():
 		
 		# Primitive parts need not be sized
 		if (self.isPrimitive):
-			self.width = self.height = 0
-			return
-		
-		if (self.width != UNINIT_PROP and self.height != UNINIT_PROP):
-			print "ERROR: initializing size of an already initialized part!", self.filename
 			return
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
@@ -782,8 +781,6 @@ class PartOGL():
 		top, bottom, left, right = self.initSize_getBounds(width, height)
 		
 		if self.checkMaxBounds(top, bottom, left, right, width, height):
-			self.width = self.height = 10
-			self.center = (0, 0)
 			return
 		
 		# If we hit one of these cases, at least one edge was drawn off screen
@@ -813,8 +810,6 @@ class PartOGL():
 			#print "new t: %d, b: %d, l: %d, r: %d" % (top, bottom, left, right)
 		
 		if self.checkMaxBounds(top, bottom, left, right, width, height):
-			self.width = self.height = 10
-			self.center = (0, 0)
 			return
 		
 		self.width = right - left + 1
@@ -925,11 +920,9 @@ class Part():
 			glPopMatrix()
 	
 	def initDraw(self, width, height):
-		
-		for part in partDictionary.values():
-			part.initSize(width, height)
-		print ""
-		
+	
+		initPartDimensions(width, height)
+
 #		part = partDictionary['Blaster_big_stock_arms_instructions.ldr']
 #		part = partDictionary['Blaster_big_stand_instructions.ldr']
 #		part = partDictionary['Blaster_big_emitter_core_instructions.ldr']
@@ -944,6 +937,31 @@ class Part():
 
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 ldrawFile = LDrawFile(MODEL_NAME)
+
+def initPartDimensions(width, height):
+
+	try:
+		f = file("PartDimensions.cache", 'r')
+		for line in f:
+			part, w, h, x, y = line.split()
+			p = partDictionary[part]
+			p.width = int(w)
+			p.height = int(h)
+			p.center = (int(x), int(y))
+		f.close()
+
+	except IOError:
+
+		lines = []
+		for p in partDictionary.values():
+			p.initSize(width, height)
+			if (not p.isPrimitive):
+				lines.append("%s %d %d %d %d\n" % (p.filename, p.width, p.height, p.center[0], p.center[1]))
+		print ""
+
+		f = file("PartDimensions.cache", 'w')
+		f.writelines(lines)
+		f.close()
 
 def initEverything():
 	mainModel = Part(MODEL_NAME, preLoadedFile = ldrawFile)
