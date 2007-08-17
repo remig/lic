@@ -444,6 +444,12 @@ class PLI():
 			print "ERROR: Trying to draw an unitialized PLI layout!"
 		
 		self.box.draw(context)
+		# TODO: Draw part quantity labels.  
+		# Label's y: center of label's 'x' == bottom of part box
+		# Label's x: depends on part - as far into the part box as possible without overlapping part
+		# To calculate x, first calculate the maximum 'triangle' in lower left corner of part image
+		# that is empty, then find the intersection point of between triangle's hypotenuse and
+		# horizontal line placed above label's 'x' (or more, for padding)
 
 # Construction Step Image.  Includes border and positional info.
 class CSI():
@@ -764,13 +770,21 @@ class PartOGL():
 		im = im.transpose( Image.FLIP_TOP_BOTTOM)
 		#im.save("C:\\LDraw\\tmp\\" + self.filename + first + "_img.png")
 		data = im.load()
-		
+	
+		# TODO: get this to calculate maximum empty triangle in lower left corner too
 		top = checkPixels(data, 0, height, 1, 0, width, height, True)
 		bottom = checkPixels(data, height-1, top, -1, 0, width, 0, True)
 		left = checkPixels(data, 0, width, 1, top, bottom+1, 0, False)
 		right = checkPixels(data, width-1, left, -1, top, bottom+1, width, False)
 		
 		return (top, bottom, left, right)
+
+	def initSize_checkRotation(self):
+		# TODO: Once a part's dimensions have been calculated, use the existing bounds and render
+		# to check if it's rotated correctly.  Want all long skinny pieces to go the same way.
+		# From left and right edges, 10% below top, cound blank pixels.  Whichever is shorter,
+		# can determine rotation, and flip render / drawing if needed.
+		pass
 
 	def initSize(self, width, height):
 		
