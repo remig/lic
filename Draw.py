@@ -232,7 +232,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		# Draw any 2D page elements, like borders, labels, etc.
 		if (self.model and isinstance(self.model, Step)):
-			self.model.drawPageElements(context = self.cairo_context, width = self.width, height = self.height)
+			self.model.drawPageElements(self.cairo_context)
 		
 		return
 		
@@ -354,12 +354,15 @@ class Box():
 	def __init__(self, x = UNINIT_PROP, y = UNINIT_PROP, width = UNINIT_PROP, height = UNINIT_PROP):
 		self.line = Line(0, 0, 0)
 		self.fill = Fill()
+
+		# TODO: Convert all of these to relative values (%)
 		self.x = x
 		self.y = y
 		self.width = width
 		self.height = height
+
 		self.cornerRadius = 0 # Radius for rounded corners. 0 = square
-		self.internalGap = 0  # Distance from inside edge of border to outside edge of contents
+		self.internalGap = 10  # Distance from inside edge of border to outside edge of contents
 
 	def draw(self, context):
 		# TODO: Remove this check once all is well
@@ -390,9 +393,9 @@ class PLI():
 		
 		self.layout = {}  # {part filename: [count, part, x, y]}
 		self.box = Box(x, y)
-		self.box.internalGap = 10  # TODO: Convert this to relative value (%)
 	
 	def addPartOGL(self, part):
+
 		if (part.filename in self.layout):
 			self.layout[part.filename][0] += 1
 		else:
@@ -403,6 +406,7 @@ class PLI():
 		b = self.box
 		b.width = b.height = UNINIT_PROP
 		x = b.x + b.internalGap
+
 		for item in self.layout.values():
 			part = item[1]
 
@@ -427,18 +431,15 @@ class PLI():
 		
 		for (count, part, x, y) in self.layout.values():
 			adjustGLViewport(x, height - y - part.height, part.width, part.height)
-			glPushMatrix()
 			glLoadIdentity()
 			rotateToDefaultView(-part.center[0], -part.center[1], 0.0)
-#			rotateToDefaultView()
 			
 			part.drawModel()
-			glPopMatrix()
 		
 		restoreGLViewport()
 
 	# Must be called AFTER any OGL calls - otherwise OGL will switch buffers and erase all this
-	def drawPageElements(self, context, width, height):
+	def drawPageElements(self, context):
 		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
 			print "ERROR: Trying to draw an unitialized PLI layout!"
 		
@@ -448,13 +449,18 @@ class PLI():
 class CSI():
 	def __init__(self, x = 0, y = 0):
 		self.box = Box(x, y)
-		self.fill = Fill()
+
 		# TODO: Move Step's oglDispIDs generation & drawing here
+		# TODO: Need to calculate bounds on each STEP / CSI image too - ouch
 
 	def drawModel(self, width, height):
 		pass
 
-	def drawPageElements(self, context, width, height):
+	def drawPageElements(self, context):
+		#if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
+			#print "ERROR: Trying to draw an unitialized PLI layout!"
+		
+		#self.box.draw(context)
 		pass
 
 class Step():
@@ -530,10 +536,10 @@ class Step():
 		# Draw the default list, with no buffers present
 		glCallList(self.oglDispIDs[0][0])
 	
-	def drawPageElements(self, currentBuffers = None, context = None, width = UNINIT_PROP, height = UNINIT_PROP):
+	def drawPageElements(self, context):
 		if (context):
-			self.pli.drawPageElements(context, width, height)
-			self.csi.drawPageElements(context, width, height)
+			self.pli.drawPageElements(context)
+			self.csi.drawPageElements(context)
 
 	def callOGLDisplayList(self):
 		glCallList(self.oglDispIDs[0][0])
