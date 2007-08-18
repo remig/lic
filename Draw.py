@@ -17,8 +17,8 @@ UNINIT_OGL_DISPID = -1
 UNINIT_PROP = -1
 SCALE_WINDOW = 1
 
-#MODEL_NAME = "pyramid.dat"
-MODEL_NAME = "Blaster.mpd"
+MODEL_NAME = "pyramid.dat"
+#MODEL_NAME = "Blaster.mpd"
 
 gui_xml = gtk.glade.XML( "c:\\LDraw\\LIC\\LIC.glade")
 
@@ -444,11 +444,19 @@ class PLI():
 			print "ERROR: Trying to draw an unitialized PLI layout!"
 		
 		self.box.draw(context)
+		for (count, p, x, y) in self.layout.values():
+			
+			context.set_source_rgb(1.0, 0.0, 0.0)
+			context.move_to(x, y + p.leftInset)
+			context.line_to(x + p.bottomInset, y + p.height)
+			context.line_to(x, y + p.height)
+			context.close_path()
+			context.stroke()
+
 		# TODO: Draw part quantity labels.  
 		# Label's y: center of label's 'x' == bottom of part box
 		# Label's x: depends on part - as far into the part box as possible without overlapping part
-		# To calculate x, first calculate the maximum 'triangle' in lower left corner of part image
-		# that is empty, then find the intersection point of between triangle's hypotenuse and
+		# To calculate x, find the intersection point between calculated triangle's hypotenuse and
 		# horizontal line placed above label's 'x' (or more, for padding)
 
 # Construction Step Image.  Includes border and positional info.
@@ -768,22 +776,22 @@ class PartOGL():
 		im = Image.new("RGBA", (width, height))
 		im.fromstring(pixels)
 		im = im.transpose( Image.FLIP_TOP_BOTTOM)
-		#im.save("C:\\LDraw\\tmp\\" + self.filename + first + "_img.png")
+		im.save("C:\\LDraw\\tmp\\" + self.filename + first + "_img.png")
 		data = im.load()
 	
-		# TODO: get this to calculate maximum empty triangle in lower left corner too
-		top = checkPixels(data, 0, height, 1, 0, width, height, True)
-		bottom = checkPixels(data, height-1, top, -1, 0, width, 0, True)
-		left = checkPixels(data, 0, width, 1, top, bottom+1, 0, False)
-		right = checkPixels(data, width-1, left, -1, top, bottom+1, width, False)
-		
-		return (top, bottom, left, right)
+		top = checkPixelsTop(data, width, height)
+		bottom, bottomLeft = checkPixelsBottom(data, width, height, top)
+		left, leftBottom = checkPixelsLeft(data, width, height, top, bottom)
+		right = checkPixelsRight(data, width, height, top, bottom, left)
+	
+		return (top, bottom, left, right, leftBottom - top, bottomLeft - left)
 
 	def initSize_checkRotation(self):
 		# TODO: Once a part's dimensions have been calculated, use the existing bounds and render
-		# to check if it's rotated correctly.  Want all long skinny pieces to go the same way.
-		# From left and right edges, 10% below top, cound blank pixels.  Whichever is shorter,
-		# can determine rotation, and flip render / drawing if needed.
+		# to check if it's rotated correctly.  Want all long skinny pieces to go the same way -
+		# from bottom left corner to top right.  To verify this, from left and right edges, 10%
+		# below top, count blank pixels.  Whichever is shorter determines rotation - flip
+		# render / drawing if needed.
 		pass
 
 	def initSize(self, width, height):
@@ -798,7 +806,7 @@ class PartOGL():
 		# Draw piece to frame buffer, then calculate bounding box
 		glLoadIdentity()
 		rotateToDefaultView()
-		top, bottom, left, right = self.initSize_getBounds(width, height)
+		top, bottom, left, right, leftInset, bottomInset = self.initSize_getBounds(width, height)
 		
 		if self.checkMaxBounds(top, bottom, left, right, width, height):
 			return
@@ -826,7 +834,7 @@ class PartOGL():
 			#rint "displacing by x: %d, y: %d" % (x, y)
 			glLoadIdentity()
 			rotateToDefaultView(x, y, 0.0)
-			top, bottom, left, right = self.initSize_getBounds(width, height, '_second')
+			top, bottom, left, right, leftInset, bottomInset = self.initSize_getBounds(width, height, '_second')
 			#print "new t: %d, b: %d, l: %d, r: %d" % (top, bottom, left, right)
 		
 		if self.checkMaxBounds(top, bottom, left, right, width, height):
@@ -834,6 +842,8 @@ class PartOGL():
 		
 		self.width = right - left + 1
 		self.height = bottom - top + 1
+		self.leftInset = leftInset 
+		self.bottomInset = bottomInset
 		
 		dx = left + (self.width/2)
 		dy = top + (self.height/2)
@@ -845,17 +855,35 @@ class PartOGL():
 		#im.save("C:\\" + self.filename + ".png")
 		#self.width, self.height = im.size
 
+# TODO: verify these 4 functions for all cases, with blaster
 white = (255, 255, 255, 0)
-def checkPixels(data, start1, stop1, step1, start2, stop2, max, rightToLeft):
-	for i in range(start1, stop1, step1):
-		for j in range(start2, stop2):
-			if (rightToLeft):
-				if (data[j, i] != white):
-					return i
-			else:
-				if (data[i, j] != white):
-					return i
-	return max
+def checkPixelsTop(data, width, height):
+	for i in range(0, height):
+		for j in range(0, width):
+			if (data[j, i] != white):
+				return i
+	return height
+
+def checkPixelsBottom(data, width, height, top):
+	for i in range(height-1, top, -1):
+		for j in range(0, width):
+			if (data[j, i] != white):
+				return (i, j)
+	return (0, 0)
+
+def checkPixelsLeft(data, width, height, top, bottom):
+	for i in range(0, width):
+		for j in range(bottom, top, -1):
+			if (data[i, j] != white):
+				return (i, j)
+	return (0, 0)
+
+def checkPixelsRight(data, width, height, top, bottom, left):
+	for i in range(width-1, left, -1):
+		for j in range(top, bottom):
+			if (data[i, j] != white):
+				return i
+	return width
 
 # Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough
 # info to draw that abstract part in context of a model, ie color, positional 
@@ -960,14 +988,17 @@ ldrawFile = LDrawFile(MODEL_NAME)
 
 def initPartDimensions(width, height):
 
+	# line format: filename width height center-x center-y leftInset bottomInset
 	try:
 		f = file("PartDimensions.cache", 'r')
 		for line in f:
-			part, w, h, x, y = line.split()
+			part, w, h, x, y, l, b = line.split()
 			p = partDictionary[part]
 			p.width = int(w)
 			p.height = int(h)
 			p.center = (int(x), int(y))
+			p.leftInset = int(l)
+			p.bottomInset = int(b)
 		f.close()
 
 	except IOError:
@@ -976,7 +1007,7 @@ def initPartDimensions(width, height):
 		for p in partDictionary.values():
 			p.initSize(width, height)
 			if (not p.isPrimitive):
-				lines.append("%s %d %d %d %d\n" % (p.filename, p.width, p.height, p.center[0], p.center[1]))
+				lines.append("%s %d %d %d %d %d %d\n" % (p.filename, p.width, p.height, p.center[0], p.center[1], p.leftInset, p.bottomInset))
 		print ""
 
 		f = file("PartDimensions.cache", 'w')
