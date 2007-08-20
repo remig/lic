@@ -17,10 +17,14 @@ UNINIT_OGL_DISPID = -1
 UNINIT_PROP = -1
 SCALE_WINDOW = 1
 
-MODEL_NAME = "pyramid.dat"
-#MODEL_NAME = "Blaster.mpd"
+#MODEL_NAME = "pyramid.dat"
+MODEL_NAME = "Blaster.mpd"
 
 gui_xml = gtk.glade.XML( "c:\\LDraw\\LIC\\LIC.glade")
+
+# TODO: There's a drawing translation error somewhere - parts in CSIs are being drawn in the wrong spot.
+# TODO: Implement PLI Ignore, so stuff that shouldn't be in PLIs isn't.
+# TODO: Fix OGL surface normals and BFC, so OGL rendering can look better.
 
 def adjustGLViewport(x, y, width, height):
 	glViewport(x, y, width, height)
@@ -81,7 +85,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		self.tree.append_column(column)
 		
 		self.model = self.cairo_context = None
-		
+	
 	def treeview_button_press(self, obj, event):
 		treemodel, iter = self.tree.get_selection().get_selected()
 		self.model = treemodel.get_value(iter, 1)
@@ -114,7 +118,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 			glRotatef( -10.0, 1.0, 0.0, 0.0,)
 		elif (y > (self.height*2/3)):
 			glRotatef( 10.0, 1.0, 0.0, 0.0,)
-			
+		
 		self.on_expose_event()
 
 	def on_realize(self, *args):
@@ -176,10 +180,10 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 					# Add this part's steps into this part in the tree.
 					if (p.steps != []):
 						self.addStepsToTree(p.steps, subRoot)
-					
+				
 				# Add this part to tree, placed inside the current step.
 				iterPart = self.insert_row(self.treemodel, iterStep, iterPart, p.name, p)
-				
+			
 			iterPart = None
 	
 	def on_configure_event(self, *args):
@@ -235,7 +239,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 			self.model.drawPageElements(self.cairo_context)
 		
 		return
-		
+
 	def displayGrid(self):
 		glBegin( GL_LINES )
 		glVertex3i( 0, 0, 0 )
@@ -287,7 +291,7 @@ class Primitive():
 				glColor3fv(color)
 			elif (len(color) == 4):
 				glColor4fv(color)
-			
+		
 		p = self.points
 		
 		if (self.inverted):
@@ -325,12 +329,12 @@ class Primitive():
 			glPopAttrib()
 
 class Instructions():
-# TODO: Initializing everything.  Instructions can also be a tree, and be used
-#       more cleanly than the hack job currently in the tree GUI code above.
+# TODO: Have this class initialize everything.  Instructions can also be a tree, and
+#       be used more cleanly than the hack job currently in the tree GUI code above.
 	def __init__(self):
 		self.pages = []
 
-# Bill Of Materials
+# Bill Of Materials - just an elaborate PLI
 class BOM():
 	pass
 
@@ -354,13 +358,13 @@ class Box():
 	def __init__(self, x = UNINIT_PROP, y = UNINIT_PROP, width = UNINIT_PROP, height = UNINIT_PROP):
 		self.line = Line(0, 0, 0)
 		self.fill = Fill()
-
+		
 		# TODO: Convert all of these to relative values (%)
 		self.x = x
 		self.y = y
 		self.width = width
 		self.height = height
-
+		
 		self.cornerRadius = 0 # Radius for rounded corners. 0 = square
 		self.internalGap = 10  # Distance from inside edge of border to outside edge of contents
 
@@ -381,7 +385,7 @@ class Page():
 		self.box = Box()
 		self.fill = Fill()
 		self.steps = []
-		
+
 	def draw(self, context, width, height):
 		pass
 
@@ -406,15 +410,15 @@ class PLI():
 		b = self.box
 		b.width = b.height = UNINIT_PROP
 		x = b.x + b.internalGap
-
+		
 		for item in self.layout.values():
 			part = item[1]
-
+			
 			for step in part.steps:
 				step.pli.initLayout()
-
+			
 			if (part.width == UNINIT_PROP or part.height == UNINIT_PROP):
-				# TODO: Get rid of this check once all is initialized properly
+				# TODO: Remove this check once all is well
 				print "ERROR: Trying to init the a PLI layout containing uninitialized parts!"
 				continue
 			
@@ -452,7 +456,7 @@ class PLI():
 			context.line_to(x, y + p.height)
 			context.close_path()
 			context.stroke()
-
+		
 		# TODO: Draw part quantity labels.  
 		# Label's y: center of label's 'x' == bottom of part box
 		# Label's x: depends on part - as far into the part box as possible without overlapping part
@@ -578,11 +582,11 @@ class PartOGL():
 		self.steps = []
 		self.buffers = []  #[(bufID, stepNumber)]
 		self.pli_ign = False
-	
-		self.width = 0
-		self.height = 0
+		
+		self.width = self.height = 1
+		self.leftInset = self.bottomInset = 0
 		self.center = (0, 0)
-
+		
 		if (filename in ldrawFile.subModelsInFile):
 			self._loadFromSubModelArray()
 		else:
@@ -778,12 +782,12 @@ class PartOGL():
 		im = im.transpose( Image.FLIP_TOP_BOTTOM)
 		im.save("C:\\LDraw\\tmp\\" + self.filename + first + "_img.png")
 		data = im.load()
-	
+		
 		top = checkPixelsTop(data, width, height)
 		bottom, bottomLeft = checkPixelsBottom(data, width, height, top)
 		left, leftBottom = checkPixelsLeft(data, width, height, top, bottom)
 		right = checkPixelsRight(data, width, height, top, bottom, left)
-	
+		
 		return (top, bottom, left, right, leftBottom - top, bottomLeft - left)
 
 	def initSize_checkRotation(self):
@@ -802,7 +806,7 @@ class PartOGL():
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
 		print self.filename,
-			
+		
 		# Draw piece to frame buffer, then calculate bounding box
 		glLoadIdentity()
 		rotateToDefaultView()
@@ -969,7 +973,7 @@ class Part():
 	
 	def initDraw(self, width, height):
 	
-		initPartDimensions(width, height)
+		initPartDimensions(width, height, self.partOGL.filename)
 
 #		part = partDictionary['Blaster_big_stock_arms_instructions.ldr']
 #		part = partDictionary['Blaster_big_stand_instructions.ldr']
@@ -986,31 +990,35 @@ class Part():
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 ldrawFile = LDrawFile(MODEL_NAME)
 
-def initPartDimensions(width, height):
+def initPartDimensions(width, height, filename):
 
+	filename = "PartDimensions_" + filename + ".cache"
+	
 	# line format: filename width height center-x center-y leftInset bottomInset
 	try:
-		f = file("PartDimensions.cache", 'r')
+		f = file(filename, 'r')
 		for line in f:
 			part, w, h, x, y, l, b = line.split()
+			if (not partDictionary.has_key(part)):
+				continue
 			p = partDictionary[part]
-			p.width = int(w)
-			p.height = int(h)
+			p.width = max(1, int(w))
+			p.height = max(1, int(h))
 			p.center = (int(x), int(y))
 			p.leftInset = int(l)
 			p.bottomInset = int(b)
 		f.close()
 
 	except IOError:
-
+		
 		lines = []
 		for p in partDictionary.values():
 			p.initSize(width, height)
 			if (not p.isPrimitive):
 				lines.append("%s %d %d %d %d %d %d\n" % (p.filename, p.width, p.height, p.center[0], p.center[1], p.leftInset, p.bottomInset))
 		print ""
-
-		f = file("PartDimensions.cache", 'w')
+		
+		f = file(filename, 'w')
 		f.writelines(lines)
 		f.close()
 
