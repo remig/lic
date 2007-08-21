@@ -22,7 +22,6 @@ MODEL_NAME = "Blaster.mpd"
 
 gui_xml = gtk.glade.XML( "c:\\LDraw\\LIC\\LIC.glade")
 
-# TODO: There's a drawing translation error somewhere - parts in CSIs are being drawn in the wrong spot.
 # TODO: Fix OGL surface normals and BFC, so OGL rendering can look better.
 
 def adjustGLViewport(x, y, width, height):
@@ -41,6 +40,7 @@ def restoreGLViewport():
 	
 def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0):
 	# position (x,y,z), look at (x,y,z), up vector (x,y,z)
+	# TODO: Maybe can just adjust 'up' vector here, instead of the extra glScalef call below?
 	gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
 	glScalef(1.0, -1.0, -1.0)
 	
@@ -48,6 +48,19 @@ def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0):
 	# TODO: Figure out the exact rotation for this.
 	glRotatef( -20.0, 1.0, 0.0, 0.0,)
 	glRotatef( -135.0, 0.0, 1.0, 0.0,)
+
+def pushAllGLMatrices():
+	glPushAttrib(GL_TRANSFORM_BIT | GL_VIEWPORT_BIT)
+	glMatrixMode(GL_PROJECTION)
+	glPushMatrix()
+	glMatrixMode(GL_MODELVIEW)
+	glPushMatrix()
+
+def popAllGLMatrices():
+	glPopMatrix()
+	glMatrixMode(GL_PROJECTION)
+	glPopMatrix()
+	glPopAttrib()
 
 class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def __init__(self):
@@ -83,7 +96,8 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		column = gtk.TreeViewColumn("Instructions", renderer, text=0)
 		self.tree.append_column(column)
 		
-		self.model = self.cairo_context = None
+		self.model = None  # The currently selected Lego model, whether a single part, submodel, step, or main model
+		self.cairo_context = None  # Drawing context for all 2D drawing, done through cairo
 	
 	def treeview_button_press(self, obj, event):
 		treemodel, iter = self.tree.get_selection().get_selected()
@@ -436,14 +450,14 @@ class PLI():
 			print "ERROR: Trying to draw an unitialized PLI layout!"
 			return
 
+		pushAllGLMatrices()
 		for (count, part, x, y) in self.layout.values():
 			adjustGLViewport(x, height - y - part.height, part.width, part.height)
 			glLoadIdentity()
 			rotateToDefaultView(-part.center[0], -part.center[1], 0.0)
 			
 			part.drawModel()
-		
-		restoreGLViewport()
+		popAllGLMatrices()
 
 	# Must be called AFTER any OGL calls - otherwise OGL will switch buffers and erase all this
 	def drawPageElements(self, context):
@@ -493,6 +507,7 @@ class Step():
 		self.prevStep = prevStep
 		self.buffers = buffers  # [(bufID, stepNumber)], set of buffers active inside this Step
 		self.oglDispIDs = []  # [(dispID, buffer)]
+
 		if (prevStep):
 			self.number = prevStep.number + 1
 		else:
@@ -577,13 +592,13 @@ class Step():
 class PartOGL():
 	def __init__(self, filename, preLoadedFile = None):
 		self.name = self.filename = filename
-		self.inverted = False  # inverted = GL_CW
+		self.inverted = False  # inverted = GL_CW - TODO
 		self.invertNext = False
 		self.parts = []
 		self.primitives = []
 		self.oglDispID = UNINIT_OGL_DISPID
 		self.width = self.height = UNINIT_PROP
-		self.isPrimitive = False  # primitive here == anything in 'P'
+		self.isPrimitive = False  # primitive here means any file in 'P'
 		
 		self.currentStep = None
 		self.steps = []
@@ -694,6 +709,7 @@ class PartOGL():
 			return
 	
 		part.ignorePLIState = self.ignorePLIState
+
 		if (self.currentStep):
 			self.currentStep.addPart(part)
 		else:
