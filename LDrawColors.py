@@ -525,3 +525,7 @@ class ModelOGL_old_works():
 		cr.set_source_rgb(0,0,0)
 		cr.stroke()
 	
+def restoreGLViewport():
+	# restoreGLViewport.width & height set by on_configure_event, when window resized
+	adjustGLViewport(0, 0, restoreGLViewport.width, restoreGLViewport.height)
+	
