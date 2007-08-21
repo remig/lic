@@ -13,7 +13,7 @@ UNINIT_OGL_DISPID = -1
 UNINIT_PROP = -1
 
 # TODO: Implement rotation steps - good luck
-
+# TODO: remove partDictionary global variable - used in few enough spots that it shouldn't be global anymore
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 
 class Instructions():
