@@ -23,7 +23,6 @@ MODEL_NAME = "Blaster.mpd"
 gui_xml = gtk.glade.XML( "c:\\LDraw\\LIC\\LIC.glade")
 
 # TODO: There's a drawing translation error somewhere - parts in CSIs are being drawn in the wrong spot.
-# TODO: Implement PLI Ignore, so stuff that shouldn't be in PLIs isn't.
 # TODO: Fix OGL surface normals and BFC, so OGL rendering can look better.
 
 def adjustGLViewport(x, y, width, height):
@@ -430,9 +429,13 @@ class PLI():
 
 	# Must be called inside a valid gldrawable context
 	def drawParts(self, width, height):
+		if (len(self.layout) < 1):
+			return  # No parts in this PLI - nothing to draw
+		
 		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
 			print "ERROR: Trying to draw an unitialized PLI layout!"
-		
+			return
+
 		for (count, part, x, y) in self.layout.values():
 			adjustGLViewport(x, height - y - part.height, part.width, part.height)
 			glLoadIdentity()
@@ -444,6 +447,9 @@ class PLI():
 
 	# Must be called AFTER any OGL calls - otherwise OGL will switch buffers and erase all this
 	def drawPageElements(self, context):
+		if (len(self.layout) < 1):
+			return  # No parts in this PLI - nothing to draw
+		
 		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
 			print "ERROR: Trying to draw an unitialized PLI layout!"
 		
@@ -497,7 +503,8 @@ class Step():
 
 	def addPart(self, part):
 		self.parts.append(part)
-		self.pli.addPartOGL(part.partOGL)
+		if (not part.ignorePLIState):
+			self.pli.addPartOGL(part.partOGL)
 
 	def createOGLDisplayList(self):
 		if (self.oglDispIDs != []):
@@ -581,7 +588,7 @@ class PartOGL():
 		self.currentStep = None
 		self.steps = []
 		self.buffers = []  #[(bufID, stepNumber)]
-		self.pli_ign = False
+		self.ignorePLIState = False
 		
 		self.width = self.height = 1
 		self.leftInset = self.bottomInset = 0
@@ -654,13 +661,13 @@ class PartOGL():
 			self.addPrimitive(lineToQuad(line), GL_QUADS)
 
 	def setPLIIGNState(self, state, line):
-		if (self.pli_ign == state):
+		if (self.ignorePLIState == state):
 			if (state):
 				print "PLI Ignore Warning: Begnining PLI IGN when already begun.  Line: ", line[0]
 			else:
 				print "PLI Ignore Warning: Ending PLI IGN when no valid PLI IGN had begun. Line: ", line[0]
 		else:
-			self.pli_ign = state
+			self.ignorePLIState = state
 	
 	def addStep(self, lineNumber = None):
 		if (self.currentStep and self.currentStep.parts == []): # Current step is empty - remove it and warn
@@ -685,7 +692,8 @@ class PartOGL():
 			# TODO: This should be printed - commented out for debugging
 #			print "Could not find file: %s - Ignoring." % p['filename']
 			return
-		
+	
+		part.ignorePLIState = self.ignorePLIState
 		if (self.currentStep):
 			self.currentStep.addPart(part)
 		else:
@@ -901,6 +909,7 @@ class Part():
 		self.ghost = ghost
 		self.buffers = buffers  # [(bufID, stepNumber)]
 		self.inverted = invert
+		self.ignorePLIState = False
 		
 		if (filename in partDictionary):
 			self.partOGL = partDictionary[filename]
