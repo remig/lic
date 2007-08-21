@@ -29,9 +29,11 @@ def adjustGLViewport(x, y, width, height):
 	glMatrixMode(GL_PROJECTION)
 	glLoadIdentity()
 	#viewing box (left, right) (bottom, top), (near, far)
-	width /= 2
-	height /= 2
-	glOrtho( -(width/SCALE_WINDOW), width/SCALE_WINDOW, -(height/SCALE_WINDOW), height/SCALE_WINDOW, -3000, 3000 )
+	width /= 2 * SCALE_WINDOW
+	height /= 2 * SCALE_WINDOW
+	width = max(1, width)
+	height = max(1, height)
+	glOrtho( -width, width, -height, height, -3000, 3000 )
 	glMatrixMode(GL_MODELVIEW)
 	
 def restoreGLViewport():
@@ -40,14 +42,12 @@ def restoreGLViewport():
 	
 def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0):
 	# position (x,y,z), look at (x,y,z), up vector (x,y,z)
-	# TODO: Maybe can just adjust 'up' vector here, instead of the extra glScalef call below?
-	gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
-	glScalef(1.0, -1.0, -1.0)
+	gluLookAt(x, y, -1000.0,  x, y, z,  0.0, -1.0, 0.0)
 	
 	# Rotate model into something approximating the regular ortho Lego view.
 	# TODO: Figure out the exact rotation for this.
-	glRotatef( -20.0, 1.0, 0.0, 0.0,)
-	glRotatef( -135.0, 0.0, 1.0, 0.0,)
+	glRotatef(20.0, 1.0, 0.0, 0.0,)
+	glRotatef(135.0, 0.0, 1.0, 0.0,)
 
 def pushAllGLMatrices():
 	glPushAttrib(GL_TRANSFORM_BIT | GL_VIEWPORT_BIT)
@@ -454,7 +454,7 @@ class PLI():
 		for (count, part, x, y) in self.layout.values():
 			adjustGLViewport(x, height - y - part.height, part.width, part.height)
 			glLoadIdentity()
-			rotateToDefaultView(-part.center[0], -part.center[1], 0.0)
+			rotateToDefaultView(part.center[0], part.center[1], 0.0)
 			
 			part.drawModel()
 		popAllGLMatrices()
@@ -804,7 +804,7 @@ class PartOGL():
 		im = Image.new("RGBA", (width, height))
 		im.fromstring(pixels)
 		im = im.transpose( Image.FLIP_TOP_BOTTOM)
-		im.save("C:\\LDraw\\tmp\\" + self.filename + first + "_img.png")
+		#im.save("C:\\LDraw\\tmp\\" + self.filename + first + "_img.png")
 		data = im.load()
 		
 		top = checkPixelsTop(data, width, height)
@@ -867,7 +867,7 @@ class PartOGL():
 		
 		if self.checkMaxBounds(top, bottom, left, right, width, height):
 			return
-		
+	
 		self.width = right - left + 1
 		self.height = bottom - top + 1
 		self.leftInset = leftInset 
