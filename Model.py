@@ -81,36 +81,10 @@ class Instructions():
 		# No part dimension cache file exists, so calculate each part size and store in cache file.  Create a 
 		# temporary Frame Buffer Object for this, so we can render to a buffer independent of the display buffer. 
 		
-		# Setup framebuffer
-		framebuffer = glGenFramebuffersEXT(1)
-		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, framebuffer)
-		
-		# TODO: Calculate this so that like 90% of all standard pieces render with a minimal size.  Or make it a list
-		sizes = [256, 512, 1024] # TODO: Use this instead of w & h
 		w = h = 512
 		
-		# Need a temporary image hanging around for the glTexImage2D call below to work
-		image = Image.new ("RGB", (w, h), (1, 1, 1))
-		bits = image.tostring("raw", "RGBX", 0, -1)
-		
-		# Setup depthbuffer
-		depthbuffer = glGenRenderbuffersEXT(1)
-		glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, depthbuffer)
-		glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT, w, h)
-		
-		# Create texture to render to
-		texture = glGenTextures (1)
-		glBindTexture(GL_TEXTURE_2D, texture)
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, bits)
-		glFramebufferTexture2DEXT (GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, texture, 0);
-		glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, depthbuffer);
-		
-		status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
-		if status != GL_FRAMEBUFFER_COMPLETE_EXT:
-			print "Error in framebuffer activation"
-			return
+		# Create a new FBO
+		buffers = createFBO(w, h)
 		
 		# Render each part and calculate their sizes
 		lines = []
@@ -120,16 +94,13 @@ class Instructions():
 				lines.append("%s %d %d %d %d %d %d\n" % (p.filename, p.width, p.height, p.center[0], p.center[1], p.leftInset, p.bottomInset))
 		print ""
 		
+		# Clean up created FBO
+		destroyFBO(*buffers)
+		
 		# Create a part dimension cache file
 		f = file(self.PartDimensionsFilename, 'w')
 		f.writelines(lines)
 		f.close()
-		
-		# Clean up - disable any created buffers
-		glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, 0)
-		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0)
-		glDeleteTextures(texture)
-		glDeleteFramebuffersEXT(1, [framebuffer])
 	
 class Line():
 	"""
