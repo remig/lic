@@ -1,5 +1,6 @@
 import math
 import Image
+import cairo
 
 from LDrawColors import *
 from LDrawFileFormat import *
@@ -186,7 +187,9 @@ class PLI():
 
 	def drawParts(self, width, height):
 		""" Must be called inside a valid gldrawable context. """
-		
+	
+		return
+
 		if (len(self.layout) < 1):
 			return  # No parts in this PLI - nothing to draw
 		
@@ -212,15 +215,32 @@ class PLI():
 		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
 			print "ERROR: Trying to draw an unitialized PLI layout!"
 		
-		self.box.draw(context)
+		context.set_source_rgb(1.0, 0.0, 0.0)
+		context.select_font_face('Arial', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+		context.set_font_size(100)
+		context.move_to(50, 50)
+		text = 'abcdefg'
+		context.show_text(text)
+		context.show_text("Howdihow")
+		context.stroke()
+
+		#self.box.draw(context)
 		for (count, p, x, y) in self.layout.values():
 			
 			context.set_source_rgb(1.0, 0.0, 0.0)
-			context.move_to(x, y + p.leftInset)
-			context.line_to(x + p.bottomInset, y + p.height)
-			context.line_to(x, y + p.height)
-			context.close_path()
-			context.stroke()
+			#context.move_to(x, y + p.leftInset)
+			#context.line_to(x + p.bottomInset, y + p.height)
+			#context.line_to(x, y + p.height)
+			#context.close_path()
+			#context.stroke()
+
+			# TODO: Draw each PLI quantity label here.  cairo_text_extents calculates label size
+			# draw\cairo\labels.c: 235 for sizing, 395 for drawing, 37 for setting font
+			context.select_font_face('Arial', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+			context.set_font_size(10)
+			context.move_to(20, 20)
+			text = 'x'
+			context.show_text(text)
 		
 		# TODO: Draw part quantity labels.  
 		# Label's y: center of label's 'x' == bottom of part box
