@@ -8,7 +8,6 @@ from GLHelpers import *
 
 from OpenGL.GL import *
 from OpenGL.GLU import *
-from OpenGL.GL.EXT.framebuffer_object import *
 
 # Global constants
 UNINIT_OGL_DISPID = -1
@@ -81,21 +80,27 @@ class Instructions():
 		# No part dimension cache file exists, so calculate each part size and store in cache file.  Create a 
 		# temporary Frame Buffer Object for this, so we can render to a buffer independent of the display buffer. 
 		
-		w = h = 512
-		
-		# Create a new FBO
-		buffers = createFBO(w, h)
-		
-		# Render each part and calculate their sizes
-		lines = []
-		for p in partDictionary.values():
-			p.initSize(w, h)
-			if (not p.isPrimitive):
-				lines.append("%s %d %d %d %d %d %d\n" % (p.filename, p.width, p.height, p.center[0], p.center[1], p.leftInset, p.bottomInset))
-		print ""
-		
-		# Clean up created FBO
-		destroyFBO(*buffers)
+		loopAgain = False
+		sizes = [256, 512, 1024]
+		for size in sizes:
+			
+			print "Generating part sizes at %d x %d" % (size, size)
+			# Create a new FBO
+			buffers = createFBO(size, size)
+			
+			# Render each part and calculate their sizes
+			lines = []
+			for p in partDictionary.values():
+				loopAgain = loopAgain or p.initSize(size, size)
+				if (not p.isPrimitive):
+					lines.append("%s %d %d %d %d %d %d\n" % (p.filename, p.width, p.height, p.center[0], p.center[1], p.leftInset, p.bottomInset))
+			print ""
+			
+			# Clean up created FBO
+			destroyFBO(*buffers)
+			
+			if (not loopAgain):
+				break
 		
 		# Create a part dimension cache file
 		f = file(self.PartDimensionsFilename, 'w')
@@ -625,6 +630,8 @@ class PartOGL():
 		return (top, bottom, left, right, leftBottom - top, bottomLeft - left)
 
 	def initSize(self, width, height):
+		# TODO: have this function return True if we need another pass with a bigger buffer, False otherwise
+		# Also need to return the list of parts still needing initialization
 		
 		# Primitive parts need not be sized
 		if (self.isPrimitive):
