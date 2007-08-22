@@ -57,7 +57,7 @@ class Instructions():
 	def initPartDimensions(self):
 		try:
 			# Have a valid part dimension cache file for this model - load from there
-			f = file(self.PartDimensionsFilename, "r")
+			f = file(self.PartDimensionsFilename + "die", "r")
 			self.initPartDimensionsFromFile(f)
 			f.close()
 		except IOError:
@@ -78,17 +78,58 @@ class Instructions():
 			p.bottomInset = int(b)
 	
 	def initPartDimensionsManually(self):
-		# No part dimension cache file, so calculate each part size and store in cache file
+		# No part dimension cache file exists, so calculate each part size and store in cache file.  Create a 
+		# temporary Frame Buffer Object for this, so we can render to a buffer independent of the display buffer. 
+		
+		# Setup framebuffer
+		framebuffer = glGenFramebuffersEXT(1)
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, framebuffer)
+		
+		# TODO: Calculate this so that like 90% of all standard pieces render with a minimal size.  Or make it a list
+		sizes = [256, 512, 1024] # TODO: Use this instead of w & h
+		w = h = 512
+		
+		# Need a temporary image hanging around for the glTexImage2D call below to work
+		image = Image.new ("RGB", (w, h), (1, 1, 1))
+		bits = image.tostring("raw", "RGBX", 0, -1)
+		
+		# Setup depthbuffer
+		depthbuffer = glGenRenderbuffersEXT(1)
+		glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, depthbuffer)
+		glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT, w, h)
+		
+		# Create texture to render to
+		texture = glGenTextures (1)
+		glBindTexture(GL_TEXTURE_2D, texture)
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, bits)
+		glFramebufferTexture2DEXT (GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, texture, 0);
+		glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, depthbuffer);
+		
+		status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+		if status != GL_FRAMEBUFFER_COMPLETE_EXT:
+			print "Error in framebuffer activation"
+			return
+		
+		# Render each part and calculate their sizes
 		lines = []
 		for p in partDictionary.values():
-			p.initSize()
+			p.initSize(w, h)
 			if (not p.isPrimitive):
 				lines.append("%s %d %d %d %d %d %d\n" % (p.filename, p.width, p.height, p.center[0], p.center[1], p.leftInset, p.bottomInset))
 		print ""
 		
+		# Create a part dimension cache file
 		f = file(self.PartDimensionsFilename, 'w')
 		f.writelines(lines)
 		f.close()
+		
+		# Clean up - disable any created buffers
+		glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, 0)
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0)
+		glDeleteTextures(texture)
+		glDeleteFramebuffersEXT(1, [framebuffer])
 	
 class Line():
 	"""
@@ -584,38 +625,9 @@ class PartOGL():
 		
 		return False
 
-	def initSize_getBounds(self, x, y, width, height, first = '_first'):
+	def initSize_getBounds(self, x, y, w, h, first = '_first'):
 		
-		# TODO: next morning - move frame buffer creation up call stack to initPartDimensionsManually, so that it's only created once
-		# Setup framebuffer
-		framebuffer = glGenFramebuffersEXT (1)
-		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, framebuffer)
-		
-		w = width
-		h = height
-		
-		image = Image.new ("RGB", (w, h), (1, 1, 1))
-		bits = image.tostring("raw", "RGBX", 0, -1)
-		
-		# Setup depthbuffer
-		depthbuffer = glGenRenderbuffersEXT(1)
-		glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, depthbuffer)
-		glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT, w, h)
-		
-		# Create texture to render to
-		texture = glGenTextures (1)
-		glBindTexture(GL_TEXTURE_2D, texture)
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, bits)
-		glFramebufferTexture2DEXT (GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, texture, 0);
-		glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, depthbuffer);
-		
-		status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
-		if status != GL_FRAMEBUFFER_COMPLETE_EXT:
-			print "Error in framebuffer activation for part: " + self.filename
-			return
-		
+		# TODO: Move frame buffer creation up call stack to initPartDimensionsManually, so that it's only created once
 		# Clear the drawing buffer with white
 		glClearColor(1.0, 1.0, 1.0, 0)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -628,31 +640,24 @@ class PartOGL():
 		glCallList(self.oglDispID)
 		
 		pixels = glReadPixels (0, 0, w, h, GL_RGB,  GL_UNSIGNED_BYTE)
-		image.fromstring(pixels)
-		image = image.transpose(Image.FLIP_TOP_BOTTOM)
-		image.save ("C:\\LDraw\\tmp\\buf_" + self.filename + first + ".png")
+		img = Image.new ("RGB", (w, h), (1, 1, 1))
+		img.fromstring(pixels)
+		img = img.transpose(Image.FLIP_TOP_BOTTOM)
+		img.save ("C:\\LDraw\\tmp\\buf_" + self.filename + first + ".png")
 		
-		data = image.load()
+		data = img.load()
 		top = checkPixelsTop(data, w, h)
 		bottom, bottomLeft = checkPixelsBottom(data, w, h, top)
 		left, leftBottom = checkPixelsLeft(data, w, h, top, bottom)
 		right = checkPixelsRight(data, w, h, top, bottom, left)
 		
-		glBindRenderbufferEXT (GL_RENDERBUFFER_EXT, 0)
-		glBindFramebufferEXT (GL_FRAMEBUFFER_EXT, 0)
-		glDeleteTextures (texture)
-		glDeleteFramebuffersEXT (1, [framebuffer])
-		
 		return (top, bottom, left, right, leftBottom - top, bottomLeft - left)
 
-	def initSize(self):
+	def initSize(self, width, height):
 		
 		# Primitive parts need not be sized
 		if (self.isPrimitive):
 			return
-		
-		# TODO: Calculate this so that like 90% of all standard pieces render with a minimal size
-		width = height = 800  # Arbitrary render size, to start with
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
 		print self.filename,
