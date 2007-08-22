@@ -101,7 +101,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		print "*** Loading Model ***"
 		self.instructions = Instructions(MODEL_NAME)
-		self.instructions.initDraw(self.width, self.height)
+		self.instructions.initDraw()
 		self.model = self.instructions.getMainModel()
 		
 		gldrawable.gl_end()
@@ -160,6 +160,17 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		# Draw any 2D page elements, like borders, labels, etc.
 		if (self.model and isinstance(self.model, Step)):
 			self.model.drawPageElements(self.cairo_context)
+		
+		# Some test code for cairo label drawing - doesn't do anything at all
+		context = self.cairo_context
+		context.set_source_rgb(0.0, 0.0, 0.0)
+		context.select_font_face('Arial', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+		context.set_font_size(100)
+		context.move_to(50, 50)
+		text = 'abcdefg'
+		context.show_text(text)
+		fascent, fdescent, fheight, fxadvance, fyadvance = context.font_extents()
+		xbearing, ybearing, width, height, xadvance, yadvance = context.text_extents(text)
 		
 		return
 

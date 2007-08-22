@@ -8,6 +8,7 @@ from GLHelpers import *
 
 from OpenGL.GL import *
 from OpenGL.GLU import *
+from OpenGL.GL.EXT.framebuffer_object import *
 
 # Global constants
 UNINIT_OGL_DISPID = -1
@@ -20,12 +21,15 @@ partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 class Instructions():
 	"""	Represents an overall Lego instruction booklet.	"""
 	
-	# TODO: Have this class initialize everything.  Instructions should also be a tree, and
-	#       be used more cleanly than the hack job currently in the tree GUI code.
-	
+	# TODO: Instructions should be a tree, and be used more cleanly than the hack job currently in the tree GUI code.
 	def __init__(self, filename):
+		
 		self.pages = []
 		self.filename = filename
+		
+		# line format: filename width height center-x center-y leftInset bottomInset
+		self.PartDimensionsFilename = "PartDimensions_" + filename + ".cache"
+		
 		self.mainModel = Part(filename, hasSteps = True)
 		#ldFile.saveFile()
 	
@@ -35,53 +39,57 @@ class Instructions():
 	def getCurrentModel(self):
 		pass
 
-	def initDraw(self, width, height):
+	def initDraw(self):
 		
-		self.initPartDimensions(width, height)
+		# Calculate the width and height of each partOGL in the part dictionary
+		self.initPartDimensions()
+		
+		# Calculate an initial layout for each PLI in this instruction book
+		for step in self.mainModel.partOGL.steps:
+			step.pli.initLayout()
 		
 		#part = partDictionary['Blaster_big_stock_arms_instructions.ldr']
 		#part = partDictionary['Blaster_big_stand_instructions.ldr']
 		#part = partDictionary['Blaster_big_emitter_core_instructions.ldr']
-		#part.initSize(width, height)
+		#part.initSize()
 		#print ""
-		
-		for step in self.mainModel.partOGL.steps:
-			step.pli.initLayout()
 	
-	def initPartDimensions(self, width, height):
-		
-		filename = "PartDimensions_" + self.filename + ".cache"
-		
-		# line format: filename width height center-x center-y leftInset bottomInset
+	def initPartDimensions(self):
 		try:
 			# Have a valid part dimension cache file for this model - load from there
-			f = file(filename, 'r')
-			for line in f:
-				part, w, h, x, y, l, b = line.split()
-				if (not partDictionary.has_key(part)):
-					continue
-				p = partDictionary[part]
-				p.width = max(1, int(w))
-				p.height = max(1, int(h))
-				p.center = (int(x), int(y))
-				p.leftInset = int(l)
-				p.bottomInset = int(b)
+			f = file(self.PartDimensionsFilename, "r")
+			self.initPartDimensionsFromFile(f)
 			f.close()
-		
 		except IOError:
-			
-			# No part dimension cache file, so calculate each part size and store in file
-			lines = []
-			for p in partDictionary.values():
-				p.initSize(width, height)
-				if (not p.isPrimitive):
-					lines.append("%s %d %d %d %d %d %d\n" % (p.filename, p.width, p.height, p.center[0], p.center[1], p.leftInset, p.bottomInset))
-			print ""
-			
-			f = file(filename, 'w')
-			f.writelines(lines)
-			f.close()
+			# Need to calculate all part dimensions from scratch
+			self.initPartDimensionsManually()
 
+	def initPartDimensionsFromFile(self, f):
+		for line in f:
+			part, w, h, x, y, l, b = line.split()
+			if (not partDictionary.has_key(part)):
+				print "Warning: part dimension cache contains parts not present in model - suggest regenerating part dimension cache."
+				continue
+			p = partDictionary[part]
+			p.width = max(1, int(w))
+			p.height = max(1, int(h))
+			p.center = (int(x), int(y))
+			p.leftInset = int(l)
+			p.bottomInset = int(b)
+	
+	def initPartDimensionsManually(self):
+		# No part dimension cache file, so calculate each part size and store in cache file
+		lines = []
+		for p in partDictionary.values():
+			p.initSize()
+			if (not p.isPrimitive):
+				lines.append("%s %d %d %d %d %d %d\n" % (p.filename, p.width, p.height, p.center[0], p.center[1], p.leftInset, p.bottomInset))
+		print ""
+		
+		f = file(self.PartDimensionsFilename, 'w')
+		f.writelines(lines)
+		f.close()
+	
 class Line():
 	"""
 	Drawing properties for any given line an instruction book.
@@ -187,9 +195,7 @@ class PLI():
 
 	def drawParts(self, width, height):
 		""" Must be called inside a valid gldrawable context. """
-	
-		return
-
+		
 		if (len(self.layout) < 1):
 			return  # No parts in this PLI - nothing to draw
 		
@@ -222,18 +228,24 @@ class PLI():
 		text = 'abcdefg'
 		context.show_text(text)
 		context.show_text("Howdihow")
+		
+		x = y = 30
+		context.move_to(x, y)
+		context.line_to(x + 50, y + 50)
+		context.line_to(x, y + 50)
+		context.close_path()
 		context.stroke()
-
+		
 		#self.box.draw(context)
 		for (count, p, x, y) in self.layout.values():
 			
 			context.set_source_rgb(1.0, 0.0, 0.0)
-			#context.move_to(x, y + p.leftInset)
-			#context.line_to(x + p.bottomInset, y + p.height)
-			#context.line_to(x, y + p.height)
-			#context.close_path()
-			#context.stroke()
-
+			context.move_to(x, y + p.leftInset)
+			context.line_to(x + p.bottomInset, y + p.height)
+			context.line_to(x, y + p.height)
+			context.close_path()
+			context.stroke()
+			
 			# TODO: Draw each PLI quantity label here.  cairo_text_extents calculates label size
 			# draw\cairo\labels.c: 235 for sizing, 395 for drawing, 37 for setting font
 			context.select_font_face('Arial', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
@@ -544,54 +556,6 @@ class PartOGL():
 		
 		glCallList(self.oglDispID)
 
-	def checkMaxBounds(self, top, bottom, left, right, width, height):
-		
-		if ((top == 0) and (bottom == height-1)): 
-			print "top & bottom out of bounds - hosed"
-			return True
-		
-		if ((left == 0) and (right == width-1)):
-			print "left & right out of bounds - hosed"
-			return True
-		
-		if ((top == height) and (bottom == 0)):
-			print "blank page - hosed"
-			return True
-		
-		if ((left == width) and (right == 0)):
-			print "blank page - hosed"
-			return True
-		
-		return False
-
-	def initSize_getBounds(self, width, height, first = '_first'):
-		
-		# Clear the drawing buffer with white
-		glClearColor(1.0,1.0,1.0,0)
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-		
-		# Draw the piece in black
-		glColor3f(0,0,0)
-		glCallList(self.oglDispID)
-		
-		# Read the rendered pixel data to local variable
-		glReadBuffer(GL_BACK)
-		glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
-		pixels = glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE)
-		
-		im = Image.new("RGBA", (width, height))
-		im.fromstring(pixels)
-		im = im.transpose( Image.FLIP_TOP_BOTTOM)
-		#im.save("C:\\LDraw\\tmp\\" + self.filename + first + "_img.png")
-		data = im.load()
-		
-		top = checkPixelsTop(data, width, height)
-		bottom, bottomLeft = checkPixelsBottom(data, width, height, top)
-		left, leftBottom = checkPixelsLeft(data, width, height, top, bottom)
-		right = checkPixelsRight(data, width, height, top, bottom, left)
-		
-		return (top, bottom, left, right, leftBottom - top, bottomLeft - left)
-
 	def initSize_checkRotation(self):
 		# TODO: Once a part's dimensions have been calculated, use the existing bounds and render
 		# to check if it's rotated correctly.  Want all long skinny pieces to go the same way -
@@ -600,50 +564,132 @@ class PartOGL():
 		# render / drawing if needed.
 		pass
 
-	def initSize(self, width, height):
+	def checkMaxBounds(self, top, bottom, left, right, width, height):
+		
+		if ((top == 0) and (bottom == height-1)): 
+			print self.filename + " - top & bottom out of bounds - hosed"
+			return True
+		
+		if ((left == 0) and (right == width-1)):
+			print self.filename + " - left & right out of bounds - hosed"
+			return True
+		
+		if ((top == height) and (bottom == 0)):
+			print self.filename + " - blank page - hosed"
+			return True
+		
+		if ((left == width) and (right == 0)):
+			print self.filename + " - blank page - hosed"
+			return True
+		
+		return False
+
+	def initSize_getBounds(self, x, y, width, height, first = '_first'):
+		
+		# TODO: next morning - move frame buffer creation up call stack to initPartDimensionsManually, so that it's only created once
+		# Setup framebuffer
+		framebuffer = glGenFramebuffersEXT (1)
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, framebuffer)
+		
+		w = width
+		h = height
+		
+		image = Image.new ("RGB", (w, h), (1, 1, 1))
+		bits = image.tostring("raw", "RGBX", 0, -1)
+		
+		# Setup depthbuffer
+		depthbuffer = glGenRenderbuffersEXT(1)
+		glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, depthbuffer)
+		glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT, w, h)
+		
+		# Create texture to render to
+		texture = glGenTextures (1)
+		glBindTexture(GL_TEXTURE_2D, texture)
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, bits)
+		glFramebufferTexture2DEXT (GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, texture, 0);
+		glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, depthbuffer);
+		
+		status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+		if status != GL_FRAMEBUFFER_COMPLETE_EXT:
+			print "Error in framebuffer activation for part: " + self.filename
+			return
+		
+		# Clear the drawing buffer with white
+		glClearColor(1.0, 1.0, 1.0, 0)
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+		
+		# Draw the piece in black
+		glLoadIdentity()
+		adjustGLViewport(0, 0, w, h)
+		rotateToDefaultView(x, y, 0.0)
+		glColor3f(0, 0, 0)
+		glCallList(self.oglDispID)
+		
+		pixels = glReadPixels (0, 0, w, h, GL_RGB,  GL_UNSIGNED_BYTE)
+		image.fromstring(pixels)
+		image = image.transpose(Image.FLIP_TOP_BOTTOM)
+		image.save ("C:\\LDraw\\tmp\\buf_" + self.filename + first + ".png")
+		
+		data = image.load()
+		top = checkPixelsTop(data, w, h)
+		bottom, bottomLeft = checkPixelsBottom(data, w, h, top)
+		left, leftBottom = checkPixelsLeft(data, w, h, top, bottom)
+		right = checkPixelsRight(data, w, h, top, bottom, left)
+		
+		glBindRenderbufferEXT (GL_RENDERBUFFER_EXT, 0)
+		glBindFramebufferEXT (GL_FRAMEBUFFER_EXT, 0)
+		glDeleteTextures (texture)
+		glDeleteFramebuffersEXT (1, [framebuffer])
+		
+		return (top, bottom, left, right, leftBottom - top, bottomLeft - left)
+
+	def initSize(self):
 		
 		# Primitive parts need not be sized
 		if (self.isPrimitive):
 			return
 		
+		# TODO: Calculate this so that like 90% of all standard pieces render with a minimal size
+		width = height = 800  # Arbitrary render size, to start with
+		
 		# TODO: update some kind of load status bar her - this function is *slow*
 		print self.filename,
 		
 		# Draw piece to frame buffer, then calculate bounding box
-		glLoadIdentity()
-		rotateToDefaultView()
-		top, bottom, left, right, leftInset, bottomInset = self.initSize_getBounds(width, height)
+		top, bottom, left, right, leftInset, bottomInset = self.initSize_getBounds(0.0, 0.0, width, height)
 		
 		if self.checkMaxBounds(top, bottom, left, right, width, height):
+			# TODO: Now that we're using an arbitrarily resizable FBO for temp rendering, queue this piece up for a re-render at larger size
 			return
 		
 		# If we hit one of these cases, at least one edge was drawn off screen
 		# Try to reposition the drawing and draw again, see if we can fit it on screen
-		# TODO: Blaster_big_stock_arms_instructions.ldr - one displacement not enough - fix
+		# TODO: Blaster_big_stock_arms_instructions.ldr - one displacement not enough - fix by queueing up for re-render at larger size
 		# TODO: Same with Blaster_big_stand_instructions.ldr
 		x = y = 0
 		if (top == 0):
-			y = bottom
+			y = bottom - height + 2
 		
 		if (bottom == height-1):
-			y = -top + 1
+			y = top - 1
 		
 		if (left == 0):
-			x = width - right - 2
+			x = right - width + 2
 		
 		if (right == width-1):
-			x = -left + 1
+			x = left - 1
 		
 		if ((x != 0) or (y != 0)):
 			#print self.filename
 			#print "old t: %d, b: %d, l: %d, r: %d" % (top, bottom, left, right)
-			#rint "displacing by x: %d, y: %d" % (x, y)
-			glLoadIdentity()
-			rotateToDefaultView(x, y, 0.0)
-			top, bottom, left, right, leftInset, bottomInset = self.initSize_getBounds(width, height, '_second')
+			#print "displacing by x: %d, y: %d" % (x, y)
+			top, bottom, left, right, leftInset, bottomInset = self.initSize_getBounds(x, y, width, height, '_second')
 			#print "new t: %d, b: %d, l: %d, r: %d" % (top, bottom, left, right)
 		
 		if self.checkMaxBounds(top, bottom, left, right, width, height):
+			# TODO: Now that we're using an arbitrarily resizable FBO for temp rendering, queue this piece up for a re-render at larger size
 			return
 		
 		self.width = right - left + 1
@@ -662,7 +708,7 @@ class PartOGL():
 		#self.width, self.height = im.size
 
 # TODO: verify these 4 functions for all cases, with blaster
-white = (255, 255, 255, 0)
+white = (255, 255, 255)
 def checkPixelsTop(data, width, height):
 	for i in range(0, height):
 		for j in range(0, width):
