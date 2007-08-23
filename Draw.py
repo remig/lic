@@ -104,6 +104,10 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		self.instructions.initDraw()
 		self.model = self.instructions.getMainModel()
 		
+		adjustGLViewport(0, 0, self.width, self.height)
+		glLoadIdentity()	
+		rotateToDefaultView()
+		
 		gldrawable.gl_end()
 		
 		self.initializeTree()

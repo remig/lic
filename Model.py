@@ -717,7 +717,7 @@ class PartOGL():
 		dy = top + (self.height/2)
 		w = dx - (width/2)
 		h = dy - (height/2)
-		self.center = (w - x, h - y)
+		self.center = (w + x, h + y)
 		
 		return False
 
