@@ -74,6 +74,8 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def on_realize(self, *args):
 		""" Initialize the window. """
 		
+		return
+		
 		gldrawable = self.get_gl_drawable()
 		glcontext = self.get_gl_context()
 		
@@ -122,48 +124,83 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		if ((self.width < 5) or (self.height < 5)):
 			return  # ignore resize if window is basically invisible
 		
-		gldrawable = self.get_gl_drawable()
-		glcontext = self.get_gl_context()
-		gldrawable.gl_begin(glcontext)
+		#gldrawable = self.get_gl_drawable()
+		#glcontext = self.get_gl_context()
+		#gldrawable.gl_begin(glcontext)
 		
-		adjustGLViewport(0, 0, self.width, self.height)
-		glLoadIdentity()	
-		rotateToDefaultView()
+		#adjustGLViewport(0, 0, self.width, self.height)
+		#glLoadIdentity()	
+		#rotateToDefaultView()
 		
-		gldrawable.gl_end()
+		#gldrawable.gl_end()
 		
 		# Create a new cairo context based on the new window size
-		self.cairo_context = self.window.cairo_create()
+		#self.cairo_context = self.window.cairo_create()
 	
 	def on_expose_event(self, *args):
 		""" Draw the window. """
 		
-		gldrawable = self.get_gl_drawable()
-		glcontext  = self.get_gl_context()
-		gldrawable.gl_begin(glcontext)
+		#gldrawable = self.get_gl_drawable()
+		#glcontext  = self.get_gl_context()
+		#gldrawable.gl_begin(glcontext)
 		
-		glClearColor(1.0,1.0,1.0,1.0)
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+		#glClearColor(1.0,1.0,1.0,1.0)
+		#glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
-		glFrontFace(GL_CW)
-		glColor3f(0,0,0)
+		#glFrontFace(GL_CW)
+		#glColor3f(0,0,0)
 		#self.displayGrid()
 		
-		glPushMatrix()
+		#glPushMatrix()
 		
 		# Draw any 3D stuff first (swap buffer call below would hose any 2D draw calls)
-		if (self.model):
-			self.model.drawModel(width = self.width, height = self.height)
+		#if (self.model):
+		#	self.model.drawModel(width = self.width, height = self.height)
 		
-		glPopMatrix()
-		glFlush()
+		#glPopMatrix()
+		#glFlush()
 		
-		gldrawable.swap_buffers()
-		gldrawable.gl_end()
+		#gldrawable.swap_buffers()
+		#gldrawable.gl_end()
 		
 		# Draw any 2D page elements, like borders, labels, etc.
-		if (self.model and isinstance(self.model, Step)):
-			self.model.drawPageElements(self.cairo_context)
+		#if (self.model and isinstance(self.model, Step)):
+		#	self.model.drawPageElements(self.cairo_context)
+		
+		cr = self.window.cairo_create()
+		
+		cr.set_source_rgb(0.5, 0.5, 0.5)
+		cr.rectangle(0, 0, self.width, self.height)
+		cr.fill()
+		cr.translate(20, 20)
+		cr.scale((self.width - 40) / 1.0, (self.height - 40) / 1.0)
+		cr.set_line_width(0.01)
+		
+		cr.set_source_rgb(0, 0, 0)
+		cr.move_to(0, 0)
+		cr.line_to(1, 0)
+		cr.line_to(1, 1)
+		cr.line_to(0,1)
+		cr.close_path()
+		cr.stroke()
+		
+		text = 'boo'
+		cr.select_font_face('Georgia', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+		cr.set_font_size(0.5)
+		px = max(cr.device_to_user_distance(1, 1))
+		fascent, fdescent, fheight, fxadvance, fyadvance = cr.font_extents()
+		xbearing, ybearing, width, height, xadvance, yadvance = cr.text_extents(text)
+		x = 0.5 - xbearing - width / 2
+		y = 0.5 - fdescent + fheight / 2
+
+		# text
+		print x, y
+		print cr.device_to_user_distance(1, 1)
+		print cr.font_extents()
+		print cr.text_extents(text)
+		cr.move_to(x, y)
+		cr.set_source_rgb(0, 0, 0)
+		cr.show_text(text)
 		
 		# Some test code for cairo label drawing - doesn't do anything at all
 		#context = self.cairo_context
