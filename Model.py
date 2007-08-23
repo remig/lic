@@ -79,28 +79,51 @@ class Instructions():
 	def initPartDimensionsManually(self):
 		# No part dimension cache file exists, so calculate each part size and store in cache file.  Create a 
 		# temporary Frame Buffer Object for this, so we can render to a buffer independent of the display buffer. 
-		
-		loopAgain = False
+	
+		partList = partDictionary.values()
+		partList2 = []
 		sizes = [256, 512, 1024]
+
 		for size in sizes:
 			
 			print "Generating part sizes at %d x %d" % (size, size)
 			# Create a new FBO
 			buffers = createFBO(size, size)
+			if (buffers is None):
+				print "ERROR: Failed to initialize FBO - aborting size init"
+				return
 			
 			# Render each part and calculate their sizes
 			lines = []
-			for p in partDictionary.values():
-				loopAgain = loopAgain or p.initSize(size, size)
-				if (not p.isPrimitive):
+			print "  Have %d parts in this loop" % len(partList)
+			for p in partList:
+
+				outOfBounds = p.initSize(size, size)
+		
+				if ((not outOfBounds) and (not p.isPrimitive)):
 					lines.append("%s %d %d %d %d %d %d\n" % (p.filename, p.width, p.height, p.center[0], p.center[1], p.leftInset, p.bottomInset))
+
+				if (outOfBounds):
+					print "appending %s to next loop" % p.filename
+					partList2.append(p)
+
 			print ""
-			
+
 			# Clean up created FBO
+			print "buffers:"
+			print buffers
+			print ""
 			destroyFBO(*buffers)
 			
-			if (not loopAgain):
-				break
+			if (len(partList2) < 1):
+				print "All parts initialized ok"
+				break  # All parts initialized successfully
+			else:
+				print "Still need to initialize %d parts:" % len(partList2)
+				for p in partList2:
+					print "   - %s" % p.filename
+				partList = partList2  # Some parts rendered out of frame - loop to try bigger frame
+				partList2 = []
 		
 		# Create a part dimension cache file
 		f = file(self.PartDimensionsFilename, 'w')
@@ -579,31 +602,36 @@ class PartOGL():
 		# from bottom left corner to top right.  To verify this, from left and right edges, 10%
 		# below top, count blank pixels.  Whichever is shorter determines rotation - flip
 		# render / drawing if needed.
+		#
+		# *OR*
+		#
+		# Just create a static list of all standard parts along with the necessary rotation needed
+		# to get them from their default file rotation to the rotation seen in Lego's PLIs.
+		#
 		pass
 
 	def checkMaxBounds(self, top, bottom, left, right, width, height):
 		
 		if ((top == 0) and (bottom == height-1)): 
-			print self.filename + " - top & bottom out of bounds - hosed"
+			#print self.filename + " - top & bottom out of bounds - hosed"
 			return True
 		
 		if ((left == 0) and (right == width-1)):
-			print self.filename + " - left & right out of bounds - hosed"
+			#print self.filename + " - left & right out of bounds - hosed"
 			return True
 		
 		if ((top == height) and (bottom == 0)):
-			print self.filename + " - blank page - hosed"
+			#print self.filename + " - blank page - hosed"
 			return True
 		
 		if ((left == width) and (right == 0)):
-			print self.filename + " - blank page - hosed"
+			#print self.filename + " - blank page - hosed"
 			return True
 		
 		return False
 
-	def initSize_getBounds(self, x, y, w, h, first = '_first'):
+	def initSize_getBounds(self, x, y, w, h, first = 'first'):
 		
-		# TODO: Move frame buffer creation up call stack to initPartDimensionsManually, so that it's only created once
 		# Clear the drawing buffer with white
 		glClearColor(1.0, 1.0, 1.0, 0)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -619,7 +647,7 @@ class PartOGL():
 		img = Image.new ("RGB", (w, h), (1, 1, 1))
 		img.fromstring(pixels)
 		img = img.transpose(Image.FLIP_TOP_BOTTOM)
-		img.save ("C:\\LDraw\\tmp\\buf_" + self.filename + first + ".png")
+		img.save ("C:\\LDraw\\tmp\\%s_%s_%d.png" % (self.filename, first, w))
 		
 		data = img.load()
 		top = checkPixelsTop(data, w, h)
@@ -630,27 +658,35 @@ class PartOGL():
 		return (top, bottom, left, right, leftBottom - top, bottomLeft - left)
 
 	def initSize(self, width, height):
+		"""
+		Draw this piece to the alread initialized GL Frame Buffer Object, in order to calculate
+		its displayed width and height.  These dimensions are required to properly lay out PLIs and CSIs.
+		Note that an appropriate FBO *must* be initialized before calling initSize.
+
+		width: width of FBO to render to, in pixels.
+		height: height of FBO to render to, in pixels.
+
+		Returns True if the rendered part has been rendered partially or wholly out of frame.
+		Returns False if part rendered successfully.
+		"""
+
 		# TODO: have this function return True if we need another pass with a bigger buffer, False otherwise
-		# Also need to return the list of parts still needing initialization
 		
 		# Primitive parts need not be sized
 		if (self.isPrimitive):
-			return
+			return False
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
-		print self.filename,
+		#print self.filename,
 		
 		# Draw piece to frame buffer, then calculate bounding box
 		top, bottom, left, right, leftInset, bottomInset = self.initSize_getBounds(0.0, 0.0, width, height)
 		
 		if self.checkMaxBounds(top, bottom, left, right, width, height):
-			# TODO: Now that we're using an arbitrarily resizable FBO for temp rendering, queue this piece up for a re-render at larger size
-			return
+			return True  # Drawn completely out of bounds
 		
 		# If we hit one of these cases, at least one edge was drawn off screen
-		# Try to reposition the drawing and draw again, see if we can fit it on screen
-		# TODO: Blaster_big_stock_arms_instructions.ldr - one displacement not enough - fix by queueing up for re-render at larger size
-		# TODO: Same with Blaster_big_stand_instructions.ldr
+		# Try to reposition the part and draw again, see if we can fit it on screen
 		x = y = 0
 		if (top == 0):
 			y = bottom - height + 2
@@ -668,12 +704,11 @@ class PartOGL():
 			#print self.filename
 			#print "old t: %d, b: %d, l: %d, r: %d" % (top, bottom, left, right)
 			#print "displacing by x: %d, y: %d" % (x, y)
-			top, bottom, left, right, leftInset, bottomInset = self.initSize_getBounds(x, y, width, height, '_second')
+			top, bottom, left, right, leftInset, bottomInset = self.initSize_getBounds(x, y, width, height, 'second')
 			#print "new t: %d, b: %d, l: %d, r: %d" % (top, bottom, left, right)
 		
 		if self.checkMaxBounds(top, bottom, left, right, width, height):
-			# TODO: Now that we're using an arbitrarily resizable FBO for temp rendering, queue this piece up for a re-render at larger size
-			return
+			return True  # Drawn completely out of bounds
 		
 		self.width = right - left + 1
 		self.height = bottom - top + 1
@@ -689,6 +724,8 @@ class PartOGL():
 		#im = im.crop((left, top, right+1, bottom+1))
 		#im.save("C:\\" + self.filename + ".png")
 		#self.width, self.height = im.size
+
+		return False
 
 # TODO: verify these 4 functions for all cases, with blaster
 white = (255, 255, 255)

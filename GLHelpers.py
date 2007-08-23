@@ -77,10 +77,10 @@ def createFBO(width, height):
 	glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, depthbuffer);
 	
 	status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
-	if status != GL_FRAMEBUFFER_COMPLETE_EXT:
-		print "Error in framebuffer activation"
+	if ((status != 0) and (status != GL_FRAMEBUFFER_COMPLETE_EXT)):
+		print "Error in framebuffer activation.  Status: %d, expected %d" % (status, GL_FRAMEBUFFER_COMPLETE_EXT)
 		destroyFBO(texture, framebuffer)
-		return
+		return None
 
 	return (texture, framebuffer)
 	
