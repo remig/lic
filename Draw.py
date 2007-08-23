@@ -162,15 +162,15 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 			self.model.drawPageElements(self.cairo_context)
 		
 		# Some test code for cairo label drawing - doesn't do anything at all
-		context = self.cairo_context
-		context.set_source_rgb(0.0, 0.0, 0.0)
-		context.select_font_face('Arial', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-		context.set_font_size(100)
-		context.move_to(50, 50)
-		text = 'abcdefg'
-		context.show_text(text)
-		fascent, fdescent, fheight, fxadvance, fyadvance = context.font_extents()
-		xbearing, ybearing, width, height, xadvance, yadvance = context.text_extents(text)
+		#context = self.cairo_context
+		#context.set_source_rgb(0.0, 0.0, 0.0)
+		#ontext.select_font_face('Arial', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+		#context.set_font_size(100)
+		#context.move_to(50, 50)
+		#text = 'abcdefg'
+		#context.show_text(text)
+		#fascent, fdescent, fheight, fxadvance, fyadvance = context.font_extents()
+		#xbearing, ybearing, width, height, xadvance, yadvance = context.text_extents(text)
 		
 		return
 

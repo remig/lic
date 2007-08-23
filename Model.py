@@ -46,17 +46,11 @@ class Instructions():
 		# Calculate an initial layout for each PLI in this instruction book
 		for step in self.mainModel.partOGL.steps:
 			step.pli.initLayout()
-		
-		#part = partDictionary['Blaster_big_stock_arms_instructions.ldr']
-		#part = partDictionary['Blaster_big_stand_instructions.ldr']
-		#part = partDictionary['Blaster_big_emitter_core_instructions.ldr']
-		#part.initSize()
-		#print ""
 	
 	def initPartDimensions(self):
 		try:
 			# Have a valid part dimension cache file for this model - load from there
-			f = file(self.PartDimensionsFilename + "die", "r")
+			f = file(self.PartDimensionsFilename, "r")
 			self.initPartDimensionsFromFile(f)
 			f.close()
 		except IOError:
@@ -64,6 +58,8 @@ class Instructions():
 			self.initPartDimensionsManually()
 
 	def initPartDimensionsFromFile(self, f):
+		""" Used to initialize all part dimensions from the specified valid part dimension cache file f."""
+		
 		for line in f:
 			part, w, h, x, y, l, b = line.split()
 			if (not partDictionary.has_key(part)):
@@ -77,56 +73,47 @@ class Instructions():
 			p.bottomInset = int(b)
 	
 	def initPartDimensionsManually(self):
-		# No part dimension cache file exists, so calculate each part size and store in cache file.  Create a 
-		# temporary Frame Buffer Object for this, so we can render to a buffer independent of the display buffer. 
-	
+		"""
+		Used to calculate each part's display width and height if no valid part dimension cache file exists.
+		Creates GL FBOs to render a temp copy of each part, then use those raw pixels to determine size.
+		Will create and store results in a part dimension cache file.
+		"""
+		
 		partList = partDictionary.values()
 		partList2 = []
-		sizes = [256, 512, 1024]
-
+		lines = []
+		sizes = [256, 512, 1024] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
+		
 		for size in sizes:
 			
-			print "Generating part sizes at %d x %d" % (size, size)
 			# Create a new FBO
 			buffers = createFBO(size, size)
 			if (buffers is None):
-				print "ERROR: Failed to initialize FBO - aborting size init"
+				print "ERROR: Failed to initialize FBO - aborting initPartDimensionsManually"
 				return
 			
 			# Render each part and calculate their sizes
-			lines = []
-			print "  Have %d parts in this loop" % len(partList)
 			for p in partList:
-
-				outOfBounds = p.initSize(size, size)
-		
+				
+				outOfBounds = p.initSize(size, size)  # Draw part and calculate its size
+				
 				if ((not outOfBounds) and (not p.isPrimitive)):
 					lines.append("%s %d %d %d %d %d %d\n" % (p.filename, p.width, p.height, p.center[0], p.center[1], p.leftInset, p.bottomInset))
-
+				
 				if (outOfBounds):
-					print "appending %s to next loop" % p.filename
 					partList2.append(p)
-
-			print ""
-
+			
 			# Clean up created FBO
-			print "buffers:"
-			print buffers
-			print ""
 			destroyFBO(*buffers)
 			
 			if (len(partList2) < 1):
-				print "All parts initialized ok"
 				break  # All parts initialized successfully
 			else:
-				print "Still need to initialize %d parts:" % len(partList2)
-				for p in partList2:
-					print "   - %s" % p.filename
-				partList = partList2  # Some parts rendered out of frame - loop to try bigger frame
+				partList = partList2  # Some parts rendered out of frame - loop and try bigger frame
 				partList2 = []
 		
 		# Create a part dimension cache file
-		f = file(self.PartDimensionsFilename, 'w')
+		f = file(self.PartDimensionsFilename, "w")
 		f.writelines(lines)
 		f.close()
 	
@@ -269,12 +256,12 @@ class PLI():
 		context.show_text(text)
 		context.show_text("Howdihow")
 		
-		x = y = 30
-		context.move_to(x, y)
-		context.line_to(x + 50, y + 50)
-		context.line_to(x, y + 50)
-		context.close_path()
-		context.stroke()
+		#x = y = 30
+		#context.move_to(x, y)
+		#context.line_to(x + 50, y + 50)
+		#context.line_to(x, y + 50)
+		#context.close_path()
+		#context.stroke()
 		
 		#self.box.draw(context)
 		for (count, p, x, y) in self.layout.values():
@@ -630,6 +617,18 @@ class PartOGL():
 		
 		return False
 
+	def checkTouchingBounds(self, top, bottom, left, right, width, height):
+		
+		if ((top == 0) or (bottom == height-1)): 
+			#print self.filename + " - top & bottom out of bounds - hosed"
+			return True
+		
+		if ((left == 0) or (right == width-1)):
+			#print self.filename + " - left & right out of bounds - hosed"
+			return True
+		
+		return False
+
 	def initSize_getBounds(self, x, y, w, h, first = 'first'):
 		
 		# Clear the drawing buffer with white
@@ -662,22 +661,20 @@ class PartOGL():
 		Draw this piece to the alread initialized GL Frame Buffer Object, in order to calculate
 		its displayed width and height.  These dimensions are required to properly lay out PLIs and CSIs.
 		Note that an appropriate FBO *must* be initialized before calling initSize.
-
+		
 		width: width of FBO to render to, in pixels.
 		height: height of FBO to render to, in pixels.
-
+		
 		Returns True if the rendered part has been rendered partially or wholly out of frame.
 		Returns False if part rendered successfully.
 		"""
-
-		# TODO: have this function return True if we need another pass with a bigger buffer, False otherwise
 		
 		# Primitive parts need not be sized
 		if (self.isPrimitive):
 			return False
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
-		#print self.filename,
+		print self.filename,
 		
 		# Draw piece to frame buffer, then calculate bounding box
 		top, bottom, left, right, leftInset, bottomInset = self.initSize_getBounds(0.0, 0.0, width, height)
@@ -701,14 +698,15 @@ class PartOGL():
 			x = left - 1
 		
 		if ((x != 0) or (y != 0)):
+			# Drew at least one edge out of bounds - try moving part as much as possible and redrawing
 			#print self.filename
 			#print "old t: %d, b: %d, l: %d, r: %d" % (top, bottom, left, right)
 			#print "displacing by x: %d, y: %d" % (x, y)
 			top, bottom, left, right, leftInset, bottomInset = self.initSize_getBounds(x, y, width, height, 'second')
 			#print "new t: %d, b: %d, l: %d, r: %d" % (top, bottom, left, right)
 		
-		if self.checkMaxBounds(top, bottom, left, right, width, height):
-			return True  # Drawn completely out of bounds
+		if self.checkTouchingBounds(top, bottom, left, right, width, height):
+			return True  # Drew on edge out of bounds - could try another displacement, but easier to just try bigger size
 		
 		self.width = right - left + 1
 		self.height = bottom - top + 1
@@ -721,13 +719,8 @@ class PartOGL():
 		h = dy - (height/2)
 		self.center = (w - x, h - y)
 		
-		#im = im.crop((left, top, right+1, bottom+1))
-		#im.save("C:\\" + self.filename + ".png")
-		#self.width, self.height = im.size
-
 		return False
 
-# TODO: verify these 4 functions for all cases, with blaster
 white = (255, 255, 255)
 def checkPixelsTop(data, width, height):
 	for i in range(0, height):
