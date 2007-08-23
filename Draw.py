@@ -51,7 +51,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		self.tree.append_column(column)
 		
 		self.model = None  # The currently selected Lego model, whether a single part, submodel, step, or main model
-		self.cairo_context = None  # Drawing context for all 2D drawing, done through cairo
 	
 	def on_exit(self, widget, event):
 		gtk.main_quit()
@@ -73,8 +72,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 
 	def on_realize(self, *args):
 		""" Initialize the window. """
-		
-		return
 		
 		gldrawable = self.get_gl_drawable()
 		glcontext = self.get_gl_context()
@@ -100,6 +97,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		#glFrontFace(GL_CCW)
 		#glEnable(GL_CULL_FACE)
 		glClearColor(1.0, 1.0, 1.0, 1.0)  # Draw clear white screen
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
 		print "*** Loading Model ***"
 		self.instructions = Instructions(MODEL_NAME)
@@ -113,7 +111,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		gldrawable.gl_end()
 		
 		self.initializeTree()
-		self.cairo_context = self.window.cairo_create()
 
 	def on_configure_event(self, *args):
 		""" Resize the window. """
@@ -124,96 +121,46 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		if ((self.width < 5) or (self.height < 5)):
 			return  # ignore resize if window is basically invisible
 		
-		#gldrawable = self.get_gl_drawable()
-		#glcontext = self.get_gl_context()
-		#gldrawable.gl_begin(glcontext)
+		gldrawable = self.get_gl_drawable()
+		glcontext = self.get_gl_context()
+		gldrawable.gl_begin(glcontext)
 		
-		#adjustGLViewport(0, 0, self.width, self.height)
-		#glLoadIdentity()	
-		#rotateToDefaultView()
+		adjustGLViewport(0, 0, self.width, self.height)
+		glLoadIdentity()	
+		rotateToDefaultView()
 		
-		#gldrawable.gl_end()
-		
-		# Create a new cairo context based on the new window size
-		#self.cairo_context = self.window.cairo_create()
+		gldrawable.gl_end()
 	
 	def on_expose_event(self, *args):
 		""" Draw the window. """
 		
-		#gldrawable = self.get_gl_drawable()
-		#glcontext  = self.get_gl_context()
-		#gldrawable.gl_begin(glcontext)
+		gldrawable = self.get_gl_drawable()
+		glcontext  = self.get_gl_context()
+		gldrawable.gl_begin(glcontext)
 		
-		#glClearColor(1.0,1.0,1.0,1.0)
-		#glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+		glClearColor(1.0,1.0,1.0,1.0)
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
-		#glFrontFace(GL_CW)
-		#glColor3f(0,0,0)
+		glFrontFace(GL_CW)
+		glColor3f(0,0,0)
 		#self.displayGrid()
 		
-		#glPushMatrix()
+		glPushMatrix()
 		
 		# Draw any 3D stuff first (swap buffer call below would hose any 2D draw calls)
-		#if (self.model):
-		#	self.model.drawModel(width = self.width, height = self.height)
+		if (self.model):
+			self.model.drawModel(width = self.width, height = self.height)
 		
-		#glPopMatrix()
-		#glFlush()
-		
-		#gldrawable.swap_buffers()
-		#gldrawable.gl_end()
-		
-		# Draw any 2D page elements, like borders, labels, etc.
-		#if (self.model and isinstance(self.model, Step)):
-		#	self.model.drawPageElements(self.cairo_context)
-		
-		cr = self.window.cairo_create()
-		
-		cr.set_source_rgb(0.5, 0.5, 0.5)
-		cr.rectangle(0, 0, self.width, self.height)
-		cr.fill()
-		cr.translate(20, 20)
-		cr.scale((self.width - 40) / 1.0, (self.height - 40) / 1.0)
-		cr.set_line_width(0.01)
-		
-		cr.set_source_rgb(0, 0, 0)
-		cr.move_to(0, 0)
-		cr.line_to(1, 0)
-		cr.line_to(1, 1)
-		cr.line_to(0,1)
-		cr.close_path()
-		cr.stroke()
-		
-		text = 'boo'
-		cr.select_font_face('Georgia', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-		cr.set_font_size(0.5)
-		px = max(cr.device_to_user_distance(1, 1))
-		fascent, fdescent, fheight, fxadvance, fyadvance = cr.font_extents()
-		xbearing, ybearing, width, height, xadvance, yadvance = cr.text_extents(text)
-		x = 0.5 - xbearing - width / 2
-		y = 0.5 - fdescent + fheight / 2
+		glPopMatrix()
+		glFlush()
 
-		# text
-		print x, y
-		print cr.device_to_user_distance(1, 1)
-		print cr.font_extents()
-		print cr.text_extents(text)
-		cr.move_to(x, y)
-		cr.set_source_rgb(0, 0, 0)
-		cr.show_text(text)
-		
-		# Some test code for cairo label drawing - doesn't do anything at all
-		#context = self.cairo_context
-		#context.set_source_rgb(0.0, 0.0, 0.0)
-		#ontext.select_font_face('Arial', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-		#context.set_font_size(100)
-		#context.move_to(50, 50)
-		#text = 'abcdefg'
-		#context.show_text(text)
-		#fascent, fdescent, fheight, fxadvance, fyadvance = context.font_extents()
-		#xbearing, ybearing, width, height, xadvance, yadvance = context.text_extents(text)
-		
-		return
+		gldrawable.swap_buffers()
+		gldrawable.gl_end()
+	
+		# Draw any 2D page elements, like borders, labels, etc, from a newly created cairo context
+		cr = self.window.cairo_create()
+		if (self.model and isinstance(self.model, Step)):
+			self.model.drawPageElements(cr)
 
 	def initializeTree(self):
 		print "*** Loading TreeView ***"

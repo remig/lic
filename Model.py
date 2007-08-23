@@ -231,12 +231,14 @@ class PLI():
 			return
 		
 		pushAllGLMatrices()
+		
 		for (count, part, x, y) in self.layout.values():
 			adjustGLViewport(x, height - y - part.height, part.width, part.height)
 			glLoadIdentity()
 			rotateToDefaultView(part.center[0], part.center[1], 0.0)
 			
 			part.drawModel()
+		
 		popAllGLMatrices()
 
 	def drawPageElements(self, context):
@@ -248,22 +250,8 @@ class PLI():
 		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
 			print "ERROR: Trying to draw an unitialized PLI layout!"
 		
-		context.set_source_rgb(1.0, 0.0, 0.0)
-		context.select_font_face('Arial', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-		context.set_font_size(100)
-		context.move_to(50, 50)
-		text = 'abcdefg'
-		context.show_text(text)
-		context.show_text("Howdihow")
-		
-		#x = y = 30
-		#context.move_to(x, y)
-		#context.line_to(x + 50, y + 50)
-		#context.line_to(x, y + 50)
-		#context.close_path()
-		#context.stroke()
-		
-		#self.box.draw(context)
+		self.box.draw(context)
+
 		for (count, p, x, y) in self.layout.values():
 			
 			context.set_source_rgb(1.0, 0.0, 0.0)
