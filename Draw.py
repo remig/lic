@@ -102,9 +102,11 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		glClearColor(1.0, 1.0, 1.0, 1.0)  # Draw clear white screen
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
+		cr = self.window.cairo_create()
+		
 		print "*** Loading Model ***"
 		self.instructions = Instructions(MODEL_NAME)
-		self.instructions.initDraw()
+		self.instructions.initDraw(cr)
 		self.model = self.instructions.getMainModel()
 		
 		adjustGLViewport(0, 0, self.width, self.height)
@@ -223,51 +225,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 def on_exit(widget, event):
 	gtk.main_quit()
 
-def NamedTuple(typename, s):
-	"""Returns a new subclass of tuple with named fields.
-
-	>>> Point = NamedTuple('Point', 'x y')
-	>>> Point.__doc__           # docstring for the new class
-	'Point(x, y)'
-	>>> p = Point(11, y=22)     # instantiate with positional args or keywords
-	>>> p[0] + p[1]             # works just like the tuple (11, 22)
-	33
-	>>> x, y = p                # unpacks just like a tuple
-	>>> x, y
-	(11, 22)
-	>>> p.x + p.y               # fields also accessable by name
-	33
-	>>> p                       # readable __repr__ with name=value style 
-	Point(x=11, y=22)
-	>>> p.replace('x', 100)     # method like str.replace() but using a field name
-	Point(x=100, y=22)
-	"""
-
-	field_names = s.split()
-	if not ''.join(field_names).replace('_', '').isalnum():
-		raise ValueError('Type names and field names can only contain alphanumeric characters and underscores')
-	argtxt = ', '.join(field_names)
-	reprtxt = ', '.join('%s=%%r' % name for name in field_names)
-	arglist = repr(field_names)    
-	template = '''class %(typename)s(tuple):
-		'%(typename)s(%(argtxt)s)'
-		__slots__ = ()
-		def __new__(cls, %(argtxt)s):
-			return tuple.__new__(cls, (%(argtxt)s,))
-		def __repr__(self):
-			return '%(typename)s(%(reprtxt)s)' %% self
-		def replace(self, field, value):
-			return %(typename)s(**dict((a, value if a==field else getattr(self, a)) for a in %(arglist)s))            
-	''' % locals()
-	for i, name in enumerate(field_names):
-		template += '\n        %s = property(itemgetter(%d))\n' % (name, i)
-	m = dict(itemgetter=itemgetter)
-	exec template in m
-	result = m[typename]
-	if hasattr(sys, '_getframe'):
-		result.__module__ = sys._getframe(1).f_globals['__name__']
-	return result
-
 def go():
 	area = DrawArea()
 	
@@ -283,7 +240,8 @@ def go():
 	
 	gtk.main()
 
-go()
+if __name__ == '__main__':
+	go()
 
 #import hotshot
 #prof = hotshot.Profile("hotshot_stats_no_int")

@@ -17,6 +17,13 @@ UNINIT_PROP = -1
 # TODO: remove partDictionary global variable - used in few enough spots that it shouldn't be global anymore
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 
+class Point():
+	def __init__(self, x = 0, y = 0):
+		self.x = x
+		self.y = y
+	def __repr__(self):
+		return "Point(%d, %d)" % (self.x, self.y)
+
 class Instructions():
 	"""	Represents an overall Lego instruction booklet.	"""
 	
@@ -38,14 +45,14 @@ class Instructions():
 	def getCurrentModel(self):
 		pass
 
-	def initDraw(self):
+	def initDraw(self, context):
 		
 		# Calculate the width and height of each partOGL in the part dictionary
 		self.initPartDimensions()
 		
 		# Calculate an initial layout for each PLI in this instruction book
 		for step in self.mainModel.partOGL.steps:
-			step.pli.initLayout()
+			step.pli.initLayout(context)
 	
 	def initPartDimensions(self):
 		try:
@@ -183,52 +190,58 @@ class PLI():
 	Parts List Image.  Includes border and layout info for a list of parts added to a step.
 	"""
 	
-	def __init__(self, x = 10, y = 10):
-		self.x = x  # top left corner of PLI box
-		self.y = y  # top right corner of PLI box
-		
-		self.layout = {}  # {part filename: [count, part, x, y]}
-		self.box = Box(x, y)
+	def __init__(self, topLeftCorner = Point(10, 10)):
+		self.layout = {}  # {part filename: [count, part, bottomLeftCorner]}
+		self.box = Box(topLeftCorner.x, topLeftCorner.y)
 	
 	def addPartOGL(self, part):
-
+		
 		if (part.filename in self.layout):
 			self.layout[part.filename][0] += 1
 		else:
-			self.layout[part.filename] = [1, part, 0, 0]
+			self.layout[part.filename] = [1, part, Point(0, 0), Point(0, 0)]
 
-	def initLayout(self):
+	def initLayout(self, context):
 		
 		b = self.box
 		# Note that PLI box's top left corner must be set by container before this
-		x = b.x + b.internalGap
+		overallX = b.x + b.internalGap
 		b.width = b.height = UNINIT_PROP
 		
-		for item in self.layout.values():  # item: [count, part, x, y]
-			part = item[1]
+		for (count, part, corner, labelCorner) in self.layout.values():  # item: [count, part, bottomLeftCorner]
 			
 			# If this part has steps of its own, like any good submodel, initialize those PLIs
 			for step in part.steps:
-				step.pli.initLayout()
+				step.pli.initLayout(context)
 			
 			if (part.width == UNINIT_PROP or part.height == UNINIT_PROP):
 				# TODO: Remove this check once all is well
 				print "ERROR: Trying to init the a PLI layout containing uninitialized parts!"
 				continue
 			
-			# TODO: Need to calculate part's quantity label and increase layout box if label exceeds part box
-			# Bonus: can store quantity label's reference point, if calculated here, instead of calculating on each draw... duh
-			
-			# TODO: Maybe try out NamedTuple recipe from here: http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/500261
-			# Would be much more clear with Point(x,y), instead of item[2] and item[3]... readability = good
-			
 			# Calculate and store this part's bottom left corner
-			item[2] = x
-			item[3] = b.y + b.internalGap + part.height
+			corner.x = overallX
+			corner.y = b.y + b.internalGap + part.height
 			
-			# Increase both x and box width & height to fit this part
-			x += part.width + b.internalGap
-			b.width = x - b.x
+			# Calculate and store the reference point for this part's quantity label
+			if (count > 0):
+			
+				# TODO: Create then use a Font class here, to store user's label font choices
+				context.select_font_face('Arial', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+				context.set_font_size(30)
+				
+				# Pull label display dimension from cairo, for the 'x' in all quantity labels (like '7x')
+				xbearing, ybearing, width, height, xadvance, yadvance = context.text_extents('x')
+				
+				# Position label based on part corner, empty corner triangle and label size
+				slope = part.leftInset / float(part.bottomInset)
+				dx = ((part.leftInset - (height / 2.)) / slope)
+				labelCorner.x = corner.x - width + max(0, dx)
+				labelCorner.y = corner.y + (height / 2.)
+			
+			# Increase both overall x and box width & height to make the PLI big enough for this part
+			overallX += part.width + b.internalGap
+			b.width = overallX - b.x
 			b.height = max(b.height, part.height + (b.internalGap * 2))
 
 	def drawParts(self, width, height):
@@ -243,11 +256,10 @@ class PLI():
 		
 		pushAllGLMatrices()
 		
-		for (count, part, x, y) in self.layout.values():
-			adjustGLViewport(x, height - y, part.width, part.height)
+		for (count, part, corner, labelCorner) in self.layout.values():
+			adjustGLViewport(corner.x, height - corner.y, part.width, part.height)
 			glLoadIdentity()
 			rotateToDefaultView(part.center[0], part.center[1], 0.0)
-			
 			part.drawModel()
 		
 		popAllGLMatrices()
@@ -265,32 +277,25 @@ class PLI():
 		self.box.draw(context)
 		
 		# Draw the quantity label for each part, if needed
-		for (count, p, x, y) in self.layout.values():
+		for (count, part, corner, labelCorner) in self.layout.values():
 			
 			# Temp debuggin - draw bottom left empty triangle
 			context.set_source_rgb(1.0, 0.0, 0.0)
-			context.move_to(x, y)
-			context.line_to(x + p.bottomInset, y)
-			context.line_to(x, y - p.leftInset)
+			context.move_to(corner.x, corner.y)
+			context.line_to(corner.x + part.bottomInset, corner.y)
+			context.line_to(corner.x, corner.y - part.leftInset)
 			context.close_path()
 			context.stroke()
 			
+			# Temp debug - draw rectangle bounding calculated 'x'
+			#context.rectangle(dx + xbearing, labelTopLeftY, width, height)
+			#context.stroke()
+			
+			# Draw quantity label
 			# TODO: Create then use a Font class here, to store user's label font choices
 			context.select_font_face('Arial', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
 			context.set_font_size(30)
-			
-			# Pull label display dimension from cairo, for the 'x' in all quantity labels (like '7x')
-			xbearing, ybearing, width, height, xadvance, yadvance = context.text_extents('x')
-			
-			m = p.leftInset / float(p.bottomInset)
-			dx = max(x - width, (((y + ybearing + (height/2.)) - (y - p.leftInset)) / m) + x - width)
-			
-			# Temp debug - draw rectangle bounding calculated 'x'
-			context.rectangle(dx + xbearing, y + ybearing + (height/2.), width, height)
-			context.stroke()
-			
-			# Finally, draw quantity label
-			context.move_to(dx, y + (height/2.))
+			context.move_to(labelCorner.x, labelCorner.y)
 			context.show_text('x')
 
 class CSI():
