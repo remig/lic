@@ -131,8 +131,13 @@ class Font():
 		self.color = color
 		self.bold = bold
 		self.italic = italic
-	
-	def convertToCairoFontFace(self):
+
+	def passToCairo(self, context):
+		""" 
+		Set the specified cairo context's current font info to the info stored in this Font. 
+		This overwrites any current cairo font settings - caller is responsible for caching, if needed.
+		"""
+
 		if self.bold:
 			bold = cairo.FONT_WEIGHT_BOLD
 		else:
@@ -143,7 +148,9 @@ class Font():
 		else:
 			italic = cairo.FONT_SLANT_NORMAL
 			
-		return (self.face, italic, bold)
+		context.select_font_face(self.face, italic, bold)
+		context.set_font_size(self.size)
+		context.set_source_rgb(*self.color)
 	
 class Line():
 	"""
@@ -251,16 +258,15 @@ class PLI():
 			corner.x = overallX
 			corner.y = b.y + b.internalGap + part.height
 			
-			# Calculate and store the reference point for this part's quantity label
-			context.select_font_face(*self.qtyLabelFont.convertToCairoFontFace())
-			context.set_font_size(self.qtyLabelFont.size)
+			# Tell cairo to use the quantity label's current font
+			self.qtyLabelFont.passToCairo(context)
 			
+			# Figure out the display height of multiplier label and the width of full quantity label
 			label = str(count) + self.qtyMultiplierChar
-			# Figure out the display height of 'x' label and width of full label
 			xbearing, ybearing,     xWidth,     xHeight, xa, ya = context.text_extents(self.qtyMultiplierChar)
 			xbearing, ybearing, labelWidth, labelHeight, xa, ya = context.text_extents(label)
 			
-			# Position label based on part corner, empty corner triangle and label size
+			# Position label based on part corner, empty corner triangle and label's size
 			if (part.leftInset == part.bottomInset == 0):
 				dx = -5   # Bottom left triangle is empty - shift just a little, for a touch more padding
 			else:
@@ -280,7 +286,7 @@ class PLI():
 			# Account for any x bearing in label (space between left corner of bounding box and actual reference point)
 			labelCorner.x -= xbearing
 			
-			# Increase both overall x and box width & height to make the PLI big enough for this part
+			# Increase overall x, box width and box height to make PLI box big enough for this part
 			overallX += part.width + b.internalGap
 			b.width = overallX - b.x
 			b.height = max(b.height, part.height + int(xHeight / 2) + (b.internalGap * 2))
@@ -321,10 +327,7 @@ class PLI():
 		for (count, part, corner, labelCorner) in self.layout.values():
 			
 			# Draw part's quantity label
-			# TODO: Create then use a Font class here, to store user's label font choices
-			context.select_font_face(*self.qtyLabelFont.convertToCairoFontFace())
-			context.set_font_size(self.qtyLabelFont.size)
-			context.set_source_rgb(*self.qtyLabelFont.color)
+			self.qtyLabelFont.passToCairo(context)
 			context.move_to(labelCorner.x, labelCorner.y)
 			context.show_text(str(count) + self.qtyMultiplierChar)
 
