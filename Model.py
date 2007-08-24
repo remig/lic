@@ -203,6 +203,10 @@ class PLI():
 
 	def initLayout(self, context):
 		
+		# TODO: This entire method places parts from left to right in the order they
+		# were added to PLI. *VERY NAIVE* and ugly.  After CSIs are properly created
+		# and laid out, redo this algorithm to have PLIs flow around CSIs
+		
 		b = self.box
 		# Note that PLI box's top left corner must be set by container before this
 		overallX = b.x + b.internalGap
@@ -224,29 +228,39 @@ class PLI():
 			corner.y = b.y + b.internalGap + part.height
 			
 			# Calculate and store the reference point for this part's quantity label
-			if (count > 0):
+			# TODO: Create then use a Font class here, to store user's label font choices
+			context.select_font_face('Arial', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+			context.set_font_size(15)
 			
-				# TODO: Create then use a Font class here, to store user's label font choices
-				context.select_font_face('Arial', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-				context.set_font_size(30)
-				
-				# Pull label display dimension from cairo, for the 'x' in all quantity labels (like '7x')
-				xbearing, ybearing, width, height, xadvance, yadvance = context.text_extents('x')
-				
-				# Position label based on part corner, empty corner triangle and label size
-				if (part.leftInset == part.bottomInset == 0):
-					dx = 0   # Bottom left triangle is empty - no need to shift anything
-				else:
-					slope = part.leftInset / float(part.bottomInset)
-					dx = ((part.leftInset - (height / 2.)) / slope)
-					
-				labelCorner.x = corner.x - width + max(0, dx)
-				labelCorner.y = corner.y + (height / 2.)
+			label = str(count) + 'x'
+			# Figure out the display height of 'x' label and width of full label
+			xbearing, ybearing,     xWidth,     xHeight, xa, ya = context.text_extents('x')
+			xbearing, ybearing, labelWidth, labelHeight, xa, ya = context.text_extents(label)
+			
+			# Position label based on part corner, empty corner triangle and label size
+			if (part.leftInset == part.bottomInset == 0):
+				dx = -5   # Bottom left triangle is empty - shift just a little, for a touch more padding
+			else:
+				slope = part.leftInset / float(part.bottomInset)
+				dx = ((part.leftInset - (xHeight / 2)) / slope) - 5  # 5 for a touch more padding
+			
+			labelCorner.x = int(corner.x - labelWidth + max(0, dx))
+			labelCorner.y = int(corner.y + (xHeight / 2))
+			
+			if (labelCorner.x < overallX):
+				# We're trying to draw the label to the left of the part's current position - shift everything
+				dx = overallX - labelCorner.x
+				overallX += dx
+				labelCorner.x += dx
+				corner.x += dx
+			
+			# Account for any x bearing in label (space between left corner of bounding box and actual reference point)
+			labelCorner.x -= xbearing
 			
 			# Increase both overall x and box width & height to make the PLI big enough for this part
 			overallX += part.width + b.internalGap
 			b.width = overallX - b.x
-			b.height = max(b.height, part.height + (b.internalGap * 2))
+			b.height = max(b.height, part.height + int(xHeight / 2) + (b.internalGap * 2))
 
 	def drawParts(self, width, height):
 		""" Must be called inside a valid gldrawable context. """
@@ -283,24 +297,13 @@ class PLI():
 		# Draw the quantity label for each part, if needed
 		for (count, part, corner, labelCorner) in self.layout.values():
 			
-			# Temp debuggin - draw bottom left empty triangle
-			context.set_source_rgb(1.0, 0.0, 0.0)
-			context.move_to(corner.x, corner.y)
-			context.line_to(corner.x + part.bottomInset, corner.y)
-			context.line_to(corner.x, corner.y - part.leftInset)
-			context.close_path()
-			context.stroke()
-			
-			# Temp debug - draw rectangle bounding calculated 'x'
-			#context.rectangle(dx + xbearing, labelTopLeftY, width, height)
-			#context.stroke()
-			
-			# Draw quantity label
+			# Draw part's quantity label
 			# TODO: Create then use a Font class here, to store user's label font choices
+			context.set_source_rgb(0.0, 0.0, 0.0)
 			context.select_font_face('Arial', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-			context.set_font_size(30)
+			context.set_font_size(15)
 			context.move_to(labelCorner.x, labelCorner.y)
-			context.show_text('x')
+			context.show_text(str(count) + 'x')
 
 class CSI():
 	"""
