@@ -198,14 +198,16 @@ class PLI():
 			self.layout[part.filename] = [1, part, 0, 0]
 
 	def initLayout(self):
-
-		b = self.box
-		b.width = b.height = UNINIT_PROP
-		x = b.x + b.internalGap
 		
-		for item in self.layout.values():
+		b = self.box
+		# Note that PLI box's top left corner must be set by container before this
+		x = b.x + b.internalGap
+		b.width = b.height = UNINIT_PROP
+		
+		for item in self.layout.values():  # item: [count, part, x, y]
 			part = item[1]
 			
+			# If this part has steps of its own, like any good submodel, initialize those PLIs
 			for step in part.steps:
 				step.pli.initLayout()
 			
@@ -214,8 +216,17 @@ class PLI():
 				print "ERROR: Trying to init the a PLI layout containing uninitialized parts!"
 				continue
 			
+			# TODO: Need to calculate part's quantity label and increase layout box if label exceeds part box
+			# Bonus: can store quantity label's reference point, if calculated here, instead of calculating on each draw... duh
+			
+			# TODO: Maybe try out NamedTuple recipe from here: http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/500261
+			# Would be much more clear with Point(x,y), instead of item[2] and item[3]... readability = good
+			
+			# Calculate and store this part's bottom left corner
 			item[2] = x
-			item[3] = b.y + b.internalGap
+			item[3] = b.y + b.internalGap + part.height
+			
+			# Increase both x and box width & height to fit this part
 			x += part.width + b.internalGap
 			b.width = x - b.x
 			b.height = max(b.height, part.height + (b.internalGap * 2))
@@ -233,7 +244,7 @@ class PLI():
 		pushAllGLMatrices()
 		
 		for (count, part, x, y) in self.layout.values():
-			adjustGLViewport(x, height - y - part.height, part.width, part.height)
+			adjustGLViewport(x, height - y, part.width, part.height)
 			glLoadIdentity()
 			rotateToDefaultView(part.center[0], part.center[1], 0.0)
 			
@@ -250,30 +261,37 @@ class PLI():
 		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
 			print "ERROR: Trying to draw an unitialized PLI layout!"
 		
+		# Draw the PLIs overall bounding box
 		self.box.draw(context)
-
+		
+		# Draw the quantity label for each part, if needed
 		for (count, p, x, y) in self.layout.values():
 			
+			# Temp debuggin - draw bottom left empty triangle
 			context.set_source_rgb(1.0, 0.0, 0.0)
-			context.move_to(x, y + p.leftInset)
-			context.line_to(x + p.bottomInset, y + p.height)
-			context.line_to(x, y + p.height)
+			context.move_to(x, y)
+			context.line_to(x + p.bottomInset, y)
+			context.line_to(x, y - p.leftInset)
 			context.close_path()
 			context.stroke()
 			
-			# TODO: Draw each PLI quantity label here.  cairo_text_extents calculates label size
-			# draw\cairo\labels.c: 235 for sizing, 395 for drawing, 37 for setting font
+			# TODO: Create then use a Font class here, to store user's label font choices
 			context.select_font_face('Arial', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-			context.set_font_size(10)
-			context.move_to(20, 20)
-			text = 'x'
-			context.show_text(text)
-		
-		# TODO: Draw part quantity labels.  
-		# Label's y: center of label's 'x' == bottom of part box
-		# Label's x: depends on part - as far into the part box as possible without overlapping part
-		# To calculate x, find the intersection point between calculated triangle's hypotenuse and
-		# horizontal line placed above label's 'x' (or more, for padding)
+			context.set_font_size(30)
+			
+			# Pull label display dimension from cairo, for the 'x' in all quantity labels (like '7x')
+			xbearing, ybearing, width, height, xadvance, yadvance = context.text_extents('x')
+			
+			m = p.leftInset / float(p.bottomInset)
+			dx = max(x - width, (((y + ybearing + (height/2.)) - (y - p.leftInset)) / m) + x - width)
+			
+			# Temp debug - draw rectangle bounding calculated 'x'
+			context.rectangle(dx + xbearing, y + ybearing + (height/2.), width, height)
+			context.stroke()
+			
+			# Finally, draw quantity label
+			context.move_to(dx, y + (height/2.))
+			context.show_text('x')
 
 class CSI():
 	"""
@@ -638,11 +656,11 @@ class PartOGL():
 		
 		data = img.load()
 		top = checkPixelsTop(data, w, h)
-		bottom, bottomLeft = checkPixelsBottom(data, w, h, top)
-		left, leftBottom = checkPixelsLeft(data, w, h, top, bottom)
+		bottom, bottomInset = checkPixelsBottom(data, w, h, top)
+		left, leftInset = checkPixelsLeft(data, w, h, top, bottom)
 		right = checkPixelsRight(data, w, h, top, bottom, left)
 		
-		return (top, bottom, left, right, leftBottom - top, bottomLeft - left)
+		return (top, bottom, left, right, bottom - leftInset, bottomInset - left)
 
 	def initSize(self, width, height):
 		"""
