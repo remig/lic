@@ -234,8 +234,12 @@ class PLI():
 				xbearing, ybearing, width, height, xadvance, yadvance = context.text_extents('x')
 				
 				# Position label based on part corner, empty corner triangle and label size
-				slope = part.leftInset / float(part.bottomInset)
-				dx = ((part.leftInset - (height / 2.)) / slope)
+				if (part.leftInset == part.bottomInset == 0):
+					dx = 0   # Bottom left triangle is empty - no need to shift anything
+				else:
+					slope = part.leftInset / float(part.bottomInset)
+					dx = ((part.leftInset - (height / 2.)) / slope)
+					
 				labelCorner.x = corner.x - width + max(0, dx)
 				labelCorner.y = corner.y + (height / 2.)
 			
@@ -657,7 +661,7 @@ class PartOGL():
 		img = Image.new ("RGB", (w, h), (1, 1, 1))
 		img.fromstring(pixels)
 		img = img.transpose(Image.FLIP_TOP_BOTTOM)
-		img.save ("C:\\LDraw\\tmp\\%s_%s_%d.png" % (self.filename, first, w))
+		#img.save ("C:\\LDraw\\tmp\\%s_%s_%d.png" % (self.filename, first, w))
 		
 		data = img.load()
 		top = checkPixelsTop(data, w, h)
