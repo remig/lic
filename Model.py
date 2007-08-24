@@ -124,6 +124,27 @@ class Instructions():
 		f.writelines(lines)
 		f.close()
 	
+class Font():
+	def __init__(self, size, face = "Arial", color = [0, 0, 0], bold = False, italic = False):
+		self.size = size
+		self.face = face
+		self.color = color
+		self.bold = bold
+		self.italic = italic
+	
+	def convertToCairoFontFace(self):
+		if self.bold:
+			bold = cairo.FONT_WEIGHT_BOLD
+		else:
+			bold = cairo.FONT_WEIGHT_NORMAL
+		
+		if self.italic:
+			italic = cairo.FONT_SLANT_ITALIC
+		else:
+			italic = cairo.FONT_SLANT_NORMAL
+			
+		return (self.face, italic, bold)
+	
 class Line():
 	"""
 	Drawing properties for any given line an instruction book.
@@ -191,8 +212,11 @@ class PLI():
 	"""
 	
 	def __init__(self, topLeftCorner = Point(10, 10)):
-		self.layout = {}  # {part filename: [count, part, bottomLeftCorner]}
+		
 		self.box = Box(topLeftCorner.x, topLeftCorner.y)
+		self.qtyLabelFont = Font(size = 14, bold = True)
+		self.qtyMultiplierChar = 'x'
+		self.layout = {}  # {part filename: [count, part, bottomLeftCorner, qtyLabelReference]}
 	
 	def addPartOGL(self, part):
 		
@@ -204,8 +228,8 @@ class PLI():
 	def initLayout(self, context):
 		
 		# TODO: This entire method places parts from left to right in the order they
-		# were added to PLI. *VERY NAIVE* and ugly.  After CSIs are properly created
-		# and laid out, redo this algorithm to have PLIs flow around CSIs
+		# were added to PLI. *Very* naive, and usually ugly.  After CSIs are properly
+		# created and laid out, redo this algorithm to have PLIs flow around CSIs
 		
 		b = self.box
 		# Note that PLI box's top left corner must be set by container before this
@@ -228,13 +252,12 @@ class PLI():
 			corner.y = b.y + b.internalGap + part.height
 			
 			# Calculate and store the reference point for this part's quantity label
-			# TODO: Create then use a Font class here, to store user's label font choices
-			context.select_font_face('Arial', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-			context.set_font_size(15)
+			context.select_font_face(*self.qtyLabelFont.convertToCairoFontFace())
+			context.set_font_size(self.qtyLabelFont.size)
 			
-			label = str(count) + 'x'
+			label = str(count) + self.qtyMultiplierChar
 			# Figure out the display height of 'x' label and width of full label
-			xbearing, ybearing,     xWidth,     xHeight, xa, ya = context.text_extents('x')
+			xbearing, ybearing,     xWidth,     xHeight, xa, ya = context.text_extents(self.qtyMultiplierChar)
 			xbearing, ybearing, labelWidth, labelHeight, xa, ya = context.text_extents(label)
 			
 			# Position label based on part corner, empty corner triangle and label size
@@ -299,11 +322,11 @@ class PLI():
 			
 			# Draw part's quantity label
 			# TODO: Create then use a Font class here, to store user's label font choices
-			context.set_source_rgb(0.0, 0.0, 0.0)
-			context.select_font_face('Arial', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-			context.set_font_size(15)
+			context.select_font_face(*self.qtyLabelFont.convertToCairoFontFace())
+			context.set_font_size(self.qtyLabelFont.size)
+			context.set_source_rgb(*self.qtyLabelFont.color)
 			context.move_to(labelCorner.x, labelCorner.y)
-			context.show_text(str(count) + 'x')
+			context.show_text(str(count) + self.qtyMultiplierChar)
 
 class CSI():
 	"""
