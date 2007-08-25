@@ -41,6 +41,8 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		self.connect( "realize", self.on_realize )  # one shot initialization
 		self.connect( "configure_event", self.on_configure_event ) # given a size and width, resized
 		self.connect( "button_press_event", self.on_button_press )
+		self.connect( "delete_event", self.on_exit )
+		self.connect( "destroy", self.on_destroy )
 		
 		self.tree = gui_xml.get_widget("treeview")
 		self.treemodel = gtk.TreeStore(gobject.TYPE_STRING, gobject.TYPE_PYOBJECT)
@@ -55,7 +57,12 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		self.model = None  # The currently selected Lego model, whether a single part, submodel, step, or main model
 	
-	def on_exit(self, widget, event):
+	def on_exit(self, widget, event, data=None):
+		return False
+
+	def on_destroy(self, widget, data=None):
+		# Clean up created FBO
+		destroyFBO(*self.buffers)
 		gtk.main_quit()
 
 	def on_button_press(self, *args):
@@ -117,6 +124,12 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		glcontext = self.get_gl_context()
 		gldrawable.gl_begin(glcontext)
 		
+		# Create a new blank GL FBO as a temporary buffer to hold any required 3D renderings
+		self.buffers = createFBO(self.width, self.height)
+		if (self.buffers is None):
+			print "ERROR: Failed to initialize FBO - aborting main window draw"
+			return
+		
 		adjustGLViewport(0, 0, self.width, self.height)
 		glLoadIdentity()	
 		rotateToDefaultView()
@@ -126,26 +139,24 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def on_expose_event(self, *args):
 		""" Draw the window. """
 		
+		# TODO: This all works, but slowly - get flicker.  Need to double buffer or something
+		
 		# Create a fresh, blank cairo context attached to the window's display area
 		cr = self.window.cairo_create()
 		cr.set_source_rgb(0.9, 0.9, 0.9)  # 0.5 for grey border
 		cr.paint()
 		
-		# Create a new blank GL FBO as a temporary buffer to hold any required 3D renderings
-		buffers = createFBO(self.width, self.height)
-		if (buffers is None):
-			print "ERROR: Failed to initialize FBO - aborting main window draw"
-			return
 		glClearColor(1.0, 1.0, 1.0, 0)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
-		# Draw any 3D stuff
+		# Draw the currently selected model / part / step / whatnot
 		if (self.model):
 			self.model.drawModel(width = self.width, height = self.height)
 		
 		# Copy the FBO to a new cairo surface, then dump that surface to the current context
 		pixels = glReadPixels (0, 0, self.width, self.height, GL_RGBA,  GL_UNSIGNED_BYTE)
 		surface = cairo.ImageSurface.create_for_data(pixels, cairo.FORMAT_ARGB32, self.width, self.height, self.width * 4)
+		#crTmp = cairo.Context(surface)
 		cr.set_source_surface(surface)
 		cr.paint()
 		
@@ -153,9 +164,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		if (self.model and isinstance(self.model, Step)):
 			self.model.drawPageElements(cr)
 		
-		# Clean up created FBO
-		destroyFBO(*buffers)
-
 	def initializeTree(self):
 		print "*** Loading TreeView ***"
 		root = self.insert_row(self.treemodel, None, None, self.model.name, self.model)
@@ -211,20 +219,14 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		glVertex3i( 0, 0, 1000 )
 		glEnd()
 
-def on_exit(widget, event):
-	gtk.main_quit()
-
 def go():
 	area = DrawArea()
-	
 	main = gui_xml.get_widget("main_window")
-	main.connect( "delete_event", on_exit )
-	
 	box = gui_xml.get_widget("box_opengl")
 	box.pack_start(area)  
 
 	#main.maximize()
-	main.set_title("First example")
+	main.set_title("Title Goes Here When Close To Done")
 	main.show_all()
 	
 	gtk.main()
