@@ -304,7 +304,7 @@ class PLI():
 		pushAllGLMatrices()
 		
 		for (count, part, corner, labelCorner) in self.layout.values():
-			adjustGLViewport(corner.x, height - corner.y, part.width, part.height)
+			adjustGLViewport(corner.x, corner.y - part.height, part.width, part.height)
 			glLoadIdentity()
 			rotateToDefaultView(part.center[0], part.center[1], 0.0)
 			part.drawModel()
@@ -628,17 +628,8 @@ class PartOGL():
 		glCallList(self.oglDispID)
 
 	def initSize_checkRotation(self):
-		# TODO: Once a part's dimensions have been calculated, use the existing bounds and render
-		# to check if it's rotated correctly.  Want all long skinny pieces to go the same way -
-		# from bottom left corner to top right.  To verify this, from left and right edges, 10%
-		# below top, count blank pixels.  Whichever is shorter determines rotation - flip
-		# render / drawing if needed.
-		#
-		# *OR*
-		#
-		# Just create a static list of all standard parts along with the necessary rotation needed
+		# TODO: Create a static list of all standard parts along with the necessary rotation needed
 		# to get them from their default file rotation to the rotation seen in Lego's PLIs.
-		#
 		pass
 
 	def checkMaxBounds(self, top, bottom, left, right, width, height):
@@ -689,7 +680,6 @@ class PartOGL():
 		pixels = glReadPixels (0, 0, w, h, GL_RGB,  GL_UNSIGNED_BYTE)
 		img = Image.new ("RGB", (w, h), (1, 1, 1))
 		img.fromstring(pixels)
-		img = img.transpose(Image.FLIP_TOP_BOTTOM)
 		#img.save ("C:\\LDraw\\tmp\\%s_%s_%d.png" % (self.filename, first, w))
 		
 		data = img.load()
@@ -736,10 +726,10 @@ class PartOGL():
 			y = top - 1
 		
 		if (left == 0):
-			x = right - width + 2
+			x = width - right - 2
 		
 		if (right == width-1):
-			x = left - 1
+			x = 1 - left
 		
 		if ((x != 0) or (y != 0)):
 			# Drew at least one edge out of bounds - try moving part as much as possible and redrawing
@@ -761,7 +751,7 @@ class PartOGL():
 		dy = top + (self.height/2)
 		w = dx - (width/2)
 		h = dy - (height/2)
-		self.center = (w + x, h + y)
+		self.center = (x - w, y + h)
 		
 		return False
 

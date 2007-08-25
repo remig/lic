@@ -21,12 +21,12 @@ def adjustGLViewport(x, y, width, height):
 
 def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0):
 	# position (x,y,z), look at (x,y,z), up vector (x,y,z)
-	gluLookAt(x, y, -1000.0,  x, y, z,  0.0, -1.0, 0.0)
+	gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
 	
 	# Rotate model into something approximating the regular ortho Lego view.
 	# TODO: Figure out the exact rotation for this.
 	glRotatef(20.0, 1.0, 0.0, 0.0,)
-	glRotatef(135.0, 0.0, 1.0, 0.0,)
+	glRotatef(45.0, 0.0, 1.0, 0.0,)
 
 def pushAllGLMatrices():
 	glPushAttrib(GL_TRANSFORM_BIT | GL_VIEWPORT_BIT)

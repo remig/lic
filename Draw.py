@@ -76,12 +76,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def on_realize(self, *args):
 		""" Initialize the window. """
 		
-		gldrawable = self.get_gl_drawable()
-		glcontext = self.get_gl_context()
-		
-		if not gldrawable.gl_begin(glcontext):
-			return
-		
 		specular = [1.0, 1.0, 1.0, 1.0]
 		shininess = [50.0]
 		lightPos = [1.0, 1.0, 1.0, 0.0]
@@ -102,18 +96,11 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		glClearColor(1.0, 1.0, 1.0, 1.0)  # Draw clear white screen
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
-		cr = self.window.cairo_create()
-		
 		print "*** Loading Model ***"
+		cr = self.window.cairo_create()
 		self.instructions = Instructions(MODEL_NAME)
 		self.instructions.initDraw(cr)
 		self.model = self.instructions.getMainModel()
-		
-		adjustGLViewport(0, 0, self.width, self.height)
-		glLoadIdentity()	
-		rotateToDefaultView()
-		
-		gldrawable.gl_end()
 		
 		self.initializeTree()
 
@@ -139,33 +126,35 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def on_expose_event(self, *args):
 		""" Draw the window. """
 		
-		gldrawable = self.get_gl_drawable()
-		glcontext  = self.get_gl_context()
-		gldrawable.gl_begin(glcontext)
+		# Create a fresh, blank cairo context attached to the window's display area
+		cr = self.window.cairo_create()
+		cr.set_source_rgb(0.9, 0.9, 0.9)  # 0.5 for grey border
+		cr.paint()
 		
-		glClearColor(1.0,1.0,1.0,1.0)
+		# Create a new blank GL FBO as a temporary buffer to hold any required 3D renderings
+		buffers = createFBO(self.width, self.height)
+		if (buffers is None):
+			print "ERROR: Failed to initialize FBO - aborting main window draw"
+			return
+		glClearColor(1.0, 1.0, 1.0, 0)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
-		glFrontFace(GL_CW)
-		glColor3f(0,0,0)
-		#self.displayGrid()
-		
-		glPushMatrix()
-		
-		# Draw any 3D stuff first (swap buffer call below would hose any 2D draw calls)
+		# Draw any 3D stuff
 		if (self.model):
 			self.model.drawModel(width = self.width, height = self.height)
 		
-		glPopMatrix()
-		glFlush()
-
-		gldrawable.swap_buffers()
-		gldrawable.gl_end()
-	
-		# Draw any 2D page elements, like borders, labels, etc, from a newly created cairo context
-		cr = self.window.cairo_create()
+		# Copy the FBO to a new cairo surface, then dump that surface to the current context
+		pixels = glReadPixels (0, 0, self.width, self.height, GL_RGBA,  GL_UNSIGNED_BYTE)
+		surface = cairo.ImageSurface.create_for_data(pixels, cairo.FORMAT_ARGB32, self.width, self.height, self.width * 4)
+		cr.set_source_surface(surface)
+		cr.paint()
+		
+		# Draw any 2D page elements, like borders, labels, etc
 		if (self.model and isinstance(self.model, Step)):
 			self.model.drawPageElements(cr)
+		
+		# Clean up created FBO
+		destroyFBO(*buffers)
 
 	def initializeTree(self):
 		print "*** Loading TreeView ***"
