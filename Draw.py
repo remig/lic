@@ -139,31 +139,34 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def on_expose_event(self, *args):
 		""" Draw the window. """
 		
-		# TODO: This all works, but slowly - get flicker.  Need to double buffer or something
+		# TODO: This all works, but slowly - have nasty flicker.  Need to double buffer or something
 		
 		# Create a fresh, blank cairo context attached to the window's display area
 		cr = self.window.cairo_create()
-		cr.set_source_rgb(0.9, 0.9, 0.9)  # 0.5 for grey border
-		cr.paint()
+		cr.identity_matrix()
 		
+		# Draw the overall page frame
+		scaleWidth, scaleHeight = self.instructions.drawPage(cr, self.width, self.height)
+		
+		# Clear GL buffer
 		glClearColor(1.0, 1.0, 1.0, 0)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
-		# Draw the currently selected model / part / step / whatnot
+		# Draw the currently selected model / part / step / whatnot to GL buffer
 		if (self.model):
-			self.model.drawModel(width = self.width, height = self.height)
+			self.model.drawModel(width = scaleWidth, height = scaleHeight)
 		
-		# Copy the FBO to a new cairo surface, then dump that surface to the current context
-		pixels = glReadPixels (0, 0, self.width, self.height, GL_RGBA,  GL_UNSIGNED_BYTE)
-		surface = cairo.ImageSurface.create_for_data(pixels, cairo.FORMAT_ARGB32, self.width, self.height, self.width * 4)
+		# Copy GL buffer to a new cairo surface, then dump that surface to the current context
+		pixels = glReadPixels (0, 0, scaleWidth, scaleHeight, GL_RGBA,  GL_UNSIGNED_BYTE)
+		surface = cairo.ImageSurface.create_for_data(pixels, cairo.FORMAT_ARGB32, scaleWidth, scaleHeight, scaleWidth * 4)
 		#crTmp = cairo.Context(surface)
 		cr.set_source_surface(surface)
 		cr.paint()
 		
-		# Draw any 2D page elements, like borders, labels, etc
+		# Draw any remaining 2D page elements, like borders, labels, etc
 		if (self.model and isinstance(self.model, Step)):
 			self.model.drawPageElements(cr)
-		
+	
 	def initializeTree(self):
 		print "*** Loading TreeView ***"
 		root = self.insert_row(self.treemodel, None, None, self.model.name, self.model)

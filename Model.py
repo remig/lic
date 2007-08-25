@@ -39,6 +39,34 @@ class Instructions():
 		self.mainModel = Part(filename, hasSteps = True)
 		#ldFile.saveFile()
 	
+	def drawPage(self, context, width, height):
+		
+		# TODO: This whole method belongs in the Page class - move it there, and use Pages inside this instruction book
+		pagePadding = 20
+		
+		# Flood context with grey background
+		context.set_source_rgb(0.5, 0.5, 0.5)
+		context.paint()
+		
+		scaleWidth = width - (pagePadding * 2)
+		scaleHeight = height - (pagePadding * 2)
+		width -= pagePadding * 2
+		height -= pagePadding * 2
+		
+		# Draw a slightly down-left translated black rectangle, for the page shadow effect
+		context.translate(pagePadding, pagePadding)
+		context.set_source_rgb(0,0,0)
+		context.rectangle(1, 1, width + 3, height + 3)
+		context.fill()
+		
+		# Draw the page itself - white with a thin black border
+		context.rectangle(0, 0, width, height)
+		context.stroke_preserve()
+		context.set_source_rgb(1,1,1)
+		context.fill()
+		
+		return (scaleWidth, scaleHeight)
+	
 	def getMainModel(self):
 		return self.mainModel
 	
