@@ -268,10 +268,10 @@ class PLI():
 			
 			# Position label based on part corner, empty corner triangle and label's size
 			if (part.leftInset == part.bottomInset == 0):
-				dx = -5   # Bottom left triangle is empty - shift just a little, for a touch more padding
+				dx = -3   # Bottom left triangle is empty - shift just a little, for a touch more padding
 			else:
 				slope = part.leftInset / float(part.bottomInset)
-				dx = ((part.leftInset - (xHeight / 2)) / slope) - 5  # 5 for a touch more padding
+				dx = ((part.leftInset - (xHeight / 2)) / slope) - 3  # 3 for a touch more padding
 			
 			labelCorner.x = int(corner.x - labelWidth + max(0, dx))
 			labelCorner.y = int(corner.y + (xHeight / 2))
@@ -733,17 +733,13 @@ class PartOGL():
 		
 		if ((x != 0) or (y != 0)):
 			# Drew at least one edge out of bounds - try moving part as much as possible and redrawing
-			#print self.filename
-			#print "old t: %d, b: %d, l: %d, r: %d" % (top, bottom, left, right)
-			#print "displacing by x: %d, y: %d" % (x, y)
 			top, bottom, left, right, leftInset, bottomInset = self.initSize_getBounds(x, y, width, height, 'second')
-			#print "new t: %d, b: %d, l: %d, r: %d" % (top, bottom, left, right)
 		
 		if self.checkTouchingBounds(top, bottom, left, right, width, height):
 			return True  # Drew on edge out of bounds - could try another displacement, but easier to just try bigger size
 		
 		self.width = right - left + 1
-		self.height = bottom - top + 1
+		self.height = bottom - top + 2
 		self.leftInset = leftInset 
 		self.bottomInset = bottomInset
 		

@@ -417,3 +417,9 @@ def restoreGLViewport():
 	# Temp debug - draw rectangle bounding calculated 'x'
 	context.rectangle(dx + xbearing, labelTopLeftY, width, height)
 	context.stroke()
+
+def debugInfoInInitSize():
+	#print self.filename
+	#print "old t: %d, b: %d, l: %d, r: %d" % (top, bottom, left, right)
+	#print "displacing by x: %d, y: %d" % (x, y)
+	#print "new t: %d, b: %d, l: %d, r: %d" % (top, bottom, left, right)
