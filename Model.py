@@ -34,7 +34,7 @@ class Instructions():
 		self.filename = filename
 		
 		# line format: filename width height center-x center-y leftInset bottomInset
-		self.PartDimensionsFilename = "PartDimensions_" + filename + ".cache"
+		self.ImgDimensionsFilename = "PartDimensions_" + filename + ".cache"
 		
 		self.mainModel = Part(filename, hasSteps = True)
 		#ldFile.saveFile()
@@ -85,7 +85,7 @@ class Instructions():
 	def initPartDimensions(self):
 		try:
 			# Have a valid part dimension cache file for this model - load from there
-			f = file(self.PartDimensionsFilename, "r")
+			f = file(self.ImgDimensionsFilename, "r")
 			self.initPartDimensionsFromFile(f)
 			f.close()
 		except IOError:
@@ -107,6 +107,16 @@ class Instructions():
 			p.leftInset = int(l)
 			p.bottomInset = int(b)
 	
+	def buildCSIList(self, part, loadedParts = []):
+		csiList = []
+		for step in part.steps:
+			for part in step.parts:
+				if (part.partOGL.filename not in loadedParts and part.partOGL.steps != []):
+					csiList += self.buildCSIList(part.partOGL, loadedParts)
+				loadedParts.append(part.partOGL.filename)
+			csiList.append(step.csi)
+		return csiList
+
 	def initPartDimensionsManually(self):
 		"""
 		Used to calculate each part's display width and height if no valid part dimension cache file exists.
@@ -114,11 +124,10 @@ class Instructions():
 		Will create and store results in a part dimension cache file.
 		"""
 		
-		partList = partDictionary.values()
-		for step in self.mainModel.partOGL.steps:
-			partList.append(step.csi)
+		imgList = [part for part in partDictionary.values() if not part.isPrimitive]
+		imgList += self.buildCSIList(self.mainModel.partOGL)
 		
-		partList2 = []
+		imgList2 = []
 		lines = []
 		sizes = [256, 512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
 		
@@ -130,29 +139,30 @@ class Instructions():
 				print "ERROR: Failed to initialize FBO - aborting initPartDimensionsManually"
 				return
 			
-			# Render each part and calculate their sizes
-			for part in partList:
+			# Render each image and calculate their sizes
+			for item in imgList:
 				
-				successfulDraw = part.initSize(size, size)  # Draw part and calculate its size
+				successfulDraw = item.initSize(size, size)  # Draw image and calculate its size
 				
-				if ((successfulDraw is not None) and (successfulDraw) and (not part.isPrimitive)):
-					lines.append(part.dimensionsToString())
-				
-				if (not successfulDraw):
-					partList2.append(part)
+				if (successfulDraw):
+					dimensionString = item.dimensionsToString()
+					if (dimensionString):
+						lines.append(dimensionString)
+				else:
+					imgList2.append(item)
 			
 			# Clean up created FBO
 			destroyFBO(*buffers)
 			
-			if (len(partList2) < 1):
-				break  # All parts initialized successfully
+			if (len(imgList2) < 1):
+				break  # All images initialized successfully
 			else:
-				partList = partList2  # Some parts rendered out of frame - loop and try bigger frame
-				partList2 = []
+				imgList = imgList2  # Some images rendered out of frame - loop and try bigger frame
+				imgList2 = []
 		
-		# Create a part dimension cache file
+		# Create an image dimension cache file
 		print ""
-		f = file(self.PartDimensionsFilename, "w")
+		f = file(self.ImgDimensionsFilename, "w")
 		f.writelines(lines)
 		f.close()
 	
@@ -385,14 +395,40 @@ class CSI():
 	Construction Step Image.  Includes border and positional info.
 	"""
 	
-	def __init__(self, x = 0, y = 0):
+	def __init__(self, filename, stepNumber, x = 0, y = 0):
 		self.box = Box(x, y)
+		self.filename = filename
+		self.stepNumber = stepNumber
+		self.oglDispID = UNINIT_OGL_DISPID
 		
 		# TODO: Move Step's oglDispIDs generation & drawing here
 		# TODO: Need to calculate bounds on each STEP / CSI image too - ouch
 	
 	def initSize(self, width, height):
-		pass
+		"""
+		Initialize this CSI's display width, height and center point. To do
+		this, draw this CSI to the already initialized GL Frame Buffer Object.
+		These dimensions are required to properly lay out PLIs and CSIs.
+		Note that an appropriate FBO *must* be initialized before calling initSize.
+		
+		Parameters:
+			width: Width of FBO to render to, in pixels.
+			height: Height of FBO to render to, in pixels.
+		
+		Returns:
+			True if CSI rendered successfully.
+			False if the CSI has been rendered partially or wholly out of frame.
+		"""
+		
+		# TODO: update some kind of load status bar her - this function is *slow*
+		print "Initializing CSI %s, step %d - size %dx%d" % (self.filename, self.stepNumber, width, height)
+		
+		params = initImgSize(width, height, self.oglDispID, wantInsets = False, filename = self.filename + " - step " + str(self.stepNumber))
+		if (params is None):
+			return False
+		
+		self.box.width, self.box.height, self.center = params
+		return True
 
 	def dimensionsToString(self):
 		#return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center[0], self.center[1], self.leftInset, self.bottomInset)
@@ -404,16 +440,20 @@ class CSI():
 	def drawModel(self, width, height):
 		pass
 
-	def drawPageElements(self, context):
-		#if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
-			#print "ERROR: Trying to draw an unitialized PLI layout!"
+	def drawPageElements(self, context, width, height):
+		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
+			print "ERROR: Trying to draw an unitialized PLI layout!"
+			return
 		
-		#self.box.draw(context)
-		pass
+		self.box.x = (width / 2.) - (self.box.width / 2.) + self.center[0]
+		self.box.y = (height / 2.) - (self.box.height / 2.) + self.center[1]
+		
+		self.box.draw(context)
 
 class Step():
-	def __init__(self, prevStep = None, buffers = []):
+	def __init__(self, filename, prevStep = None, buffers = []):
 		self.parts = []
+		self.filename = filename
 		self.prevStep = prevStep
 		self.buffers = buffers  # [(bufID, stepNumber)], set of buffers active inside this Step
 		self.oglDispIDs = []  # [(dispID, buffer)]
@@ -427,7 +467,7 @@ class Step():
 		else:
 			self.number = 1
 		
-		self.csi = CSI()
+		self.csi = CSI(self.filename, self.number)
 		self.pli = PLI(Point(self.internalGap, self.internalGap))
 
 	def addPart(self, part):
@@ -437,6 +477,7 @@ class Step():
 
 	def createOGLDisplayList(self):
 		if (self.oglDispIDs != []):
+			# TODO: Ensure we don't ever call this, then remove this check
 			return   # Have already initialized this Step's display list, so do nothing
 		
 		# Ensure all parts in this step have proper display lists
@@ -462,6 +503,10 @@ class Step():
 				part.callOGLDisplayList(buffers)
 			
 			glEndList()
+		
+		# Tell this step's CSI which display list to use when drawing
+		# TODO: How much of all the stuf in Step should be moved to CSI?
+		self.csi.oglDispID = self.oglDispIDs[0][0]
 
 	def initLayout(self, context):
 		self.csi.initLayout(context)
@@ -471,7 +516,7 @@ class Step():
 		self.stepNumberFont.passToCairo(context)
 		xbearing, ybearing, labelWidth, labelHeight, xa, ya = context.text_extents(str(self.number))
 		
-		# Initialize the step number label position
+		# Initialize this step number's label position
 		self.stepNumberRefPt.x = self.pli.box.x - xbearing
 		if (self.pli.isEmpty()):
 			self.stepNumberRefPt.y = self.internalGap - ybearing
@@ -479,6 +524,11 @@ class Step():
 			self.stepNumberRefPt.y = self.internalGap * 2 + self.pli.box.height	- ybearing
 
 	def drawModel(self, currentBuffers = None, width = UNINIT_PROP, height = UNINIT_PROP):
+		
+		pushAllGLMatrices()
+		adjustGLViewport(0, 0, width, height)
+		glLoadIdentity()
+		rotateToDefaultView()
 		
 		# Draw any previous steps first
 		if (self.prevStep):
@@ -500,14 +550,17 @@ class Step():
 			for id, buffer in self.oglDispIDs:
 				if (buffer == currentBuffers):
 					glCallList(id)
+					popAllGLMatrices()
 					return
 			
 		# Draw the default list, with no buffers present
 		glCallList(self.oglDispIDs[0][0])
-	
-	def drawPageElements(self, context):
+		
+		popAllGLMatrices()
+
+	def drawPageElements(self, context, width, height):
 		""" Draw this step's PLI and CSI page elements, and this step's number label. """
-		self.csi.drawPageElements(context)
+		self.csi.drawPageElements(context, width, height)
 		self.pli.drawPageElements(context)
 		self.drawStepLabel(context)
 	
@@ -541,7 +594,7 @@ class PartOGL():
 		self.isPrimitive = False  # primitive here means any file in 'P'
 		
 		if (hasSteps):
-			self.currentStep = Step()
+			self.currentStep = Step(filename)
 			self.steps = [self.currentStep]
 		else:
 			self.currentStep = None
@@ -568,7 +621,7 @@ class PartOGL():
 	
 	def _loadFromSubModelArray(self, ldrawFile):
 		
-		self.currentStep = Step()
+		self.currentStep = Step(self.filename)
 		self.steps = [self.currentStep]
 		self.ldrawFile = ldrawFile
 		
@@ -624,7 +677,7 @@ class PartOGL():
 			self.steps.pop()
 			self.currentStep = self.currentStep.prevStep
 		
-		self.currentStep = Step(self.currentStep, list(self.buffers))
+		self.currentStep = Step(self.filename, self.currentStep, list(self.buffers))
 		self.steps.append(self.currentStep)
 
 	def addPart(self, p):
@@ -706,13 +759,15 @@ class PartOGL():
 		
 		glCallList(self.oglDispID)
 	
-	def dimensionsToString(self):
-		return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center[0], self.center[1], self.leftInset, self.bottomInset)
-
 	def initSize_checkRotation(self):
 		# TODO: Create a static list of all standard parts along with the necessary rotation needed
 		# to get them from their default file rotation to the rotation seen in Lego's PLIs.
 		pass
+
+	def dimensionsToString(self):
+		if (self.isPrimitive):
+			return ""
+		return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center[0], self.center[1], self.leftInset, self.bottomInset)
 
 	def initSize(self, width, height):
 		"""
@@ -727,7 +782,7 @@ class PartOGL():
 		
 		Returns:
 			True if part rendered successfully.
-			False if the rendered part has been rendered partially or wholly out of frame.
+			False if the part has been rendered partially or wholly out of frame.
 		"""
 		
 		# Primitive parts need not be sized
@@ -735,9 +790,9 @@ class PartOGL():
 			return True
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
-		print self.filename,
+		#print self.filename,
 		
-		params = initImgSize(width, height, self.oglDispID)
+		params = initImgSize(width, height, self.oglDispID, wantInsets = True, filename = self.filename)
 		if (params is None):
 			return False
 		

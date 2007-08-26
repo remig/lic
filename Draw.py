@@ -12,8 +12,8 @@ from GLHelpers import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-#MODEL_NAME = "pyramid.dat"
-MODEL_NAME = "Blaster.mpd"
+MODEL_NAME = "pyramid.dat"
+#MODEL_NAME = "Blaster.mpd"
 
 gui_xml = gtk.glade.XML( "c:\\LDraw\\LIC\\LIC.glade")
 
@@ -152,6 +152,11 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		glClearColor(1.0, 1.0, 1.0, 0)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
+		# TODO: Ensure these resets are actually necessary - if not, remove them
+		adjustGLViewport(0, 0, self.width, self.height)
+		glLoadIdentity()	
+		rotateToDefaultView()
+		
 		# Draw the currently selected model / part / step / whatnot to GL buffer
 		if (self.model):
 			self.model.drawModel(width = scaleWidth, height = scaleHeight)
@@ -165,7 +170,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		# Draw any remaining 2D page elements, like borders, labels, etc
 		if (self.model and isinstance(self.model, Step)):
-			self.model.drawPageElements(cr)
+			self.model.drawPageElements(cr, width = scaleWidth, height = scaleHeight)
 	
 	def initializeTree(self):
 		print "*** Loading TreeView ***"

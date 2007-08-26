@@ -182,7 +182,7 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, first = "first"):
 	
 	return (top, bottom, left, right, bottom - leftInset, bottomInset - left)
 
-def initImgSize(width, height, oglDispID, filename = None):
+def initImgSize(width, height, oglDispID, wantInsets = True, filename = None):
 	"""
 	Draw this piece to the already initialized GL Frame Buffer Object, in order to calculate
 	its displayed width and height.  These dimensions are required to properly lay out PLIs and CSIs.
@@ -192,12 +192,19 @@ def initImgSize(width, height, oglDispID, filename = None):
 		width: Width of FBO to render to, in pixels.
 		height: Height of FBO to render to, in pixels.
 		oglDispID: The GL Display List ID to be rendered and dimensioned.
+		wantInsets: If this function should calculate the bottom left empty corner of the image, set wantInsets True
 		filename: Optional string used for debugging.
 	
 	Returns:
-		(width, height, leftInset, bottomInset, centerPoint) parameters of this image, if rendered successfully.
 		None, if the rendered image has been rendered partially or wholly out of frame.
+		If wantInsets is True, returns the (width, height, leftInset, bottomInset, centerPoint) parameters of this image.
+		If wantInsets is False, retuns the (width, height, centerPoint) parameters of this image.
 	"""
+	
+	# TODO: Ensure these resets are actually necessary - if not, remove them
+	adjustGLViewport(0, 0, width, height)
+	glLoadIdentity()	
+	rotateToDefaultView()
 	
 	# Draw piece to frame buffer, then calculate bounding box
 	top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(0.0, 0.0, width, height, oglDispID, filename)
@@ -238,4 +245,8 @@ def initImgSize(width, height, oglDispID, filename = None):
 	h = dy - (height/2)
 	imgCenter = (x - w, y + h)
 	
-	return (imgWidth, imgHeight, imgLeftInset, imgBottomInset, imgCenter)
+
+	if (wantInsets):
+		return (imgWidth, imgHeight, imgLeftInset, imgBottomInset, imgCenter)
+	else:
+		return (imgWidth, imgHeight, imgCenter)
