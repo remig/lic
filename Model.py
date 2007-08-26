@@ -78,10 +78,10 @@ class Instructions():
 		# Calculate the width and height of each partOGL in the part dictionary
 		self.initPartDimensions()
 		
-		# Calculate an initial layout for each PLI in this instruction book
+		# Calculate an initial layout for each CSI and PLI in this instruction book
 		for step in self.mainModel.partOGL.steps:
-			step.pli.initLayout(context)
-	
+			step.initLayout(context)
+
 	def initPartDimensions(self):
 		try:
 			# Have a valid part dimension cache file for this model - load from there
@@ -115,9 +115,12 @@ class Instructions():
 		"""
 		
 		partList = partDictionary.values()
+		for step in self.mainModel.partOGL.steps:
+			partList.append(step.csi)
+		
 		partList2 = []
 		lines = []
-		sizes = [256, 512, 1024] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
+		sizes = [256, 512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
 		
 		for size in sizes:
 			
@@ -128,15 +131,15 @@ class Instructions():
 				return
 			
 			# Render each part and calculate their sizes
-			for p in partList:
+			for part in partList:
 				
-				outOfBounds = p.initSize(size, size)  # Draw part and calculate its size
+				outOfBounds = part.initSize(size, size)  # Draw part and calculate its size
 				
-				if ((not outOfBounds) and (not p.isPrimitive)):
-					lines.append("%s %d %d %d %d %d %d\n" % (p.filename, p.width, p.height, p.center[0], p.center[1], p.leftInset, p.bottomInset))
+				if ((outOfBounds is not None) and (not outOfBounds) and (not part.isPrimitive)):
+					lines.append(part.dimensionsToString())
 				
 				if (outOfBounds):
-					partList2.append(p)
+					partList2.append(part)
 			
 			# Clean up created FBO
 			destroyFBO(*buffers)
@@ -241,6 +244,16 @@ class Page():
 	def draw(self, context, width, height):
 		pass
 
+class BOM():
+	"""
+	Bill Of Materials - just an elaborate PLI, containing a list of all parts in the model, nicely laid out.
+	"""
+	pass
+
+class Callout():
+	def __init__(self):
+		self.box = Box(0, 0)
+
 class PLI():
 	"""
 	Parts List Image.  Includes border and layout info for a list of parts added to a step.
@@ -253,6 +266,11 @@ class PLI():
 		self.qtyMultiplierChar = 'x'
 		self.layout = {}  # {part filename: [count, part, bottomLeftCorner, qtyLabelReference]}
 	
+	def isEmpty(self):
+		if (len(self.layout) > 0):
+			return False
+		return True
+
 	def addPartOGL(self, part):
 		
 		if (part.filename in self.layout):
@@ -319,6 +337,8 @@ class PLI():
 			b.width = overallX - b.x
 			b.height = max(b.height, part.height + int(xHeight / 2) + (b.internalGap * 2))
 
+	# TODO: Now that we've got GL always rendering to FBOs, no buffer swap issues remain -
+	# can merge drawParts and drawPageElements?  It'd save an entire iteration over layout...
 	def drawParts(self, width, height):
 		""" Must be called inside a valid gldrawable context. """
 		
@@ -340,7 +360,7 @@ class PLI():
 		popAllGLMatrices()
 
 	def drawPageElements(self, context):
-		""" Must be called AFTER any OGL calls - otherwise OGL will switch buffers and erase all this. """
+		""" Draw this PLI's background, border and quantity labels to the specified cairo context. """
 		
 		if (len(self.layout) < 1):
 			return  # No parts in this PLI - nothing to draw
@@ -369,6 +389,16 @@ class CSI():
 		
 		# TODO: Move Step's oglDispIDs generation & drawing here
 		# TODO: Need to calculate bounds on each STEP / CSI image too - ouch
+	
+	def initSize(self, width, height):
+		pass
+
+	def dimensionsToString(self):
+		#return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center[0], self.center[1], self.leftInset, self.bottomInset)
+		return ""
+	
+	def initLayout(self, context):
+		pass
 
 	def drawModel(self, width, height):
 		pass
@@ -380,12 +410,6 @@ class CSI():
 		#self.box.draw(context)
 		pass
 
-class BOM():
-	"""
-	Bill Of Materials - just an elaborate PLI, containing a list of all parts in the model, nicely laid out.
-	"""
-	pass
-
 class Step():
 	def __init__(self, prevStep = None, buffers = []):
 		self.parts = []
@@ -393,13 +417,17 @@ class Step():
 		self.buffers = buffers  # [(bufID, stepNumber)], set of buffers active inside this Step
 		self.oglDispIDs = []  # [(dispID, buffer)]
 		
+		self.internalGap = 20
+		self.stepNumberFont = Font(20)
+		self.stepNumberRefPt = Point(0, 0)
+		
 		if (prevStep):
 			self.number = prevStep.number + 1
 		else:
 			self.number = 1
 		
-		self.pli = PLI()
 		self.csi = CSI()
+		self.pli = PLI(Point(self.internalGap, self.internalGap))
 
 	def addPart(self, part):
 		self.parts.append(part)
@@ -434,6 +462,21 @@ class Step():
 			
 			glEndList()
 
+	def initLayout(self, context):
+		self.csi.initLayout(context)
+		self.pli.initLayout(context)
+		
+		# Figure out the display height of the step number label
+		self.stepNumberFont.passToCairo(context)
+		xbearing, ybearing, labelWidth, labelHeight, xa, ya = context.text_extents(str(self.number))
+		
+		# Initialize the step number label position
+		self.stepNumberRefPt.x = self.pli.box.x - xbearing
+		if (self.pli.isEmpty()):
+			self.stepNumberRefPt.y = self.internalGap - ybearing
+		else:
+			self.stepNumberRefPt.y = self.internalGap * 2 + self.pli.box.height	- ybearing
+
 	def drawModel(self, currentBuffers = None, width = UNINIT_PROP, height = UNINIT_PROP):
 		
 		# Draw any previous steps first
@@ -462,9 +505,16 @@ class Step():
 		glCallList(self.oglDispIDs[0][0])
 	
 	def drawPageElements(self, context):
-		if (context):
-			self.pli.drawPageElements(context)
-			self.csi.drawPageElements(context)
+		""" Draw this step's PLI and CSI page elements, and this step's number label. """
+		self.csi.drawPageElements(context)
+		self.pli.drawPageElements(context)
+		self.drawStepLabel(context)
+	
+	def drawStepLabel(self, context):
+		""" Draw this step's number label into the specified cairo context."""
+		self.stepNumberFont.passToCairo(context)
+		context.move_to(self.stepNumberRefPt.x, self.stepNumberRefPt.y)
+		context.show_text(str(self.number))
 
 	def callOGLDisplayList(self):
 		glCallList(self.oglDispIDs[0][0])
@@ -654,6 +704,9 @@ class PartOGL():
 			return
 		
 		glCallList(self.oglDispID)
+	
+	def dimensionsToString(self):
+		return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center[0], self.center[1], self.leftInset, self.bottomInset)
 
 	def initSize_checkRotation(self):
 		# TODO: Create a static list of all standard parts along with the necessary rotation needed
