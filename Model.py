@@ -17,13 +17,6 @@ UNINIT_PROP = -1
 # TODO: remove partDictionary global variable - used in few enough spots that it shouldn't be global anymore
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 
-class Point():
-	def __init__(self, x = 0, y = 0):
-		self.x = x
-		self.y = y
-	def __repr__(self):
-		return "Point(%d, %d)" % (self.x, self.y)
-
 class Instructions():
 	"""	Represents an overall Lego instruction booklet.	"""
 	
@@ -103,7 +96,7 @@ class Instructions():
 			p = partDictionary[part]
 			p.width = max(1, int(w))
 			p.height = max(1, int(h))
-			p.center = (int(x), int(y))
+			p.center = Point(int(x), int(y))
 			p.leftInset = int(l)
 			p.bottomInset = int(b)
 	
@@ -365,7 +358,7 @@ class PLI():
 		for (count, part, corner, labelCorner) in self.layout.values():
 			adjustGLViewport(corner.x, corner.y - part.height, part.width, part.height)
 			glLoadIdentity()
-			rotateToDefaultView(part.center[0], part.center[1], 0.0)
+			rotateToDefaultView(part.center.x, part.center.y, 0.0)
 			part.drawModel()
 		
 		popAllGLMatrices()
@@ -431,7 +424,7 @@ class CSI():
 		return True
 
 	def dimensionsToString(self):
-		#return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center[0], self.center[1], self.leftInset, self.bottomInset)
+		#return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x, self.center.y, self.leftInset, self.bottomInset)
 		return ""
 	
 	def initLayout(self, context):
@@ -445,8 +438,8 @@ class CSI():
 			print "ERROR: Trying to draw an unitialized PLI layout!"
 			return
 		
-		self.box.x = (width / 2.) - (self.box.width / 2.) + self.center[0]
-		self.box.y = (height / 2.) - (self.box.height / 2.) + self.center[1]
+		self.box.x = (width / 2.) - (self.box.width / 2.) + self.center.x
+		self.box.y = (height / 2.) - (self.box.height / 2.) + self.center.y
 		
 		self.box.draw(context)
 
@@ -605,7 +598,7 @@ class PartOGL():
 		
 		self.width = self.height = 1
 		self.leftInset = self.bottomInset = 0
-		self.center = (0, 0)
+		self.center = Point(0, 0)
 		
 		if ((parentLDFile is not None) and (filename in parentLDFile.subModelsInFile)):
 			self._loadFromSubModelArray(parentLDFile)
@@ -767,7 +760,7 @@ class PartOGL():
 	def dimensionsToString(self):
 		if (self.isPrimitive):
 			return ""
-		return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center[0], self.center[1], self.leftInset, self.bottomInset)
+		return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x, self.center.y, self.leftInset, self.bottomInset)
 
 	def initSize(self, width, height):
 		"""

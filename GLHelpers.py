@@ -7,6 +7,13 @@ from OpenGL.GL.EXT.framebuffer_object import *
 # Global constants
 SCALE_WINDOW = 1
 
+class Point():
+	def __init__(self, x = 0, y = 0):
+		self.x = x
+		self.y = y
+	def __repr__(self):
+		return "Point(%d, %d)" % (self.x, self.y)
+
 def adjustGLViewport(x, y, width, height):
 	glViewport(x, y, width, height)
 	glMatrixMode(GL_PROJECTION)
@@ -243,7 +250,7 @@ def initImgSize(width, height, oglDispID, wantInsets = True, filename = None):
 	dy = top + (imgHeight/2)
 	w = dx - (width/2)
 	h = dy - (height/2)
-	imgCenter = (x - w, y + h)
+	imgCenter = Point(x - w, y + h)
 	
 
 	if (wantInsets):
