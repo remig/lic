@@ -11,11 +11,9 @@ def adjustGLViewport(x, y, width, height):
 	glViewport(x, y, width, height)
 	glMatrixMode(GL_PROJECTION)
 	glLoadIdentity()
-	#viewing box (left, right) (bottom, top), (near, far)
-	width /= 2 * SCALE_WINDOW
-	height /= 2 * SCALE_WINDOW
-	width = max(1, width)
-	height = max(1, height)
+	width = max(1, width / 2 * SCALE_WINDOW)
+	height = max(1, height / 2 * SCALE_WINDOW)
+	# Viewing box (left, right) (bottom, top), (near, far)
 	glOrtho( -width, width, -height, height, -3000, 3000 )
 	glMatrixMode(GL_MODELVIEW)
 
@@ -23,8 +21,8 @@ def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0):
 	# position (x,y,z), look at (x,y,z), up vector (x,y,z)
 	gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
 	
-	# Rotate model into something approximating the regular ortho Lego view.
-	# TODO: Figure out the exact rotation for this.
+	# Rotate model into something approximating the regular ortho Lego view
+	# TODO: Figure out the exact rotation for this
 	glRotatef(20.0, 1.0, 0.0, 0.0,)
 	glRotatef(45.0, 0.0, 1.0, 0.0,)
 
@@ -89,3 +87,155 @@ def destroyFBO(texture, framebuffer):
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0)
 	glDeleteTextures(texture)
 	glDeleteFramebuffersEXT(1, [framebuffer])
+
+def _checkImgMaxBounds(top, bottom, left, right, width, height, filename):
+	
+	if ((top == 0) and (bottom == height-1)): 
+		if (filename):
+			print filename + " - top & bottom out of bounds - hosed"
+		return True
+	
+	if ((left == 0) and (right == width-1)):
+		if (filename):
+			print filename + " - left & right out of bounds - hosed"
+		return True
+	
+	if ((top == height) and (bottom == 0)):
+		if (filename):
+			print filename + " - blank page - hosed"
+		return True
+	
+	if ((left == width) and (right == 0)):
+		if (filename):
+			print filename + " - blank page - hosed"
+		return True
+	
+	return False
+
+def _checkImgTouchingBounds(top, bottom, left, right, width, height, filename):
+	
+	if ((top == 0) or (bottom == height-1)):
+		if (filename):
+			print filename + " - top & bottom out of bounds - hosed"
+		return True
+	
+	if ((left == 0) or (right == width-1)):
+		if (filename):
+			print filename + " - left & right out of bounds - hosed"
+		return True
+	
+	return False
+
+_imgWhite = (255, 255, 255)
+def _checkPixelsTop(data, width, height):
+	for i in range(0, height):
+		for j in range(0, width):
+			if (data[j, i] != _imgWhite):
+				return i
+	return height
+
+def _checkPixelsBottom(data, width, height, top):
+	for i in range(height-1, top, -1):
+		for j in range(0, width):
+			if (data[j, i] != _imgWhite):
+				return (i, j)
+	return (0, 0)
+
+def _checkPixelsLeft(data, width, height, top, bottom):
+	for i in range(0, width):
+		for j in range(bottom, top, -1):
+			if (data[i, j] != _imgWhite):
+				return (i, j)
+	return (0, 0)
+
+def _checkPixelsRight(data, width, height, top, bottom, left):
+	for i in range(width-1, left, -1):
+		for j in range(top, bottom):
+			if (data[i, j] != _imgWhite):
+				return i
+	return width
+
+def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, first = "first"):
+	
+	# Clear the drawing buffer with white
+	glClearColor(1.0, 1.0, 1.0, 0)
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+	
+	# Draw the piece in black
+	glLoadIdentity()
+	adjustGLViewport(0, 0, w, h)
+	rotateToDefaultView(x, y, 0.0)
+	glColor3f(0, 0, 0)
+	glCallList(oglDispID)
+	
+	pixels = glReadPixels (0, 0, w, h, GL_RGB,  GL_UNSIGNED_BYTE)
+	img = Image.new ("RGB", (w, h), (1, 1, 1))
+	img.fromstring(pixels)
+	if (filename):
+		img.save ("C:\\LDraw\\tmp\\%s_%s_%d.png" % (filename, first, w))
+	
+	data = img.load()
+	top = _checkPixelsTop(data, w, h)
+	bottom, bottomInset = _checkPixelsBottom(data, w, h, top)
+	left, leftInset = _checkPixelsLeft(data, w, h, top, bottom)
+	right = _checkPixelsRight(data, w, h, top, bottom, left)
+	
+	return (top, bottom, left, right, bottom - leftInset, bottomInset - left)
+
+def initImgSize(width, height, oglDispID, filename = None):
+	"""
+	Draw this piece to the already initialized GL Frame Buffer Object, in order to calculate
+	its displayed width and height.  These dimensions are required to properly lay out PLIs and CSIs.
+	Note that an appropriate FBO *must* be initialized before calling initSize.
+	
+	Parameters:
+		width: Width of FBO to render to, in pixels.
+		height: Height of FBO to render to, in pixels.
+		oglDispID: The GL Display List ID to be rendered and dimensioned.
+		filename: Optional string used for debugging.
+	
+	Returns:
+		(width, height, leftInset, bottomInset, centerPoint) parameters of this image, if rendered successfully.
+		None, if the rendered image has been rendered partially or wholly out of frame.
+	"""
+	
+	# Draw piece to frame buffer, then calculate bounding box
+	top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(0.0, 0.0, width, height, oglDispID, filename)
+	
+	if _checkImgMaxBounds(top, bottom, left, right, width, height, filename):
+		return None  # Drawn completely out of bounds
+	
+	# If we hit one of these cases, at least one edge was drawn off screen
+	# Try to reposition the part and draw again, see if we can fit it on screen
+	x = y = 0
+	if (top == 0):
+		y = bottom - height + 2
+	
+	if (bottom == height-1):
+		y = top - 1
+	
+	if (left == 0):
+		x = width - right - 2
+	
+	if (right == width-1):
+		x = 1 - left
+	
+	if ((x != 0) or (y != 0)):
+		# Drew at least one edge out of bounds - try moving part as much as possible and redrawing
+		top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(x, y, width, height, oglDispID, filename, 'second')
+	
+	if _checkImgTouchingBounds(top, bottom, left, right, width, height, filename):
+		return None  # Drew on edge out of bounds - could try another displacement, but easier to just try bigger size
+	
+	imgWidth = right - left + 1
+	imgHeight = bottom - top + 2
+	imgLeftInset = leftInset 
+	imgBottomInset = bottomInset
+	
+	dx = left + (imgWidth/2)
+	dy = top + (imgHeight/2)
+	w = dx - (width/2)
+	h = dy - (height/2)
+	imgCenter = (x - w, y + h)
+	
+	return (imgWidth, imgHeight, imgLeftInset, imgBottomInset, imgCenter)

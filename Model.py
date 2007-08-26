@@ -133,12 +133,12 @@ class Instructions():
 			# Render each part and calculate their sizes
 			for part in partList:
 				
-				outOfBounds = part.initSize(size, size)  # Draw part and calculate its size
+				successfulDraw = part.initSize(size, size)  # Draw part and calculate its size
 				
-				if ((outOfBounds is not None) and (not outOfBounds) and (not part.isPrimitive)):
+				if ((successfulDraw is not None) and (successfulDraw) and (not part.isPrimitive)):
 					lines.append(part.dimensionsToString())
 				
-				if (outOfBounds):
+				if (not successfulDraw):
 					partList2.append(part)
 			
 			# Clean up created FBO
@@ -151,6 +151,7 @@ class Instructions():
 				partList2 = []
 		
 		# Create a part dimension cache file
+		print ""
 		f = file(self.PartDimensionsFilename, "w")
 		f.writelines(lines)
 		f.close()
@@ -713,153 +714,35 @@ class PartOGL():
 		# to get them from their default file rotation to the rotation seen in Lego's PLIs.
 		pass
 
-	def checkMaxBounds(self, top, bottom, left, right, width, height):
-		
-		if ((top == 0) and (bottom == height-1)): 
-			#print self.filename + " - top & bottom out of bounds - hosed"
-			return True
-		
-		if ((left == 0) and (right == width-1)):
-			#print self.filename + " - left & right out of bounds - hosed"
-			return True
-		
-		if ((top == height) and (bottom == 0)):
-			#print self.filename + " - blank page - hosed"
-			return True
-		
-		if ((left == width) and (right == 0)):
-			#print self.filename + " - blank page - hosed"
-			return True
-		
-		return False
-
-	def checkTouchingBounds(self, top, bottom, left, right, width, height):
-		
-		if ((top == 0) or (bottom == height-1)): 
-			#print self.filename + " - top & bottom out of bounds - hosed"
-			return True
-		
-		if ((left == 0) or (right == width-1)):
-			#print self.filename + " - left & right out of bounds - hosed"
-			return True
-		
-		return False
-
-	def initSize_getBounds(self, x, y, w, h, first = 'first'):
-		
-		# Clear the drawing buffer with white
-		glClearColor(1.0, 1.0, 1.0, 0)
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-		
-		# Draw the piece in black
-		glLoadIdentity()
-		adjustGLViewport(0, 0, w, h)
-		rotateToDefaultView(x, y, 0.0)
-		glColor3f(0, 0, 0)
-		glCallList(self.oglDispID)
-		
-		pixels = glReadPixels (0, 0, w, h, GL_RGB,  GL_UNSIGNED_BYTE)
-		img = Image.new ("RGB", (w, h), (1, 1, 1))
-		img.fromstring(pixels)
-		#img.save ("C:\\LDraw\\tmp\\%s_%s_%d.png" % (self.filename, first, w))
-		
-		data = img.load()
-		top = checkPixelsTop(data, w, h)
-		bottom, bottomInset = checkPixelsBottom(data, w, h, top)
-		left, leftInset = checkPixelsLeft(data, w, h, top, bottom)
-		right = checkPixelsRight(data, w, h, top, bottom, left)
-		
-		return (top, bottom, left, right, bottom - leftInset, bottomInset - left)
-
 	def initSize(self, width, height):
 		"""
-		Draw this piece to the alread initialized GL Frame Buffer Object, in order to calculate
-		its displayed width and height.  These dimensions are required to properly lay out PLIs and CSIs.
+		Initialize this part's display width, height, empty corner insets and center point.
+		To do this, draw this part to the already initialized GL Frame Buffer Object.
+		These dimensions are required to properly lay out PLIs and CSIs.
 		Note that an appropriate FBO *must* be initialized before calling initSize.
 		
-		width: width of FBO to render to, in pixels.
-		height: height of FBO to render to, in pixels.
+		Parameters:
+			width: Width of FBO to render to, in pixels.
+			height: Height of FBO to render to, in pixels.
 		
-		Returns True if the rendered part has been rendered partially or wholly out of frame.
-		Returns False if part rendered successfully.
+		Returns:
+			True if part rendered successfully.
+			False if the rendered part has been rendered partially or wholly out of frame.
 		"""
 		
 		# Primitive parts need not be sized
 		if (self.isPrimitive):
-			return False
+			return True
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
 		print self.filename,
 		
-		# Draw piece to frame buffer, then calculate bounding box
-		top, bottom, left, right, leftInset, bottomInset = self.initSize_getBounds(0.0, 0.0, width, height)
+		params = initImgSize(width, height, self.oglDispID)
+		if (params is None):
+			return False
 		
-		if self.checkMaxBounds(top, bottom, left, right, width, height):
-			return True  # Drawn completely out of bounds
-		
-		# If we hit one of these cases, at least one edge was drawn off screen
-		# Try to reposition the part and draw again, see if we can fit it on screen
-		x = y = 0
-		if (top == 0):
-			y = bottom - height + 2
-		
-		if (bottom == height-1):
-			y = top - 1
-		
-		if (left == 0):
-			x = width - right - 2
-		
-		if (right == width-1):
-			x = 1 - left
-		
-		if ((x != 0) or (y != 0)):
-			# Drew at least one edge out of bounds - try moving part as much as possible and redrawing
-			top, bottom, left, right, leftInset, bottomInset = self.initSize_getBounds(x, y, width, height, 'second')
-		
-		if self.checkTouchingBounds(top, bottom, left, right, width, height):
-			return True  # Drew on edge out of bounds - could try another displacement, but easier to just try bigger size
-		
-		self.width = right - left + 1
-		self.height = bottom - top + 2
-		self.leftInset = leftInset 
-		self.bottomInset = bottomInset
-		
-		dx = left + (self.width/2)
-		dy = top + (self.height/2)
-		w = dx - (width/2)
-		h = dy - (height/2)
-		self.center = (x - w, y + h)
-		
-		return False
-
-white = (255, 255, 255)
-def checkPixelsTop(data, width, height):
-	for i in range(0, height):
-		for j in range(0, width):
-			if (data[j, i] != white):
-				return i
-	return height
-
-def checkPixelsBottom(data, width, height, top):
-	for i in range(height-1, top, -1):
-		for j in range(0, width):
-			if (data[j, i] != white):
-				return (i, j)
-	return (0, 0)
-
-def checkPixelsLeft(data, width, height, top, bottom):
-	for i in range(0, width):
-		for j in range(bottom, top, -1):
-			if (data[i, j] != white):
-				return (i, j)
-	return (0, 0)
-
-def checkPixelsRight(data, width, height, top, bottom, left):
-	for i in range(width-1, left, -1):
-		for j in range(top, bottom):
-			if (data[i, j] != white):
-				return i
-	return width
+		self.width, self.height, self.leftInset, self.bottomInset, self.center = params
+		return True
 
 class Part():
 	"""
