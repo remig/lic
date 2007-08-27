@@ -89,16 +89,32 @@ class Instructions():
 		""" Used to initialize all part dimensions from the specified valid part dimension cache file f."""
 		
 		for line in f:
-			part, w, h, x, y, l, b = line.split()
-			if (not partDictionary.has_key(part)):
-				print "Warning: part dimension cache contains parts not present in model - suggest regenerating part dimension cache."
-				continue
-			p = partDictionary[part]
-			p.width = max(1, int(w))
-			p.height = max(1, int(h))
-			p.center = Point(int(x), int(y))
-			p.leftInset = int(l)
-			p.bottomInset = int(b)
+			if (line[0] == 's'):  # Step dimensions, for CSI
+				stepNumber, filename, w, h, x, y = line[1:].split()
+				if (not partDictionary.has_key(filename)):
+					print "Warning: part dimension cache contains CSI images not present in model - suggest regenerating part dimension cache."
+					continue
+				
+				p = partDictionary[filename]
+				if (len(p.steps) < int(stepNumber)):
+					print "Warning: part dimension cache contains CSI images not present in model - suggest regenerating part dimension cache."
+					continue
+				csi = p.steps[int(stepNumber) - 1].csi
+				csi.box.width = max(1, int(w))
+				csi.box.height = max(1, int(h))
+				csi.centerOffset = Point(int(x), int(y))
+				
+			elif (line[0] == 'p'):  # Part dimensions, for PLI
+				filename, w, h, x, y, l, b = line[1:].split()
+				if (not partDictionary.has_key(filename)):
+					print "Warning: part dimension cache contains parts not present in model - suggest regenerating part dimension cache."
+					continue
+				p = partDictionary[filename]
+				p.width = max(1, int(w))
+				p.height = max(1, int(h))
+				p.center = Point(int(x), int(y))
+				p.leftInset = int(l)
+				p.bottomInset = int(b)
 	
 	def buildCSIList(self, part, loadedParts = []):
 		csiList = []
@@ -390,6 +406,7 @@ class CSI():
 	
 	def __init__(self, filename, stepNumber, x = 0, y = 0):
 		self.box = Box(x, y)
+		self.centerOffset = Point(0, 0)
 		self.filename = filename
 		self.stepNumber = stepNumber
 		self.oglDispID = UNINIT_OGL_DISPID
@@ -420,12 +437,11 @@ class CSI():
 		if (params is None):
 			return False
 		
-		self.box.width, self.box.height, self.center = params
+		self.box.width, self.box.height, self.centerOffset = params
 		return True
 
 	def dimensionsToString(self):
-		#return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x, self.center.y, self.leftInset, self.bottomInset)
-		return ""
+		return "s %d %s %d %d %d %d\n" % (self.stepNumber, self.filename, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y)
 	
 	def initLayout(self, context):
 		pass
@@ -438,8 +454,8 @@ class CSI():
 			print "ERROR: Trying to draw an unitialized PLI layout!"
 			return
 		
-		self.box.x = (width / 2.) - (self.box.width / 2.) + self.center.x
-		self.box.y = (height / 2.) - (self.box.height / 2.) + self.center.y
+		self.box.x = (width / 2.) - (self.box.width / 2.) + self.centerOffset.x
+		self.box.y = (height / 2.) - (self.box.height / 2.) + self.centerOffset.y
 		
 		self.box.draw(context)
 
@@ -760,7 +776,7 @@ class PartOGL():
 	def dimensionsToString(self):
 		if (self.isPrimitive):
 			return ""
-		return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x, self.center.y, self.leftInset, self.bottomInset)
+		return "p %s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x, self.center.y, self.leftInset, self.bottomInset)
 
 	def initSize(self, width, height):
 		"""
