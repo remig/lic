@@ -404,15 +404,14 @@ class CSI():
 	Construction Step Image.  Includes border and positional info.
 	"""
 	
-	def __init__(self, filename, stepNumber, x = 0, y = 0):
+	def __init__(self, filename, step, x = 0, y = 0):
 		self.box = Box(x, y)
 		self.centerOffset = Point(0, 0)
 		self.filename = filename
-		self.stepNumber = stepNumber
-		self.oglDispID = UNINIT_OGL_DISPID
+		self.step = step
 		
-		# TODO: Move Step's oglDispIDs generation & drawing here
-		# TODO: Need to calculate bounds on each STEP / CSI image too - ouch
+		self.oglDispIDs = []  # [(dispID, buffer)]
+		self.oglDispID = UNINIT_OGL_DISPID
 	
 	def initSize(self, width, height):
 		"""
@@ -431,23 +430,72 @@ class CSI():
 		"""
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
-		print "Initializing CSI %s, step %d - size %dx%d" % (self.filename, self.stepNumber, width, height)
+		print "Initializing CSI %s, step %d - size %dx%d" % (self.filename, self.step.number, width, height)
 		
-		params = initImgSize(width, height, self.oglDispID, wantInsets = False, filename = self.filename + " - step " + str(self.stepNumber))
+		params = initImgSize(width, height, self.oglDispID, wantInsets = False, filename = self.filename + " - step " + str(self.step.number))
 		if (params is None):
 			return False
 		
 		self.box.width, self.box.height, self.centerOffset = params
 		return True
 
+	def callPreviousOGLDisplayLists(self, currentBuffers = None):
+		if (self.step.prevStep):
+			self.step.prevStep.csi.callPreviousOGLDisplayLists(currentBuffers)
+		
+		if (currentBuffers == []):
+			# Draw the default list, since there's no buffers present
+			glCallList(self.oglDispIDs[0][0])
+		else:
+			# Have current buffer - draw corresponding list (need to search for it)
+			for id, buffer in self.oglDispIDs:
+				if (buffer == currentBuffers):
+					glCallList(id)
+					break
+
 	def dimensionsToString(self):
-		return "s %d %s %d %d %d %d\n" % (self.stepNumber, self.filename, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y)
+		return "s %d %s %d %d %d %d\n" % (self.step.number, self.filename, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y)
 	
 	def initLayout(self, context):
 		pass
 
-	def drawModel(self, width, height):
-		pass
+	def createOGLDisplayList(self):
+		print "Creating CSI display lists"
+		if (self.oglDispIDs != []):
+			# TODO: Ensure we don't ever call this, then remove this check
+			return   # Have already initialized this Step's display list, so do nothing
+		
+		# Ensure all parts in this step have proper display lists
+		for part in self.step.parts:
+			if (part.partOGL.oglDispID == UNINIT_OGL_DISPID):
+				part.partOGL.createOGLDisplayList()
+		
+		# Convert the list of buffers into a list of the concatenated buffer stack
+		# TODO: Ugly - find a more pythonic way to do this
+		bufferStackList = [[]]
+		for buffer in self.step.buffers:
+			tmp = list(bufferStackList[-1])
+			tmp.append(buffer)
+			bufferStackList.append(tmp)
+		
+		# Create one display list for each buffer set present in this Step
+		for buffers in bufferStackList:
+			id = glGenLists(1)
+			self.oglDispIDs.append((id, buffers))
+			glNewList(id, GL_COMPILE)
+			
+			for part in self.step.parts:
+				part.callOGLDisplayList(buffers)
+			
+			glEndList()
+		
+		self.oglDispID = glGenLists(1)
+		glNewList(self.oglDispID, GL_COMPILE)
+		self.callPreviousOGLDisplayLists(self.step.buffers)
+		glEndList()
+
+	def drawModel(self, width = UNINIT_PROP, height = UNINIT_PROP):
+		glCallList(self.oglDispID)
 
 	def drawPageElements(self, context, width, height):
 		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
@@ -459,13 +507,15 @@ class CSI():
 		
 		self.box.draw(context)
 
+	def callOGLDisplayList(self):
+		glCallList(self.oglDispID)
+
 class Step():
 	def __init__(self, filename, prevStep = None, buffers = []):
 		self.parts = []
 		self.filename = filename
 		self.prevStep = prevStep
 		self.buffers = buffers  # [(bufID, stepNumber)], set of buffers active inside this Step
-		self.oglDispIDs = []  # [(dispID, buffer)]
 		
 		self.internalGap = 20
 		self.stepNumberFont = Font(20)
@@ -476,46 +526,13 @@ class Step():
 		else:
 			self.number = 1
 		
-		self.csi = CSI(self.filename, self.number)
+		self.csi = CSI(self.filename, self, buffers)
 		self.pli = PLI(Point(self.internalGap, self.internalGap))
 
 	def addPart(self, part):
 		self.parts.append(part)
 		if (not part.ignorePLIState):
 			self.pli.addPartOGL(part.partOGL)
-
-	def createOGLDisplayList(self):
-		if (self.oglDispIDs != []):
-			# TODO: Ensure we don't ever call this, then remove this check
-			return   # Have already initialized this Step's display list, so do nothing
-		
-		# Ensure all parts in this step have proper display lists
-		for part in self.parts:
-			if (part.partOGL.oglDispID == UNINIT_OGL_DISPID):
-				part.partOGL.createOGLDisplayList()
-		
-		# Convert the list of buffers into a list of the concatenated buffer stack
-		# TODO: Ugly - find a more pythonic way to do this
-		bufferStackList = [[]]
-		for buffer in self.buffers:
-			tmp = list(bufferStackList[-1])
-			tmp.append(buffer)
-			bufferStackList.append(tmp)
-		
-		# Create one display list for each buffer set present in this Step
-		for buffers in bufferStackList:
-			id = glGenLists(1);
-			self.oglDispIDs.append((id, buffers))
-			glNewList(id, GL_COMPILE)
-			
-			for part in self.parts:
-				part.callOGLDisplayList(buffers)
-			
-			glEndList()
-		
-		# Tell this step's CSI which display list to use when drawing
-		# TODO: How much of all the stuf in Step should be moved to CSI?
-		self.csi.oglDispID = self.oglDispIDs[0][0]
 
 	def initLayout(self, context):
 		self.csi.initLayout(context)
@@ -532,55 +549,21 @@ class Step():
 		else:
 			self.stepNumberRefPt.y = self.internalGap * 2 + self.pli.box.height	- ybearing
 
-	def drawModel(self, currentBuffers = None, width = UNINIT_PROP, height = UNINIT_PROP):
+	def drawModel(self, width = UNINIT_PROP, height = UNINIT_PROP):
+		""" Draw this step's CSI and PLI parts (not GUI elements, just the 3D GL bits) """
 		
-		pushAllGLMatrices()
-		adjustGLViewport(0, 0, width, height)
-		glLoadIdentity()
-		rotateToDefaultView()
-		
-		# Draw any previous steps first
-		if (self.prevStep):
-			if (currentBuffers is None):
-				self.prevStep.drawModel(self.buffers, width, height)
-			else:
-				self.prevStep.drawModel(currentBuffers, width, height)
-		
-		if (currentBuffers is None):
-			self.pli.drawParts(width, height)
-		
-		# Draw this step
-		if (currentBuffers is None):
-			# This is the currently selected step - draw with its own buffer set (last stored)
-			glCallList(self.oglDispIDs[-1][0])
-			
-		elif (len(currentBuffers) > 0):
-			# Have current buffer - draw corresponding list (need to search for it)
-			for id, buffer in self.oglDispIDs:
-				if (buffer == currentBuffers):
-					glCallList(id)
-					popAllGLMatrices()
-					return
-			
-		# Draw the default list, with no buffers present
-		glCallList(self.oglDispIDs[0][0])
-		
-		popAllGLMatrices()
+		self.pli.drawParts(width, height)
+		self.csi.drawModel(width, height)
 
 	def drawPageElements(self, context, width, height):
 		""" Draw this step's PLI and CSI page elements, and this step's number label. """
 		self.csi.drawPageElements(context, width, height)
 		self.pli.drawPageElements(context)
-		self.drawStepLabel(context)
-	
-	def drawStepLabel(self, context):
-		""" Draw this step's number label into the specified cairo context."""
+		
+		# Draw this step's number label
 		self.stepNumberFont.passToCairo(context)
 		context.move_to(self.stepNumberRefPt.x, self.stepNumberRefPt.y)
 		context.show_text(str(self.number))
-
-	def callOGLDisplayList(self):
-		glCallList(self.oglDispIDs[0][0])
 
 class PartOGL():
 	"""
@@ -740,7 +723,7 @@ class PartOGL():
 		
 		# Ensure any steps in this part have been initialized
 		for step in self.steps:
-			step.createOGLDisplayList()
+			step.csi.createOGLDisplayList()
 		
 		# Ensure any parts in this part have been initialized
 		for part in self.parts:
@@ -751,7 +734,7 @@ class PartOGL():
 		glNewList(self.oglDispID, GL_COMPILE)
 		
 		for step in self.steps:
-			step.callOGLDisplayList()
+			step.csi.callOGLDisplayList()
 		
 		for part in self.parts:
 			part.callOGLDisplayList()
