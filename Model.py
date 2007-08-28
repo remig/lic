@@ -55,7 +55,7 @@ class Instructions():
 		# Draw the page itself - white with a thin black border
 		context.rectangle(0, 0, width, height)
 		context.stroke_preserve()
-		context.set_source_rgb(1,1,1)
+		context.set_source_rgb(1,0,0)
 		context.fill()
 		
 		return (scaleWidth, scaleHeight)
@@ -404,11 +404,12 @@ class CSI():
 	Construction Step Image.  Includes border and positional info.
 	"""
 	
-	def __init__(self, filename, step, x = 0, y = 0):
-		self.box = Box(x, y)
+	def __init__(self, filename, step, buffers):
+		self.box = Box(0, 0)
 		self.centerOffset = Point(0, 0)
 		self.filename = filename
 		self.step = step
+		self.buffers = buffers  # [(bufID, stepNumber)], set of buffers active inside this Step
 		
 		self.oglDispIDs = []  # [(dispID, buffer)]
 		self.oglDispID = UNINIT_OGL_DISPID
@@ -430,7 +431,7 @@ class CSI():
 		"""
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
-		print "Initializing CSI %s, step %d - size %dx%d" % (self.filename, self.step.number, width, height)
+		#print "Initializing CSI %s, step %d - size %dx%d" % (self.filename, self.step.number, width, height)
 		
 		params = initImgSize(width, height, self.oglDispID, wantInsets = False, filename = self.filename + " - step " + str(self.step.number))
 		if (params is None):
@@ -445,12 +446,12 @@ class CSI():
 		
 		if (currentBuffers == []):
 			# Draw the default list, since there's no buffers present
-			glCallListTrap(self.oglDispIDs[0][0], "callPrevOGLDLs in CSI %s, step %d" % (self.filename, self.step.number))
+			glCallList(self.oglDispIDs[0][0])
 		else:
 			# Have current buffer - draw corresponding list (need to search for it)
 			for id, buffer in self.oglDispIDs:
 				if (buffer == currentBuffers):
-					glCallListTrap(id, "callPrevOGLDLs in CSI %s, step %d" % (self.filename, self.step.number))
+					glCallList(id)
 					break
 
 	def dimensionsToString(self):
@@ -460,7 +461,6 @@ class CSI():
 		pass
 
 	def createOGLDisplayList(self):
-		print "Creating CSI display lists"
 		if (self.oglDispIDs != []):
 			# TODO: Ensure we don't ever call this, then remove this check
 			return   # Have already initialized this Step's display list, so do nothing
@@ -473,7 +473,7 @@ class CSI():
 		# Convert the list of buffers into a list of the concatenated buffer stack
 		# TODO: Ugly - find a more pythonic way to do this
 		bufferStackList = [[]]
-		for buffer in self.step.buffers:
+		for buffer in self.buffers:
 			tmp = list(bufferStackList[-1])
 			tmp.append(buffer)
 			bufferStackList.append(tmp)
@@ -482,21 +482,24 @@ class CSI():
 		for buffers in bufferStackList:
 			id = glGenLists(1)
 			self.oglDispIDs.append((id, buffers))
-			glNewListTrap(id, "buffer lists: " +str(buffers))
+			glNewList(id, GL_COMPILE)
 			
 			for part in self.step.parts:
-				print "CSI %s, step %d calling OGLDL for Part: %s" % (self.filename, self.step.number, part.partOGL.filename)
 				part.callOGLDisplayList(buffers)
 			
 			glEndList()
 		
 		self.oglDispID = glGenLists(1)
-		glNewListTrap(self.oglDispID, "CSI %s, step %d" % (self.filename, self.step.number))
-		self.callPreviousOGLDisplayLists(self.step.buffers)
+		glNewList(self.oglDispID, GL_COMPILE)
+		self.callPreviousOGLDisplayLists(self.buffers)
 		glEndList()
 
-	def drawModel(self, width = UNINIT_PROP, height = UNINIT_PROP):
-		glCallListTrap(self.oglDispID, "drawModel in CSI: %s, step %d" % (self.filename, self.step.number))
+	def drawModel(self, width, height):
+		
+		adjustGLViewport(0, 0, width, height)
+		glLoadIdentity()
+		rotateToDefaultView()
+		glCallList(self.oglDispID)
 
 	def drawPageElements(self, context, width, height):
 		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
@@ -509,14 +512,12 @@ class CSI():
 		self.box.draw(context)
 
 	def callOGLDisplayList(self):
-		glCallListTrap(self.oglDispID, "callOGLDL in CSI: %s, step %d" % (self.filename, self.step.number))
+		glCallList(self.oglDispIDs[0][0])
 
 class Step():
 	def __init__(self, filename, prevStep = None, buffers = []):
 		self.parts = []
-		self.filename = filename
 		self.prevStep = prevStep
-		self.buffers = buffers  # [(bufID, stepNumber)], set of buffers active inside this Step
 		
 		self.internalGap = 20
 		self.stepNumberFont = Font(20)
@@ -527,7 +528,7 @@ class Step():
 		else:
 			self.number = 1
 		
-		self.csi = CSI(self.filename, self, buffers)
+		self.csi = CSI(filename, self, list(buffers))
 		self.pli = PLI(Point(self.internalGap, self.internalGap))
 
 	def addPart(self, part):
@@ -552,7 +553,6 @@ class Step():
 
 	def drawModel(self, width = UNINIT_PROP, height = UNINIT_PROP):
 		""" Draw this step's CSI and PLI parts (not GUI elements, just the 3D GL bits) """
-		
 		self.pli.drawParts(width, height)
 		self.csi.drawModel(width, height)
 
@@ -732,13 +732,12 @@ class PartOGL():
 				part.partOGL.createOGLDisplayList()
 		
 		self.oglDispID = glGenLists(1)
-		glNewListTrap(self.oglDispID, self.filename)
+		glNewList(self.oglDispID, GL_COMPILE)
 		
 		for step in self.steps:
 			step.csi.callOGLDisplayList()
 		
 		for part in self.parts:
-			print "PartOGL %s, calling OGLDL for Part: %s" % (self.filename, part.partOGL.filename)
 			part.callOGLDisplayList()
 		
 		for primitive in self.primitives:
@@ -751,7 +750,7 @@ class PartOGL():
 			print "ERROR: Trying to draw a part with uninitialized width / height!!: ", self.filename
 			return
 		
-		glCallListTrap(self.oglDispID, "drawModel in PartOGL: %s" % self.filename)
+		glCallList(self.oglDispID)
 	
 	def initSize_checkRotation(self):
 		# TODO: Create a static list of all standard parts along with the necessary rotation needed
@@ -856,8 +855,8 @@ class Part():
 		if (self.matrix):
 			glPushMatrix()
 			glMultMatrixf(self.matrix)
-		
-		glCallListTrap(self.partOGL.oglDispID, "callOglDL in Part: %s" % self.partOGL.filename)
+			
+		glCallList(self.partOGL.oglDispID)
 		
 		if (self.matrix):
 			glPopMatrix()
@@ -874,7 +873,7 @@ class Part():
 			glPushMatrix()
 			glMultMatrixf(self.matrix)
 		
-		glCallListTrap(self.partOGL.oglDispID, "drawModel in Part: %s" % self.partOGL.filename)
+		glCallList(self.partOGL.oglDispID)
 		
 		if (self.matrix):
 			glPopMatrix()

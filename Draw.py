@@ -63,8 +63,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		return False
 
 	def on_destroy(self, widget, data=None):
-		# Clean up created FBO
-		destroyFBO(*self.buffers)
 		gtk.main_quit()
 
 	def on_button_press(self, *args):
@@ -125,12 +123,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		gldrawable = self.get_gl_drawable()
 		glcontext = self.get_gl_context()
 		gldrawable.gl_begin(glcontext)
-		
-		# Create a new blank GL FBO as a temporary buffer to hold any required 3D renderings
-		self.buffers = createFBO(self.width, self.height)
-		if (self.buffers is None):
-			print "ERROR: Failed to initialize FBO - aborting main window draw"
-			return
 		
 		adjustGLViewport(0, 0, self.width, self.height)
 		glLoadIdentity()	
