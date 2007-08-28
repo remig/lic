@@ -445,12 +445,12 @@ class CSI():
 		
 		if (currentBuffers == []):
 			# Draw the default list, since there's no buffers present
-			glCallList(self.oglDispIDs[0][0])
+			glCallListTrap(self.oglDispIDs[0][0], "callPrevOGLDLs in CSI %s, step %d" % (self.filename, self.step.number))
 		else:
 			# Have current buffer - draw corresponding list (need to search for it)
 			for id, buffer in self.oglDispIDs:
 				if (buffer == currentBuffers):
-					glCallList(id)
+					glCallListTrap(id, "callPrevOGLDLs in CSI %s, step %d" % (self.filename, self.step.number))
 					break
 
 	def dimensionsToString(self):
@@ -482,20 +482,21 @@ class CSI():
 		for buffers in bufferStackList:
 			id = glGenLists(1)
 			self.oglDispIDs.append((id, buffers))
-			glNewList(id, GL_COMPILE)
+			glNewListTrap(id, "buffer lists: " +str(buffers))
 			
 			for part in self.step.parts:
+				print "CSI %s, step %d calling OGLDL for Part: %s" % (self.filename, self.step.number, part.partOGL.filename)
 				part.callOGLDisplayList(buffers)
 			
 			glEndList()
 		
 		self.oglDispID = glGenLists(1)
-		glNewList(self.oglDispID, GL_COMPILE)
+		glNewListTrap(self.oglDispID, "CSI %s, step %d" % (self.filename, self.step.number))
 		self.callPreviousOGLDisplayLists(self.step.buffers)
 		glEndList()
 
 	def drawModel(self, width = UNINIT_PROP, height = UNINIT_PROP):
-		glCallList(self.oglDispID)
+		glCallListTrap(self.oglDispID, "drawModel in CSI: %s, step %d" % (self.filename, self.step.number))
 
 	def drawPageElements(self, context, width, height):
 		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
@@ -508,7 +509,7 @@ class CSI():
 		self.box.draw(context)
 
 	def callOGLDisplayList(self):
-		glCallList(self.oglDispID)
+		glCallListTrap(self.oglDispID, "callOGLDL in CSI: %s, step %d" % (self.filename, self.step.number))
 
 class Step():
 	def __init__(self, filename, prevStep = None, buffers = []):
@@ -731,12 +732,13 @@ class PartOGL():
 				part.partOGL.createOGLDisplayList()
 		
 		self.oglDispID = glGenLists(1)
-		glNewList(self.oglDispID, GL_COMPILE)
+		glNewListTrap(self.oglDispID, self.filename)
 		
 		for step in self.steps:
 			step.csi.callOGLDisplayList()
 		
 		for part in self.parts:
+			print "PartOGL %s, calling OGLDL for Part: %s" % (self.filename, part.partOGL.filename)
 			part.callOGLDisplayList()
 		
 		for primitive in self.primitives:
@@ -749,7 +751,7 @@ class PartOGL():
 			print "ERROR: Trying to draw a part with uninitialized width / height!!: ", self.filename
 			return
 		
-		glCallList(self.oglDispID)
+		glCallListTrap(self.oglDispID, "drawModel in PartOGL: %s" % self.filename)
 	
 	def initSize_checkRotation(self):
 		# TODO: Create a static list of all standard parts along with the necessary rotation needed
@@ -854,8 +856,8 @@ class Part():
 		if (self.matrix):
 			glPushMatrix()
 			glMultMatrixf(self.matrix)
-			
-		glCallList(self.partOGL.oglDispID)
+		
+		glCallListTrap(self.partOGL.oglDispID, "callOglDL in Part: %s" % self.partOGL.filename)
 		
 		if (self.matrix):
 			glPopMatrix()
@@ -872,7 +874,7 @@ class Part():
 			glPushMatrix()
 			glMultMatrixf(self.matrix)
 		
-		glCallList(self.partOGL.oglDispID)
+		glCallListTrap(self.partOGL.oglDispID, "drawModel in Part: %s" % self.partOGL.filename)
 		
 		if (self.matrix):
 			glPopMatrix()

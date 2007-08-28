@@ -14,8 +14,8 @@ from OpenGL.GLU import *
 
 #MODEL_NAME = "pyramid.dat"
 #MODEL_NAME = "pyramid_bufs.dat"
-#MODEL_NAME = "Blaster.mpd"
-MODEL_NAME = "Blaster_shortened.mpd"
+MODEL_NAME = "Blaster.mpd"
+#MODEL_NAME = "Blaster_shortened.mpd"
 
 gui_xml = gtk.glade.XML( "c:\\LDraw\\LIC\\LIC.glade")
 

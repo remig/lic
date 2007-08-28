@@ -32,6 +32,14 @@ def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0):
 	# TODO: Figure out the exact rotation for this
 	glRotatef(20.0, 1.0, 0.0, 0.0,)
 	glRotatef(45.0, 0.0, 1.0, 0.0,)
+	
+def glCallListTrap(oglDispID, creator):
+	print "Drawing GL List: %d from %s" % (oglDispID, creator)
+	glCallList(oglDispID)
+
+def glNewListTrap(oglDispID, creator):
+	print "Creating new GL List for ID %d, %s" % (oglDispID, creator)
+	return glNewList(oglDispID, GL_COMPILE)
 
 def pushAllGLMatrices():
 	glPushAttrib(GL_TRANSFORM_BIT | GL_VIEWPORT_BIT)
