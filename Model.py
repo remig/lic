@@ -697,12 +697,12 @@ class PartOGL():
 			
 		if (state == BufferStore):
 			self.buffers.append((buffer, self.currentStep.number))
-			self.currentStep.buffers = list(self.buffers)
+			self.currentStep.csi.buffers = list(self.buffers)
 		
 		elif (state == BufferRetrieve):
 			if (self.buffers[-1][0] == buffer):
 				self.buffers.pop()
-				self.currentStep.buffers = list(self.buffers)
+				self.currentStep.csi.buffers = list(self.buffers)
 				if (self.currentStep.parts != []):
 					print "Buffer Exchange error.  Restoring a buffer in Step ", self.currentStep.number, " after adding pieces to step.  Pieces will never be drawn."
 			else:
