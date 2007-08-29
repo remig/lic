@@ -260,8 +260,13 @@ class PLI():
 		overallX = b.x + b.internalGap
 		b.width = b.height = UNINIT_PROP
 		
+		# Sort the list of parts in this PLI from widest to narrowest, with the tallest one first
 		partList = self.layout.values()
 		partList.sort(compareLayoutItemWidths)
+		tallestPart = max(partList, key=findHighestItem)
+		partList.remove(tallestPart)
+		partList = [tallestPart] + partList
+		
 		for i, (count, part, corner, labelCorner) in enumerate(partList):  # item: [count, part, bottomLeftCorner]
 			
 			# If this part has steps of its own, like any good submodel, initialize those PLIs
@@ -279,12 +284,18 @@ class PLI():
 			
 			# Check if the current PLI box is big enough to fit this part *below* the previous part,
 			# without making the box any bigger.  If so, position part there instead.
+			newWidth = part.width
 			if (i > 0):
 				prevCorner = partList[i-1][2]
-				prevPartWidth = partList[i-1][1].width
+				prevLabelCorner = partList[i-1][3]
 				if (prevCorner.y + part.height < b.height):
-					overallX = prevCorner.x
-					corner.x = prevCorner.x + (prevPartWidth - part.width)
+					if (prevCorner.x > prevLabelCorner.x):
+						overallX = int(prevLabelCorner.x)
+						newWidth = (prevCorner.x - overallX) + partList[i-1][1].width
+					else:
+						overallX = prevCorner.x
+						newWidth = partList[i-1][1].width
+					corner.x = overallX + (newWidth - part.width)
 					corner.y = prevCorner.y + b.internalGap + part.height
 			
 			# Position the part quantity label
@@ -301,7 +312,7 @@ class PLI():
 			labelCorner.x -= xBearing
 			
 			# Increase overall x, box width and box height to make PLI box big enough for this part
-			overallX += part.width + b.internalGap
+			overallX += newWidth + b.internalGap
 			b.width = overallX - b.x
 			b.height = max(b.height, part.height + int(xHeight / 2) + (b.internalGap * 2))
 
@@ -368,25 +379,22 @@ class PLI():
 			context.move_to(labelCorner.x, labelCorner.y)
 			context.show_text(str(count) + self.qtyMultiplierChar)
 
+def findHighestItem(item):
+	return item[1].height
+
 def compareLayoutItemWidths(item1, item2):
-	return comparePartWidths(item1[1], item2[1])
-
-def compareLayoutItemHeights(item1, item2):
-	return comparePartHeights(item1[1], item2[1])
-
-def comparePartWidths(part1, part2):
 	""" Returns 1 if part 2 is wider than part 1, 0 if equal, -1 if narrower. """
-	if (part1.width < part2.width):
+	if (item1[1].width < item2[1].width):
 		return 1
-	if (part1.width == part2.width):
+	if (item1[1].width == item2[1].width):
 		return 0
 	return -1
 
-def comparePartHeights(part1, part2):
+def compareLayoutItemHeights(item1, item2):
 	""" Returns 1 if part 2 is taller than part 1, 0 if equal, -1 if shorter. """
-	if (part1.height < part2.height):
+	if (item1[1].height < item2[1].height):
 		return 1
-	if (part1.height == part2.height):
+	if (item1[1].height == item2[1].height):
 		return 0
 	return -1
 
