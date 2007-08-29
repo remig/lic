@@ -22,8 +22,7 @@ Then, check out the os module's exec & spawn functions to call L3P (http://docs.
 Then, figure out the correct arguments to L3P so that a single brick is rendered identical in PLI and L3P
 
 Also need to get LDraw file *SAVE* working:
-First, just write the existing file array back to disk, without a single change.
-Then, add changes & calculation made on load back into the file array (initial STEP, PLI positions, subModel dimensions, etc).
+First, add changes & calculation made on load back into the file array (initial STEP, PLI positions, subModel dimensions, etc).
 Then, write that new file array to disk, then load it and see if we can save a ton of work on init.
 
 Once all that's done, LIC is actually mildly useful.  Nothing revolutionary yet, but useful.
@@ -49,7 +48,8 @@ class Instructions():
 		self.ImgDimensionsFilename = "PartDimensions_" + filename + ".cache"
 		
 		self.mainModel = Part(filename, hasSteps = True)
-		#ldFile.saveFile()
+		self.mainModel.partOGL.ldrawFile.saveFile() 
+		self.mainModel.partOGL.writeToFile() 
 	
 	def drawPage(self, context, width, height):
 		
@@ -573,6 +573,12 @@ class Step():
 		context.move_to(self.stepNumberRefPt.x, self.stepNumberRefPt.y)
 		context.show_text(str(self.number))
 
+	def writeToFile(self):
+		lines = ["0 STEP"]
+		for part in self.parts:
+			lines.append(part.writeToFile())
+		return lines
+
 class PartOGL():
 	"""
 	Represents one 'abstract' part.  Could be regular part, like 2x4 brick, could be a 
@@ -648,10 +654,10 @@ class PartOGL():
 			self.addStep(line[0])
 		
 		elif (isValidPartLine(line)):
-			self.addPart(lineToPart(line))
+			self.addPart(lineToPart(line), line)
 		
 		elif (isValidGhostLine(line)):
-			self.addPart(lineToGhostPart(line))
+			self.addPart(lineToGhostPart(line), line)
 		
 		elif (isValidBufferLine(line)):
 			self.addBuffer(lineToBuffer(line))
@@ -680,7 +686,7 @@ class PartOGL():
 		self.currentStep = Step(self.filename, self.currentStep, list(self.buffers))
 		self.steps.append(self.currentStep)
 
-	def addPart(self, p):
+	def addPart(self, p, line):
 		try:
 			part = Part(p['filename'], p['color'], p['matrix'], p['ghost'], list(self.buffers), ldrawFile = self.ldrawFile)
 		except IOError:
@@ -689,6 +695,7 @@ class PartOGL():
 			return
 		
 		part.ignorePLIState = self.ignorePLIState
+		part.fileLine = line
 		
 		if (self.currentStep):
 			self.currentStep.addPart(part)
@@ -799,6 +806,16 @@ class PartOGL():
 		self.width, self.height, self.leftInset, self.bottomInset, self.center = params
 		return True
 
+	def writeToFile(self):
+		lines = []
+		for step in self.steps:
+			lines += step.writeToFile()
+
+		f = open(self.ldrawFile.path + "test_" + self.ldrawFile.filename, 'w')
+		for line in lines:
+			f.write(line + "\n")
+		f.close()
+
 class Part():
 	"""
 	Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough
@@ -815,6 +832,7 @@ class Part():
 		self.buffers = buffers  # [(bufID, stepNumber)]
 		self.inverted = invert
 		self.ignorePLIState = False
+		self.fileLine = []
 		
 		if (filename in partDictionary):
 			self.partOGL = partDictionary[filename]
@@ -884,6 +902,9 @@ class Part():
 		
 		if (self.matrix):
 			glPopMatrix()
+	
+	def writeToFile(self):
+		return ' '.join(self.fileLine[1:])
 	
 class Primitive():
 	"""
