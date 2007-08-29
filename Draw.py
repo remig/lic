@@ -140,20 +140,22 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		cr.identity_matrix()
 		
 		# Draw the overall page frame
+		# This leaves the cairo context translated to the top left corner of the page, but *NOT* scaled.
+		# Instead, it returns the width and height of the page.  Scaling here messes up GL drawing.
 		scaleWidth, scaleHeight = self.instructions.drawPage(cr, self.width, self.height)
 		
 		# Clear GL buffer
 		glClearColor(1.0, 1.0, 1.0, 0)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
-		# TODO: Ensure these resets are actually necessary - if not, remove them
-		adjustGLViewport(0, 0, self.width, self.height)
+		# Fully reset the viewport - necessary if we've mangled it while calculating part dimensions
+		adjustGLViewport(0, 0, scaleWidth, scaleHeight)
 		glLoadIdentity()	
 		rotateToDefaultView()
 		
 		# Draw the currently selected model / part / step / whatnot to GL buffer
 		if (self.model):
-			self.model.drawModel(width = scaleWidth, height = scaleHeight)
+			self.model.drawModel(scaleWidth, scaleHeight)
 		
 		# Copy GL buffer to a new cairo surface, then dump that surface to the current context
 		pixels = glReadPixels (0, 0, scaleWidth, scaleHeight, GL_RGBA,  GL_UNSIGNED_BYTE)
@@ -164,7 +166,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		# Draw any remaining 2D page elements, like borders, labels, etc
 		if (self.model and isinstance(self.model, Step)):
-			self.model.drawPageElements(cr, width = scaleWidth, height = scaleHeight)
+			self.model.drawPageElements(cr, scaleWidth, scaleHeight)
 	
 	def initializeTree(self):
 		print "*** Loading TreeView ***"

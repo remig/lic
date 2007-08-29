@@ -56,7 +56,7 @@ class Instructions():
 		# Draw the page itself - white with a thin black border
 		context.rectangle(0, 0, width, height)
 		context.stroke_preserve()
-		context.set_source_rgb(1,0,0)
+		context.set_source_rgb(1,1,1)
 		context.fill()
 		
 		return (scaleWidth, scaleHeight)
@@ -77,6 +77,9 @@ class Instructions():
 			step.initLayout(context)
 
 	def initPartDimensions(self):
+		# TODO: CSI dimensions should *NOT* be stored with part dimensions.  Part dimensions
+		# should be shareable across models, if those models have the necessary same display setting.
+		# Instead, store CSI dimensions right along with the STEP command right in the model file
 		try:
 			# Have a valid part dimension cache file for this model - load from there
 			f = file(self.ImgDimensionsFilename, "r")
@@ -427,18 +430,18 @@ class CSI():
 		
 		adjustGLViewport(0, 0, width, height)
 		glLoadIdentity()
-		rotateToDefaultView()
+		rotateToDefaultView(self.centerOffset.x, self.centerOffset.y, 0.0)
 		glCallList(self.oglDispID)
 
 	def drawPageElements(self, context, width, height):
-		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
+		b = self.box
+		if (b.width == UNINIT_PROP or b.height == UNINIT_PROP):
 			print "ERROR: Trying to draw an unitialized PLI layout!"
 			return
 		
-		self.box.x = (width / 2.) - (self.box.width / 2.) + self.centerOffset.x
-		self.box.y = (height / 2.) - (self.box.height / 2.) + self.centerOffset.y
-		
-		self.box.draw(context)
+		b.x = (width / 2.) - (b.width / 2.)
+		b.y = (height / 2.) - (b.height / 2.)
+		b.draw(context)
 
 	def callOGLDisplayList(self):
 		glCallList(self.oglDispIDs[0][0])
@@ -480,7 +483,7 @@ class Step():
 		else:
 			self.stepNumberRefPt.y = self.internalGap * 2 + self.pli.box.height	- ybearing
 
-	def drawModel(self, width = UNINIT_PROP, height = UNINIT_PROP):
+	def drawModel(self, width, height):
 		""" Draw this step's CSI and PLI parts (not GUI elements, just the 3D GL bits) """
 		self.pli.drawParts(width, height)
 		self.csi.drawModel(width, height)
