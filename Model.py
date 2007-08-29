@@ -14,6 +14,24 @@ from OpenGL.GLU import *
 UNINIT_OGL_DISPID = -1
 UNINIT_PROP = -1
 
+"""
+TODO: Once PLI and CSI are laid out properly (just need to touch up PLI), work on generating actual POV 
+renderings from whatever is displayed:
+First, figure out menus in pyGTK, and get a 'generate' menu to do something, anything
+Then, check out the os module's exec & spawn functions to call L3P (http://docs.python.org/lib/os-process.html)
+Then, figure out the correct arguments to L3P so that a single brick is rendered identical in PLI and L3P
+
+Also need to get LDraw file *SAVE* working:
+First, just write the existing file array back to disk, without a single change.
+Then, add changes & calculation made on load back into the file array (initial STEP, PLI positions, subModel dimensions, etc).
+Then, write that new file array to disk, then load it and see if we can save a ton of work on init.
+
+Once all that's done, LIC is actually mildly useful.  Nothing revolutionary yet, but useful.
+
+
+Should keep me busy for the next few weeks...
+"""
+
 # TODO: Implement rotation steps - good luck
 # TODO: remove partDictionary global variable - used in few enough spots that it shouldn't be global anymore
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
