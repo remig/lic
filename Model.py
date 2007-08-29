@@ -255,17 +255,17 @@ class PLI():
 		if (len(self.layout) < 1):
 			return
 		
-		b = self.box
-		# Note that PLI box's top left corner must be set by container before this
-		overallX = b.x + b.internalGap
-		b.width = b.height = UNINIT_PROP
-		
 		# Sort the list of parts in this PLI from widest to narrowest, with the tallest one first
 		partList = self.layout.values()
-		partList.sort(compareLayoutItemWidths)
 		tallestPart = max(partList, key=findHighestItem)
 		partList.remove(tallestPart)
-		partList = [tallestPart] + partList
+		partList.sort(compareLayoutItemWidths)
+		partList.insert(0, tallestPart)
+		
+		# Note that PLI box's top left corner must be set by container before this
+		b = self.box
+		overallX = b.x + b.internalGap
+		b.width = b.height = UNINIT_PROP
 		
 		for i, (count, part, corner, labelCorner) in enumerate(partList):  # item: [count, part, bottomLeftCorner]
 			
@@ -288,7 +288,8 @@ class PLI():
 			if (i > 0):
 				prevCorner = partList[i-1][2]
 				prevLabelCorner = partList[i-1][3]
-				if (prevCorner.y + part.height < b.height):
+				remainingHeight = b.y + b.height - b.internalGap - b.internalGap - prevCorner.y
+				if (part.height < remainingHeight):
 					if (prevCorner.x > prevLabelCorner.x):
 						overallX = int(prevLabelCorner.x)
 						newWidth = (prevCorner.x - overallX) + partList[i-1][1].width
