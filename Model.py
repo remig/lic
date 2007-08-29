@@ -67,14 +67,14 @@ class Instructions():
 	def getCurrentModel(self):
 		pass
 
-	def initDraw(self, context):
+	def initDraw(self, context, width, height):
 		
 		# Calculate the width and height of each partOGL in the part dictionary
 		self.initPartDimensions()
 		
 		# Calculate an initial layout for each CSI and PLI in this instruction book
 		for step in self.mainModel.partOGL.steps:
-			step.initLayout(context)
+			step.initLayout(context, width, height)
 
 	def initPartDimensions(self):
 		# TODO: CSI dimensions should *NOT* be stored with part dimensions.  Part dimensions
@@ -227,7 +227,7 @@ class PLI():
 		else:
 			self.layout[part.filename] = [1, part, Point(0, 0), Point(0, 0)]
 
-	def initLayout(self, context):
+	def initLayout(self, context, csiBox, width, height):
 		
 		# TODO: This entire method places parts from left to right in the order they
 		# were added to PLI. *Very* naive, and usually ugly.  After CSIs are properly
@@ -242,7 +242,8 @@ class PLI():
 			
 			# If this part has steps of its own, like any good submodel, initialize those PLIs
 			for step in part.steps:
-				step.pli.initLayout(context)
+				cb = step.csi.getDefaultBox(width, height)
+				step.pli.initLayout(context, cb, width, height)
 			
 			if (part.width == UNINIT_PROP or part.height == UNINIT_PROP):
 				# TODO: Remove this check once all is well
@@ -328,6 +329,22 @@ class PLI():
 			context.move_to(labelCorner.x, labelCorner.y)
 			context.show_text(str(count) + self.qtyMultiplierChar)
 
+def comparePartWidths(part1, part2):
+	""" Returns 1 if part1 is wider than part 2, 0 if equal, -1 if narrower. """
+	if (part1.width > part2.width):
+		return 1
+	if (part2.width == part2.width):
+		return 0
+	return -1
+
+def comparePartHeights(part1, part2):
+	""" Returns 1 if part1 is taller than part 2, 0 if equal, -1 if shorter. """
+	if (part1.height > part2.height):
+		return 1
+	if (part2.height == part2.height):
+		return 0
+	return -1
+
 class CSI():
 	"""
 	Construction Step Image.  Includes border and positional info.
@@ -389,8 +406,11 @@ class CSI():
 		# If we get here, no better display list was found, so call the default display list
 		glCallList(self.oglDispIDs[0][0])
 
-	def initLayout(self, context):
-		pass
+	def getDefaultBox(self, width, height):
+		b = Box(x = self.box.x, y = self.box.y)
+		b.x = (width / 2.) - (self.box.width / 2.)
+		b.y = (height / 2.) - (self.box.height / 2.)
+		return b
 
 	def createOGLDisplayList(self):
 		if (self.oglDispIDs != []):
@@ -468,9 +488,10 @@ class Step():
 		if (not part.ignorePLIState):
 			self.pli.addPartOGL(part.partOGL)
 
-	def initLayout(self, context):
-		self.csi.initLayout(context)
-		self.pli.initLayout(context)
+	def initLayout(self, context, width, height):
+		
+		csiBox = self.csi.getDefaultBox(width, height)
+		self.pli.initLayout(context, csiBox, width, height)
 		
 		# Figure out the display height of the step number label
 		self.stepNumberFont.passToCairo(context)

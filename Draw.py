@@ -106,7 +106,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		print "*** Loading Model ***"
 		cr = self.window.cairo_create()
 		self.instructions = Instructions(MODEL_NAME)
-		self.instructions.initDraw(cr)
+		self.instructions.initDraw(cr, 460, 460)
 		self.model = self.instructions.getMainModel()
 		
 		self.initializeTree()
