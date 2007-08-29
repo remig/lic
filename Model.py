@@ -452,7 +452,10 @@ class CSI():
 			for id, buffer in self.oglDispIDs:
 				if (buffer == currentBuffers):
 					glCallList(id)
-					break
+					return
+		
+		# If we get here, no better display list was found, so call the default display list
+		glCallList(self.oglDispIDs[0][0])
 
 	def dimensionsToString(self):
 		return "s %d %s %d %d %d %d\n" % (self.step.number, self.filename, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y)

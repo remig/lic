@@ -227,6 +227,11 @@ def go():
 	box = gui_xml.get_widget("box_opengl")
 	box.pack_start(area)  
 
+	# Some example status bar code
+	statusbar = gui_xml.get_widget("statusbar")
+	context_id = statusbar.get_context_id("statusbar")
+	message_id = statusbar.push(context_id, "Hello")
+	
 	#main.maximize()
 	main.set_title("Title Goes Here When Close To Done")
 	main.show_all()
