@@ -233,12 +233,18 @@ class PLI():
 		# were added to PLI. *Very* naive, and usually ugly.  After CSIs are properly
 		# created and laid out, redo this algorithm to have PLIs flow around CSIs
 		
+		# If this PLI is empty, nothing to do here
+		if (len(self.layout) < 1):
+			return
+		
 		b = self.box
 		# Note that PLI box's top left corner must be set by container before this
 		overallX = b.x + b.internalGap
 		b.width = b.height = UNINIT_PROP
 		
-		for (count, part, corner, labelCorner) in self.layout.values():  # item: [count, part, bottomLeftCorner]
+		partList = self.layout.values()
+		partList.sort(compareLayoutItemWidths)
+		for i, (count, part, corner, labelCorner) in enumerate(partList):  # item: [count, part, bottomLeftCorner]
 			
 			# If this part has steps of its own, like any good submodel, initialize those PLIs
 			for step in part.steps:
@@ -253,23 +259,18 @@ class PLI():
 			corner.x = overallX
 			corner.y = b.y + b.internalGap + part.height
 			
-			# Tell cairo to use the quantity label's current font
-			self.qtyLabelFont.passToCairo(context)
+			# Check if the current PLI box is big enough to fit this part *below* the previous part,
+			# without making the box any bigger.  If so, position part there instead.
+			if (i > 0):
+				prevCorner = partList[i-1][2]
+				prevPartWidth = partList[i-1][1].width
+				if (prevCorner.y + part.height < b.height):
+					overallX = prevCorner.x
+					corner.x = prevCorner.x + (prevPartWidth - part.width)
+					corner.y = prevCorner.y + b.internalGap + part.height
 			
-			# Figure out the display height of multiplier label and the width of full quantity label
-			label = str(count) + self.qtyMultiplierChar
-			xbearing, ybearing,     xWidth,     xHeight, xa, ya = context.text_extents(self.qtyMultiplierChar)
-			xbearing, ybearing, labelWidth, labelHeight, xa, ya = context.text_extents(label)
-			
-			# Position label based on part corner, empty corner triangle and label's size
-			if (part.leftInset == part.bottomInset == 0):
-				dx = -3   # Bottom left triangle is empty - shift just a little, for a touch more padding
-			else:
-				slope = part.leftInset / float(part.bottomInset)
-				dx = ((part.leftInset - (xHeight / 2)) / slope) - 3  # 3 for a touch more padding
-			
-			labelCorner.x = int(corner.x - labelWidth + max(0, dx))
-			labelCorner.y = int(corner.y + (xHeight / 2))
+			# Position the part quantity label
+			labelCorner.x, labelCorner.y, xBearing, xHeight = self.initQtyLabelPos(context, count, part, corner)
 			
 			if (labelCorner.x < overallX):
 				# We're trying to draw the label to the left of the part's current position - shift everything
@@ -279,13 +280,34 @@ class PLI():
 				corner.x += dx
 			
 			# Account for any x bearing in label (space between left corner of bounding box and actual reference point)
-			labelCorner.x -= xbearing
+			labelCorner.x -= xBearing
 			
 			# Increase overall x, box width and box height to make PLI box big enough for this part
 			overallX += part.width + b.internalGap
 			b.width = overallX - b.x
 			b.height = max(b.height, part.height + int(xHeight / 2) + (b.internalGap * 2))
 
+	def initQtyLabelPos(self, context, count, part, partCorner):
+		
+		# Tell cairo to use the quantity label's current font
+		self.qtyLabelFont.passToCairo(context)
+		
+		# Figure out the display height of multiplier label and the width of full quantity label
+		label = str(count) + self.qtyMultiplierChar
+		xbearing, ybearing,     xWidth,     xHeight, xa, ya = context.text_extents(self.qtyMultiplierChar)
+		xbearing, ybearing, labelWidth, labelHeight, xa, ya = context.text_extents(label)
+		
+		# Position label based on part corner, empty corner triangle and label's size
+		if (part.leftInset == part.bottomInset == 0):
+			dx = -3   # Bottom left triangle is empty - shift just a little, for a touch more padding
+		else:
+			slope = part.leftInset / float(part.bottomInset)
+			dx = ((part.leftInset - (xHeight / 2)) / slope) - 3  # 3 for a touch more padding
+		
+		x = int(partCorner.x - labelWidth + max(0, dx))
+		y = int(partCorner.y + (xHeight / 2))
+		return (x, y, xbearing, xHeight)
+	
 	# TODO: Now that we've got GL always rendering to FBOs, no buffer swap issues remain -
 	# can merge drawParts and drawPageElements?  It'd save an entire iteration over layout...
 	def drawParts(self, width, height):
@@ -328,19 +350,25 @@ class PLI():
 			context.move_to(labelCorner.x, labelCorner.y)
 			context.show_text(str(count) + self.qtyMultiplierChar)
 
+def compareLayoutItemWidths(item1, item2):
+	return comparePartWidths(item1[1], item2[1])
+
+def compareLayoutItemHeights(item1, item2):
+	return comparePartHeights(item1[1], item2[1])
+
 def comparePartWidths(part1, part2):
-	""" Returns 1 if part1 is wider than part 2, 0 if equal, -1 if narrower. """
-	if (part1.width > part2.width):
+	""" Returns 1 if part 2 is wider than part 1, 0 if equal, -1 if narrower. """
+	if (part1.width < part2.width):
 		return 1
-	if (part2.width == part2.width):
+	if (part1.width == part2.width):
 		return 0
 	return -1
 
 def comparePartHeights(part1, part2):
-	""" Returns 1 if part1 is taller than part 2, 0 if equal, -1 if shorter. """
-	if (part1.height > part2.height):
+	""" Returns 1 if part 2 is taller than part 1, 0 if equal, -1 if shorter. """
+	if (part1.height < part2.height):
 		return 1
-	if (part2.height == part2.height):
+	if (part1.height == part2.height):
 		return 0
 	return -1
 
