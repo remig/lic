@@ -242,8 +242,7 @@ class PLI():
 			
 			# If this part has steps of its own, like any good submodel, initialize those PLIs
 			for step in part.steps:
-				cb = step.csi.getDefaultBox(width, height)
-				step.pli.initLayout(context, cb, width, height)
+				step.initLayout(context, width, height)
 			
 			if (part.width == UNINIT_PROP or part.height == UNINIT_PROP):
 				# TODO: Remove this check once all is well
