@@ -255,7 +255,7 @@ class PLI():
 		else:
 			self.layout[part.filename] = [1, part, Point(0, 0), Point(0, 0)]
 
-	def initLayout(self, context, csiBox):
+	def initLayout(self, context):
 		
 		# TODO: This entire method places parts from left to right in the order they
 		# were added to PLI. *Very* naive, and usually ugly.  After CSIs are properly
@@ -414,6 +414,7 @@ class CSI():
 	
 	def __init__(self, filename, step, buffers):
 		self.box = Box(0, 0)
+		self.offsetPLI = 0
 		self.centerOffset = Point(0, 0)
 		self.filename = filename
 		self.step = step
@@ -451,7 +452,7 @@ class CSI():
 	def resize(self):
 		global _windowWidth, _windowHeight
 		self.box.x = (_windowWidth / 2.) - (self.box.width / 2.)
-		self.box.y = (_windowHeight / 2.) - (self.box.height / 2.)
+		self.box.y = ((_windowHeight - self.offsetPLI) / 2.) - (self.box.height / 2.) + self.offsetPLI
 
 	def dimensionsToString(self):
 		return "s %d %s %d %d %d %d\n" % (self.step.number, self.filename, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y)
@@ -513,7 +514,7 @@ class CSI():
 	def drawModel(self):
 		global _windowWidth, _windowHeight
 		
-		adjustGLViewport(0, 0, _windowWidth, _windowHeight)
+		adjustGLViewport(0, 0, _windowWidth, _windowHeight + self.offsetPLI)
 		glLoadIdentity()
 		rotateToDefaultView(self.centerOffset.x, self.centerOffset.y, 0.0)
 		glCallList(self.oglDispID)
@@ -569,20 +570,28 @@ class Step():
 			self.pli.addPartOGL(part.partOGL)
 
 	def initLayout(self, context):
+		global _windowHeight
 	
-		self.csi.resize()
-		self.pli.initLayout(context, Box(0, 0))
-		
+		self.pli.initLayout(context)
+	
+		# Determine space between top page edge and bottom of PLI, including gaps
+		if (self.pli.isEmpty()):
+			topGap = self.internalGap
+		else:
+			topGap = self.internalGap * 2 + self.pli.box.height
+
 		# Figure out the display height of the step number label
+		# TODO: fix context.text_extents call so that only ybearing (yBearing) is created
 		self.stepNumberFont.passToCairo(context)
 		xbearing, ybearing, labelWidth, labelHeight, xa, ya = context.text_extents(str(self.number))
 		
 		# Initialize this step number's label position
-		self.stepNumberRefPt.x = self.pli.box.x - xbearing
-		if (self.pli.isEmpty()):
-			self.stepNumberRefPt.y = self.internalGap - ybearing
-		else:
-			self.stepNumberRefPt.y = self.internalGap * 2 + self.pli.box.height	- ybearing
+		self.stepNumberRefPt.x = self.internalGap - xbearing
+		self.stepNumberRefPt.y = topGap - ybearing
+
+		# Tell this step's CSI about the PLI, so it can center itself vertically better
+		self.csi.offsetPLI = topGap
+		self.csi.resize()
 
 	def drawModel(self):
 		""" Draw this step's CSI and PLI parts (not GUI elements, just the 3D GL bits) """
