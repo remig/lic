@@ -178,7 +178,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		# Draw any remaining 2D page elements, like borders, labels, etc
 		if (self.model and isinstance(self.model, Step)):
-			self.model.drawPageElements(cr, scaleWidth, scaleHeight)
+			self.model.drawPageElements(cr)
 	
 	def initializeTree(self):
 		print "*** Loading TreeView ***"

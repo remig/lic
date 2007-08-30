@@ -589,7 +589,7 @@ class Step():
 		self.pli.drawParts()
 		self.csi.drawModel()
 
-	def drawPageElements(self, context, width, height):
+	def drawPageElements(self, context):
 		""" Draw this step's PLI and CSI page elements, and this step's number label. """
 		self.csi.drawPageElements(context)
 		self.pli.drawPageElements(context)
@@ -799,6 +799,7 @@ class PartOGL():
 
 	def drawModel(self, context = None, width = UNINIT_PROP, height = UNINIT_PROP):
 		if (self.width == UNINIT_PROP or self.height == UNINIT_PROP):
+			# TODO: Remove this check once all is well
 			print "ERROR: Trying to draw a part with uninitialized width / height!!: ", self.filename
 			return
 		
