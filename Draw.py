@@ -61,6 +61,11 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	
 	def on_generate_images(self, data):
 		print "Generate Menu works"
+		
+		if (self.model and isinstance(self.model, Step)):
+			self.model.parts[0].translate(0, 0, -10)
+			self.instructions.getMainModel().partOGL.ldrawFile.saveFile()
+			self.on_expose_event()
 	
 	def on_exit(self, data):
 		return False

@@ -14,11 +14,12 @@ from OpenGL.GLU import *
 UNINIT_OGL_DISPID = -1
 UNINIT_PROP = -1
 
+windowWidth = -1
+windowHeight = -1
+
 """
-TODO: Once PLI and CSI are laid out properly (just need to touch up PLI), work on generating actual POV 
-renderings from whatever is displayed:
-First, figure out menus in pyGTK, and get a 'generate' menu to do something, anything
-Then, check out the os module's exec & spawn functions to call L3P (http://docs.python.org/lib/os-process.html)
+TODO: Work on generating actual POV renderings from whatever is displayed:
+First, Use the os module's exec & spawn functions to call L3P (http://docs.python.org/lib/os-process.html)
 Then, figure out the correct arguments to L3P so that a single brick is rendered identical in PLI and L3P
 
 Also need to get LDraw file *SAVE* working:
@@ -48,8 +49,7 @@ class Instructions():
 		self.ImgDimensionsFilename = "PartDimensions_" + filename + ".cache"
 		
 		self.mainModel = Part(filename, hasSteps = True)
-		self.mainModel.partOGL.ldrawFile.saveFile() 
-		self.mainModel.partOGL.writeToFile() 
+		#self.mainModel.partOGL.ldrawFile.saveFile()
 	
 	def drawPage(self, context, width, height):
 		
@@ -465,9 +465,12 @@ class CSI():
 		return b
 
 	def createOGLDisplayList(self):
-		if (self.oglDispIDs != []):
+		#if (self.oglDispIDs != []):
 			# TODO: Ensure we don't ever call this, then remove this check
-			return   # Have already initialized this Step's display list, so do nothing
+			#return   # Have already initialized this Step's display list, so do nothing
+		
+		self.oglDispIDs = []
+		self.oglDispID = -1
 		
 		# Ensure all parts in this step have proper display lists
 		for part in self.step.parts:
@@ -522,6 +525,11 @@ class CSI():
 		line1 = "0 LIC CSI %d %d\n" % (self.centerOffset.x, self.centerOffset.y)
 		line2 = "0 LIC BOX %d %d %d %d \n" % (self.box.x, self.box.y, self.box.width, self.box.height)
 
+	def partTranslateCallback(self):
+		self.createOGLDisplayList()
+		print "window w: %d, h: %d" % (windowWidth, windowHeight)
+		#self.initSize(500, 500)
+	
 class Step():
 	def __init__(self, filename, prevStep = None, buffers = []):
 		self.parts = []
@@ -541,6 +549,8 @@ class Step():
 
 	def addPart(self, part):
 		self.parts.append(part)
+		part.translateCallback = self.csi.partTranslateCallback
+		
 		if (not part.ignorePLIState):
 			self.pli.addPartOGL(part.partOGL)
 
@@ -823,12 +833,12 @@ class PartOGL():
 		lines = []
 		for step in self.steps:
 			lines += step.writeToFile()
-
+		
 		f = open(self.ldrawFile.path + "test_" + self.ldrawFile.filename, 'w')
 		for line in lines:
 			f.write(line + "\n")
 		f.close()
-
+	
 class Part():
 	"""
 	Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough
@@ -847,12 +857,33 @@ class Part():
 		self.ignorePLIState = False
 		self.fileLine = []
 		
+		self.translateCallback = None
+		
 		if (filename in partDictionary):
 			self.partOGL = partDictionary[filename]
 		else:
 			self.partOGL = partDictionary[filename] = PartOGL(filename, ldrawFile, hasSteps)
 		
 		self.name = self.partOGL.name
+
+	def translate(self, x, y, z):
+		self.matrix[12] = x
+		self.matrix[13] = y
+		self.matrix[14] = z
+		
+		print "before: ", self.fileLine
+		if self.ghost:
+			self.fileLine[5] = str(x)
+			self.fileLine[6] = str(y)
+			self.fileLine[7] = str(z)
+		else:
+			self.fileLine[3] = str(x)
+			self.fileLine[4] = str(y)
+			self.fileLine[5] = str(z)
+		print "after: ", self.fileLine
+		
+		if self.translateCallback:
+			self.translateCallback()
 
 	def shouldBeDrawn(self, currentBuffer):
 		
