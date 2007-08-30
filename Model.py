@@ -14,9 +14,6 @@ from OpenGL.GLU import *
 UNINIT_OGL_DISPID = -1
 UNINIT_PROP = -1
 
-_windowWidth = -1
-_windowHeight = -1
-
 """
 TODO: Work on generating actual POV renderings from whatever is displayed:
 First, Use the os module's exec & spawn functions to call L3P (http://docs.python.org/lib/os-process.html)
@@ -35,43 +32,50 @@ Should keep me busy for the next few weeks...
 # TODO: Implement rotation steps - good luck
 # TODO: remove partDictionary global variable - used in few enough spots that it shouldn't be global anymore
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
+ldrawFile = None
+_windowWidth = -1
+_windowHeight = -1
 
 class Instructions():
 	"""	Represents an overall Lego instruction booklet.	"""
 	
 	# TODO: Instructions should be a tree, and be used more cleanly than the hack job currently in the tree GUI code.
 	def __init__(self, filename):
+		global ldrawFile
 		
 		self.pages = []
+		self.pagePadding = 20
 		self.filename = filename
 		
 		# line format: filename width height center-x center-y leftInset bottomInset
 		self.ImgDimensionsFilename = "PartDimensions_" + filename + ".cache"
 		
 		self.mainModel = Part(filename, hasSteps = True)
-		#self.mainModel.partOGL.ldrawFile.saveFile()
+		ldrawFile = self.mainModel.partOGL.ldrawFile
 	
 	def setSize(self, width, height):
 		global _windowWidth, _windowHeight
-		_windowWidth = width
-		_windowHeight = height
+
+		_windowWidth = width - (self.pagePadding * 2)
+		_windowHeight = height - (self.pagePadding * 2)
+
+		for step in self.mainModel.partOGL.steps:
+			step.csi.resize()
 	
 	def drawPage(self, context, width, height):
 		
 		# TODO: This whole method belongs in the Page class - move it there, and use Pages inside this instruction book
-		pagePadding = 20
-		
 		# Flood context with grey background
 		context.set_source_rgb(0.5, 0.5, 0.5)
 		context.paint()
 		
-		scaleWidth = width - (pagePadding * 2)
-		scaleHeight = height - (pagePadding * 2)
-		width -= pagePadding * 2
-		height -= pagePadding * 2
+		scaleWidth = width - (self.pagePadding * 2)
+		scaleHeight = height - (self.pagePadding * 2)
+		width -= self.pagePadding * 2
+		height -= self.pagePadding * 2
 		
 		# Draw a slightly down-left translated black rectangle, for the page shadow effect
-		context.translate(pagePadding, pagePadding)
+		context.translate(self.pagePadding, self.pagePadding)
 		context.set_source_rgb(0,0,0)
 		context.rectangle(1, 1, width + 3, height + 3)
 		context.fill()
@@ -98,6 +102,7 @@ class Instructions():
 		# Calculate an initial layout for each Step and PLI in this instruction book
 		for step in self.mainModel.partOGL.steps:
 			step.initLayout(context, width, height)
+			step.csi.writeToGlobalFileArray()
 
 	def initPartDimensions(self):
 		# TODO: CSI dimensions should *NOT* be stored with part dimensions.  Part dimensions
@@ -443,6 +448,11 @@ class CSI():
 		self.box.width, self.box.height, self.centerOffset = params
 		return True
 
+	def resize(self):
+		global _windowWidth, _windowHeight
+		self.box.x = (_windowWidth / 2.) - (self.box.width / 2.)
+		self.box.y = (_windowHeight / 2.) - (self.box.height / 2.)
+
 	def dimensionsToString(self):
 		return "s %d %s %d %d %d %d\n" % (self.step.number, self.filename, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y)
 	
@@ -462,12 +472,6 @@ class CSI():
 		
 		# If we get here, no better display list was found, so call the default display list
 		glCallList(self.oglDispIDs[0][0])
-
-	def getDefaultBox(self, width, height):
-		b = Box(x = self.box.x, y = self.box.y)
-		b.x = (width / 2.) - (self.box.width / 2.)
-		b.y = (height / 2.) - (self.box.height / 2.)
-		return b
 
 	def createOGLDisplayList(self):
 		#if (self.oglDispIDs != []):
@@ -513,22 +517,24 @@ class CSI():
 		rotateToDefaultView(self.centerOffset.x, self.centerOffset.y, 0.0)
 		glCallList(self.oglDispID)
 
-	def drawPageElements(self, context, width, height):
-		b = self.box
-		if (b.width == UNINIT_PROP or b.height == UNINIT_PROP):
+	def drawPageElements(self, context):
+		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
 			print "ERROR: Trying to draw an unitialized PLI layout!"
 			return
-		
-		b.x = (width / 2.) - (b.width / 2.)
-		b.y = (height / 2.) - (b.height / 2.)
-		b.draw(context)
+		self.box.draw(context)
 
 	def callOGLDisplayList(self):
 		glCallList(self.oglDispIDs[0][0])
 		
-	def writeToFileArray(self, ldrawFileArray):
-		line1 = "0 LIC CSI %d %d\n" % (self.centerOffset.x, self.centerOffset.y)
-		line2 = "0 LIC BOX %d %d %d %d \n" % (self.box.x, self.box.y, self.box.width, self.box.height)
+	def writeToGlobalFileArray(self):
+		global ldrawFile
+
+		line1 = ['0', 'LIC', 'CSI', str(self.centerOffset.x), str(self.centerOffset.y)]
+		line2 = ['0', 'LIC', 'BOX', str(self.box.x),str(self.box.y), str(self.box.width), str(self.box.height)]
+
+		index = self.step.fileLine[0]
+		ldrawFile.insertLine(index, line1)
+		ldrawFile.insertLine(index+1, line2)
 
 	def partTranslateCallback(self):
 		global _windowWidth, _windowHeight
@@ -543,6 +549,8 @@ class Step():
 		self.internalGap = 20
 		self.stepNumberFont = Font(20)
 		self.stepNumberRefPt = Point(0, 0)
+
+		self.fileLine = None
 		
 		if (prevStep):
 			self.number = prevStep.number + 1
@@ -560,9 +568,9 @@ class Step():
 			self.pli.addPartOGL(part.partOGL)
 
 	def initLayout(self, context, width, height):
-		
-		csiBox = self.csi.getDefaultBox(width, height)
-		self.pli.initLayout(context, csiBox, width, height)
+	
+		self.csi.resize()
+		self.pli.initLayout(context, Box(0, 0), width, height)
 		
 		# Figure out the display height of the step number label
 		self.stepNumberFont.passToCairo(context)
@@ -582,7 +590,7 @@ class Step():
 
 	def drawPageElements(self, context, width, height):
 		""" Draw this step's PLI and CSI page elements, and this step's number label. """
-		self.csi.drawPageElements(context, width, height)
+		self.csi.drawPageElements(context)
 		self.pli.drawPageElements(context)
 		
 		# Draw this step's number label
@@ -679,7 +687,7 @@ class PartOGL():
 	def _loadOneLDrawLineCommand(self, line):
 		
 		if (isValidStepLine(line)):
-			self.addStep(line[0])
+			self.addStep(line)
 		
 		elif (isValidPartLine(line)):
 			self.addPart(lineToPart(line), line)
@@ -702,16 +710,17 @@ class PartOGL():
 		elif (isValidQuadLine(line)):
 			self.addPrimitive(lineToQuad(line), GL_QUADS)
 
-	def addStep(self, lineNumber = None):
+	def addStep(self, line = None):
 		if (self.currentStep and self.currentStep.parts == []): # Current step is empty - remove it and warn
-			if (lineNumber):
-				print "Step Warning: Empty step found on line %d.  Ignoring Step #%d" % (lineNumber, self.currentStep.number)
+			if (line):
+				print "Step Warning: Empty step found on line %d.  Ignoring Step #%d" % (line[0], self.currentStep.number)
 			else:
 				print "Step Warning: Empty step found.  Ignoring Step #%d" % (self.currentStep.number)
 			self.steps.pop()
 			self.currentStep = self.currentStep.prevStep
 		
 		self.currentStep = Step(self.filename, self.currentStep, list(self.buffers))
+		self.currentStep.fileLine = line
 		self.steps.append(self.currentStep)
 
 	def addPart(self, p, line):
