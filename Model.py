@@ -14,8 +14,8 @@ from OpenGL.GLU import *
 UNINIT_OGL_DISPID = -1
 UNINIT_PROP = -1
 
-windowWidth = -1
-windowHeight = -1
+_windowWidth = -1
+_windowHeight = -1
 
 """
 TODO: Work on generating actual POV renderings from whatever is displayed:
@@ -50,6 +50,11 @@ class Instructions():
 		
 		self.mainModel = Part(filename, hasSteps = True)
 		#self.mainModel.partOGL.ldrawFile.saveFile()
+	
+	def setSize(self, width, height):
+		global _windowWidth, _windowHeight
+		_windowWidth = width
+		_windowHeight = height
 	
 	def drawPage(self, context, width, height):
 		
@@ -526,9 +531,9 @@ class CSI():
 		line2 = "0 LIC BOX %d %d %d %d \n" % (self.box.x, self.box.y, self.box.width, self.box.height)
 
 	def partTranslateCallback(self):
+		global _windowWidth, _windowHeight
 		self.createOGLDisplayList()
-		print "window w: %d, h: %d" % (windowWidth, windowHeight)
-		#self.initSize(500, 500)
+		self.initSize(_windowWidth, _windowHeight)
 	
 class Step():
 	def __init__(self, filename, prevStep = None, buffers = []):

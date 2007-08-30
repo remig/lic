@@ -57,6 +57,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		column = gtk.TreeViewColumn("Instructions", renderer, text=0)
 		self.tree.append_column(column)
 		
+		self.instructions = None # The complete Lego instructions book currently loaded
 		self.model = None  # The currently selected Lego model, whether a single part, submodel, step, or main model
 	
 	def on_generate_images(self, data):
@@ -114,7 +115,8 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		print "*** Loading Model ***"
 		cr = self.window.cairo_create()
 		self.instructions = Instructions(MODEL_NAME)
-		self.instructions.initDraw(cr, 460, 460)
+		self.instructions.setSize(self.width, self.height)
+		self.instructions.initDraw(cr, self.width, self.height)
 		self.model = self.instructions.getMainModel()
 		
 		self.initializeTree()
@@ -128,6 +130,8 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		if ((self.width < 5) or (self.height < 5)):
 			return  # ignore resize if window is basically invisible
 		
+		if (self.instructions):
+			self.instructions.setSize(self.width, self.height)
 		gldrawable = self.get_gl_drawable()
 		glcontext = self.get_gl_context()
 		gldrawable.gl_begin(glcontext)
