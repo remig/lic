@@ -108,6 +108,33 @@ class LDrawFile():
 		self._loadFileArray()
 		self._findSubModelsInFile()
 
+	def addInitialStep(self):
+		
+		for i, line in enumerate(self.fileArray):
+			if isValidStepLine(line):   # Already have initial step - nothing to do here
+				return 
+			if isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidPLIIGNLine(line):  
+				break  # Stuff that should be in a Step isn't - add new Step
+		
+		self.insertLine(i, [Comment, StepMetaCommand])
+	
+	def insertLine(self, index, line):
+		"""
+		Insert the specified line into the file array at the specified index (0-based).
+		line is expected to be an array of strings, making up the overall LDraw line to be added.
+		Do not prepend the line number - line should start with one of the LDraw commands listed above.
+		"""
+		
+		# Prepend the line number to the line command, as the file array expects
+		line.insert(0, index+1)
+		
+		# Insert the new line
+		self.fileArray.insert(index, line)
+		
+		# Adjust all subsequent line numbers
+		for line in self.fileArray[index+1:]:
+			line[0] += 1
+	
 	def saveFile(self, filename = None):
 		if (filename is None):
 			filename = self.filename

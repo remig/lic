@@ -87,10 +87,10 @@ class Instructions():
 
 	def initDraw(self, context, width, height):
 		
-		# Calculate the width and height of each partOGL in the part dictionary
+		# Calculate the width and height of each partOGL in the part dictionary and each CSI
 		self.initPartDimensions()
 		
-		# Calculate an initial layout for each CSI and PLI in this instruction book
+		# Calculate an initial layout for each Step and PLI in this instruction book
 		for step in self.mainModel.partOGL.steps:
 			step.initLayout(context, width, height)
 
@@ -338,8 +338,6 @@ class PLI():
 		y = int(partCorner.y + (xHeight / 2))
 		return (x, y, xbearing, xHeight)
 	
-	# TODO: Now that we've got GL always rendering to FBOs, no buffer swap issues remain -
-	# can merge drawParts and drawPageElements?  It'd save an entire iteration over layout...
 	def drawParts(self, width, height):
 		""" Must be called inside a valid gldrawable context. """
 		
@@ -409,7 +407,7 @@ class CSI():
 		self.centerOffset = Point(0, 0)
 		self.filename = filename
 		self.step = step
-		self.buffers = buffers  # [(bufID, stepNumber)], set of buffers active inside this Step
+		self.buffers = buffers  # [(bufID, stepNumber)], set of buffers active inside this CSI
 		
 		self.oglDispIDs = []  # [(dispID, buffer)]
 		self.oglDispID = UNINIT_OGL_DISPID
@@ -519,6 +517,10 @@ class CSI():
 
 	def callOGLDisplayList(self):
 		glCallList(self.oglDispIDs[0][0])
+		
+	def writeToFileArray(self, ldrawFileArray):
+		line1 = "0 LIC CSI %d %d\n" % (self.centerOffset.x, self.centerOffset.y)
+		line2 = "0 LIC BOX %d %d %d %d \n" % (self.box.x, self.box.y, self.box.width, self.box.height)
 
 class Step():
 	def __init__(self, filename, prevStep = None, buffers = []):
@@ -574,9 +576,22 @@ class Step():
 		context.show_text(str(self.number))
 
 	def writeToFile(self):
+		ignore = False
+		buffers = []
 		lines = ["0 STEP"]
 		for part in self.parts:
+			if part.ignorePLIState != ignore:
+				if part.ignorePLIState:
+					state = "BEGIN IGN"
+				else:
+					state = "END"
+				lines.append("0 LPUB PLI " + state)
+				ignore = part.ignorePLIState
 			lines.append(part.writeToFile())
+		
+		# If we're still ignoring piece, stop - PLI IGN pairs shouldn't span Steps
+		if ignore:
+			lines.append("0 LPUB PLI END")
 		return lines
 
 class PartOGL():
@@ -592,19 +607,15 @@ class PartOGL():
 		
 		self.name = self.filename = filename
 		self.ldrawFile = None
-		self.inverted = False  # inverted = GL_CW - TODO
+		self.inverted = False  # TODO: Fix this! inverted = GL_CW
 		self.invertNext = False
 		self.parts = []
 		self.primitives = []
 		self.oglDispID = UNINIT_OGL_DISPID
 		self.isPrimitive = False  # primitive here means any file in 'P'
 		
-		if (hasSteps):
-			self.currentStep = Step(filename)
-			self.steps = [self.currentStep]
-		else:
-			self.currentStep = None
-			self.steps = []
+		self.currentStep = None
+		self.steps = []
 		
 		self.buffers = []  #[(bufID, stepNumber)]
 		self.ignorePLIState = False
@@ -616,7 +627,7 @@ class PartOGL():
 		if ((parentLDFile is not None) and (filename in parentLDFile.subModelsInFile)):
 			self._loadFromSubModelArray(parentLDFile)
 		else:
-			self._loadFromFile()
+			self._loadFromFile(hasSteps)
 		
 		# Check if the last step in model is empty - occurs often, since we've implicitly
 		# created a step before adding any parts and many models end with a Step.
@@ -637,9 +648,11 @@ class PartOGL():
 		for line in subModelArray:
 			self._loadOneLDrawLineCommand(line)
 
-	def _loadFromFile(self):
+	def _loadFromFile(self, hasSteps):
 		
 		self.ldrawFile = LDrawFile(self.filename)
+		if hasSteps:
+			self.ldrawFile.addInitialStep()
 		self.isPrimitive = self.ldrawFile.isPrimitive
 		self.name = self.ldrawFile.name
 		
