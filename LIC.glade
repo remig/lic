@@ -38,7 +38,7 @@
 	      <property name="use_underline">True</property>
 
 	      <child>
-		<widget class="GtkMenu" id="menu1">
+		<widget class="GtkMenu" id="menuitem1_menu">
 
 		  <child>
 		    <widget class="GtkImageMenuItem" id="new1">
@@ -83,11 +83,11 @@
 		  </child>
 
 		  <child>
-		    <widget class="GtkImageMenuItem" id="quit1">
+		    <widget class="GtkImageMenuItem" id="menuQuit">
 		      <property name="visible">True</property>
 		      <property name="label">gtk-quit</property>
 		      <property name="use_stock">True</property>
-		      <signal name="activate" handler="on_quit1_activate" last_modification_time="Fri, 06 Jul 2007 00:03:47 GMT"/>
+		      <signal name="activate" handler="on_quit_activate" last_modification_time="Thu, 30 Aug 2007 05:21:10 GMT"/>
 		    </widget>
 		  </child>
 		</widget>
@@ -102,7 +102,7 @@
 	      <property name="use_underline">True</property>
 
 	      <child>
-		<widget class="GtkMenu" id="menu2">
+		<widget class="GtkMenu" id="menuitem2_menu">
 
 		  <child>
 		    <widget class="GtkImageMenuItem" id="cut1">
@@ -145,13 +145,22 @@
 	  </child>
 
 	  <child>
-	    <widget class="GtkMenuItem" id="menuitem3">
+	    <widget class="GtkMenuItem" id="menuInstructions">
 	      <property name="visible">True</property>
-	      <property name="label" translatable="yes">_View</property>
+	      <property name="label" translatable="yes">_Instructions</property>
 	      <property name="use_underline">True</property>
 
 	      <child>
-		<widget class="GtkMenu" id="menu3">
+		<widget class="GtkMenu" id="menuInstructions_menu">
+
+		  <child>
+		    <widget class="GtkMenuItem" id="menuGenerate">
+		      <property name="visible">True</property>
+		      <property name="label" translatable="yes">Generate Instructions</property>
+		      <property name="use_underline">True</property>
+		      <signal name="activate" handler="on_menuGenerate_activate" last_modification_time="Thu, 30 Aug 2007 05:04:24 GMT"/>
+		    </widget>
+		  </child>
 		</widget>
 	      </child>
 	    </widget>
@@ -164,7 +173,7 @@
 	      <property name="use_underline">True</property>
 
 	      <child>
-		<widget class="GtkMenu" id="menu4">
+		<widget class="GtkMenu" id="menuitem4_menu">
 
 		  <child>
 		    <widget class="GtkMenuItem" id="about1">

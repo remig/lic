@@ -17,9 +17,9 @@ from OpenGL.GLU import *
 MODEL_NAME = "Blaster.mpd"
 #MODEL_NAME = "Blaster_shortened.mpd"
 
-gui_xml = gtk.glade.XML( "c:\\LDraw\\LIC\\LIC.glade")
-
 # TODO: Fix OGL surface normals and BFC, so OGL rendering can look better.
+
+gui_xml = gtk.glade.XML( r"C:\LDraw\LIC\LIC.glade")
 
 class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def __init__(self):
@@ -59,7 +59,10 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		self.model = None  # The currently selected Lego model, whether a single part, submodel, step, or main model
 	
-	def on_exit(self, widget, event, data=None):
+	def on_generate_images(self, data):
+		print "Generate Menu works"
+	
+	def on_exit(self, data):
 		return False
 
 	def on_destroy(self, widget, data=None):
@@ -224,10 +227,16 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		glEnd()
 
 def go():
+	
 	area = DrawArea()
 	main = gui_xml.get_widget("main_window")
 	box = gui_xml.get_widget("box_opengl")
-	box.pack_start(area)  
+	box.pack_start(area)
+	
+	sigs = { "on_menuGenerate_activate": area.on_generate_images,
+			 "on_quit_activate": area.on_destroy }
+	
+	gui_xml.signal_autoconnect(sigs)
 
 	# Some example status bar code
 	statusbar = gui_xml.get_widget("statusbar")
