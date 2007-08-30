@@ -94,14 +94,14 @@ class Instructions():
 	def getCurrentModel(self):
 		pass
 
-	def initDraw(self, context, width, height):
+	def initDraw(self, context):
 		
 		# Calculate the width and height of each partOGL in the part dictionary and each CSI
 		self.initPartDimensions()
 		
 		# Calculate an initial layout for each Step and PLI in this instruction book
 		for step in self.mainModel.partOGL.steps:
-			step.initLayout(context, width, height)
+			step.initLayout(context)
 			step.csi.writeToGlobalFileArray()
 
 	def initPartDimensions(self):
@@ -255,7 +255,7 @@ class PLI():
 		else:
 			self.layout[part.filename] = [1, part, Point(0, 0), Point(0, 0)]
 
-	def initLayout(self, context, csiBox, width, height):
+	def initLayout(self, context, csiBox):
 		
 		# TODO: This entire method places parts from left to right in the order they
 		# were added to PLI. *Very* naive, and usually ugly.  After CSIs are properly
@@ -281,7 +281,7 @@ class PLI():
 			
 			# If this part has steps of its own, like any good submodel, initialize those PLIs
 			for step in part.steps:
-				step.initLayout(context, width, height)
+				step.initLayout(context)
 			
 			if (part.width == UNINIT_PROP or part.height == UNINIT_PROP):
 				# TODO: Remove this check once all is well
@@ -567,10 +567,10 @@ class Step():
 		if (not part.ignorePLIState):
 			self.pli.addPartOGL(part.partOGL)
 
-	def initLayout(self, context, width, height):
+	def initLayout(self, context):
 	
 		self.csi.resize()
-		self.pli.initLayout(context, Box(0, 0), width, height)
+		self.pli.initLayout(context, Box(0, 0))
 		
 		# Figure out the display height of the step number label
 		self.stepNumberFont.passToCairo(context)

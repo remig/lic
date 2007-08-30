@@ -116,7 +116,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		cr = self.window.cairo_create()
 		self.instructions = Instructions(MODEL_NAME)
 		self.instructions.setSize(self.width, self.height)
-		self.instructions.initDraw(cr, self.width, self.height)
+		self.instructions.initDraw(cr)
 		self.model = self.instructions.getMainModel()
 		
 		self.initializeTree()
