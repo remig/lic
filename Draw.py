@@ -115,7 +115,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		print "*** Loading Model ***"
 		cr = self.window.cairo_create()
 		self.instructions = Instructions(MODEL_NAME)
-		self.instructions.setSize(self.width, self.height)
+		self.instructions.resize(self.width, self.height)
 		self.instructions.initDraw(cr)
 		self.model = self.instructions.getMainModel()
 		
@@ -131,7 +131,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 			return  # ignore resize if window is basically invisible
 		
 		if (self.instructions):
-			self.instructions.setSize(self.width, self.height)
+			self.instructions.resize(self.width, self.height)
 		gldrawable = self.get_gl_drawable()
 		glcontext = self.get_gl_context()
 		gldrawable.gl_begin(glcontext)
@@ -167,7 +167,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		# Draw the currently selected model / part / step / whatnot to GL buffer
 		if (self.model):
-			self.model.drawModel(scaleWidth, scaleHeight)
+			self.model.drawModel()
 		
 		# Copy GL buffer to a new cairo surface, then dump that surface to the current context
 		pixels = glReadPixels (0, 0, scaleWidth, scaleHeight, GL_RGBA,  GL_UNSIGNED_BYTE)

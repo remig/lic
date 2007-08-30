@@ -53,7 +53,7 @@ class Instructions():
 		self.mainModel = Part(filename, hasSteps = True)
 		ldrawFile = self.mainModel.partOGL.ldrawFile
 	
-	def setSize(self, width, height):
+	def resize(self, width, height):
 		global _windowWidth, _windowHeight
 
 		_windowWidth = width - (self.pagePadding * 2)
@@ -348,7 +348,7 @@ class PLI():
 		y = int(partCorner.y + (xHeight / 2))
 		return (x, y, xbearing, xHeight)
 	
-	def drawParts(self, width, height):
+	def drawParts(self):
 		""" Must be called inside a valid gldrawable context. """
 		
 		if (len(self.layout) < 1):
@@ -510,9 +510,10 @@ class CSI():
 		self.callPreviousOGLDisplayLists(self.buffers)
 		glEndList()
 
-	def drawModel(self, width, height):
+	def drawModel(self):
+		global _windowWidth, _windowHeight
 		
-		adjustGLViewport(0, 0, width, height)
+		adjustGLViewport(0, 0, _windowWidth, _windowHeight)
 		glLoadIdentity()
 		rotateToDefaultView(self.centerOffset.x, self.centerOffset.y, 0.0)
 		glCallList(self.oglDispID)
@@ -583,10 +584,10 @@ class Step():
 		else:
 			self.stepNumberRefPt.y = self.internalGap * 2 + self.pli.box.height	- ybearing
 
-	def drawModel(self, width, height):
+	def drawModel(self):
 		""" Draw this step's CSI and PLI parts (not GUI elements, just the 3D GL bits) """
-		self.pli.drawParts(width, height)
-		self.csi.drawModel(width, height)
+		self.pli.drawParts()
+		self.csi.drawModel()
 
 	def drawPageElements(self, context, width, height):
 		""" Draw this step's PLI and CSI page elements, and this step's number label. """
@@ -950,7 +951,7 @@ class Part():
 		if (color != CurrentColor):
 			glPopAttrib()
 
-	def drawModel(self, context = None, width = UNINIT_PROP, height = UNINIT_PROP):
+	def drawModel(self):
 		
 		if (self.matrix):
 			glPushMatrix()
