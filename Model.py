@@ -261,13 +261,26 @@ class PLI():
 
 	def initLayout(self, context):
 		
+		# Return the height of the part in the specified layout item
+		def itemHeight(layoutItem):
+			return layoutItem[1].height
+		
+		# Compare the width of layout Items 1 and 2
+		def compareLayoutItemWidths(item1, item2):
+			""" Returns 1 if part 2 is wider than part 1, 0 if equal, -1 if narrower. """
+			if (item1[1].width < item2[1].width):
+				return 1
+			if (item1[1].width == item2[1].width):
+				return 0
+			return -1
+		
 		# If this PLI is empty, nothing to do here
 		if (len(self.layout) < 1):
 			return
 		
 		# Sort the list of parts in this PLI from widest to narrowest, with the tallest one first
 		partList = self.layout.values()
-		tallestPart = max(partList, key=findHighestItem)
+		tallestPart = max(partList, key=itemHeight)
 		partList.remove(tallestPart)
 		partList.sort(compareLayoutItemWidths)
 		partList.insert(0, tallestPart)
@@ -399,25 +412,6 @@ class PLI():
 		index = self.step.fileLine[0]
 		for i, line in enumerate(layoutLines):
 			ldrawFile.insertLine(index+i, line)
-
-def findHighestItem(item):
-	return item[1].height
-
-def compareLayoutItemWidths(item1, item2):
-	""" Returns 1 if part 2 is wider than part 1, 0 if equal, -1 if narrower. """
-	if (item1[1].width < item2[1].width):
-		return 1
-	if (item1[1].width == item2[1].width):
-		return 0
-	return -1
-
-def compareLayoutItemHeights(item1, item2):
-	""" Returns 1 if part 2 is taller than part 1, 0 if equal, -1 if shorter. """
-	if (item1[1].height < item2[1].height):
-		return 1
-	if (item1[1].height == item2[1].height):
-		return 0
-	return -1
 
 class CSI():
 	"""

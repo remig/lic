@@ -455,3 +455,10 @@ def writePartOGLToFile(self):
 def writePartToFile(self):
 	return ' '.join(self.fileLine[1:])
 
+def compareLayoutItemHeights(item1, item2):
+	""" Returns 1 if part 2 is taller than part 1, 0 if equal, -1 if shorter. """
+	if (item1[1].height < item2[1].height):
+		return 1
+	if (item1[1].height == item2[1].height):
+		return 0
+	return -1
