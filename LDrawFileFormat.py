@@ -121,11 +121,13 @@ class LDrawFile():
 	def insertLine(self, index, line):
 		"""
 		Insert the specified line into the file array at the specified index (0-based).
-		line is expected to be an array of strings, making up the overall LDraw line to be added.
+		line is expected to be an array of various types, making up the overall LDraw line to be added.
 		Do not prepend the line number - line should start with one of the LDraw commands listed above.
+		line will be modified to include the appropriate line index, and all entries converted to strings.
 		"""
 		
-		# Prepend the line number to the line command, as the file array expects
+		# Convert line entries to strings, and prepend line number to the line command, as the file array expects
+		line = [str(x) for x in line]
 		line.insert(0, index+1)
 		
 		# Insert the new line

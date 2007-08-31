@@ -59,11 +59,11 @@
 		  </child>
 
 		  <child>
-		    <widget class="GtkImageMenuItem" id="save1">
+		    <widget class="GtkImageMenuItem" id="save">
 		      <property name="visible">True</property>
 		      <property name="label">gtk-save</property>
 		      <property name="use_stock">True</property>
-		      <signal name="activate" handler="on_save1_activate" last_modification_time="Fri, 06 Jul 2007 00:03:47 GMT"/>
+		      <signal name="activate" handler="on_save_activate" last_modification_time="Fri, 31 Aug 2007 00:31:37 GMT"/>
 		    </widget>
 		  </child>
 

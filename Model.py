@@ -102,6 +102,7 @@ class Instructions():
 		# Calculate an initial layout for each Step and PLI in this instruction book
 		for step in self.mainModel.partOGL.steps:
 			step.initLayout(context)
+			step.pli.writeToGlobalFileArray()
 			step.csi.writeToGlobalFileArray()
 
 	def initPartDimensions(self):
@@ -236,13 +237,16 @@ class PLI():
 	Parts List Image.  Includes border and layout info for a list of parts added to a step.
 	"""
 	
-	def __init__(self, topLeftCorner = Point(10, 10)):
+	def __init__(self, step, topLeftCorner = Point(10, 10)):
 		
 		self.box = Box(topLeftCorner.x, topLeftCorner.y)
 		self.qtyLabelFont = Font(size = 14, bold = True)
 		self.qtyMultiplierChar = 'x'
 		self.layout = {}  # {part filename: [count, part, bottomLeftCorner, qtyLabelReference]}
-	
+
+		self.step = step
+		self.fileLine = None
+
 	def isEmpty(self):
 		if (len(self.layout) > 0):
 			return False
@@ -256,10 +260,6 @@ class PLI():
 			self.layout[part.filename] = [1, part, Point(0, 0), Point(0, 0)]
 
 	def initLayout(self, context):
-		
-		# TODO: This entire method places parts from left to right in the order they
-		# were added to PLI. *Very* naive, and usually ugly.  After CSIs are properly
-		# created and laid out, redo this algorithm to have PLIs flow around CSIs
 		
 		# If this PLI is empty, nothing to do here
 		if (len(self.layout) < 1):
@@ -388,6 +388,18 @@ class PLI():
 			context.move_to(labelCorner.x, labelCorner.y)
 			context.show_text(str(count) + self.qtyMultiplierChar)
 
+	def writeToGlobalFileArray(self):
+		global ldrawFile
+
+		self.fileLine = [0, 'LIC', 'PLI', self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
+		layoutLines = [self.fileLine]	
+		for filename, item in self.layout.items():
+			layoutLines.append(['0', 'LIC', 'PLIItem', filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y])
+
+		index = self.step.fileLine[0]
+		for i, line in enumerate(layoutLines):
+			ldrawFile.insertLine(index+i, line)
+
 def findHighestItem(item):
 	return item[1].height
 
@@ -422,6 +434,8 @@ class CSI():
 		
 		self.oglDispIDs = []  # [(dispID, buffer)]
 		self.oglDispID = UNINIT_OGL_DISPID
+
+		self.fileLine = None
 	
 	def initSize(self, width, height):
 		"""
@@ -475,9 +489,6 @@ class CSI():
 		glCallList(self.oglDispIDs[0][0])
 
 	def createOGLDisplayList(self):
-		#if (self.oglDispIDs != []):
-			# TODO: Ensure we don't ever call this, then remove this check
-			#return   # Have already initialized this Step's display list, so do nothing
 		
 		self.oglDispIDs = []
 		self.oglDispID = -1
@@ -531,17 +542,14 @@ class CSI():
 	def writeToGlobalFileArray(self):
 		global ldrawFile
 
-		line1 = ['0', 'LIC', 'CSI', str(self.centerOffset.x), str(self.centerOffset.y)]
-		line2 = ['0', 'LIC', 'BOX', str(self.box.x),str(self.box.y), str(self.box.width), str(self.box.height)]
-
-		index = self.step.fileLine[0]
-		ldrawFile.insertLine(index, line1)
-		ldrawFile.insertLine(index+1, line2)
+		self.fileLine = [0, 'LIC', 'CSI', self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y]
+		ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
 
 	def partTranslateCallback(self):
 		global _windowWidth, _windowHeight
 		self.createOGLDisplayList()
 		self.initSize(_windowWidth, _windowHeight)
+		self.resize()
 	
 class Step():
 	def __init__(self, filename, prevStep = None, buffers = []):
@@ -560,7 +568,7 @@ class Step():
 			self.number = 1
 		
 		self.csi = CSI(filename, self, list(buffers))
-		self.pli = PLI(Point(self.internalGap, self.internalGap))
+		self.pli = PLI(self, Point(self.internalGap, self.internalGap))
 
 	def addPart(self, part):
 		self.parts.append(part)
@@ -581,9 +589,8 @@ class Step():
 			topGap = self.internalGap * 2 + self.pli.box.height
 
 		# Figure out the display height of the step number label
-		# TODO: fix context.text_extents call so that only ybearing (yBearing) is created
 		self.stepNumberFont.passToCairo(context)
-		xbearing, ybearing, labelWidth, labelHeight, xa, ya = context.text_extents(str(self.number))
+		xbearing, ybearing = context.text_extents(str(self.number))[:2]
 		
 		# Initialize this step number's label position
 		self.stepNumberRefPt.x = self.internalGap - xbearing
@@ -607,25 +614,6 @@ class Step():
 		self.stepNumberFont.passToCairo(context)
 		context.move_to(self.stepNumberRefPt.x, self.stepNumberRefPt.y)
 		context.show_text(str(self.number))
-
-	def writeToFile(self):
-		ignore = False
-		buffers = []
-		lines = ["0 STEP"]
-		for part in self.parts:
-			if part.ignorePLIState != ignore:
-				if part.ignorePLIState:
-					state = "BEGIN IGN"
-				else:
-					state = "END"
-				lines.append("0 LPUB PLI " + state)
-				ignore = part.ignorePLIState
-			lines.append(part.writeToFile())
-		
-		# If we're still ignoring piece, stop - PLI IGN pairs shouldn't span Steps
-		if ignore:
-			lines.append("0 LPUB PLI END")
-		return lines
 
 class PartOGL():
 	"""
@@ -854,16 +842,6 @@ class PartOGL():
 		self.width, self.height, self.leftInset, self.bottomInset, self.center = params
 		return True
 
-	def writeToFile(self):
-		lines = []
-		for step in self.steps:
-			lines += step.writeToFile()
-		
-		f = open(self.ldrawFile.path + "test_" + self.ldrawFile.filename, 'w')
-		for line in lines:
-			f.write(line + "\n")
-		f.close()
-	
 class Part():
 	"""
 	Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough
@@ -880,7 +858,7 @@ class Part():
 		self.buffers = buffers  # [(bufID, stepNumber)]
 		self.inverted = invert
 		self.ignorePLIState = False
-		self.fileLine = []
+		self.fileLine = None 
 		
 		self.translateCallback = None
 		
@@ -896,7 +874,6 @@ class Part():
 		self.matrix[13] = y
 		self.matrix[14] = z
 		
-		print "before: ", self.fileLine
 		if self.ghost:
 			self.fileLine[5] = str(x)
 			self.fileLine[6] = str(y)
@@ -905,7 +882,6 @@ class Part():
 			self.fileLine[3] = str(x)
 			self.fileLine[4] = str(y)
 			self.fileLine[5] = str(z)
-		print "after: ", self.fileLine
 		
 		if self.translateCallback:
 			self.translateCallback()
@@ -971,9 +947,6 @@ class Part():
 		
 		if (self.matrix):
 			glPopMatrix()
-	
-	def writeToFile(self):
-		return ' '.join(self.fileLine[1:])
 	
 class Primitive():
 	"""

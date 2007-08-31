@@ -423,3 +423,35 @@ def debugInfoInInitSize():
 	#print "old t: %d, b: %d, l: %d, r: %d" % (top, bottom, left, right)
 	#print "displacing by x: %d, y: %d" % (x, y)
 	#print "new t: %d, b: %d, l: %d, r: %d" % (top, bottom, left, right)
+
+def writeStepToFile(self):
+	ignore = False
+	buffers = []
+	lines = ["0 STEP"]
+	for part in self.parts:
+		if part.ignorePLIState != ignore:
+			if part.ignorePLIState:
+				state = "BEGIN IGN"
+			else:
+				state = "END"
+			lines.append("0 LPUB PLI " + state)
+			ignore = part.ignorePLIState
+		lines.append(part.writeToFile())
+	# If we're still ignoring piece, stop - PLI IGN pairs shouldn't span Steps
+	if ignore:
+		lines.append("0 LPUB PLI END")
+	return line	
+
+def writePartOGLToFile(self):
+	lines = []
+	for step in self.steps:
+		lines += step.writeToFile()
+		
+	f = open(self.ldrawFile.path + "test_" + self.ldrawFile.filename, 'w')
+	for line in lines:
+		f.write(line + "\n")
+	f.close()
+
+def writePartToFile(self):
+	return ' '.join(self.fileLine[1:])
+

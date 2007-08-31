@@ -61,15 +61,15 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		self.model = None  # The currently selected Lego model, whether a single part, submodel, step, or main model
 	
 	def on_generate_images(self, data):
-		print "Generate Menu works"
-		
 		if (self.model and isinstance(self.model, Step)):
 			self.model.parts[0].translate(0, 0, -10)
-			self.instructions.getMainModel().partOGL.ldrawFile.saveFile()
 			self.on_expose_event()
 	
 	def on_exit(self, data):
 		return False
+
+	def on_save(self, data):
+		self.instructions.getMainModel().partOGL.ldrawFile.saveFile()
 
 	def on_destroy(self, widget, data=None):
 		gtk.main_quit()
@@ -243,7 +243,8 @@ def go():
 	box.pack_start(area)
 	
 	sigs = { "on_menuGenerate_activate": area.on_generate_images,
-			 "on_quit_activate": area.on_destroy }
+	         "on_save_activate": area.on_save,
+		 "on_quit_activate": area.on_destroy }
 	
 	gui_xml.signal_autoconnect(sigs)
 
