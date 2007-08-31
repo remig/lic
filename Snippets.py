@@ -462,3 +462,12 @@ def compareLayoutItemHeights(item1, item2):
 	if (item1[1].height == item2[1].height):
 		return 0
 	return -1
+
+class Strict:
+	def __setattr__(self, name, value):
+		if hasattr(self, name):
+			self.__dict__[name] = value
+		else:
+			raise AttributeError, "%s has no attribute '%s'" % (self.__class__, name)
+
+
