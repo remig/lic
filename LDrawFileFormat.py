@@ -109,19 +109,19 @@ class LDrawFile():
 		self.isPrimitive = False  # Anything in the 'P' directory
 		
 		self.fileArray = []
-		self.subModelsInFile = {}
+		self.subModelArray = {}
 		
 		self._loadFileArray()
 		self._findSubModelsInFile()
 
 	def addLICHeader(self):
-
+		
 		for i, line in enumerate(self.fileArray):
 			if isValidLICLine(line):
 				return
 			if isValidStepLine(line) or isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidPLIIGNLine(line):  
 				break  # Stuff that should be in a Step isn't - add new Step
-
+		
 		self.insertLine(i, [Comment, LICCommand, 'Initialized'])
 
 	def addInitialStep(self):
@@ -152,32 +152,33 @@ class LDrawFile():
 		# Adjust all subsequent line numbers
 		for line in self.fileArray[index+1:]:
 			line[0] += 1
-
-	def saveTest(self):
-		filename = self.filename
-		print "saving Test: ", self.path + filename
 		
-		f = open(self.path + "test_" + filename, 'w')
-		for line in self.fileArray:
-			line[0] = str(line[0])
-			f.write(' '.join(line) + '\n')
-		f.close()
+		# Adjust all line numbers in the subModel array too
+		for line in self.subModelArray.values():
+			line[0] += 1
+			line[1] += 1
 
 	def saveFile(self, filename = None):
-		if (filename is None):
+		
+		# TODO: Need to better and fully handle file paths here
+		if filename is None:
 			filename = self.filename
-			
+		
 		print "saving: ", self.path + filename
 		
 		# First, make a backup copy of the existing file
 		shutil.move(self.path + filename, self.path + filename + ".bak")
 		
+		# Dump the current file array to the chosen file
 		f = open(self.path + filename, 'w')
 		for line in self.fileArray:
 			f.write(' '.join(line[1:]) + '\n')
 		f.close()
 
 	def _loadFileArray(self):
+		
+		# TODO: Need to better define part file search path, to include the current
+		# working directory, the directory of the main model, etc
 		try:
 			f = file(LDrawPath + "MODELS\\" + self.filename)
 			self.path += "MODELS\\"
@@ -203,16 +204,13 @@ class LDrawFile():
 
 	def _findSubModelsInFile(self):
 		
-		# Loop through the file array searching for sub model declarations
-		# subModels[0] = (filename, start line number)
-		
-		subModels = []
-		for i in range(0, len(self.fileArray)):
-			l = self.fileArray[i]
-			if (isValidFileLine(l)):
+		# Loop through the file array searching for sub model FILE declarations
+		subModels = []  # subModels[0] = (filename, start line number)
+		for i, l in enumerate(self.fileArray):
+			if isValidFileLine(l):
 				subModels.append((l[3], i))
 		
-		if (len(subModels) < 1):
+		if len(subModels) < 1:
 			return  # No subModels in file - we're done
 		
 		# Fixup subModel array by calculating the ending line number from the file
@@ -222,5 +220,5 @@ class LDrawFile():
 		# Last subModel is special case: its ending line is end of file array
 		subModels[-1] = (subModels[-1][0], [subModels[-1][1], len(self.fileArray)])
 		
-		# self.subModelsInFile = {"filename": [startline, endline]}
-		self.subModelsInFile = dict(subModels)
+		# self.subModelArray = {"filename": [startline, endline]}
+		self.subModelArray = dict(subModels)

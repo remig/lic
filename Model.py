@@ -50,15 +50,15 @@ class Instructions():
 		# line format: filename width height center-x center-y leftInset bottomInset
 		self.ImgDimensionsFilename = "PartDimensions_" + filename + ".cache"
 		
-		self.mainModel = Part(filename, hasSteps = True)
+		self.mainModel = Part(filename, isMainModel = True)
 		ldrawFile = self.mainModel.partOGL.ldrawFile
 	
 	def resize(self, width, height):
 		global _windowWidth, _windowHeight
-
+		
 		_windowWidth = width - (self.pagePadding * 2)
 		_windowHeight = height - (self.pagePadding * 2)
-
+		
 		for step in self.mainModel.partOGL.steps:
 			step.csi.resize()
 	
@@ -243,7 +243,7 @@ class PLI():
 		self.qtyLabelFont = Font(size = 14, bold = True)
 		self.qtyMultiplierChar = 'x'
 		self.layout = {}  # {part filename: [count, part, bottomLeftCorner, qtyLabelReference]}
-
+		
 		self.step = step
 		self.fileLine = None
 
@@ -390,12 +390,12 @@ class PLI():
 
 	def writeToGlobalFileArray(self):
 		global ldrawFile
-
+		
 		self.fileLine = [Comment, LICCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
 		layoutLines = [self.fileLine]	
 		for filename, item in self.layout.items():
 			layoutLines.append([Comment, LICCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y])
-
+		
 		index = self.step.fileLine[0]
 		for i, line in enumerate(layoutLines):
 			ldrawFile.insertLine(index+i, line)
@@ -434,7 +434,7 @@ class CSI():
 		
 		self.oglDispIDs = []  # [(dispID, buffer)]
 		self.oglDispID = UNINIT_OGL_DISPID
-
+		
 		self.fileLine = None
 	
 	def initSize(self, width, height):
@@ -538,10 +538,10 @@ class CSI():
 
 	def callOGLDisplayList(self):
 		glCallList(self.oglDispIDs[0][0])
-		
+	
 	def writeToGlobalFileArray(self):
 		global ldrawFile
-
+		
 		self.fileLine = [Comment, LICCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y]
 		ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
 
@@ -559,7 +559,7 @@ class Step():
 		self.internalGap = 20
 		self.stepNumberFont = Font(20)
 		self.stepNumberRefPt = Point(0, 0)
-
+		
 		self.fileLine = None
 		
 		if (prevStep):
@@ -579,15 +579,15 @@ class Step():
 
 	def initLayout(self, context):
 		global _windowHeight
-	
+		
 		self.pli.initLayout(context)
-	
+		
 		# Determine space between top page edge and bottom of PLI, including gaps
 		if (self.pli.isEmpty()):
 			topGap = self.internalGap
 		else:
 			topGap = self.internalGap * 2 + self.pli.box.height
-
+		
 		# Figure out the display height of the step number label
 		self.stepNumberFont.passToCairo(context)
 		xbearing, ybearing = context.text_extents(str(self.number))[:2]
@@ -595,7 +595,7 @@ class Step():
 		# Initialize this step number's label position
 		self.stepNumberRefPt.x = self.internalGap - xbearing
 		self.stepNumberRefPt.y = topGap - ybearing
-
+		
 		# Tell this step's CSI about the PLI, so it can center itself vertically better
 		self.csi.offsetPLI = topGap
 		self.csi.resize()
@@ -624,7 +624,7 @@ class PartOGL():
 	in common when present in a model.
 	"""
 	
-	def __init__(self, filename, parentLDFile = None, hasSteps = False):
+	def __init__(self, filename, parentLDFile = None, isMainModel = False):
 		
 		self.name = self.filename = filename
 		self.ldrawFile = None
@@ -645,10 +645,10 @@ class PartOGL():
 		self.leftInset = self.bottomInset = 0
 		self.center = Point(0, 0)
 		
-		if ((parentLDFile is not None) and (filename in parentLDFile.subModelsInFile)):
+		if ((parentLDFile is not None) and (filename in parentLDFile.subModelArray)):
 			self._loadFromSubModelArray(parentLDFile)
 		else:
-			self._loadFromFile(hasSteps)
+			self._loadFromFile(isMainModel)
 		
 		# Check if the last step in model is empty - occurs often, since we've implicitly
 		# created a step before adding any parts and many models end with a Step.
@@ -663,23 +663,22 @@ class PartOGL():
 		self.steps = [self.currentStep]
 		self.ldrawFile = ldrawFile
 		
-		start, end = ldrawFile.subModelsInFile[self.filename]
+		start, end = ldrawFile.subModelArray[self.filename]
 		subModelArray = ldrawFile.fileArray[start + 1 : end]
 		
 		for line in subModelArray:
 			self._loadOneLDrawLineCommand(line)
 
-	def _loadFromFile(self, hasSteps):
+	def _loadFromFile(self, isMainModel):
 		
 		self.ldrawFile = LDrawFile(self.filename)
-		self.ldrawFile.addLICHeader()
-		if hasSteps:
+		if isMainModel:
+			self.ldrawFile.addLICHeader()
 			self.ldrawFile.addInitialStep()
 		self.isPrimitive = self.ldrawFile.isPrimitive
 		self.name = self.ldrawFile.name
-	
-		self.ldrawFile.saveTest()
-
+		
+		
 		for line in self.ldrawFile.fileArray[1:]:
 			if (isValidFileLine(line)):
 				return
@@ -853,7 +852,7 @@ class Part():
 	that could be different between two 2x4 bricks in a model.
 	"""
 	
-	def __init__(self, filename, color = None, matrix = None, ghost = False, buffers = [], invert = False, ldrawFile = None, hasSteps = False):
+	def __init__(self, filename, color = None, matrix = None, ghost = False, buffers = [], invert = False, ldrawFile = None, isMainModel = False):
 		
 		self.color = color
 		self.matrix = matrix
@@ -868,7 +867,7 @@ class Part():
 		if (filename in partDictionary):
 			self.partOGL = partDictionary[filename]
 		else:
-			self.partOGL = partDictionary[filename] = PartOGL(filename, ldrawFile, hasSteps)
+			self.partOGL = partDictionary[filename] = PartOGL(filename, ldrawFile, isMainModel)
 		
 		self.name = self.partOGL.name
 

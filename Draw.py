@@ -242,9 +242,9 @@ def go():
 	box = gui_xml.get_widget("box_opengl")
 	box.pack_start(area)
 	
-	sigs = { "on_menuGenerate_activate": area.on_generate_images,
-	         "on_save_activate": area.on_save,
-		 "on_quit_activate": area.on_destroy }
+	sigs = {"on_menuGenerate_activate": area.on_generate_images,
+			"on_save_activate": area.on_save,
+			"on_quit_activate": area.on_destroy }
 	
 	gui_xml.signal_autoconnect(sigs)
 
