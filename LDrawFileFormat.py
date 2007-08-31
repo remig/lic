@@ -9,30 +9,33 @@ TriangleCommand = '3'
 QuadCommand = '4'
 ConditionalLineCommand = '5'
 
-StepMetaCommand = 'STEP'
-FileMetaCommand = 'FILE'
-ClearMetaCommand = 'CLEAR'
-PauseMetaCommand = 'PAUSE'
-SaveMetaCommand = 'SAVE'
-GhostMetaCommand = 'GHOST'
-BufferMetaCommand = 'BUFEXCHG'
+StepCommand = 'STEP'
+FileCommand = 'FILE'
+ClearCommand = 'CLEAR'
+PauseCommand = 'PAUSE'
+SaveCommand = 'SAVE'
+GhostCommand = 'GHOST'
+BufferCommand = 'BUFEXCHG'
 BFCCommand = 'BFC'
 
 BufferStore = 'STORE'
 BufferRetrieve = 'RETRIEVE'
 
-LPub = 'LPUB'
-PLI = 'PLI'
-BEGIN = 'BEGIN'
-END = 'END'
-IGN = 'IGN'
-	
+LICCommand = 'LIC'
+LPubCommand = 'LPUB'
+CSICommand  = 'CSI'
+PLICommand  = 'PLI'
+PLIItemCommand  = 'PLIi'
+BEGINCommand  = 'BEGIN'
+ENDCommand  = 'END'
+IGNCommand  = 'IGN'
+
 def LDToOGLMatrix(matrix):
 	m = [float(x) for x in matrix]
 	return [m[3], m[6], m[9], 0.0, m[4], m[7], m[10], 0.0, m[5], m[8], m[11], 0.0, m[0], m[1], m[2], 1.0]
 
 def isValidTriangleLine(line):
-	return ((len(line) == 12) and (line[1] == TriangleCommand))
+	return (len(line) == 12) and (line[1] == TriangleCommand)
 
 def lineToTriangle(line):
 	d = {}
@@ -41,7 +44,7 @@ def lineToTriangle(line):
 	return d
 
 def isValidQuadLine(line):
-	return ((len(line) == 15) and (line[1] == QuadCommand))
+	return (len(line) == 15) and (line[1] == QuadCommand)
 
 def lineToQuad(line):
 	d = {}
@@ -50,13 +53,13 @@ def lineToQuad(line):
 	return d
 
 def isValidFileLine(line):
-	return ((len(line) > 2) and (line[1] == Comment) and (line[2] == FileMetaCommand))
+	return (len(line) > 2) and (line[1] == Comment) and (line[2] == FileCommand)
 
 def isValidStepLine(line):
-	return ((len(line) > 2) and (line[1] == Comment) and (line[2] == StepMetaCommand))
+	return (len(line) > 2) and (line[1] == Comment) and (line[2] == StepCommand)
 
 def isValidPartLine(line):
-	return ((len(line) > 15) and (line[1] == PartCommand))
+	return (len(line) > 15) and (line[1] == PartCommand)
 
 def lineToPart(line):
 	d = {}
@@ -67,7 +70,7 @@ def lineToPart(line):
 	return d
 
 def isValidGhostLine(line):
-	return ((len(line) > 17) and (line[1] == Comment) and (line[2] == GhostMetaCommand) and (line[3] == PartCommand))
+	return (len(line) > 17) and (line[1] == Comment) and (line[2] == GhostCommand) and (line[3] == PartCommand)
 
 def lineToGhostPart(line):
 	d = lineToPart(line[2:])
@@ -75,20 +78,23 @@ def lineToGhostPart(line):
 	return d
 
 def isValidBufferLine(line):
-	return ((len(line) > 4) and (line[1] == Comment) and (line[2] == BufferMetaCommand))
+	return (len(line) > 4) and (line[1] == Comment) and (line[2] == BufferCommand)
 
 def lineToBuffer(line):
 	return {'buffer': line[3], 'state': line[4]}
 
 def isValidPLIIGNLine(line):
-	return ((len(line) == 6) and (line[1] == Comment) and (line[2] == LPub) and (line[3] == PLI) and (line[4] == BEGIN) and (line[5] == IGN))
+	return (len(line) == 6) and (line[1] == Comment) and (line[2] == LPubCommand) and (line[3] == PLICommand) and (line[4] == BEGINCommand) and (line[5] == IGNCommand)
 
 def isValidPLIEndLine(line):
-	return ((len(line) == 5) and (line[1] == Comment) and (line[2] == LPub) and (line[3] == PLI) and (line[4] == END))
+	return (len(line) == 5) and (line[1] == Comment) and (line[2] == LPubCommand) and (line[3] == PLICommand) and (line[4] == ENDCommand)
 
 def isValidBFCLine(line):
 	# TODO: implement all BFC options
-	return ((len(line) > 3) and (line[1] == Comment) and (line[2] == BFCCommand))
+	return (len(line) > 3) and (line[1] == Comment) and (line[2] == BFCCommand)
+
+def isValidLICLine(line):
+	return (len(line) > 3) and (line[1] == Comment) and (line[2] == LICCommand)
 
 def lineToBFC(line):
 	# TODO: implement all BFC options
@@ -108,6 +114,16 @@ class LDrawFile():
 		self._loadFileArray()
 		self._findSubModelsInFile()
 
+	def addLICHeader(self):
+
+		for i, line in enumerate(self.fileArray):
+			if isValidLICLine(line):
+				return
+			if isValidStepLine(line) or isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidPLIIGNLine(line):  
+				break  # Stuff that should be in a Step isn't - add new Step
+
+		self.insertLine(i, [Comment, LICCommand, 'Initialized'])
+
 	def addInitialStep(self):
 		
 		for i, line in enumerate(self.fileArray):
@@ -116,8 +132,8 @@ class LDrawFile():
 			if isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidPLIIGNLine(line):  
 				break  # Stuff that should be in a Step isn't - add new Step
 		
-		self.insertLine(i, [Comment, StepMetaCommand])
-	
+		self.insertLine(i, [Comment, StepCommand])
+
 	def insertLine(self, index, line):
 		"""
 		Insert the specified line into the file array at the specified index (0-based).
@@ -136,7 +152,17 @@ class LDrawFile():
 		# Adjust all subsequent line numbers
 		for line in self.fileArray[index+1:]:
 			line[0] += 1
-	
+
+	def saveTest(self):
+		filename = self.filename
+		print "saving Test: ", self.path + filename
+		
+		f = open(self.path + "test_" + filename, 'w')
+		for line in self.fileArray:
+			line[0] = str(line[0])
+			f.write(' '.join(line) + '\n')
+		f.close()
+
 	def saveFile(self, filename = None):
 		if (filename is None):
 			filename = self.filename

@@ -102,8 +102,8 @@ class Instructions():
 		# Calculate an initial layout for each Step and PLI in this instruction book
 		for step in self.mainModel.partOGL.steps:
 			step.initLayout(context)
-			step.pli.writeToGlobalFileArray()
-			step.csi.writeToGlobalFileArray()
+			#step.pli.writeToGlobalFileArray()
+			#step.csi.writeToGlobalFileArray()
 
 	def initPartDimensions(self):
 		# TODO: CSI dimensions should *NOT* be stored with part dimensions.  Part dimensions
@@ -125,12 +125,12 @@ class Instructions():
 			if (line[0] == 's'):  # Step dimensions, for CSI
 				stepNumber, filename, w, h, x, y = line[1:].split()
 				if (not partDictionary.has_key(filename)):
-					print "Warning: part dimension cache contains CSI images not present in model - suggest regenerating part dimension cache."
+					print "Warning: part dimension cache contains CSI image (%s, %d) not present in model - suggest regenerating part dimension cache." % (filename, int(stepNumber))
 					continue
 				
 				p = partDictionary[filename]
 				if (len(p.steps) < int(stepNumber)):
-					print "Warning: part dimension cache contains CSI images not present in model - suggest regenerating part dimension cache."
+					print "Warning: part dimension cache contains CSI image (%s, %d) not present in model - suggest regenerating part dimension cache." % (filename, int(stepNumber))
 					continue
 				csi = p.steps[int(stepNumber) - 1].csi
 				csi.box.width = max(1, int(w))
@@ -140,7 +140,7 @@ class Instructions():
 			elif (line[0] == 'p'):  # Part dimensions, for PLI
 				filename, w, h, x, y, l, b = line[1:].split()
 				if (not partDictionary.has_key(filename)):
-					print "Warning: part dimension cache contains parts not present in model - suggest regenerating part dimension cache."
+					print "Warning: part dimension cache contains part (%s) not present in model - suggest regenerating part dimension cache." % (filename)
 					continue
 				p = partDictionary[filename]
 				p.width = max(1, int(w))
@@ -391,10 +391,10 @@ class PLI():
 	def writeToGlobalFileArray(self):
 		global ldrawFile
 
-		self.fileLine = [0, 'LIC', 'PLI', self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
+		self.fileLine = [Comment, LICCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
 		layoutLines = [self.fileLine]	
 		for filename, item in self.layout.items():
-			layoutLines.append(['0', 'LIC', 'PLIItem', filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y])
+			layoutLines.append([Comment, LICCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y])
 
 		index = self.step.fileLine[0]
 		for i, line in enumerate(layoutLines):
@@ -542,7 +542,7 @@ class CSI():
 	def writeToGlobalFileArray(self):
 		global ldrawFile
 
-		self.fileLine = [0, 'LIC', 'CSI', self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y]
+		self.fileLine = [Comment, LICCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y]
 		ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
 
 	def partTranslateCallback(self):
@@ -672,11 +672,14 @@ class PartOGL():
 	def _loadFromFile(self, hasSteps):
 		
 		self.ldrawFile = LDrawFile(self.filename)
+		self.ldrawFile.addLICHeader()
 		if hasSteps:
 			self.ldrawFile.addInitialStep()
 		self.isPrimitive = self.ldrawFile.isPrimitive
 		self.name = self.ldrawFile.name
-		
+	
+		self.ldrawFile.saveTest()
+
 		for line in self.ldrawFile.fileArray[1:]:
 			if (isValidFileLine(line)):
 				return
