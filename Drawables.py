@@ -2,6 +2,13 @@ import cairo
 
 UNINIT_PROP = -1
 
+class Point():
+	def __init__(self, x = 0, y = 0):
+		self.x = x
+		self.y = y
+	def __repr__(self):
+		return "Point(%d, %d)" % (self.x, self.y)
+
 class Font():
 	def __init__(self, size, face = "Arial", color = [0, 0, 0], bold = False, italic = False):
 		self.size = size

@@ -1,5 +1,7 @@
 import Image
 
+from Drawables import Point
+
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GL.EXT.framebuffer_object import *
@@ -7,14 +9,11 @@ from OpenGL.GL.EXT.framebuffer_object import *
 # Global constants
 SCALE_WINDOW = 1
 
-class Point():
-	def __init__(self, x = 0, y = 0):
-		self.x = x
-		self.y = y
-	def __repr__(self):
-		return "Point(%d, %d)" % (self.x, self.y)
-
 def adjustGLViewport(x, y, width, height):
+	x = int(x)
+	y = int(y)
+	width = int(width)
+	height = int(height)
 	glViewport(x, y, width, height)
 	glMatrixMode(GL_PROJECTION)
 	glLoadIdentity()
