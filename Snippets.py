@@ -469,5 +469,32 @@ class Strict:
 			self.__dict__[name] = value
 		else:
 			raise AttributeError, "%s has no attribute '%s'" % (self.__class__, name)
+		
+		if (line[0] == 's'):  # Step dimensions, for CSI
+			stepNumber, filename, w, h, x, y = line[1:].split()
+			if (not partDictionary.has_key(filename)):
+				print "Warning: part dimension cache contains CSI image (%s, %d) not present in model - suggest regenerating part dimension cache." % (filename, int(stepNumber))
+				continue
+				
+			p = partDictionary[filename]
+			if (len(p.steps) < int(stepNumber)):
+				print "Warning: part dimension cache contains CSI image (%s, %d) not present in model - suggest regenerating part dimension cache." % (filename, int(stepNumber))
+				continue
+			csi = p.steps[int(stepNumber) - 1].csi
+			csi.box.width = max(1, int(w))
+			csi.box.height = max(1, int(h))
+			csi.centerOffset = Point(int(x), int(y))
 
+	def buildCSIList(self, part, loadedParts = []):
+		csiList = []
+		for step in part.steps:
+			for part in step.parts:
+				if (part.partOGL.filename not in loadedParts and part.partOGL.steps != []):
+					csiList += self.buildCSIList(part.partOGL, loadedParts)
+				loadedParts.append(part.partOGL.filename)
+			csiList.append(step.csi)
+		return csiList
 
+	def dimensionsToString(self):
+		return "s %d %s %d %d %d %d\n" % (self.step.number, self.filename, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y)
+	

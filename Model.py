@@ -31,6 +31,8 @@ Should keep me busy for the next few weeks...
 
 # TODO: Implement rotation steps - good luck
 # TODO: remove partDictionary global variable - used in few enough spots that it shouldn't be global anymore
+# TODO: File load is sluggish, even if loading from a thoroughly Lic-created file
+# TODO: SubModel CSIs and PLIs are not being initialized properly
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 ldrawFile = None
 _windowWidth = -1
@@ -102,8 +104,8 @@ class Instructions():
 		# Calculate an initial layout for each Step and PLI in this instruction book
 		for step in self.mainModel.partOGL.steps:
 			step.initLayout(context)
-			#step.pli.writeToGlobalFileArray()
-			#step.csi.writeToGlobalFileArray()
+			step.pli.writeToGlobalFileArray()
+			step.csi.writeToGlobalFileArray()
 
 	def initPartDimensions(self):
 		# TODO: CSI dimensions should *NOT* be stored with part dimensions.  Part dimensions
@@ -122,53 +124,25 @@ class Instructions():
 		""" Used to initialize all part dimensions from the specified valid part dimension cache file f."""
 		
 		for line in f:
-			if (line[0] == 's'):  # Step dimensions, for CSI
-				stepNumber, filename, w, h, x, y = line[1:].split()
-				if (not partDictionary.has_key(filename)):
-					print "Warning: part dimension cache contains CSI image (%s, %d) not present in model - suggest regenerating part dimension cache." % (filename, int(stepNumber))
-					continue
-				
-				p = partDictionary[filename]
-				if (len(p.steps) < int(stepNumber)):
-					print "Warning: part dimension cache contains CSI image (%s, %d) not present in model - suggest regenerating part dimension cache." % (filename, int(stepNumber))
-					continue
-				csi = p.steps[int(stepNumber) - 1].csi
-				csi.box.width = max(1, int(w))
-				csi.box.height = max(1, int(h))
-				csi.centerOffset = Point(int(x), int(y))
-				
-			elif (line[0] == 'p'):  # Part dimensions, for PLI
-				filename, w, h, x, y, l, b = line[1:].split()
-				if (not partDictionary.has_key(filename)):
-					print "Warning: part dimension cache contains part (%s) not present in model - suggest regenerating part dimension cache." % (filename)
-					continue
-				p = partDictionary[filename]
-				p.width = max(1, int(w))
-				p.height = max(1, int(h))
-				p.center = Point(int(x), int(y))
-				p.leftInset = int(l)
-				p.bottomInset = int(b)
+			filename, w, h, x, y, l, b = line[1:].split()
+			if (not partDictionary.has_key(filename)):
+				print "Warning: part dimension cache contains part (%s) not present in model - suggest regenerating part dimension cache." % (filename)
+				continue
+			p = partDictionary[filename]
+			p.width = max(1, int(w))
+			p.height = max(1, int(h))
+			p.center = Point(int(x), int(y))
+			p.leftInset = int(l)
+			p.bottomInset = int(b)
 	
-	def buildCSIList(self, part, loadedParts = []):
-		csiList = []
-		for step in part.steps:
-			for part in step.parts:
-				if (part.partOGL.filename not in loadedParts and part.partOGL.steps != []):
-					csiList += self.buildCSIList(part.partOGL, loadedParts)
-				loadedParts.append(part.partOGL.filename)
-			csiList.append(step.csi)
-		return csiList
-
 	def initPartDimensionsManually(self):
 		"""
 		Used to calculate each part's display width and height if no valid part dimension cache file exists.
-		Creates GL FBOs to render a temp copy of each part, then use those raw pixels to determine size.
+		Creates GL FBOs to render a temp copy of each part, then uses those raw pixels to determine size.
 		Will create and store results in a part dimension cache file.
 		"""
 		
 		imgList = [part for part in partDictionary.values() if not part.isPrimitive]
-		imgList += self.buildCSIList(self.mainModel.partOGL)
-		
 		imgList2 = []
 		lines = []
 		sizes = [256, 512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
@@ -260,6 +234,10 @@ class PLI():
 			self.layout[part.filename] = [1, part, Point(0, 0), Point(0, 0)]
 
 	def initLayout(self, context):
+		
+		if self.fileLine:
+			print "Trying to initalize a PLI that was alread initialized from file.  Ignoring call."
+			return
 		
 		# Return the height of the part in the specified layout item
 		def itemHeight(layoutItem):
@@ -409,9 +387,13 @@ class PLI():
 		for filename, item in self.layout.items():
 			layoutLines.append([Comment, LICCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y])
 		
-		index = self.step.fileLine[0]
+		if len(self.step.nextStepLine) < 1:
+			print "Error trying to save PLI: nextStepLine is not define - where to save this PLI?"
+			return
+		
+		index = self.step.nextStepLine[0] - 1
 		for i, line in enumerate(layoutLines):
-			ldrawFile.insertLine(index+i, line)
+			ldrawFile.insertLine(index + i, line)
 
 class CSI():
 	"""
@@ -420,8 +402,8 @@ class CSI():
 	
 	def __init__(self, filename, step, buffers):
 		self.box = Box(0, 0)
-		self.offsetPLI = 0
 		self.centerOffset = Point(0, 0)
+		self.offsetPLI = 0
 		self.filename = filename
 		self.step = step
 		self.buffers = buffers  # [(bufID, stepNumber)], set of buffers active inside this CSI
@@ -447,6 +429,10 @@ class CSI():
 			False if the CSI has been rendered partially or wholly out of frame.
 		"""
 		
+		if self.fileLine:
+			print "Trying to initalize a CSI that was alread initialized from file.  Ignoring call."
+			return
+		
 		# TODO: update some kind of load status bar her - this function is *slow*
 		#print "Initializing CSI %s, step %d - size %dx%d" % (self.filename, self.step.number, width, height)
 		
@@ -462,9 +448,6 @@ class CSI():
 		self.box.x = (_windowWidth / 2.) - (self.box.width / 2.)
 		self.box.y = ((_windowHeight - self.offsetPLI) / 2.) - (self.box.height / 2.) + self.offsetPLI
 
-	def dimensionsToString(self):
-		return "s %d %s %d %d %d %d\n" % (self.step.number, self.filename, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y)
-	
 	def callPreviousOGLDisplayLists(self, currentBuffers = None):
 		if (self.step.prevStep):
 			self.step.prevStep.csi.callPreviousOGLDisplayLists(currentBuffers)
@@ -549,6 +532,7 @@ class Step():
 	def __init__(self, filename, prevStep = None, buffers = []):
 		self.parts = []
 		self.prevStep = prevStep
+		self.nextStepLine = []
 		
 		self.internalGap = 20
 		self.stepNumberFont = Font(20)
@@ -574,7 +558,9 @@ class Step():
 	def initLayout(self, context):
 		global _windowHeight
 		
-		self.pli.initLayout(context)
+		# If this step's PLI has not been initialized by the LDraw file (first run?), choose a nice initial layout
+		if self.pli.fileLine is None:
+			self.pli.initLayout(context)
 		
 		# Determine space between top page edge and bottom of PLI, including gaps
 		if (self.pli.isEmpty()):
@@ -672,47 +658,109 @@ class PartOGL():
 		self.isPrimitive = self.ldrawFile.isPrimitive
 		self.name = self.ldrawFile.name
 		
-		
+		# Loop over the specified LDraw file array
 		for line in self.ldrawFile.fileArray[1:]:
-			if (isValidFileLine(line)):
+			
+			# A FILE line means we're finished loading this model
+			if isValidFileLine(line):
+				
+				# Store this last line index as the end of the current step
+				if self.currentStep:
+					self.currentStep.nextStepLine = line
 				return
+			
 			self._loadOneLDrawLineCommand(line)
 
 	def _loadOneLDrawLineCommand(self, line):
 		
-		if (isValidStepLine(line)):
+		if isValidStepLine(line):
 			self.addStep(line)
 		
-		elif (isValidPartLine(line)):
+		elif isValidPartLine(line):
 			self.addPart(lineToPart(line), line)
 		
-		elif (isValidGhostLine(line)):
+		elif isValidGhostLine(line):
 			self.addPart(lineToGhostPart(line), line)
 		
-		elif (isValidBufferLine(line)):
+		elif isValidBufferLine(line):
 			self.addBuffer(lineToBuffer(line))
 		
-		elif (isValidPLIIGNLine(line)):
-			self.setPLIIGNState(True, line)
-		
-		elif (isValidPLIEndLine(line)):
-			self.setPLIIGNState(False, line)
-		
-		elif (isValidTriangleLine(line)):
+		elif isValidTriangleLine(line):
 			self.addPrimitive(lineToTriangle(line), GL_TRIANGLES)
 		
-		elif (isValidQuadLine(line)):
+		elif isValidQuadLine(line):
 			self.addPrimitive(lineToQuad(line), GL_QUADS)
+		
+		elif isValidLPubLine(line):
+			
+			if isValidLPubPLILine(line):
+				self.setPLIState(line)
+		
+		elif isValidLICLine(line):
+			
+			if isValidCSILine(line):
+				self.addCSI(line)
+			
+			elif isValidPLILine(line):
+				self.addPLI(line)
+			
+			elif isValidPLIItemLine(line):
+				self.addPLIItem(line)
 
-	def addStep(self, line = None):
+	def addPLI(self, line):
+		
+		if not self.currentStep:
+			print "PLI Error: Trying to create a PLI outside of a step.  Line %d" % (line[0])
+			return
+		
+		# [index, Comment, LICCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
+		# {'box': Box(*line[4:8]), 'qtyLabel': line[8], 'font': Font(line[9], line[10])}
+		d = lineToPLI(line)
+		pli = self.currentStep.pli
+		pli.fileLine = line
+		pli.box = d['box']
+		pli.qtyMultiplierChar = d['qtyLabel']
+		pli.qtyLabelFont = d['font']
+	
+	def addPLIItem(self, line):
+		
+		if not self.currentStep:
+			print "PLI Item Error: Trying to add an item to a PLI outside of a step.  Line %d" % (line[0])
+			return
+		
+		d = lineToPLIItem(line)
+		if not partDictionary.has_key(d['filename']):
+			print "PLI item Error: Trying to add a non-existent part (%s) to a PLI.  Line %d" % (d['filename'], line[0])
+			return
+		
+		# [index, Comment, LICCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y]
+		# {part filename: [count, part, bottomLeftCorner, qtyLabelReference]}
+		
+		self.currentStep.pli.layout[d['filename']] = [d['count'], partDictionary[d['filename']], d['corner'], d['labelCorner']]
+	
+	def addCSI(self, line):
+		if not self.currentStep:
+			print "CSI Warning: Trying to create a CSI outside of a step.  Line %d" % (line[0])
+			return
+		
+		#{'box': Box(*line[4:8]), 'offset': Point(line[8], line[9])}
+		d = lineToCSI(line)
+		csi = self.currentStep.csi
+		csi.fileLine = line
+		csi.box = d['box']
+		csi.centerOffset = d['offset']
+
+	def addStep(self, line):
 		if (self.currentStep and self.currentStep.parts == []): # Current step is empty - remove it and warn
-			if (line):
-				print "Step Warning: Empty step found on line %d.  Ignoring Step #%d" % (line[0], self.currentStep.number)
-			else:
-				print "Step Warning: Empty step found.  Ignoring Step #%d" % (self.currentStep.number)
+			print "Step Warning: Empty step found on line %d.  Ignoring Step #%d" % (line[0], self.currentStep.number)
 			self.steps.pop()
 			self.currentStep = self.currentStep.prevStep
 		
+		# Store the new step's line index in the current step
+		if self.currentStep:
+			self.currentStep.nextStepLine = line
+		
+		# Create a new step, and make it the current step
 		self.currentStep = Step(self.filename, self.currentStep, list(self.buffers))
 		self.currentStep.fileLine = line
 		self.steps.append(self.currentStep)
@@ -749,16 +797,18 @@ class PartOGL():
 				self.buffers.pop()
 				self.currentStep.csi.buffers = list(self.buffers)
 				if (self.currentStep.parts != []):
-					print "Buffer Exchange error.  Restoring a buffer in Step ", self.currentStep.number, " after adding pieces to step.  Pieces will never be drawn."
+					print "Buffer Exchange Error.  Restoring a buffer in Step ", self.currentStep.number, " after adding pieces to step.  Pieces will never be drawn."
 			else:
-				print "Buffer Exchange error.  Last stored buffer: ", self.buffers[-1][0], " but trying to retrieve buffer: ", buffer
+				print "Buffer Exchange Error.  Last stored buffer: ", self.buffers[-1][0], " but trying to retrieve buffer: ", buffer
 
-	def setPLIIGNState(self, state, line):
+	def setPLIState(self, line):
+		
+		state = lineToLPubPLIState(line)
 		if (self.ignorePLIState == state):
 			if (state):
-				print "PLI Ignore Warning: Begnining PLI IGN when already begun.  Line: ", line[0]
+				print "PLI Ignore Error: Begnining PLI IGN when already begun.  Line: ", line[0]
 			else:
-				print "PLI Ignore Warning: Ending PLI IGN when no valid PLI IGN had begun. Line: ", line[0]
+				print "PLI Ignore Error: Ending PLI IGN when no valid PLI IGN had begun. Line: ", line[0]
 		else:
 			self.ignorePLIState = state
 	

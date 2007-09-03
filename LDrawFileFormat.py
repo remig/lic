@@ -1,5 +1,7 @@
 import shutil  # for file copy / rename
 
+from Drawables import *
+
 LDrawPath = "C:\\LDrawParts\\"
 
 Comment = '0'
@@ -21,8 +23,8 @@ BFCCommand = 'BFC'
 BufferStore = 'STORE'
 BufferRetrieve = 'RETRIEVE'
 
-LICCommand = 'LIC'
 LPubCommand = 'LPUB'
+LICCommand = 'LIC'
 CSICommand  = 'CSI'
 PLICommand  = 'PLI'
 PLIItemCommand  = 'PLIi'
@@ -62,12 +64,10 @@ def isValidPartLine(line):
 	return (len(line) > 15) and (line[1] == PartCommand)
 
 def lineToPart(line):
-	d = {}
-	d['filename'] = line[15]
-	d['color'] = float(line[2])
-	d['matrix'] = LDToOGLMatrix(line[3:15])
-	d['ghost'] = False
-	return d
+	return {'filename': line[15],
+			'color': float(line[2]),
+			'matrix': LDToOGLMatrix(line[3:15]),
+			'ghost': False}
 
 def isValidGhostLine(line):
 	return (len(line) > 17) and (line[1] == Comment) and (line[2] == GhostCommand) and (line[3] == PartCommand)
@@ -83,26 +83,59 @@ def isValidBufferLine(line):
 def lineToBuffer(line):
 	return {'buffer': line[3], 'state': line[4]}
 
-def isValidPLIIGNLine(line):
-	return (len(line) == 6) and (line[1] == Comment) and (line[2] == LPubCommand) and (line[3] == PLICommand) and (line[4] == BEGINCommand) and (line[5] == IGNCommand)
-
-def isValidPLIEndLine(line):
-	return (len(line) == 5) and (line[1] == Comment) and (line[2] == LPubCommand) and (line[3] == PLICommand) and (line[4] == ENDCommand)
-
 def isValidBFCLine(line):
 	# TODO: implement all BFC options
 	return (len(line) > 3) and (line[1] == Comment) and (line[2] == BFCCommand)
-
-def isValidLICLine(line):
-	return (len(line) > 3) and (line[1] == Comment) and (line[2] == LICCommand)
 
 def lineToBFC(line):
 	# TODO: implement all BFC options
 	return {'command': line[3]}
 
+def isValidLPubLine(line):
+	return (len(line) > 3) and (line[1] == Comment) and (line[2] == LPubCommand)
+
+def isValidLPubPLILine(line):
+	return isValidLPubLine(line) and (len(line) > 4) and (line[3] == PLICommand)
+
+def lineToLPubPLIState(line):
+	if line[4] == BEGINCommand:
+		return True
+	return False
+
+def isValidLICLine(line):
+	return (len(line) > 3) and (line[1] == Comment) and (line[2] == LICCommand)
+
+def isValidCSILine(line):
+	return isValidLICLine(line) and (len(line) > 9) and (line[3] == CSICommand)
+
+def lineToCSI(line):
+	# [index, Comment, LICCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y]
+	return {'box': Box(float(line[4]), float(line[5]), float(line[6]), float(line[7])),
+			'offset': Point(float(line[8]), float(line[9]))}
+
+def isValidPLILine(line):
+	return isValidLICLine(line) and (len(line) > 10) and (line[3] == PLICommand)
+
+def lineToPLI(line):
+	# [index, Comment, LICCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
+	return {'box': Box(float(line[4]), float(line[5]), float(line[6]), float(line[7])),
+			'qtyLabel': line[8],
+			'font': Font(float(line[9]), line[10])}
+
+def isValidPLIItemLine(line):
+	return isValidLICLine(line) and (len(line) > 9) and (line[3] == PLIItemCommand)
+
+def lineToPLIItem(line):
+	# [index, Comment, LICCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y]
+	# {part filename: [count, part, bottomLeftCorner, qtyLabelReference]}
+	return {'filename': line[4],
+			'count': int(line[5]),
+			'corner': Point(float(line[6]), float(line[7])),
+			'labelCorner': Point(float(line[8]), float(line[9]))}
+
 class LDrawFile():
 	def __init__(self, filename):
-		#print "Creating file: ", filename
+		
 		self.filename = filename  # filename, like 3057.dat
 		self.name = ""            # coloquial name, like 2 x 2 brick
 		self.path = LDrawPath     # path where filename was found
@@ -118,18 +151,19 @@ class LDrawFile():
 		
 		for i, line in enumerate(self.fileArray):
 			if isValidLICLine(line):
-				return
-			if isValidStepLine(line) or isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidPLIIGNLine(line):  
+				return True
+			if isValidStepLine(line) or isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidLPubPLILine(line):  
 				break  # Stuff that should be in a Step isn't - add new Step
 		
 		self.insertLine(i, [Comment, LICCommand, 'Initialized'])
+		return False
 
 	def addInitialStep(self):
 		
 		for i, line in enumerate(self.fileArray):
 			if isValidStepLine(line):   # Already have initial step - nothing to do here
 				return 
-			if isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidPLIIGNLine(line):  
+			if isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidLPubPLILine(line):  
 				break  # Stuff that should be in a Step isn't - add new Step
 		
 		self.insertLine(i, [Comment, StepCommand])
