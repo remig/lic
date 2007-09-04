@@ -216,7 +216,7 @@ class PLI():
 		self.box = Box(topLeftCorner.x, topLeftCorner.y)
 		self.qtyLabelFont = Font(size = 14, bold = True)
 		self.qtyMultiplierChar = 'x'
-		self.layout = {}  # {part filename: [count, part, bottomLeftCorner, qtyLabelReference]}
+		self.layout = {}  # {part filename: [count, part, bottomLeftCorner, qtyLabelReference, partFileLine]}
 		
 		self.step = step
 		self.fileLine = None
@@ -226,12 +226,14 @@ class PLI():
 			return False
 		return True
 
-	def addPartOGL(self, part):
+	def addPart(self, part):
 		
-		if (part.filename in self.layout):
-			self.layout[part.filename][0] += 1
+		p = part.partOGL		
+		if (p.filename in self.layout):
+			self.layout[p.filename][0] += 1
+			self.layout[p.filename][-1] = part.fileLine
 		else:
-			self.layout[part.filename] = [1, part, Point(0, 0), Point(0, 0)]
+			self.layout[p.filename] = [1, p, Point(0, 0), Point(0, 0), part.fileLine]
 
 	def initLayout(self, context):
 		
@@ -268,7 +270,7 @@ class PLI():
 		overallX = b.x + b.internalGap
 		b.width = b.height = UNINIT_PROP
 		
-		for i, (count, part, corner, labelCorner) in enumerate(partList):  # item: [count, part, bottomLeftCorner]
+		for i, (count, part, corner, labelCorner, line) in enumerate(partList):  # item: [count, part, bottomLeftCorner]
 			
 			# If this part has steps of its own, like any good submodel, initialize those PLIs
 			for step in part.steps:
@@ -346,12 +348,12 @@ class PLI():
 			return  # No parts in this PLI - nothing to draw
 		
 		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
-			print "ERROR: Trying to draw an unitialized PLI layout!"
+			print "ERROR: Trying to draw parts for an unitialized PLI layout!"
 			return
 		
 		pushAllGLMatrices()
 		
-		for (count, part, corner, labelCorner) in self.layout.values():
+		for (count, part, corner, labelCorner, line) in self.layout.values():
 			adjustGLViewport(corner.x, corner.y - part.height, part.width, part.height)
 			glLoadIdentity()
 			rotateToDefaultView(part.center.x, part.center.y, 0.0)
@@ -366,13 +368,13 @@ class PLI():
 			return  # No parts in this PLI - nothing to draw
 		
 		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
-			print "ERROR: Trying to draw an unitialized PLI layout!"
+			print "ERROR: Trying to draw an unitialized PLI layout box!"
 		
 		# Draw the PLIs overall bounding box
 		self.box.draw(context)
 		
 		# Draw the quantity label for each part, if needed
-		for (count, part, corner, labelCorner) in self.layout.values():
+		for (count, part, corner, labelCorner, line) in self.layout.values():
 			
 			# Draw part's quantity label
 			self.qtyLabelFont.passToCairo(context)
@@ -382,18 +384,13 @@ class PLI():
 	def writeToGlobalFileArray(self):
 		global ldrawFile
 		
+		# Write out the main PLI command to file, including box and label position info
 		self.fileLine = [Comment, LICCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
-		layoutLines = [self.fileLine]	
+		ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
+		
+		# Write out each PLI item in the layout, positioned right after the last occurance of the part in this step
 		for filename, item in self.layout.items():
-			layoutLines.append([Comment, LICCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y])
-		
-		if len(self.step.nextStepLine) < 1:
-			print "Error trying to save PLI: nextStepLine is not define - where to save this PLI?"
-			return
-		
-		index = self.step.nextStepLine[0] - 1
-		for i, line in enumerate(layoutLines):
-			ldrawFile.insertLine(index + i, line)
+			ldrawFile.insertLine(item[-1][0], [Comment, LICCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y])
 
 class CSI():
 	"""
@@ -509,7 +506,7 @@ class CSI():
 
 	def drawPageElements(self, context):
 		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
-			print "ERROR: Trying to draw an unitialized PLI layout!"
+			print "ERROR: Trying to draw an unitialized CSI layout!"
 			return
 		self.box.draw(context)
 
@@ -532,7 +529,6 @@ class Step():
 	def __init__(self, filename, prevStep = None, buffers = []):
 		self.parts = []
 		self.prevStep = prevStep
-		self.nextStepLine = []
 		
 		self.internalGap = 20
 		self.stepNumberFont = Font(20)
@@ -553,10 +549,14 @@ class Step():
 		part.translateCallback = self.csi.partTranslateCallback
 		
 		if (not part.ignorePLIState):
-			self.pli.addPartOGL(part.partOGL)
+			self.pli.addPart(part)
 
 	def initLayout(self, context):
 		global _windowHeight
+		
+		# If this step's CSI has not been initialized by the LDraw file (first run?), determine CSI's display size
+		#if self.csi.fileLine is None:
+			#self.csi.initSize()
 		
 		# If this step's PLI has not been initialized by the LDraw file (first run?), choose a nice initial layout
 		if self.pli.fileLine is None:
@@ -663,10 +663,6 @@ class PartOGL():
 			
 			# A FILE line means we're finished loading this model
 			if isValidFileLine(line):
-				
-				# Store this last line index as the end of the current step
-				if self.currentStep:
-					self.currentStep.nextStepLine = line
 				return
 			
 			self._loadOneLDrawLineCommand(line)
@@ -728,6 +724,10 @@ class PartOGL():
 			print "PLI Item Error: Trying to add an item to a PLI outside of a step.  Line %d" % (line[0])
 			return
 		
+		if len(self.currentStep.parts) < 1:
+			print "PLI Item Error: Trying to add an item to a PLI inside a step with no parts.  Line %d" % (line[0])
+			return
+		
 		d = lineToPLIItem(line)
 		if not partDictionary.has_key(d['filename']):
 			print "PLI item Error: Trying to add a non-existent part (%s) to a PLI.  Line %d" % (d['filename'], line[0])
@@ -735,8 +735,8 @@ class PartOGL():
 		
 		# [index, Comment, LICCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y]
 		# {part filename: [count, part, bottomLeftCorner, qtyLabelReference]}
-		
-		self.currentStep.pli.layout[d['filename']] = [d['count'], partDictionary[d['filename']], d['corner'], d['labelCorner']]
+		partLine = self.currentStep.parts[-1].fileLine
+		self.currentStep.pli.layout[d['filename']] = [d['count'], partDictionary[d['filename']], d['corner'], d['labelCorner'], partLine]
 	
 	def addCSI(self, line):
 		if not self.currentStep:
@@ -755,10 +755,6 @@ class PartOGL():
 			print "Step Warning: Empty step found on line %d.  Ignoring Step #%d" % (line[0], self.currentStep.number)
 			self.steps.pop()
 			self.currentStep = self.currentStep.prevStep
-		
-		# Store the new step's line index in the current step
-		if self.currentStep:
-			self.currentStep.nextStepLine = line
 		
 		# Create a new step, and make it the current step
 		self.currentStep = Step(self.filename, self.currentStep, list(self.buffers))
