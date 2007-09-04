@@ -105,8 +105,7 @@ class Instructions():
 		# Calculate an initial layout for each Step and PLI in this instruction book
 		for step in self.mainModel.partOGL.steps:
 			step.initLayout(context)
-			step.pli.writeToGlobalFileArray()
-			step.csi.writeToGlobalFileArray()
+			step.writeToGlobalFileArray()
 
 	def initPartDimensions(self):
 		
@@ -468,7 +467,7 @@ class CSI():
 			return
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
-		#print "Initializing CSI %s, step %d - size %dx%d" % (self.filename, self.step.number, width, height)
+		print "CSI %s step %d - size %d" % (self.filename, self.step.number, width)
 		
 		params = initImgSize(width, height, self.oglDispID, wantInsets = False, filename = self.filename + " - step " + str(self.step.number))
 		if (params is None):
@@ -616,6 +615,14 @@ class Step():
 		# Tell this step's CSI about the PLI, so it can center itself vertically better
 		self.csi.offsetPLI = topGap
 		self.csi.resize()
+
+	def writeToGlobalFileArray(self):
+		self.pli.writeToGlobalFileArray()
+		self.csi.writeToGlobalFileArray()
+		
+		for part in self.parts:
+			for step in part.partOGL.steps:
+				step.writeToGlobalFileArray()
 
 	def drawModel(self):
 		""" Draw this step's CSI and PLI parts (not GUI elements, just the 3D GL bits) """
