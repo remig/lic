@@ -74,6 +74,9 @@ class Box():
 		self.cornerRadius = 0 # Radius for rounded corners. 0 = square
 		self.internalGap = 10  # Distance from inside edge of border to outside edge of contents
 
+	def __repr__(self):
+		return "Box(x: %d, y: %d, w: %d, h: %d)" % (self.x, self.y, self.width, self.height)
+	
 	def draw(self, context):
 		# TODO: Remove this check once all is well
 		if (self.x == UNINIT_PROP or self.y == UNINIT_PROP or self.width == UNINIT_PROP or self.height == UNINIT_PROP):

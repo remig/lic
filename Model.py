@@ -100,6 +100,7 @@ class Instructions():
 		
 		# Calculate the width and height of each partOGL in the part dictionary and each CSI
 		self.initPartDimensions()
+		self.initCSIDimensions()
 		
 		# Calculate an initial layout for each Step and PLI in this instruction book
 		for step in self.mainModel.partOGL.steps:
@@ -108,9 +109,7 @@ class Instructions():
 			step.csi.writeToGlobalFileArray()
 
 	def initPartDimensions(self):
-		# TODO: CSI dimensions should *NOT* be stored with part dimensions.  Part dimensions
-		# should be shareable across models, if those models have the necessary same display setting.
-		# Instead, store CSI dimensions right along with the STEP command right in the model file
+		
 		try:
 			# Have a valid part dimension cache file for this model - load from there
 			f = file(self.ImgDimensionsFilename, "r")
@@ -134,6 +133,44 @@ class Instructions():
 			p.center = Point(int(x), int(y))
 			p.leftInset = int(l)
 			p.bottomInset = int(b)
+	
+	def buildCSIList(self, part, loadedParts = []):
+		csiList = []
+		for step in part.steps:
+			for part in step.parts:
+				if (part.partOGL.filename not in loadedParts and part.partOGL.steps != []):
+					csiList += self.buildCSIList(part.partOGL, loadedParts)
+				loadedParts.append(part.partOGL.filename)
+			if step.csi.fileLine is None:
+				csiList.append(step.csi)
+		return csiList
+
+	def initCSIDimensions(self):
+		csiList = self.buildCSIList(self.mainModel.partOGL)
+		csiList2 = []
+		sizes = [512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
+		
+		for size in sizes:
+			
+			# Create a new FBO
+			buffers = createFBO(size, size)
+			if buffers is None:
+				print "ERROR: Failed to initialize FBO - aborting initCSIDimensions"
+				return
+			
+			# Render each image and calculate their sizes
+			for csi in csiList:
+				if not csi.initSize(size, size):  # Draw image and calculate its size:
+					csiList2.append(csi)
+			
+			# Clean up created FBO
+			destroyFBO(*buffers)
+			
+			if len(csiList2) < 1:
+				break  # All images initialized successfully
+			else:
+				csiList = csiList2  # Some images rendered out of frame - loop and try bigger frame
+				csiList2 = []
 	
 	def initPartDimensionsManually(self):
 		"""
