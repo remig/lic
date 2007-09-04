@@ -683,8 +683,6 @@ class PartOGL():
 	
 	def _loadFromSubModelArray(self, ldrawFile):
 		
-		self.currentStep = Step(self.filename)
-		self.steps = [self.currentStep]
 		self.ldrawFile = ldrawFile
 		
 		start, end = ldrawFile.subModelArray[self.filename]
@@ -698,7 +696,7 @@ class PartOGL():
 		self.ldrawFile = LDrawFile(self.filename)
 		if isMainModel:
 			self.ldrawFile.addLICHeader()
-			self.ldrawFile.addInitialStep()
+			self.ldrawFile.addInitialSteps()
 		self.isPrimitive = self.ldrawFile.isPrimitive
 		self.name = self.ldrawFile.name
 		

@@ -158,15 +158,26 @@ class LDrawFile():
 		self.insertLine(i, [Comment, LICCommand, 'Initialized'])
 		return False
 
-	def addInitialStep(self):
-		
-		for i, line in enumerate(self.fileArray):
+	def addInitialSteps(self):
+	
+		lines = []
+		currentFileLine = False
+		for line in self.fileArray:
+			if isValidFileLine(line):
+				currentFileLine = True
+					 
 			if isValidStepLine(line):   # Already have initial step - nothing to do here
-				return 
-			if isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidLPubPLILine(line):  
-				break  # Stuff that should be in a Step isn't - add new Step
-		
-		self.insertLine(i, [Comment, StepCommand])
+				currentFileLine = False
+
+			if isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidLPubPLILine(line):
+				if currentFileLine:
+					lines.append(line)
+					currentFileLine = False
+
+		for line in lines:
+			self.insertLine(line[0] - 1, [Comment, StepCommand])
+	
+		self.saveFile()
 
 	def insertLine(self, index, line):
 		"""
