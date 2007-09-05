@@ -114,7 +114,12 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		print "*** Loading Model ***"
 		cr = self.window.cairo_create()
-		self.instructions = Instructions(MODEL_NAME)
+		try:
+			self.instructions = Instructions(MODEL_NAME)
+		except IOError:
+			print "Could not find file %s" % (MODEL_NAME)
+			exit()
+
 		self.instructions.resize(self.width, self.height)
 		self.instructions.initDraw(cr)
 		self.model = self.instructions.getMainModel()
