@@ -159,7 +159,7 @@ class LDrawFile():
 		return False
 
 	def addInitialSteps(self):
-	
+		
 		lines = []
 		currentFileLine = False
 		for line in self.fileArray:
@@ -168,17 +168,15 @@ class LDrawFile():
 					 
 			if isValidStepLine(line):   # Already have initial step - nothing to do here
 				currentFileLine = False
-
+			
 			if isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidLPubPLILine(line):
 				if currentFileLine:
 					lines.append(line)
 					currentFileLine = False
-
+		
 		for line in lines:
 			self.insertLine(line[0] - 1, [Comment, StepCommand])
 	
-		self.saveFile()
-
 	def insertLine(self, index, line):
 		"""
 		Insert the specified line into the file array at the specified index (0-based).
@@ -198,10 +196,13 @@ class LDrawFile():
 		for line in self.fileArray[index+1:]:
 			line[0] += 1
 		
-		# Adjust all line numbers in the subModel array too
+		# Adjust all line numbers in the subModel array too, if we inserted the line before their indices
+		# self.subModelArray = {"filename": [startline, endline]}
 		for line in self.subModelArray.values():
-			line[0] += 1
-			line[1] += 1
+			if line[0] >= index:
+				line[0] += 1
+			if line[1] >= index:
+				line[1] += 1
 
 	def saveFile(self, filename = None):
 		

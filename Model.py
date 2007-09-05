@@ -420,6 +420,10 @@ class PLI():
 	def writeToGlobalFileArray(self):
 		global ldrawFile
 		
+		if self.fileLine:
+			# If this PLI already has a file line, it means it already exists in the file
+			return
+		
 		# Write out the main PLI command to file, including box and label position info
 		self.fileLine = [Comment, LICCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
 		ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
@@ -552,8 +556,9 @@ class CSI():
 	def writeToGlobalFileArray(self):
 		global ldrawFile
 		
-		self.fileLine = [Comment, LICCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y]
-		ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
+		if not self.fileLine:
+			self.fileLine = [Comment, LICCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y]
+			ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
 
 	def partTranslateCallback(self):
 		global _windowWidth, _windowHeight
