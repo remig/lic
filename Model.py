@@ -62,7 +62,7 @@ class Instructions():
 		_windowHeight = height - (self.pagePadding * 2)
 		
 		for step in self.mainModel.partOGL.steps:
-			step.csi.resize()
+			step.resize()
 	
 	def drawPage(self, context, width, height):
 		
@@ -307,10 +307,6 @@ class PLI():
 		b.width = b.height = UNINIT_PROP
 		
 		for i, (count, part, corner, labelCorner, line) in enumerate(partList):  # item: [count, part, bottomLeftCorner]
-			
-			# If this part has steps of its own, like any good submodel, initialize those PLIs
-			for step in part.steps:
-				step.initLayout(context)
 			
 			if (part.width == UNINIT_PROP or part.height == UNINIT_PROP):
 				# TODO: Remove this check once all is well
@@ -591,17 +587,28 @@ class Step():
 		
 		if (not part.ignorePLIState):
 			self.pli.addPart(part)
+	
+	def resize(self):
+		
+		# Notify this step's CSI about the new size
+		self.csi.resize()
+		
+		# Notify any steps in any sub models about the resize too
+		for part in self.parts:
+			for step in part.partOGL.steps:
+				step.resize()
 
 	def initLayout(self, context):
 		global _windowHeight
 		
-		# If this step's CSI has not been initialized by the LDraw file (first run?), determine CSI's display size
-		#if self.csi.fileLine is None:
-			#self.csi.initSize()
-		
 		# If this step's PLI has not been initialized by the LDraw file (first run?), choose a nice initial layout
 		if self.pli.fileLine is None:
 			self.pli.initLayout(context)
+		
+		# Ensure all sub model PLIs and steps are also initialized
+		for part in self.parts:
+			for step in part.partOGL.steps:
+				step.initLayout(context)
 		
 		# Determine space between top page edge and bottom of PLI, including gaps
 		if (self.pli.isEmpty()):
