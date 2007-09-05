@@ -17,11 +17,13 @@ UNINIT_PROP = -1
 """
 TODO: Work on generating actual POV renderings from whatever is displayed:
 First, Use the os module's exec & spawn functions to call L3P (http://docs.python.org/lib/os-process.html)
-Then, figure out the correct arguments to L3P so that a single brick is rendered identical in PLI and L3P
+Then, figure out the correct arguments to L3P so that a single brick is rendered identical in PLI and L3P.
+Then, abstract away all the opengl calls in the gui preview window so that they can be easily replaced
+by calls to L3P / Pov-ray.
+Then, use existing layout / cairo drawing engine to create finalized, nice looking instruction book pages.
 
-Also need to get LDraw file *SAVE* working:
-First, add changes & calculation made on load back into the file array (initial STEP, PLI positions, subModel dimensions, etc).
-Then, write that new file array to disk, then load it and see if we can save a ton of work on init.
+os.environ['LDRAWDIR'] = r'c:\ldraw'
+os.spawnl(os.P_WAIT, r'c:\ldraw\apps\l3p\L3P.EXE', r'c:\ldraw\apps\l3p\L3P.EXE', 'car.dat')
 
 Once all that's done, LIC is actually mildly useful.  Nothing revolutionary yet, but useful.
 
