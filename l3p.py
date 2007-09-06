@@ -6,24 +6,50 @@ def listToCSVStr(l):
 		s += str(i) + ','
 	return s[:-1]
 	
+def overwriteCommand(bool):
+	return boolToCommand('-o', bool)
+
+def bumpCommand(bool):
+	return boolToCommand('-bu', bool)
+
+def lgeoCommand(bool):
+	return boolToCommand('-lgeo', bool)
+
+def boolToCommand(command, bool):
+	if bool:
+		return command
+	return ''
+	
 l3pCommands = {
-	'camera position' : ['-cg', listToCSVStr],  # [lat 20, long -45, r 0]
+	'inFile' : None,
+	'outFile' : None,
+	'camera position' : ['-cg', listToCSVStr],  # [20, -45, 0] = (lat, long, r)
+	'light' : ['-lg', listToCSVStr],  # [45, -45, 0] = (lat, long, r)
 	'color' : ['-c', str],  # LDraw Color code
-	'light' : ['-lg', listToCSVStr],  # [lat 45, long -45, r 0]
-	'seam width' : ['-sw', str],
-	'inputFile' : ''
+	'seam width' : ['-sw', str],  # int
+	'quality' : ['q', str],  # int
+	'overwrite' : ['', overwriteCommand],  # Boolean
+	'bumps' : ['', bumpCommand],  # Boolean
+	'background' : ['-b', listToCSVStr],   # [r, g, b] 0 <= r <= 1
+	'LGEO' : ['', lgeoCommand],
 }
 
-class l3p:
+path = r'C:\LDraw\apps\l3p'
+os.environ['LDRAWDIR'] = r'C:\LDraw'
 	
-	def __init__(self, LDrawPath = r'C:\LDraw', l3pPath = r'C:\LDraw\apps\l3p'):
-		os.environ['LDRAWDIR'] = LDrawPath
-		self.path = l3pPath
+# d: {'camera position' : [20,-45,0], 'inputFile' : 'hello.dat'}
+def runCommand(d):
+	l3pApp = path + '\\l3p.exe'
+	args = [l3pApp]
+	for key, value in d.items():
+		command = l3pCommands[key]
+		if command:
+			args.append(command[0] + command[1](value))
+		else:
+			if key == 'inFile':
+				args.insert(1, value)  # Ensure input file is first command (after l3p.exe itself)
+			else:
+				args.append(value)
+	return (l3pApp, args, os.spawnv(os.P_WAIT, l3pApp, args))
+	#return (l3pApp, args)
 	
-	def runCommand(self, d):
-		l3pApp = self.path + '\\l3p.exe'
-		args = []
-		for command, value in d.items():
-			args.append(l3pCommands[command][0] + l3pCommands[command][1](value)) 
-		#os.spawnl(os.P_WAIT, l3pApp, l3pApp, d['inputFile'])
-		return args

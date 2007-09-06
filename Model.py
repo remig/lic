@@ -98,6 +98,9 @@ class Instructions():
 	def getCurrentModel(self):
 		pass
 
+	def generateImages(self, path):
+		pass
+	
 	def initDraw(self, context):
 		
 		# Calculate the width and height of each partOGL in the part dictionary and each CSI
