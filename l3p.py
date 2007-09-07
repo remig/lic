@@ -14,12 +14,15 @@ def boolToCommand(command, bool):
 l3pCommands = {
 	'inFile' : None,
 	'outFile' : None,
+	
 	'camera position' : ['-cg', listToCSVStr],  # [20, -45, 0] = (lat, long, r)
 	'background' : ['-b', listToCSVStr],   # [r, g, b] 0 <= r <= 1
 	'light' : ['-lg', listToCSVStr],  # [45, -45, 0] = (lat, long, r)
-	'color' : ['-c', str],  # LDraw Color code
+		
 	'seam width' : ['-sw', str],  # int
 	'quality' : ['q', str],  # int
+	'color' : ['-c', str],  # LDraw Color code
+		
 	'overwrite' : ['', lambda b: boolToCommand('-o', b)], # Boolean
 	'bumps' : ['', lambda b: boolToCommand('-bu', b)],    # Boolean
 	'LGEO' : ['', lambda b: boolToCommand('-lgeo', b)],   # Boolean
