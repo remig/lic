@@ -61,6 +61,9 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		self.model = None  # The currently selected Lego model, whether a single part, submodel, step, or main model
 	
 	def on_generate_images(self, data):
+		print "Generating Images"
+	
+	def on_translate_part(self, data):
 		if (self.model and isinstance(self.model, Step)):
 			self.model.parts[0].translate(0, 0, -10)
 			self.on_expose_event()

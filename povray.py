@@ -12,7 +12,7 @@ def boolToCommand(command, bool):
 		return command
 	return ''
 	
-defaultPOVCommands = {
+defaultPOVCommand = {
 	'output type': 'N',
 	'width': 512,
 	'height': 512,
@@ -44,6 +44,8 @@ povCommands = {
 	'jitter'  : ['Jitter=', str],        # Boolean - Turns aa-jitter on/off
 
 	'quality' : ['+Q', str], # Render quality - integer from (0 <= n <= 11)
+	
+	'include' : ['+HI', str], # Include any extra files - specify full filename
 }
 
 path = r'C:\Program Files\POV-Ray\bin'
@@ -63,6 +65,24 @@ def runCommand(d):
 	return (povray, args, os.spawnv(os.P_WAIT, povray, args))
 	#return (povray, args)
 	
+def removeCamera(filename):	
+	original = file(filename, 'r')
+	copy = file(filename + '.tmp', 'w')
+	
+	found = False
+	for line in original:
+		if line == 'camera {\n':
+			copy.write('#if (0)\n')
+			found = True
+		copy.write(line)		
+	
+	if found:
+		copy.write('#end\n')
+	
+	copy.close()
+	original.close()
+	shutil.move(filename + '.tmp', filename)
+
 def fixOrthographicCamera(filename):
 	original = file(filename, 'r')
 	copy = file(filename + '.tmp', 'w')
