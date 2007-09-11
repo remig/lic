@@ -99,3 +99,23 @@ def fixOrthographicCamera(filename):
 	copy.close()
 	shutil.move(filename + '.tmp', filename)
 	
+def shadowlessLights(filename):
+	original = file(filename, 'r')
+	copy = file(filename + '.tmp', 'w')
+
+	inCamera = False
+	for line in original:
+		
+		if line == 'light_source {\n':
+			inCamera = True
+
+		elif (line == '}\n') and (inCamera):
+			copy.write('\tshadowless\n')
+			inCamera = False
+
+		copy.write(line)		
+	
+	original.close()
+	copy.close()
+	shutil.move(filename + '.tmp', filename)
+	
