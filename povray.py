@@ -83,20 +83,59 @@ def removeCamera(filename):
 	original.close()
 	shutil.move(filename + '.tmp', filename)
 
-def fixOrthographicCamera(filename):
-	original = file(filename, 'r')
-	copy = file(filename + '.tmp', 'w')
+"""
+In fixCamera, need to convert:
+
+camera {
+	#declare PCT = 0; // Percentage further away
+	#declare STEREO = 0; // Normal view
+	//#declare STEREO =  degrees(atan2(1,12))/2; // Left view
+	//#declare STEREO = -degrees(atan2(1,12))/2; // Right view
+	location vaxis_rotate(<-41.589,-5.63376,-35.3244> + PCT/100.0*<-35.693,-18.3723,-35.693>,
+	                      <655.763,-2547.98,655.763>,STEREO)
+	sky      -y
+	right    -4/3*x
+	look_at  <-5.89604,12.7386,0.368576> // calculated
+	angle    67.3801
+	rotate   <0,1e-5,0> // Prevent gap between adjecent quads
+	//orthographic
+}
+
+  To:
+
+camera {
+	orthographic
+	location <-41.589,-5.63376,-35.3244>
+	sky      -y
+	right    -900*x  // actual image width in pixels
+	up       1100*y  // actual image height in pixels
+	look_at  <-5.89604,12.7386,0.368576> // calculated
+	rotate   <0,1e-5,0> // Prevent gap between adjecent quads
+}
+
+"""
+
+# TODO: Fix this so that the above cameras are converted
+def fixCamera(filename):
+	originalFile = file(filename, 'r')
+	copyFile = file(filename + '.tmp', 'w')
 	
-	for line in original:
+	inCamera = False
+	for line in originalFile:
+		if line == 'camera {\n':
+			inCamera = True
+			copyFile.write('\torthographic\n')
+		
+		if line[:9] == '\tlocation':
+			pass
+		
 		if line == '\t//orthographic\n':
 			continue
 		
-		copy.write(line)		
-		if line == 'camera {\n':
-			copy.write('\torthographic\n')
+		copyFile.write(line)
 	
-	original.close()
-	copy.close()
+	originalFile.close()
+	copyFile.close()
 	shutil.move(filename + '.tmp', filename)
 	
 def shadowlessLights(filename):

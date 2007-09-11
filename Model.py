@@ -98,7 +98,7 @@ class Instructions():
 	def getCurrentModel(self):
 		pass
 
-	def generateImages(self, path):
+	def generateImages(self):
 		pass
 	
 	def initDraw(self, context):

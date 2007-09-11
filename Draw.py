@@ -62,6 +62,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	
 	def on_generate_images(self, data):
 		print "Generating Images"
+		self.instructions.generateImages()
 	
 	def on_translate_part(self, data):
 		if (self.model and isinstance(self.model, Step)):
