@@ -1,5 +1,6 @@
 import shutil  # for file copy / rename
 import os
+import re
 
 def listToCSVStr(l):
 	s = ''
@@ -83,78 +84,56 @@ def removeCamera(filename):
 	original.close()
 	shutil.move(filename + '.tmp', filename)
 
-"""
-In fixCamera, need to convert:
+def fixPovFile(filename, imgWidth, imgHeight):
 
-camera {
-	#declare PCT = 0; // Percentage further away
-	#declare STEREO = 0; // Normal view
-	//#declare STEREO =  degrees(atan2(1,12))/2; // Left view
-	//#declare STEREO = -degrees(atan2(1,12))/2; // Right view
-	location vaxis_rotate(<-41.589,-5.63376,-35.3244> + PCT/100.0*<-35.693,-18.3723,-35.693>,
-	                      <655.763,-2547.98,655.763>,STEREO)
-	sky      -y
-	right    -4/3*x
-	look_at  <-5.89604,12.7386,0.368576> // calculated
-	angle    67.3801
-	rotate   <0,1e-5,0> // Prevent gap between adjecent quads
-	//orthographic
-}
-
-  To:
-
-camera {
-	orthographic
-	location <-41.589,-5.63376,-35.3244>
-	sky      -y
-	right    -900*x  // actual image width in pixels
-	up       1100*y  // actual image height in pixels
-	look_at  <-5.89604,12.7386,0.368576> // calculated
-	rotate   <0,1e-5,0> // Prevent gap between adjecent quads
-}
-
-"""
-
-# TODO: Fix this so that the above cameras are converted
-def fixCamera(filename):
 	originalFile = file(filename, 'r')
 	copyFile = file(filename + '.tmp', 'w')
-	
-	inCamera = False
+	inCamera = inLight = False
+
 	for line in originalFile:
+
+		if line == 'light_source {\n':
+			inLight = True
+			copyFile.write(line)
+			continue
+
+		if line == '}\n' and inLight:
+			inLight = False
+			copyFile.write('\tshadowless\n')
+			copyFile.write(line)
+			continue
+
 		if line == 'camera {\n':
 			inCamera = True
+			copyFile.write(line)
 			copyFile.write('\torthographic\n')
-		
-		if line[:9] == '\tlocation':
-			pass
-		
-		if line == '\t//orthographic\n':
 			continue
-		
-		copyFile.write(line)
-	
+
+ 		if line == '}\n' and inCamera:
+			inCamera = False
+			copyFile.write(line)
+			continue
+
+		if not inCamera:
+			copyFile.write(line)
+			continue
+
+		# If we're here, we're inside a camera declaration - only check for lines we care about and ignore the rest
+		match = re.match(r'\tlocation vaxis_rotate\(<([-.\d]+),([-.\d]+),([-.\d]+)>', line)
+		if match:
+			if len(match.groups()) == 3:
+				cx, cy, cz = [float(x) for x in match.groups()]
+				copyFile.write('\tlocation <%f, %f, %f>\n' % (cx, cy, cz))
+				copyFile.write('\tsky      -y\n')
+				copyFile.write('\tright    -%d * x\n' % (imgWidth))
+				copyFile.write('\tup        %d * y\n' % (imgHeight))
+			else:
+				print "Error: Badly formed location vaxis line in pov file: %s" % (filename)
+
+		if line.startswith('\tlook_at') or line.startswith('\trotate'):
+			copyFile.write(line)
+
 	originalFile.close()
 	copyFile.close()
-	shutil.move(filename + '.tmp', filename)
-	
-def shadowlessLights(filename):
-	original = file(filename, 'r')
-	copy = file(filename + '.tmp', 'w')
-
-	inCamera = False
-	for line in original:
-		
-		if line == 'light_source {\n':
-			inCamera = True
-
-		elif (line == '}\n') and (inCamera):
-			copy.write('\tshadowless\n')
-			inCamera = False
-
-		copy.write(line)		
-	
-	original.close()
-	copy.close()
 	shutil.move(filename + '.tmp', filename)
 	
