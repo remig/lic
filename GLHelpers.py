@@ -1,4 +1,5 @@
 import Image
+import os
 
 from Drawables import Point
 
@@ -186,7 +187,9 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, first = "first"):
 	img = Image.new ("RGB", (w, h), (1, 1, 1))
 	img.fromstring(pixels)
 	if (filename):
-		img.save ("C:\\LDraw\\tmp\\%s_%s_%d.png" % (filename, first, w))
+		rawFilename = os.path.splitext(os.path.basename(filename))[0]
+		img.save ("C:\\LDraw\\tmp\\%s.png" % (rawFilename))
+		#img.save ("C:\\LDraw\\tmp\\%s.png" % (filename, first, w))
 	
 	data = img.load()
 	top = _checkPixelsTop(data, w, h)

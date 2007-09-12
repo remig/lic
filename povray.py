@@ -1,6 +1,6 @@
 import shutil  # for file copy / rename
-import os
-import re
+import os      # for process creation
+import re      # for pov file parsing
 
 def listToCSVStr(l):
 	s = ''
@@ -13,18 +13,20 @@ def boolToCommand(command, bool):
 		return command
 	return ''
 	
-defaultPOVCommand = {
-	'output type': 'N',
-	'width': 512,
-	'height': 512,
-	'render': False,
-	'no restore': True,
-	'jitter' : False,
-	'anti-alias' : True,
-	'quality' : 3,
-	'output type' : 'N',
-	'exit' : True,
-}
+def getDefaultCommand():
+	return dict({
+		'output type': 'N',
+		'width': 512,
+		'height': 512,
+		'render': False,
+		'no restore': True,
+		'jitter' : False,
+		'anti-alias' : True,
+		'alpha' : True,
+		'quality' : 3,
+		'output type' : 'N',
+		'exit' : True,
+	})
 
 povCommands = {
 	'inFile' : ['+I', str],
@@ -66,58 +68,48 @@ def runCommand(d):
 	return (povray, args, os.spawnv(os.P_WAIT, povray, args))
 	#return (povray, args)
 	
-def removeCamera(filename):	
-	original = file(filename, 'r')
-	copy = file(filename + '.tmp', 'w')
-	
-	found = False
-	for line in original:
-		if line == 'camera {\n':
-			copy.write('#if (0)\n')
-			found = True
-		copy.write(line)		
-	
-	if found:
-		copy.write('#end\n')
-	
-	copy.close()
-	original.close()
-	shutil.move(filename + '.tmp', filename)
-
 def fixPovFile(filename, imgWidth, imgHeight):
 
+	licHeader = "// Lic: Processed lights and camera\n"	
 	originalFile = file(filename, 'r')
-	copyFile = file(filename + '.tmp', 'w')
+	
+	# Check if we've already processed this pov, abort if we have
+	if originalFile.readline() == licHeader:
+		originalFile.close()
+		return
+
 	inCamera = inLight = False
-
+	copyFile = file(filename + '.tmp', 'w')
+	copyFile.write(licHeader)
+	
 	for line in originalFile:
-
+		
 		if line == 'light_source {\n':
 			inLight = True
 			copyFile.write(line)
 			continue
-
+		
 		if line == '}\n' and inLight:
 			inLight = False
 			copyFile.write('\tshadowless\n')
 			copyFile.write(line)
 			continue
-
+		
 		if line == 'camera {\n':
 			inCamera = True
 			copyFile.write(line)
 			copyFile.write('\torthographic\n')
 			continue
-
- 		if line == '}\n' and inCamera:
+		
+		if line == '}\n' and inCamera:
 			inCamera = False
 			copyFile.write(line)
 			continue
-
+		
 		if not inCamera:
 			copyFile.write(line)
 			continue
-
+		
 		# If we're here, we're inside a camera declaration - only check for lines we care about and ignore the rest
 		match = re.match(r'\tlocation vaxis_rotate\(<([-.\d]+),([-.\d]+),([-.\d]+)>', line)
 		if match:
@@ -129,7 +121,7 @@ def fixPovFile(filename, imgWidth, imgHeight):
 				copyFile.write('\tup        %d * y\n' % (imgHeight))
 			else:
 				print "Error: Badly formed location vaxis line in pov file: %s" % (filename)
-
+		
 		if line.startswith('\tlook_at') or line.startswith('\trotate'):
 			copyFile.write(line)
 

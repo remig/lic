@@ -16,14 +16,11 @@ UNINIT_PROP = -1
 
 """
 TODO: Work on generating actual POV renderings from whatever is displayed:
-First, Use the os module's exec & spawn functions to call L3P (http://docs.python.org/lib/os-process.html)
-Then, figure out the correct arguments to L3P so that a single brick is rendered identical in PLI and L3P.
+First, figure out the correct arguments to L3P so that a single brick is rendered identical in PLI and L3P,
+*including positioning*, if possible.  Probably not though...
 Then, abstract away all the opengl calls in the gui preview window so that they can be easily replaced
 by calls to L3P / Pov-ray.
 Then, use existing layout / cairo drawing engine to create finalized, nice looking instruction book pages.
-
-os.environ['LDRAWDIR'] = r'c:\ldraw'
-os.spawnl(os.P_WAIT, r'c:\ldraw\apps\l3p\L3P.EXE', r'c:\ldraw\apps\l3p\L3P.EXE', 'car.dat')
 
 Once all that's done, LIC is actually mildly useful.  Nothing revolutionary yet, but useful.
 
@@ -99,7 +96,8 @@ class Instructions():
 		pass
 
 	def generateImages(self):
-		pass
+		for step in self.mainModel.partOGL.steps:
+			step.renderPartsToPov()
 	
 	def initDraw(self, context):
 		
@@ -656,6 +654,12 @@ class Step():
 		context.move_to(self.stepNumberRefPt.x, self.stepNumberRefPt.y)
 		context.show_text(str(self.number))
 
+	def renderPartsToPov(self):
+		for part in self.parts:
+			for step in part.partOGL.steps:
+				step.renderPartsToPov()
+			part.partOGL.renderToPov()
+	
 class PartOGL():
 	"""
 	Represents one 'abstract' part.  Could be regular part, like 2x4 brick, could be a 
@@ -669,6 +673,8 @@ class PartOGL():
 		
 		self.name = self.filename = filename
 		self.ldrawFile = None
+		self.ldArrayStartEnd = None  # list [start, end]
+		
 		self.inverted = False  # TODO: Fix this! inverted = GL_CW
 		self.invertNext = False
 		self.parts = []
@@ -702,7 +708,8 @@ class PartOGL():
 		
 		self.ldrawFile = ldrawFile
 		
-		start, end = ldrawFile.subModelArray[self.filename]
+		self.ldArrayStartEnd = ldrawFile.subModelArray[self.filename]
+		start, end = self.ldArrayStartEnd
 		subModelArray = ldrawFile.fileArray[start + 1 : end]
 		
 		for line in subModelArray:
@@ -942,6 +949,15 @@ class PartOGL():
 		
 		self.width, self.height, self.leftInset, self.bottomInset, self.center = params
 		return True
+	
+	def renderToPov(self):
+		
+		filename = self.filename
+		if self.ldArrayStartEnd:
+			# This is a submodel in main file - need to write this to its own .dat
+			filename = self.ldrawFile.writeLinesToDat(self.filename, *self.ldArrayStartEnd)
+		
+		self.ldrawFile.createPov(filename)
 
 class Part():
 	"""

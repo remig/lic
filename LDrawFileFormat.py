@@ -1,6 +1,10 @@
 import shutil  # for file copy / rename
+import os      # for path creation
 
 from Drawables import *
+
+import l3p
+import povray
 
 LDrawPath = "C:\\LDrawParts\\"
 
@@ -268,3 +272,56 @@ class LDrawFile():
 		
 		# self.subModelArray = {"filename": [startline, endline]}
 		self.subModelArray = dict(subModels)
+
+	def writeLinesToDat(self, filename, start, end):
+		
+		path = os.getcwd() + '\DATs\\'
+		if os.path.isfile(path + filename):
+			return   # DAT already exists - nothing to do
+		
+		if not os.path.isdir(path):
+			os.mkdir(path)   # Create DAT directory if needed
+		
+		print "Creating dat for: %s, line %d to %d" % (filename, start, end)
+		f = open(path + filename, 'w')
+		for line in self.fileArray[start:end]:
+			f.write(' '.join(line[1:]) + '\n')
+		f.close()
+		
+		return path + filename
+	
+	def createPov(self, datFile = None):
+		
+		path = os.getcwd() + '\POVs\\'
+		if not os.path.isdir(path):
+			os.mkdir(path)
+		
+		if datFile is None:
+			datFile = self.path + self.filename
+		
+		rawFilename = os.path.splitext(os.path.basename(datFile))[0]
+		povFile = path + rawFilename + ".pov"
+		
+		if not os.path.isfile(povFile):
+			# Create a pov from the specified dat via l3p
+			l3pCommand = l3p.getDefaultCommand()
+			l3pCommand['inFile'] = datFile
+			l3pCommand['outFile'] = povFile
+			l3p.runCommand(l3pCommand)
+		
+		# Convert the generated pov into a nice png
+		path = os.getcwd() + '\PNGs\\'
+		if not os.path.isdir(path):
+			os.mkdir(path)
+		
+		pngFile = path + rawFilename + ".png"
+		
+		if not os.path.isfile(pngFile):
+			povray.fixPovFile(povFile, 256, 256)
+			povCommand = povray.getDefaultCommand()
+			povCommand['inFile'] = povFile
+			povCommand['outFile'] = pngFile
+			povCommand['width'] = 256
+			povCommand['height'] = 256
+			povCommand['alpha'] = False
+			povray.runCommand(povCommand)

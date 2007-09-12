@@ -19,7 +19,7 @@ MODEL_NAME = "Blaster.mpd"
 
 # TODO: Fix OGL surface normals and BFC, so OGL rendering can look better.
 
-gui_xml = gtk.glade.XML( r"C:\LDraw\LIC\LIC.glade")
+gui_xml = gtk.glade.XML( r"C:\LDraw\Lic\LIC.glade")
 
 class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def __init__(self):

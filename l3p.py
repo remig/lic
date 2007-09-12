@@ -1,4 +1,4 @@
-import os
+import os  # for setting LDraw environment and process creation
 
 def listToCSVStr(l):
 	s = ''
@@ -11,18 +11,19 @@ def boolToCommand(command, bool):
 		return command
 	return ''
 
-defaultL3pCommand = {
-	'camera position' : [20, -45, 0],
-	'background' : [255, 255, 255],
-	
-	'seam width' : 0.5,
-	'quality' : 3,
-	'color' : 0,
-	
-	'overwrite' : True,
-	'bumps' : False,
-	'LGEO' : False,
-}
+def getDefaultCommand():
+	return dict({
+		'camera position' : [20, -45, 0],
+		'background' : [1.0, 1.0, 1.0],
+		
+		'seam width' : 0.5,
+		'quality' : 3,
+		'color' : 0,
+		
+		'overwrite' : True,
+		'bumps' : True,
+		'LGEO' : False,
+	})
 
 l3pCommands = {
 	'inFile' : None,

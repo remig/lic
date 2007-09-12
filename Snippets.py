@@ -498,3 +498,21 @@ class Strict:
 	def dimensionsToString(self):
 		return "s %d %s %d %d %d %d\n" % (self.step.number, self.filename, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y)
 	
+def removeCamera(filename):	
+	original = file(filename, 'r')
+	copy = file(filename + '.tmp', 'w')
+	
+	found = False
+	for line in original:
+		if line == 'camera {\n':
+			copy.write('#if (0)\n')
+			found = True
+		copy.write(line)		
+	
+	if found:
+		copy.write('#end\n')
+	
+	copy.close()
+	original.close()
+	shutil.move(filename + '.tmp', filename)
+
