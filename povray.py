@@ -86,45 +86,28 @@ def fixPovFile(filename, imgWidth, imgHeight):
 		
 		if line == 'light_source {\n':
 			inLight = True
-			copyFile.write(line)
-			continue
 		
 		if line == '}\n' and inLight:
 			inLight = False
 			copyFile.write('\tshadowless\n')
-			copyFile.write(line)
-			continue
 		
 		if line == 'camera {\n':
 			inCamera = True
 			copyFile.write(line)
 			copyFile.write('\torthographic\n')
-			continue
+			copyFile.write('\tlocation <-28, -14.5, -28> * 1000\n')
+			copyFile.write('\tsky      -y\n')
+			copyFile.write('\tright    -%d * x\n' % (imgWidth))
+			copyFile.write('\tup        %d * y\n' % (imgHeight))
+			copyFile.write('\tlook_at   <0, 0, 0>\n')
+			copyFile.write('\trotate    <0, 1e-5, 0>\n')
 		
 		if line == '}\n' and inCamera:
 			inCamera = False
-			copyFile.write(line)
-			continue
 		
 		if not inCamera:
 			copyFile.write(line)
-			continue
-		
-		# If we're here, we're inside a camera declaration - only check for lines we care about and ignore the rest
-		match = re.match(r'\tlocation vaxis_rotate\(<([-.\d]+),([-.\d]+),([-.\d]+)>', line)
-		if match:
-			if len(match.groups()) == 3:
-				cx, cy, cz = [float(x) for x in match.groups()]
-				copyFile.write('\tlocation <%f, %f, %f>\n' % (cx, cy, cz))
-				copyFile.write('\tsky      -y\n')
-				copyFile.write('\tright    -%d * x\n' % (imgWidth))
-				copyFile.write('\tup        %d * y\n' % (imgHeight))
-			else:
-				print "Error: Badly formed location vaxis line in pov file: %s" % (filename)
-		
-		if line.startswith('\tlook_at') or line.startswith('\trotate'):
-			copyFile.write(line)
-
+	
 	originalFile.close()
 	copyFile.close()
 	shutil.move(filename + '.tmp', filename)
