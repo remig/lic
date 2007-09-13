@@ -51,11 +51,20 @@ povCommands = {
 	'include' : ['+HI', str], # Include any extra files - specify full filename
 }
 
-path = r'C:\Program Files\POV-Ray\bin'
-	
+
 def runCommand(d):
+
+	path = r'C:\Program Files\POV-Ray\bin'
+	if not os.path.isdir(path):
+		path = r'C:\Program Files\POV-Ray for Windows v3.6\bin'
+	if not os.path.isdir(path):
+		# TODO: provide user a way to specify Pov-Ray path
+		print "Error: Could not find Pov-Ray."
+		return
+
 	povray = path + '\\pvengine.exe'
-	args = [povray]
+
+	args = ['"' + povray + '"']
 	for key, value in d.items():
 		command = povCommands[key]
 		if command:

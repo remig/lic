@@ -308,7 +308,8 @@ class LDrawFile():
 			if isValidStepLine(line):
 				stepList.append(line[0] - 1)
 		stepList.append(end)
-		
+	
+		stepDats = []
 		for i, stepIndex in enumerate(stepList[1:]):
 			
 			datFilename = path + rawFilename + '_step_%d' % (i+1) + '.dat'
@@ -316,6 +317,9 @@ class LDrawFile():
 			for line in self.fileArray[start:stepIndex]:
 				f.write(' '.join(line[1:]) + '\n')
 			f.close()
+			stepDats.append(datFilename)
+
+		return stepDats
 	
 	def createPov(self, datFile = None):
 		

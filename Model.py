@@ -97,6 +97,7 @@ class Instructions():
 		for part in partDictionary.values():
 			if not part.isPrimitive:
 				part.renderToPov()
+		print "Instruction generation complete"
 	
 	def initDraw(self, context):
 		
@@ -971,16 +972,20 @@ class PartOGL():
 			# This is a submodel in main file - need to write this to its own .dat
 			filename = self.ldrawFile.writeLinesToDat(self.filename, *self.ldArrayStartEnd)
 		
-		# If this part has steps, need to generate dats, povs & images for each step
-		if self.steps != []:
-			if self.ldArrayStartEnd:
-				self.ldrawFile.splitStepDats(self.filename, *self.ldArrayStartEnd)
-			else:
-				self.ldrawFile.splitStepDats()
-		
 		# Render this part to a pov file then a final image
 		self.ldrawFile.createPov(filename)
 	
+		# If this part has steps, need to generate dats, povs & images for each step
+		if self.steps != []:
+			if self.ldArrayStartEnd:
+				stepDats = self.ldrawFile.splitStepDats(self.filename, *self.ldArrayStartEnd)
+			else:
+				stepDats = self.ldrawFile.splitStepDats()
+
+			# Render any steps we generated above
+			for dat in stepDats:
+				self.ldrawFile.createPov(dat)
+		
 class Part():
 	"""
 	Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough
