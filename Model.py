@@ -16,9 +16,7 @@ UNINIT_PROP = -1
 
 """
 TODO: Work on generating actual POV renderings from whatever is displayed:
-First, figure out the correct arguments to L3P so that a single brick is rendered identical in PLI and L3P,
-*including positioning*, if possible.  Probably not though...
-Then, abstract away all the opengl calls in the gui preview window so that they can be easily replaced
+First, abstract away all the opengl calls in the gui preview window so that they can be easily replaced
 by calls to L3P / Pov-ray.
 Then, use existing layout / cairo drawing engine to create finalized, nice looking instruction book pages.
 
@@ -96,8 +94,7 @@ class Instructions():
 		pass
 
 	def generateImages(self):
-		for step in self.mainModel.partOGL.steps:
-			step.renderPartsToPov()
+		self.mainModel.partOGL.renderToPov()
 	
 	def initDraw(self, context):
 		
@@ -565,6 +562,9 @@ class CSI():
 		self.initSize(_windowWidth, _windowHeight)
 		self.resize()
 	
+	def renderToPov(self):
+		pass
+	
 class Step():
 	def __init__(self, filename, prevStep = None, buffers = []):
 		self.parts = []
@@ -655,7 +655,11 @@ class Step():
 		context.show_text(str(self.number))
 
 	def renderPartsToPov(self):
+		
+		self.csi.renderToPov()
 		for part in self.parts:
+			if part.ignorePLIState:
+				continue
 			for step in part.partOGL.steps:
 				step.renderPartsToPov()
 			part.partOGL.renderToPov()
@@ -721,14 +725,18 @@ class PartOGL():
 		if isMainModel:
 			self.ldrawFile.addLICHeader()
 			self.ldrawFile.addInitialSteps()
+			self.ldArrayStartEnd = [0]
+		
 		self.isPrimitive = self.ldrawFile.isPrimitive
 		self.name = self.ldrawFile.name
 		
-		# Loop over the specified LDraw file array
+		# Loop over the specified LDraw file array, skipping the first line
 		for line in self.ldrawFile.fileArray[1:]:
 			
 			# A FILE line means we're finished loading this model
 			if isValidFileLine(line):
+				if isMainModel:
+					self.ldArrayStartEnd.append(line[0] - 1)
 				return
 			
 			self._loadOneLDrawLineCommand(line)
@@ -952,13 +960,18 @@ class PartOGL():
 	
 	def renderToPov(self):
 		
+		# First, render any individual parts in any steps in this part
+		for step in self.steps:
+			step.renderPartsToPov()
+		
 		filename = self.filename
 		if self.ldArrayStartEnd:
 			# This is a submodel in main file - need to write this to its own .dat
 			filename = self.ldrawFile.writeLinesToDat(self.filename, *self.ldArrayStartEnd)
 		
+		# Render this part to a pov file then a final image
 		self.ldrawFile.createPov(filename)
-
+	
 class Part():
 	"""
 	Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough
