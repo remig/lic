@@ -290,6 +290,33 @@ class LDrawFile():
 		
 		return path + filename
 	
+	def splitStepDats(self, filename = None, start = 0, end = -1):
+		
+		if end == -1:
+			end = len(self.fileArray)
+		
+		path = os.getcwd() + '\DATs\\'
+		if not os.path.isdir(path):
+			os.mkdir(path)   # Create DAT directory if needed
+		
+		if filename is None:
+			filename = self.filename
+		rawFilename = os.path.splitext(os.path.basename(filename))[0]
+		
+		stepList = []
+		for line in self.fileArray[start:end]:
+			if isValidStepLine(line):
+				stepList.append(line[0] - 1)
+		stepList.append(end)
+		
+		for i, stepIndex in enumerate(stepList[1:]):
+			
+			datFilename = path + rawFilename + '_step_%d' % (i+1) + '.dat'
+			f = open(datFilename, 'w')
+			for line in self.fileArray[start:stepIndex]:
+				f.write(' '.join(line[1:]) + '\n')
+			f.close()
+	
 	def createPov(self, datFile = None):
 		
 		path = os.getcwd() + '\POVs\\'

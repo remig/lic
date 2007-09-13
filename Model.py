@@ -94,7 +94,9 @@ class Instructions():
 		pass
 
 	def generateImages(self):
-		self.mainModel.partOGL.renderToPov()
+		for part in partDictionary.values():
+			if not part.isPrimitive:
+				part.renderToPov()
 	
 	def initDraw(self, context):
 		
@@ -961,13 +963,20 @@ class PartOGL():
 	def renderToPov(self):
 		
 		# First, render any individual parts in any steps in this part
-		for step in self.steps:
-			step.renderPartsToPov()
+		#for step in self.steps:
+		#	step.renderPartsToPov()
 		
-		filename = self.filename
+		filename = None
 		if self.ldArrayStartEnd:
 			# This is a submodel in main file - need to write this to its own .dat
 			filename = self.ldrawFile.writeLinesToDat(self.filename, *self.ldArrayStartEnd)
+		
+		# If this part has steps, need to generate dats, povs & images for each step
+		if self.steps != []:
+			if self.ldArrayStartEnd:
+				self.ldrawFile.splitStepDats(self.filename, *self.ldArrayStartEnd)
+			else:
+				self.ldrawFile.splitStepDats()
 		
 		# Render this part to a pov file then a final image
 		self.ldrawFile.createPov(filename)
