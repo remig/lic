@@ -2,9 +2,10 @@ import math
 import Image
 import cairo
 
+import GLHelpers
+
 from LDrawColors import *
 from LDrawFileFormat import *
-from GLHelpers import *
 from Drawables import *
 
 from OpenGL.GL import *
@@ -155,7 +156,7 @@ class Instructions():
 		for size in sizes:
 			
 			# Create a new FBO
-			buffers = createFBO(size, size)
+			buffers = GLHelpers.createFBO(size, size)
 			if buffers is None:
 				print "ERROR: Failed to initialize FBO - aborting initCSIDimensions"
 				return
@@ -166,7 +167,7 @@ class Instructions():
 					csiList2.append(csi)
 			
 			# Clean up created FBO
-			destroyFBO(*buffers)
+			GLHelpers.destroyFBO(*buffers)
 			
 			if len(csiList2) < 1:
 				break  # All images initialized successfully
@@ -181,39 +182,37 @@ class Instructions():
 		Will create and store results in a part dimension cache file.
 		"""
 		
-		imgList = [part for part in partDictionary.values() if not part.isPrimitive]
-		imgList2 = []
+		partList = [part for part in partDictionary.values() if not part.isPrimitive]
+		partList2 = []
 		lines = []
 		sizes = [256, 512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
 		
 		for size in sizes:
 			
 			# Create a new FBO
-			buffers = createFBO(size, size)
-			if (buffers is None):
+			buffers = GLHelpers.createFBO(size, size)
+			if buffers is None:
 				print "ERROR: Failed to initialize FBO - aborting initPartDimensionsManually"
 				return
 			
 			# Render each image and calculate their sizes
-			for item in imgList:
+			for partOGL in partList:
 				
-				successfulDraw = item.initSize(size, size)  # Draw image and calculate its size
+				successfulDraw = partOGL.initSize(size)  # Draw image and calculate its size
 				
-				if (successfulDraw):
-					dimensionString = item.dimensionsToString()
-					if (dimensionString):
-						lines.append(dimensionString)
+				if successfulDraw:					
+					lines.append(partOGL.dimensionsToString())
 				else:
-					imgList2.append(item)
+					partList2.append(partOGL)
 			
 			# Clean up created FBO
-			destroyFBO(*buffers)
+			GLHelpers.destroyFBO(*buffers)
 			
-			if (len(imgList2) < 1):
+			if len(partList2) < 1:
 				break  # All images initialized successfully
 			else:
-				imgList = imgList2  # Some images rendered out of frame - loop and try bigger frame
-				imgList2 = []
+				partList = partList2  # Some images rendered out of frame - loop and try bigger frame
+				partList2 = []
 		
 		# Create an image dimension cache file
 		print ""
@@ -386,15 +385,15 @@ class PLI():
 			print "ERROR: Trying to draw parts for an unitialized PLI layout!"
 			return
 		
-		pushAllGLMatrices()
+		GLHelpers.pushAllGLMatrices()
 		
 		for (count, part, corner, labelCorner, line) in self.layout.values():
-			adjustGLViewport(corner.x, corner.y - part.height, part.width, part.height)
+			GLHelpers.adjustGLViewport(corner.x, corner.y - part.height, part.width, part.height)
 			glLoadIdentity()
-			rotateToDefaultView(part.center.x, part.center.y, 0.0)
+			GLHelpers.rotateToDefaultView(part.center.x, part.center.y, 0.0)
 			part.drawModel()
 		
-		popAllGLMatrices()
+		GLHelpers.popAllGLMatrices()
 
 	def drawPageElements(self, context):
 		""" Draw this PLI's background, border and quantity labels to the specified cairo context. """
@@ -472,8 +471,8 @@ class CSI():
 		# TODO: update some kind of load status bar her - this function is *slow*
 		print "CSI %s step %d - size %d" % (self.filename, self.step.number, width)
 		
-		params = initImgSize(width, height, self.oglDispID, wantInsets = False, filename = self.filename + " - step " + str(self.step.number))
-		if (params is None):
+		params = GLHelpers.initImgSize(width, height, self.oglDispID, wantInsets = False, filename = self.filename + " - step " + str(self.step.number))
+		if params is None:
 			return False
 		
 		self.box.width, self.box.height, self.centerOffset = params
@@ -538,9 +537,9 @@ class CSI():
 	def drawModel(self):
 		global _windowWidth, _windowHeight
 		
-		adjustGLViewport(0, 0, _windowWidth, _windowHeight + self.offsetPLI)
+		GLHelpers.adjustGLViewport(0, 0, _windowWidth, _windowHeight + self.offsetPLI)
 		glLoadIdentity()
-		rotateToDefaultView(self.centerOffset.x, self.centerOffset.y, 0.0)
+		GLHelpers.rotateToDefaultView(self.centerOffset.x, self.centerOffset.y, 0.0)
 		glCallList(self.oglDispID)
 
 	def drawPageElements(self, context):
@@ -695,7 +694,7 @@ class PartOGL():
 		self.buffers = []  #[(bufID, stepNumber)]
 		self.ignorePLIState = False
 		
-		self.width = self.height = 1
+		self.width = self.height = self.imageSize = 1
 		self.leftInset = self.bottomInset = 0
 		self.center = Point(0, 0)
 		
@@ -929,9 +928,9 @@ class PartOGL():
 	def dimensionsToString(self):
 		if (self.isPrimitive):
 			return ""
-		return "p %s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x, self.center.y, self.leftInset, self.bottomInset)
+		return "%s %d %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x, self.center.y, self.leftInset, self.bottomInset, self.imageSize)
 
-	def initSize(self, width, height):
+	def initSize(self, size):
 		"""
 		Initialize this part's display width, height, empty corner insets and center point.
 		To do this, draw this part to the already initialized GL Frame Buffer Object.
@@ -939,8 +938,7 @@ class PartOGL():
 		Note that an appropriate FBO *must* be initialized before calling initSize.
 		
 		Parameters:
-			width: Width of FBO to render to, in pixels.
-			height: Height of FBO to render to, in pixels.
+			size: Width and height of FBO to render to, in pixels.  Note that FBO is assumed square
 		
 		Returns:
 			True if part rendered successfully.
@@ -954,10 +952,11 @@ class PartOGL():
 		# TODO: update some kind of load status bar her - this function is *slow*
 		#print self.filename,
 		
-		params = initImgSize(width, height, self.oglDispID, wantInsets = True, filename = self.filename)
+		params = GLHelpers.initImgSize(size, size, self.oglDispID, wantInsets = True, filename = self.filename)
 		if (params is None):
 			return False
 		
+		self.imageSize = size
 		self.width, self.height, self.leftInset, self.bottomInset, self.center = params
 		return True
 	

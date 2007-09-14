@@ -516,3 +516,10 @@ def removeCamera(filename):
 	original.close()
 	shutil.move(filename + '.tmp', filename)
 
+def glCallListTrap(oglDispID, creator):
+	print "Drawing GL List: %d from %s" % (oglDispID, creator)
+	glCallList(oglDispID)
+
+def glNewListTrap(oglDispID, creator):
+	print "Creating new GL List for ID %d, %s" % (oglDispID, creator)
+	return glNewList(oglDispID, GL_COMPILE)
