@@ -163,7 +163,7 @@ class Instructions():
 			
 			# Render each image and calculate their sizes
 			for csi in csiList:
-				if not csi.initSize(size, size):  # Draw image and calculate its size:
+				if not csi.initSize(size):  # Draw image and calculate its size:
 					csiList2.append(csi)
 			
 			# Clean up created FBO
@@ -448,7 +448,7 @@ class CSI():
 		
 		self.fileLine = None
 	
-	def initSize(self, width, height):
+	def initSize(self, size):
 		"""
 		Initialize this CSI's display width, height and center point. To do
 		this, draw this CSI to the already initialized GL Frame Buffer Object.
@@ -456,8 +456,7 @@ class CSI():
 		Note that an appropriate FBO *must* be initialized before calling initSize.
 		
 		Parameters:
-			width: Width of FBO to render to, in pixels.
-			height: Height of FBO to render to, in pixels.
+			size: Width & height of FBO to render to, in pixels.  Note that FBO is assumed square
 		
 		Returns:
 			True if CSI rendered successfully.
@@ -471,7 +470,7 @@ class CSI():
 		# TODO: update some kind of load status bar her - this function is *slow*
 		print "CSI %s step %d - size %d" % (self.filename, self.step.number, width)
 		
-		params = GLHelpers.initImgSize(width, height, self.oglDispID, wantInsets = False, filename = self.filename + " - step " + str(self.step.number))
+		params = GLHelpers.initImgSize(size, size, self.oglDispID, wantInsets = False, filename = self.filename + " - step " + str(self.step.number))
 		if params is None:
 			return False
 		
@@ -561,7 +560,7 @@ class CSI():
 	def partTranslateCallback(self):
 		global _windowWidth, _windowHeight
 		self.createOGLDisplayList()
-		self.initSize(_windowWidth, _windowHeight)
+		self.initSize(min(_windowWidth, _windowHeight))
 		self.resize()
 	
 	def renderToPov(self):
@@ -938,7 +937,7 @@ class PartOGL():
 		Note that an appropriate FBO *must* be initialized before calling initSize.
 		
 		Parameters:
-			size: Width and height of FBO to render to, in pixels.  Note that FBO is assumed square
+			size: Width & height of FBO to render to, in pixels.  Note that FBO is assumed square
 		
 		Returns:
 			True if part rendered successfully.
