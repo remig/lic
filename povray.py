@@ -89,13 +89,13 @@ def fixPovFile(filename, imgWidth, imgHeight):
 
 	# Unfortunately, we need to know where the part's center is, but that info
 	# is at the end of the file.  Need to read entire file looking for that...
-	lookAtLine = ''
+	lookAtVector = ''
 	for line in originalFile:
 		if line.startswith('// Center: <'):
-			lookAtLine = '\tlook_at   ' + line[11:] + '\n'
+			lookAtVector = line[11:].strip()
 	originalFile.close()
 	
-	if lookAtLine == '':
+	if lookAtVector == '':
 		print "Error: No Center line in POV File: %s" % (filename)
 		return
 	
@@ -117,11 +117,11 @@ def fixPovFile(filename, imgWidth, imgHeight):
 			inCamera = True
 			copyFile.write(line)
 			copyFile.write('\torthographic\n')
-			copyFile.write('\tlocation <-28, -14.5, -28> * 1000\n')
+			copyFile.write('\tlocation (<-28, -14.5, -28> * 1000) + ' + lookAtVector + '\n')
 			copyFile.write('\tsky      -y\n')
 			copyFile.write('\tright    -%d * x\n' % (imgWidth))
 			copyFile.write('\tup        %d * y\n' % (imgHeight))
-			copyFile.write(lookAtLine)
+			copyFile.write( '\tlook_at   ' + lookAtVector + '\n')
 			copyFile.write('\trotate    <0, 1e-5, 0>\n')
 		
 		if line == '}\n' and inCamera:
