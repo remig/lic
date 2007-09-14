@@ -126,7 +126,7 @@ class Instructions():
 		""" Used to initialize all part dimensions from the specified valid part dimension cache file f."""
 		
 		for line in f:
-			filename, w, h, x, y, l, b = line[1:].split()
+			filename, w, h, x, y, l, b, size = line.split()
 			if (not partDictionary.has_key(filename)):
 				print "Warning: part dimension cache contains part (%s) not present in model - suggest regenerating part dimension cache." % (filename)
 				continue
@@ -279,6 +279,10 @@ class PLI():
 			print "Trying to initalize a PLI that was alread initialized from file.  Ignoring call."
 			return
 		
+		# If this PLI is empty, nothing to do here
+		if (len(self.layout) < 1):
+			return
+		
 		# Return the height of the part in the specified layout item
 		def itemHeight(layoutItem):
 			return layoutItem[1].height
@@ -292,10 +296,6 @@ class PLI():
 				return 0
 			return -1
 		
-		# If this PLI is empty, nothing to do here
-		if (len(self.layout) < 1):
-			return
-		
 		# Sort the list of parts in this PLI from widest to narrowest, with the tallest one first
 		partList = self.layout.values()
 		tallestPart = max(partList, key=itemHeight)
@@ -303,12 +303,12 @@ class PLI():
 		partList.sort(compareLayoutItemWidths)
 		partList.insert(0, tallestPart)
 		
-		# Note that PLI box's top left corner must be set by container before this
+		# Note that PLI box's top left corner must be set by container before this layout call
 		b = self.box
 		overallX = b.x + b.internalGap
 		b.width = b.height = UNINIT_PROP
 		
-		for i, (count, part, corner, labelCorner, line) in enumerate(partList):  # item: [count, part, bottomLeftCorner]
+		for i, (count, part, corner, labelCorner, line) in enumerate(partList):  # item: [count, part, bottomLeftCorner, fileline]
 			
 			if (part.width == UNINIT_PROP or part.height == UNINIT_PROP):
 				# TODO: Remove this check once all is well
@@ -563,9 +563,6 @@ class CSI():
 		self.initSize(min(_windowWidth, _windowHeight))
 		self.resize()
 	
-	def renderToPov(self):
-		pass
-	
 class Step():
 	def __init__(self, filename, prevStep = None, buffers = []):
 		self.parts = []
@@ -654,16 +651,6 @@ class Step():
 		self.stepNumberFont.passToCairo(context)
 		context.move_to(self.stepNumberRefPt.x, self.stepNumberRefPt.y)
 		context.show_text(str(self.number))
-
-	def renderPartsToPov(self):
-		
-		self.csi.renderToPov()
-		for part in self.parts:
-			if part.ignorePLIState:
-				continue
-			for step in part.partOGL.steps:
-				step.renderPartsToPov()
-			part.partOGL.renderToPov()
 	
 class PartOGL():
 	"""
@@ -961,29 +948,31 @@ class PartOGL():
 	
 	def renderToPov(self):
 		
-		# First, render any individual parts in any steps in this part
-		#for step in self.steps:
-		#	step.renderPartsToPov()
-		
 		filename = None
 		if self.ldArrayStartEnd:
 			# This is a submodel in main file - need to write this to its own .dat
 			filename = self.ldrawFile.writeLinesToDat(self.filename, *self.ldArrayStartEnd)
 		
 		# Render this part to a pov file then a final image
-		self.ldrawFile.createPov(filename)
-	
+		self.ldrawFile.createPov(self.width + 3, self.height + 3, filename)
+		
 		# If this part has steps, need to generate dats, povs & images for each step
 		if self.steps != []:
 			if self.ldArrayStartEnd:
 				stepDats = self.ldrawFile.splitStepDats(self.filename, *self.ldArrayStartEnd)
 			else:
 				stepDats = self.ldrawFile.splitStepDats()
-
+			
+			if len(stepDats) != len(self.steps):
+				print "Error: Generated %d step dats, but have %d steps" % (len(stepDats), len(self.steps))
+				return
+			
 			# Render any steps we generated above
-			for dat in stepDats:
-				self.ldrawFile.createPov(dat)
-		
+			for i, dat in enumerate(stepDats):
+				width = self.steps[i].csi.box.width
+				height = self.steps[i].csi.box.height
+				self.ldrawFile.createPov(width + 3, height + 3, dat)
+	
 class Part():
 	"""
 	Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough

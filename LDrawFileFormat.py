@@ -306,9 +306,11 @@ class LDrawFile():
 		stepList = []
 		for line in self.fileArray[start:end]:
 			if isValidStepLine(line):
-				stepList.append(line[0] - 1)
+				# TODO: skip over steps with no parts, not just two Step lines in a row
+				if not isValidStepLine(self.fileArray[line[0] - 2]):
+					stepList.append(line[0] - 1)
 		stepList.append(end)
-	
+		
 		stepDats = []
 		for i, stepIndex in enumerate(stepList[1:]):
 			
@@ -318,10 +320,10 @@ class LDrawFile():
 				f.write(' '.join(line[1:]) + '\n')
 			f.close()
 			stepDats.append(datFilename)
-
+		
 		return stepDats
 	
-	def createPov(self, datFile = None):
+	def createPov(self, width, height, datFile = None):
 		
 		path = os.getcwd() + '\POVs\\'
 		if not os.path.isdir(path):
@@ -348,11 +350,11 @@ class LDrawFile():
 		pngFile = path + rawFilename + ".png"
 		
 		if not os.path.isfile(pngFile):
-			povray.fixPovFile(povFile, 256, 256)
+			povray.fixPovFile(povFile, width, height)
 			povCommand = povray.getDefaultCommand()
 			povCommand['inFile'] = povFile
 			povCommand['outFile'] = pngFile
-			povCommand['width'] = 256
-			povCommand['height'] = 256
+			povCommand['width'] = width
+			povCommand['height'] = height
 			povCommand['alpha'] = False
 			povray.runCommand(povCommand)

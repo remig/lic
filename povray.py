@@ -80,15 +80,28 @@ def runCommand(d):
 def fixPovFile(filename, imgWidth, imgHeight):
 
 	licHeader = "// Lic: Processed lights and camera\n"	
-	originalFile = file(filename, 'r')
+	originalFile = open(filename, 'r')
 	
 	# Check if we've already processed this pov, abort if we have
 	if originalFile.readline() == licHeader:
 		originalFile.close()
 		return
 
+	# Unfortunately, we need to know where the part's center is, but that info
+	# is at the end of the file.  Need to read entire file looking for that...
+	lookAtLine = ''
+	for line in originalFile:
+		if line.startswith('// Center: <'):
+			lookAtLine = '\tlook_at   ' + line[11:] + '\n'
+	originalFile.close()
+	
+	if lookAtLine == '':
+		print "Error: No Center line in POV File: %s" % (filename)
+		return
+	
 	inCamera = inLight = False
-	copyFile = file(filename + '.tmp', 'w')
+	originalFile = open(filename, 'r')
+	copyFile = open(filename + '.tmp', 'w')
 	copyFile.write(licHeader)
 	
 	for line in originalFile:
@@ -108,7 +121,7 @@ def fixPovFile(filename, imgWidth, imgHeight):
 			copyFile.write('\tsky      -y\n')
 			copyFile.write('\tright    -%d * x\n' % (imgWidth))
 			copyFile.write('\tup        %d * y\n' % (imgHeight))
-			copyFile.write('\tlook_at   <0, 0, 0>\n')
+			copyFile.write(lookAtLine)
 			copyFile.write('\trotate    <0, 1e-5, 0>\n')
 		
 		if line == '}\n' and inCamera:
