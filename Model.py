@@ -99,7 +99,16 @@ class Instructions():
 			if not part.isPrimitive:
 				part.renderToPov()
 		
-			
+		"""
+		# How to open an existing png and draw it into a cairo context:
+		surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 256, 256)
+		cr = cairo.Context(surface)
+		image = cairo.ImageSurface.create_from_png(r'c:\ldraw\lic\pngs\cairo.png')
+		cr.set_source_surface(image, 60, 35)
+		cr.paint()
+		surface.write_to_png(r'c:\ldraw\lic\pngs\cairo_paste.png')
+		surface.finish()
+		"""
 		
 		print "Instruction generation complete"
 	
@@ -430,12 +439,12 @@ class PLI():
 			return
 		
 		# Write out the main PLI command to file, including box and label position info
-		self.fileLine = [Comment, LICCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
+		self.fileLine = [Comment, LicCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
 		ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
 		
 		# Write out each PLI item in the layout, positioned right after the last occurance of the part in this step
 		for filename, item in self.layout.items():
-			ldrawFile.insertLine(item[-1][0], [Comment, LICCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y])
+			ldrawFile.insertLine(item[-1][0], [Comment, LicCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y])
 
 class CSI():
 	"""
@@ -561,7 +570,7 @@ class CSI():
 		global ldrawFile
 		
 		if not self.fileLine:
-			self.fileLine = [Comment, LICCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y]
+			self.fileLine = [Comment, LicCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y]
 			ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
 
 	def partTranslateCallback(self):
@@ -718,8 +727,9 @@ class PartOGL():
 		
 		self.ldrawFile = LDrawFile(self.filename)
 		if isMainModel:
-			self.ldrawFile.addLICHeader()
+			self.ldrawFile.addLicHeader()
 			self.ldrawFile.addInitialSteps()
+			self.ldrawFile.addDefaultPages()
 			self.ldArrayStartEnd = [0]
 		
 		self.isPrimitive = self.ldrawFile.isPrimitive
@@ -781,7 +791,7 @@ class PartOGL():
 			print "PLI Error: Trying to create a PLI outside of a step.  Line %d" % (line[0])
 			return
 		
-		# [index, Comment, LICCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
+		# [index, Comment, LicCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
 		# {'box': Box(*line[4:8]), 'qtyLabel': line[8], 'font': Font(line[9], line[10])}
 		d = lineToPLI(line)
 		pli = self.currentStep.pli
@@ -805,7 +815,7 @@ class PartOGL():
 			print "PLI item Error: Trying to add a non-existent part (%s) to a PLI.  Line %d" % (d['filename'], line[0])
 			return
 		
-		# [index, Comment, LICCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y]
+		# [index, Comment, LicCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y]
 		# {part filename: [count, part, bottomLeftCorner, qtyLabelReference]}
 		partLine = self.currentStep.parts[-1].fileLine
 		self.currentStep.pli.layout[d['filename']] = [d['count'], partDictionary[d['filename']], d['corner'], d['labelCorner'], partLine]

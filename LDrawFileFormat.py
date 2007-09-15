@@ -42,9 +42,10 @@ BufferStore = 'STORE'
 BufferRetrieve = 'RETRIEVE'
 
 LPubCommand = 'LPUB'
-LICCommand = 'LIC'
+LicCommand = 'LIC'
 CSICommand  = 'CSI'
 PLICommand  = 'PLI'
+PageCommand = 'PAGE'
 PLIItemCommand  = 'PLIi'
 BEGINCommand  = 'BEGIN'
 ENDCommand  = 'END'
@@ -121,13 +122,13 @@ def lineToLPubPLIState(line):
 	return False
 
 def isValidLICLine(line):
-	return (len(line) > 3) and (line[1] == Comment) and (line[2] == LICCommand)
+	return (len(line) > 3) and (line[1] == Comment) and (line[2] == LicCommand)
 
 def isValidCSILine(line):
 	return isValidLICLine(line) and (len(line) > 9) and (line[3] == CSICommand)
 
 def lineToCSI(line):
-	# [index, Comment, LICCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y]
+	# [index, Comment, LicCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y]
 	return {'box': Box(float(line[4]), float(line[5]), float(line[6]), float(line[7])),
 			'offset': Point(float(line[8]), float(line[9]))}
 
@@ -135,7 +136,7 @@ def isValidPLILine(line):
 	return isValidLICLine(line) and (len(line) > 10) and (line[3] == PLICommand)
 
 def lineToPLI(line):
-	# [index, Comment, LICCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
+	# [index, Comment, LicCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
 	return {'box': Box(float(line[4]), float(line[5]), float(line[6]), float(line[7])),
 			'qtyLabel': line[8],
 			'font': Font(float(line[9]), line[10])}
@@ -144,7 +145,7 @@ def isValidPLIItemLine(line):
 	return isValidLICLine(line) and (len(line) > 9) and (line[3] == PLIItemCommand)
 
 def lineToPLIItem(line):
-	# [index, Comment, LICCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y]
+	# [index, Comment, LicCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y]
 	# {part filename: [count, part, bottomLeftCorner, qtyLabelReference]}
 	return {'filename': line[4],
 			'count': int(line[5]),
@@ -165,15 +166,15 @@ class LDrawFile():
 		self._loadFileArray()
 		self._findSubModelsInFile()
 
-	def addLICHeader(self):
+	def addLicHeader(self):
 		
 		for i, line in enumerate(self.fileArray):
 			if isValidLICLine(line):
 				return True
 			if isValidStepLine(line) or isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidLPubPLILine(line):  
-				break  # Stuff that should be in a Step isn't - add new Step
+				break  # We've hit the first real line in the file - insert header just before this
 		
-		self.insertLine(i, [Comment, LICCommand, 'Initialized'])
+		self.insertLine(i, [Comment, LicCommand, 'Initialized'])
 		return False
 
 	def addInitialSteps(self):
@@ -194,6 +195,16 @@ class LDrawFile():
 		
 		for line in lines:
 			self.insertLine(line[0] - 1, [Comment, StepCommand])
+
+	def addDefaultPages(self):
+		
+		lines = []
+		for line in self.fileArray:
+			if isValidStepLine(line):
+				lines.append(line)
+		
+		for line in lines:
+			self.insertLine(line[0] - 1, [Comment, LicCommand, PageCommand])
 	
 	def insertLine(self, index, line):
 		"""
