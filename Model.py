@@ -98,6 +98,9 @@ class Instructions():
 		for part in partDictionary.values():
 			if not part.isPrimitive:
 				part.renderToPov()
+		
+			
+		
 		print "Instruction generation complete"
 	
 	def initDraw(self, context):
@@ -125,6 +128,9 @@ class Instructions():
 	def initPartDimensionsFromFile(self, f):
 		""" Used to initialize all part dimensions from the specified valid part dimension cache file f."""
 		
+		# TODO: If there's a part in the model but not in this file, need to
+		# generate a size for it manually, then append that entry to the file
+		# TODO: Make the part cache file not model specific, but rendered dimensions specific
 		for line in f:
 			filename, w, h, x, y, l, b, size = line.split()
 			if (not partDictionary.has_key(filename)):
@@ -136,6 +142,7 @@ class Instructions():
 			p.center = Point(int(x), int(y))
 			p.leftInset = int(l)
 			p.bottomInset = int(b)
+			p.imageSize = int(size)
 	
 	def buildCSIList(self, part, loadedParts = []):
 		csiList = []
@@ -957,7 +964,8 @@ class PartOGL():
 			filename = self.ldrawFile.writeLinesToDat(self.filename, *self.ldArrayStartEnd)
 		
 		# Render this part to a pov file then a final image
-		self.ldrawFile.createPov(self.width + 3, self.height + 3, filename)
+		self.ldrawFile.createPov(self.imageSize, self.imageSize, filename)
+		#self.ldrawFile.createPov(self.width + 3, self.height + 3, filename)
 		
 		# If this part has steps, need to generate dats, povs & images for each step
 		if self.steps != []:
@@ -971,10 +979,10 @@ class PartOGL():
 				return
 			
 			# Render any steps we generated above
-			for i, dat in enumerate(stepDats):
-				width = self.steps[i].csi.box.width
-				height = self.steps[i].csi.box.height
-				self.ldrawFile.createPov(width + 3, height + 3, dat)
+#			for i, dat in enumerate(stepDats):
+#				width = self.steps[i].csi.box.width
+#				height = self.steps[i].csi.box.height
+#				self.ldrawFile.createPov(self.imageSize, self.imageSize, dat)
 	
 class Part():
 	"""

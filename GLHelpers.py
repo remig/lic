@@ -83,7 +83,7 @@ def createFBO(width, height):
 	glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, depthbuffer);
 	
 	status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
-	if ((status != 0) and (status != GL_FRAMEBUFFER_COMPLETE_EXT)):
+	if (status != 0) and (status != GL_FRAMEBUFFER_COMPLETE_EXT):
 		print "Error in framebuffer activation.  Status: %d, expected %d" % (status, GL_FRAMEBUFFER_COMPLETE_EXT)
 		destroyFBO(texture, framebuffer)
 		return None
@@ -98,22 +98,22 @@ def destroyFBO(texture, framebuffer):
 
 def _checkImgMaxBounds(top, bottom, left, right, width, height, filename):
 	
-	if ((top == 0) and (bottom == height-1)): 
+	if (top == 0) and (bottom == height-1): 
 		if (filename):
 			print "  top & bottom out of bounds"
 		return True
 	
-	if ((left == 0) and (right == width-1)):
+	if (left == 0) and (right == width-1):
 		if (filename):
 			print "  left & right out of bounds"
 		return True
 	
-	if ((top == height) and (bottom == 0)):
+	if (top == height) and (bottom == 0):
 		if (filename):
 			print "  blank page"
 		return True
 	
-	if ((left == width) and (right == 0)):
+	if (left == width) and (right == 0):
 		if (filename):
 			print "  blank page"
 		return True
@@ -122,12 +122,12 @@ def _checkImgMaxBounds(top, bottom, left, right, width, height, filename):
 
 def _checkImgTouchingBounds(top, bottom, left, right, width, height, filename):
 	
-	if ((top == 0) or (bottom == height-1)):
+	if (top == 0) or (bottom == height-1):
 		if (filename):
 			print "  top & bottom out of bounds"
 		return True
 	
-	if ((left == 0) or (right == width-1)):
+	if (left == 0) or (right == width-1):
 		if (filename):
 			print "  left & right out of bounds"
 		return True
@@ -179,7 +179,7 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, first = "first"):
 	pixels = glReadPixels (0, 0, w, h, GL_RGB,  GL_UNSIGNED_BYTE)
 	img = Image.new ("RGB", (w, h), (1, 1, 1))
 	img.fromstring(pixels)
-	if (filename):
+	if filename:
 		rawFilename = os.path.splitext(os.path.basename(filename))[0]
 		img.save ("C:\\LDraw\\tmp\\%s.png" % (rawFilename))
 		#img.save ("C:\\LDraw\\tmp\\%s.png" % (filename, first, w))
@@ -225,19 +225,19 @@ def initImgSize(width, height, oglDispID, wantInsets = True, filename = None):
 	# If we hit one of these cases, at least one edge was drawn off screen
 	# Try to reposition the part and draw again, see if we can fit it on screen
 	x = y = 0
-	if (top == 0):
+	if top == 0:
 		y = bottom - height + 2
 	
-	if (bottom == height-1):
+	if bottom == height-1:
 		y = top - 1
 	
-	if (left == 0):
+	if left == 0:
 		x = width - right - 2
 	
-	if (right == width-1):
+	if right == width-1:
 		x = 1 - left
 	
-	if ((x != 0) or (y != 0)):
+	if (x != 0) or (y != 0):
 		# Drew at least one edge out of bounds - try moving part as much as possible and redrawing
 		top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(x, y, width, height, oglDispID, filename, 'second')
 	
@@ -254,9 +254,8 @@ def initImgSize(width, height, oglDispID, wantInsets = True, filename = None):
 	w = dx - (width/2)
 	h = dy - (height/2)
 	imgCenter = Point(x - w, y + h)
-	
 
-	if (wantInsets):
+	if wantInsets:
 		return (imgWidth, imgHeight, imgLeftInset, imgBottomInset, imgCenter)
 	else:
 		return (imgWidth, imgHeight, imgCenter)

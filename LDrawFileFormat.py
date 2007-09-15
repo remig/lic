@@ -8,6 +8,20 @@ import povray
 
 LDrawPath = "C:\\LDrawParts\\"
 
+cwd = os.getcwd()
+DatPath = cwd + '\DATs\\'
+PovPath = cwd + '\POVs\\'
+PngPath = cwd + '\PNGs\\'
+
+if not os.path.isdir(DatPath):
+	os.mkdir(DatPath)   # Create DAT directory if needed
+
+if not os.path.isdir(PovPath):
+	os.mkdir(PovPath)   # Create POV directory if needed
+
+if not os.path.isdir(PngPath):
+	os.mkdir(PngPath)   # Create PNG directory if needed
+
 Comment = '0'
 PartCommand = '1'
 LineCommand = '2'
@@ -275,29 +289,22 @@ class LDrawFile():
 
 	def writeLinesToDat(self, filename, start, end):
 		
-		path = os.getcwd() + '\DATs\\'
-		if os.path.isfile(path + filename):
+		if os.path.isfile(DatPath + filename):
+			# TODO: Ensure this DAT is up to date wrt the main model
 			return   # DAT already exists - nothing to do
 		
-		if not os.path.isdir(path):
-			os.mkdir(path)   # Create DAT directory if needed
-		
 		print "Creating dat for: %s, line %d to %d" % (filename, start, end)
-		f = open(path + filename, 'w')
+		f = open(DatPath + filename, 'w')
 		for line in self.fileArray[start:end]:
 			f.write(' '.join(line[1:]) + '\n')
 		f.close()
 		
-		return path + filename
+		return DatPath + filename
 	
 	def splitStepDats(self, filename = None, start = 0, end = -1):
 		
 		if end == -1:
 			end = len(self.fileArray)
-		
-		path = os.getcwd() + '\DATs\\'
-		if not os.path.isdir(path):
-			os.mkdir(path)   # Create DAT directory if needed
 		
 		if filename is None:
 			filename = self.filename
@@ -314,7 +321,7 @@ class LDrawFile():
 		stepDats = []
 		for i, stepIndex in enumerate(stepList[1:]):
 			
-			datFilename = path + rawFilename + '_step_%d' % (i+1) + '.dat'
+			datFilename = DatPath + rawFilename + '_step_%d' % (i+1) + '.dat'
 			f = open(datFilename, 'w')
 			for line in self.fileArray[start:stepIndex]:
 				f.write(' '.join(line[1:]) + '\n')
@@ -325,15 +332,11 @@ class LDrawFile():
 	
 	def createPov(self, width, height, datFile = None):
 		
-		path = os.getcwd() + '\POVs\\'
-		if not os.path.isdir(path):
-			os.mkdir(path)
-		
 		if datFile is None:
 			datFile = self.path + self.filename
 		
 		rawFilename = os.path.splitext(os.path.basename(datFile))[0]
-		povFile = path + rawFilename + ".pov"
+		povFile = PovPath + rawFilename + ".pov"
 		
 		if not os.path.isfile(povFile):
 			# Create a pov from the specified dat via l3p
@@ -343,11 +346,7 @@ class LDrawFile():
 			l3p.runCommand(l3pCommand)
 		
 		# Convert the generated pov into a nice png
-		path = os.getcwd() + '\PNGs\\'
-		if not os.path.isdir(path):
-			os.mkdir(path)
-		
-		pngFile = path + rawFilename + ".png"
+		pngFile = PngPath + rawFilename + ".png"
 		
 		if not os.path.isfile(pngFile):
 			povray.fixPovFile(povFile, width, height)

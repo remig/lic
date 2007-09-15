@@ -523,3 +523,19 @@ def glCallListTrap(oglDispID, creator):
 def glNewListTrap(oglDispID, creator):
 	print "Creating new GL List for ID %d, %s" % (oglDispID, creator)
 	return glNewList(oglDispID, GL_COMPILE)
+
+def lookAtVector():
+	# Unfortunately, we need to know where the part's center is, but that info
+	# is at the end of the file.  Need to read entire file looking for that...
+	lookAtVector = ''
+	for line in originalFile:
+		if line.startswith('// Center: <'):
+			lookAtVector = line[11:].strip()
+	originalFile.close()
+	
+	if lookAtVector == '':
+		print "Error: No Center line in POV File: %s" % (filename)
+		return
+	
+	copyFile.write('\tlocation (<-28, -14.5, -28> * 1000) + ' + lookAtVector + '\n')
+	copyFile.write( '\tlook_at   ' + lookAtVector + '\n')
