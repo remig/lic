@@ -21,7 +21,7 @@ def adjustGLViewport(x, y, width, height):
 	width = max(1, width / 2 * SCALE_WINDOW)
 	height = max(1, height / 2 * SCALE_WINDOW)
 	# Viewing box (left, right) (bottom, top), (near, far)
-	glOrtho( -width, width, -height, height, -3000, 3000 )
+	glOrtho( width, -width, -height, height, -3000, 3000 )
 	glMatrixMode(GL_MODELVIEW)
 
 def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0):
@@ -31,7 +31,7 @@ def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0):
 	# Rotate model into something approximating the regular ortho Lego view
 	# TODO: Figure out the exact rotation for this
 	glRotatef(20.0, 1.0, 0.0, 0.0,)
-	glRotatef(45.0, 0.0, 1.0, 0.0,)
+	glRotatef(135.0, 0.0, 1.0, 0.0,)
 	
 def pushAllGLMatrices():
 	glPushAttrib(GL_TRANSFORM_BIT | GL_VIEWPORT_BIT)
@@ -99,22 +99,22 @@ def _checkImgMaxBounds(top, bottom, left, right, width, height, filename):
 	
 	if ((top == 0) and (bottom == height-1)): 
 		if (filename):
-			print filename + " - top & bottom out of bounds - hosed"
+			print "  top & bottom out of bounds"
 		return True
 	
 	if ((left == 0) and (right == width-1)):
 		if (filename):
-			print filename + " - left & right out of bounds - hosed"
+			print "  left & right out of bounds"
 		return True
 	
 	if ((top == height) and (bottom == 0)):
 		if (filename):
-			print filename + " - blank page - hosed"
+			print "  blank page"
 		return True
 	
 	if ((left == width) and (right == 0)):
 		if (filename):
-			print filename + " - blank page - hosed"
+			print "  blank page"
 		return True
 	
 	return False
@@ -123,12 +123,12 @@ def _checkImgTouchingBounds(top, bottom, left, right, width, height, filename):
 	
 	if ((top == 0) or (bottom == height-1)):
 		if (filename):
-			print filename + " - top & bottom out of bounds - hosed"
+			print "  top & bottom out of bounds"
 		return True
 	
 	if ((left == 0) or (right == width-1)):
 		if (filename):
-			print filename + " - left & right out of bounds - hosed"
+			print "  left & right out of bounds"
 		return True
 	
 	return False

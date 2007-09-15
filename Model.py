@@ -468,7 +468,7 @@ class CSI():
 			return
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
-		print "CSI %s step %d - size %d" % (self.filename, self.step.number, width)
+		print "CSI %s step %d - size %d" % (self.filename, self.step.number, size)
 		
 		params = GLHelpers.initImgSize(size, size, self.oglDispID, wantInsets = False, filename = self.filename + " - step " + str(self.step.number))
 		if params is None:
@@ -729,6 +729,9 @@ class PartOGL():
 			
 			self._loadOneLDrawLineCommand(line)
 
+		if self.ldArrayStartEnd == [0]:
+			self.ldArrayStartEnd = None
+
 	def _loadOneLDrawLineCommand(self, line):
 		
 		if isValidStepLine(line):
@@ -954,7 +957,8 @@ class PartOGL():
 			filename = self.ldrawFile.writeLinesToDat(self.filename, *self.ldArrayStartEnd)
 		
 		# Render this part to a pov file then a final image
-		self.ldrawFile.createPov(self.width + 3, self.height + 3, filename)
+		#self.ldrawFile.createPov(self.width + 3, self.height + 3, filename)
+		self.ldrawFile.createPov(256, 256, filename)
 		
 		# If this part has steps, need to generate dats, povs & images for each step
 		if self.steps != []:
@@ -971,7 +975,8 @@ class PartOGL():
 			for i, dat in enumerate(stepDats):
 				width = self.steps[i].csi.box.width
 				height = self.steps[i].csi.box.height
-				self.ldrawFile.createPov(width + 3, height + 3, dat)
+				#self.ldrawFile.createPov(width + 3, height + 3, dat)
+				self.ldrawFile.createPov(256, 256, dat)
 	
 class Part():
 	"""
