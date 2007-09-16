@@ -1019,22 +1019,22 @@ class PartOGL():
 		self.ldrawFile.createPov(self.imageSize, self.imageSize, filename)
 		#self.ldrawFile.createPov(self.width + 3, self.height + 3, filename)
 		
-		# If this part has steps, need to generate dats, povs & images for each step
-#		if self.steps != []:
-#			if self.ldArrayStartEnd:
-#				stepDats = self.ldrawFile.splitStepDats(self.filename, *self.ldArrayStartEnd)
-#			else:
-#				stepDats = self.ldrawFile.splitStepDats()
-#			
-#			if len(stepDats) != len(self.steps):
-#				print "Error: Generated %d step dats, but have %d steps" % (len(stepDats), len(self.steps))
-#				return
-#			
-#			# Render any steps we generated above
-#			for i, dat in enumerate(stepDats):
-#				width = self.steps[i].csi.box.width
-#				height = self.steps[i].csi.box.height
-#				self.ldrawFile.createPov(self.imageSize, self.imageSize, dat)
+		# If this part has pages and steps, need to generate dats, povs & images for each step
+		if self.pages != [] and self.pages[0].steps != []:
+			if self.ldArrayStartEnd:
+				stepDats = self.ldrawFile.splitStepDats(self.filename, *self.ldArrayStartEnd)
+			else:
+				stepDats = self.ldrawFile.splitStepDats()
+			
+			if len(stepDats) != self.pages[-1].steps[-1].number:
+				print "Error: Generated %d step dats, but have %d steps" % (len(stepDats), self.pages[-1].steps[-1].number)
+				return
+			
+			# Render any steps we generated above
+			for i, dat in enumerate(stepDats):
+				#width = self.steps[i].csi.box.width
+				#height = self.steps[i].csi.box.height
+				self.ldrawFile.createPov(self.imageSize, self.imageSize, dat)
 	
 class Part():
 	"""
