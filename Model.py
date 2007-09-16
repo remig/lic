@@ -851,17 +851,27 @@ class PartOGL():
 
 	def addPage(self, line):
 		if self.currentPage and self.currentPage.steps == []:
-			print "Page Warning: Empty page found on line %d. Ignoring Page #%d" % (line[0], self.currentPage.number)
+			print "Page Warning: Empty page found on line %d. Ignoring Page %d" % (line[0], self.currentPage.number)
 			self.pages.pop()
 			self.currentPage = self.currentPage.prevPage
+		
+		if self.currentPage and self.currentStep and self.currentStep.parts == []:
+			print "Step Warning: Empty step found on line %d.  Ignoring Step %d" % (line[0], self.currentStep.number)
+			self.currentPage.steps.pop()
+			self.currentStep = self.currentStep.prevStep
+			if self.currentPage.steps == []:
+				print "Page Warning: Empty page found on line %d. Ignoring Page %d" % (line[0], self.currentPage.number)
+				self.pages.pop()
+				self.currentPage = self.currentPage.prevPage
 		
 		self.currentPage = Page(self.currentPage)
 		self.currentPage.fileLine = line
 		self.pages.append(self.currentPage)
 	
 	def addStep(self, line):
-		if self.currentStep and self.currentStep.parts == []: # Current step is empty - remove it and warn
-			print "Step Warning: Empty step found on line %d.  Ignoring Step #%d" % (line[0], self.currentStep.number)
+		if self.currentPage and self.currentStep and self.currentStep.parts == []: # Current step is empty - remove it and warn
+			print "Step Warning: Empty step found on line %d.  Ignoring Step %d" % (line[0], self.currentStep.number)
+			self.currentPage.steps.pop()
 			self.currentStep = self.currentStep.prevStep
 		
 		# Create a new step, and make it the current step
@@ -870,8 +880,8 @@ class PartOGL():
 		
 		if self.currentPage:
 			self.currentPage.steps.append(self.currentStep)
-#		else:
-#			self.steps.append(self.currentStep)
+		else:
+			print "Error: Trying to add a step when there's no current page to add step to."
 
 	def addPart(self, p, line):
 		try:
