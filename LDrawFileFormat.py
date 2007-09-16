@@ -152,6 +152,9 @@ def lineToPLIItem(line):
 			'corner': Point(float(line[6]), float(line[7])),
 			'labelCorner': Point(float(line[8]), float(line[9]))}
 
+def isValidPageLine(line):
+	return isValidLICLine(line) and (len(line) > 3) and (line[3] == PageCommand)
+
 class LDrawFile():
 	def __init__(self, filename):
 		
@@ -184,7 +187,7 @@ class LDrawFile():
 		for line in self.fileArray:
 			if isValidFileLine(line):
 				currentFileLine = True
-					 
+			
 			if isValidStepLine(line):   # Already have initial step - nothing to do here
 				currentFileLine = False
 			
@@ -200,6 +203,10 @@ class LDrawFile():
 		
 		lines = []
 		for line in self.fileArray:
+			
+			if isValidPageLine(line):
+				return  # Already have pages in file - nothing to do here
+			
 			if isValidStepLine(line):
 				lines.append(line)
 		

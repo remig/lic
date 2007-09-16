@@ -43,7 +43,6 @@ class Instructions():
 	def __init__(self, filename):
 		global ldrawFile
 		
-		self.pages = []
 		self.pagePadding = 20
 		self.filename = filename
 		
@@ -59,8 +58,9 @@ class Instructions():
 		_windowWidth = width - (self.pagePadding * 2)
 		_windowHeight = height - (self.pagePadding * 2)
 		
-		for step in self.mainModel.partOGL.steps:
-			step.resize()
+		for page in self.mainModel.partOGL.pages:
+			for step in page.steps:
+				step.resize()
 	
 	def drawPage(self, context, width, height):
 		
@@ -119,9 +119,10 @@ class Instructions():
 		self.initCSIDimensions()
 		
 		# Calculate an initial layout for each Step and PLI in this instruction book
-		for step in self.mainModel.partOGL.steps:
-			step.initLayout(context)
-			step.writeToGlobalFileArray()
+		for page in self.mainModel.partOGL.pages:
+			for step in page.steps:
+				step.initLayout(context)
+				step.writeToGlobalFileArray()
 
 	def initPartDimensions(self):
 		
@@ -155,13 +156,14 @@ class Instructions():
 	
 	def buildCSIList(self, part, loadedParts = []):
 		csiList = []
-		for step in part.steps:
-			for part in step.parts:
-				if (part.partOGL.filename not in loadedParts and part.partOGL.steps != []):
-					csiList += self.buildCSIList(part.partOGL, loadedParts)
-				loadedParts.append(part.partOGL.filename)
-			if step.csi.fileLine is None:
-				csiList.append(step.csi)
+		for page in part.pages:
+			for step in page.steps:
+				for part in step.parts:
+					if (part.partOGL.filename not in loadedParts and part.partOGL.pages != []):
+						csiList += self.buildCSIList(part.partOGL, loadedParts)
+					loadedParts.append(part.partOGL.filename)
+				if step.csi.fileLine is None:
+					csiList.append(step.csi)
 		return csiList
 
 	def initCSIDimensions(self):
@@ -241,13 +243,21 @@ class Page():
 	A single page in an instruction book.
 	"""
 	
-	def __init__(self, number):
-		self.number = number
+	def __init__(self, prevPage = None):
+		
 		self.box = Box()
 		self.fill = Fill()
+		
 		self.steps = []
+		self.prevPage = prevPage		
+		self.fileLine = None
+		
+		if prevPage:
+			self.number = prevPage.number + 1
+		else:
+			self.number = 1
 
-	def draw(self, context, width, height):
+	def drawModel(self):
 		pass
 
 class BOM():
@@ -472,7 +482,7 @@ class CSI():
 		Note that an appropriate FBO *must* be initialized before calling initSize.
 		
 		Parameters:
-			size: Width & height of FBO to render to, in pixels.  Note that FBO is assumed square
+			size: Width & height of FBO to render to, in pixels.  Note that FBO is assumed square.
 		
 		Returns:
 			True if CSI rendered successfully.
@@ -612,8 +622,9 @@ class Step():
 		
 		# Notify any steps in any sub models about the resize too
 		for part in self.parts:
-			for step in part.partOGL.steps:
-				step.resize()
+			for page in part.partOGL.pages:
+				for step in page.steps:
+					step.resize()
 
 	def initLayout(self, context):
 		global _windowHeight
@@ -624,8 +635,9 @@ class Step():
 		
 		# Ensure all sub model PLIs and steps are also initialized
 		for part in self.parts:
-			for step in part.partOGL.steps:
-				step.initLayout(context)
+			for page in part.partOGL.pages:
+				for step in page.steps:
+					step.initLayout(context)
 		
 		# Determine space between top page edge and bottom of PLI, including gaps
 		if (self.pli.isEmpty()):
@@ -650,8 +662,9 @@ class Step():
 		self.csi.writeToGlobalFileArray()
 		
 		for part in self.parts:
-			for step in part.partOGL.steps:
-				step.writeToGlobalFileArray()
+			for page in part.partOGL.pages:
+				for step in page.steps:
+					step.writeToGlobalFileArray()
 
 	def drawModel(self):
 		""" Draw this step's CSI and PLI parts (not GUI elements, just the 3D GL bits) """
@@ -691,7 +704,8 @@ class PartOGL():
 		self.isPrimitive = False  # primitive here means any file in 'P'
 		
 		self.currentStep = None
-		self.steps = []
+		self.currentPage = None
+		self.pages = []
 		
 		self.buffers = []  #[(bufID, stepNumber)]
 		self.ignorePLIState = False
@@ -707,8 +721,8 @@ class PartOGL():
 		
 		# Check if the last step in model is empty - occurs often, since we've implicitly
 		# created a step before adding any parts and many models end with a Step.
-		if (len(self.steps) > 0 and self.steps[-1].parts == []):
-			self.steps.pop()
+		if (len(self.pages) > 0) and (len(self.pages[-1].steps) > 0) and (self.pages[-1].steps[-1].parts == []):
+			self.pages[-1].steps.pop()
 		
 		self.createOGLDisplayList()
 	
@@ -751,7 +765,10 @@ class PartOGL():
 
 	def _loadOneLDrawLineCommand(self, line):
 		
-		if isValidStepLine(line):
+		if isValidPageLine(line):
+			self.addPage(line)
+		
+		elif isValidStepLine(line):
 			self.addStep(line)
 		
 		elif isValidPartLine(line):
@@ -832,16 +849,29 @@ class PartOGL():
 		csi.box = d['box']
 		csi.centerOffset = d['offset']
 
+	def addPage(self, line):
+		if self.currentPage and self.currentPage.steps == []:
+			print "Page Warning: Empty page found on line %d. Ignoring Page #%d" % (line[0], self.currentPage.number)
+			self.pages.pop()
+			self.currentPage = self.currentPage.prevPage
+		
+		self.currentPage = Page(self.currentPage)
+		self.currentPage.fileLine = line
+		self.pages.append(self.currentPage)
+	
 	def addStep(self, line):
-		if (self.currentStep and self.currentStep.parts == []): # Current step is empty - remove it and warn
+		if self.currentStep and self.currentStep.parts == []: # Current step is empty - remove it and warn
 			print "Step Warning: Empty step found on line %d.  Ignoring Step #%d" % (line[0], self.currentStep.number)
-			self.steps.pop()
 			self.currentStep = self.currentStep.prevStep
 		
 		# Create a new step, and make it the current step
 		self.currentStep = Step(self.filename, self.currentStep, list(self.buffers))
 		self.currentStep.fileLine = line
-		self.steps.append(self.currentStep)
+		
+		if self.currentPage:
+			self.currentPage.steps.append(self.currentStep)
+#		else:
+#			self.steps.append(self.currentStep)
 
 	def addPart(self, p, line):
 		try:
@@ -854,7 +884,7 @@ class PartOGL():
 		part.ignorePLIState = self.ignorePLIState
 		part.fileLine = line
 		
-		if (self.currentStep):
+		if self.currentStep:
 			self.currentStep.addPart(part)
 		else:
 			self.parts.append(part)
@@ -895,9 +925,10 @@ class PartOGL():
 		if (self.oglDispID != UNINIT_OGL_DISPID):
 			return
 		
-		# Ensure any steps in this part have been initialized
-		for step in self.steps:
-			step.csi.createOGLDisplayList()
+		# Ensure any pages and steps in this part have been initialized
+		for page in self.pages:
+			for step in page.steps:
+				step.csi.createOGLDisplayList()
 		
 		# Ensure any parts in this part have been initialized
 		for part in self.parts:
@@ -907,8 +938,9 @@ class PartOGL():
 		self.oglDispID = glGenLists(1)
 		glNewList(self.oglDispID, GL_COMPILE)
 		
-		for step in self.steps:
-			step.csi.callOGLDisplayList()
+		for page in self.pages:
+			for step in page.steps:
+				step.csi.callOGLDisplayList()
 		
 		for part in self.parts:
 			part.callOGLDisplayList()
@@ -918,7 +950,7 @@ class PartOGL():
 		
 		glEndList()
 
-	def drawModel(self, context = None, width = UNINIT_PROP, height = UNINIT_PROP):
+	def drawModel(self):
 		if (self.width == UNINIT_PROP or self.height == UNINIT_PROP):
 			# TODO: Remove this check once all is well
 			print "ERROR: Trying to draw a part with uninitialized width / height!!: ", self.filename
@@ -978,17 +1010,17 @@ class PartOGL():
 		#self.ldrawFile.createPov(self.width + 3, self.height + 3, filename)
 		
 		# If this part has steps, need to generate dats, povs & images for each step
-		if self.steps != []:
-			if self.ldArrayStartEnd:
-				stepDats = self.ldrawFile.splitStepDats(self.filename, *self.ldArrayStartEnd)
-			else:
-				stepDats = self.ldrawFile.splitStepDats()
-			
-			if len(stepDats) != len(self.steps):
-				print "Error: Generated %d step dats, but have %d steps" % (len(stepDats), len(self.steps))
-				return
-			
-			# Render any steps we generated above
+#		if self.steps != []:
+#			if self.ldArrayStartEnd:
+#				stepDats = self.ldrawFile.splitStepDats(self.filename, *self.ldArrayStartEnd)
+#			else:
+#				stepDats = self.ldrawFile.splitStepDats()
+#			
+#			if len(stepDats) != len(self.steps):
+#				print "Error: Generated %d step dats, but have %d steps" % (len(stepDats), len(self.steps))
+#				return
+#			
+#			# Render any steps we generated above
 #			for i, dat in enumerate(stepDats):
 #				width = self.steps[i].csi.box.width
 #				height = self.steps[i].csi.box.height

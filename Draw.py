@@ -194,7 +194,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def initializeTree(self):
 		print "*** Loading TreeView ***"
 		root = self.insert_row(self.treemodel, None, None, self.model.name, self.model)
-		self.addStepsToTree(self.model.partOGL.steps, root)
+		self.addPagesToTree(self.model.partOGL.pages, root)
 
 	def treeview_button_press(self, obj, event):
 		treemodel, iter = self.tree.get_selection().get_selected()
@@ -213,28 +213,36 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		model.set_value(iter, 1, secondcol)
 		return iter
 	
-	def addStepsToTree(self, steps, root):
+	def addPagesToTree(self, pages, root):
 		loadedSubModels = []
-		iterStep = iterPart = None
-		for step in steps:
+		iterPage = iterStep = iterPart = None
+		for page in pages:
 			
 			# Add each step to specified spot in tree
-			iterStep = self.insert_row(self.treemodel, root, iterStep, "Step " + str(step.number), step)
+			iterPage = self.insert_row(self.treemodel, root, iterPage, "Page " + str(page.number), page)
 			
-			for part in step.parts:
-				p = part.partOGL
-				if ((p.steps != []) and (p.name not in loadedSubModels)):
-					# This part has steps of its own, so add this part to specified root.
-					subRoot = self.insert_before(self.treemodel, root, iterStep, "SubModel " + p.name, p)
-					loadedSubModels.append(p.name)
-					# Add this part's steps into this part in the tree.
-					if (p.steps != []):
-						self.addStepsToTree(p.steps, subRoot)
+			for step in page.steps:
 				
-				# Add this part to tree, placed inside the current step.
-				iterPart = self.insert_row(self.treemodel, iterStep, iterPart, p.name, p)
-			
-			iterPart = None
+				iterStep = self.insert_row(self.treemodel, iterPage, iterStep, "Step " + str(step.number), step)
+				
+				for part in step.parts:
+					
+					p = part.partOGL
+					if ((p.pages != []) and (p.name not in loadedSubModels)):
+						
+						# This part has pages of its own, so add this part to specified root
+						subRoot = self.insert_before(self.treemodel, root, iterPage, "SubModel " + p.name, p)
+						loadedSubModels.append(p.name)
+						
+						# Add this part's steps into this part in the tree.
+						if (p.pages != []):
+							self.addPagesToTree(p.pages, subRoot)
+					
+					# Add this part to tree, placed inside the current step.
+					iterPart = self.insert_row(self.treemodel, iterStep, iterPart, p.name, p)
+				
+				iterPart = None
+			iterStep = None
 	
 	def displayGrid(self):
 		glBegin( GL_LINES )
