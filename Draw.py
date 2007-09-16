@@ -60,15 +60,15 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		self.tree.append_column(column)
 		
 		self.instructions = None # The complete Lego instructions book currently loaded
-		self.model = None  # The currently selected Lego model, whether a single part, submodel, step, or main model
+		self.currentSelection = None  # The currently selected item in the Instruction tree, whether a single part, submodel, step, or page
 	
 	def on_generate_images(self, data):
 		print "Generating Images"
 		self.instructions.generateImages()
 	
 	def on_translate_part(self, data):
-		if (self.model and isinstance(self.model, Step)):
-			self.model.parts[0].translate(0, 0, -10)
+		if (self.currentSelection  and isinstance(self.currentSelection , Step)):
+			self.currentSelection .parts[0].translate(0, 0, -10)
 			self.on_expose_event()
 	
 	def on_exit(self, data):
@@ -128,7 +128,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 
 		self.instructions.resize(self.width, self.height)
 		self.instructions.initDraw(cr)
-		self.model = self.instructions.getMainModel()
+		self.currentSelection = self.instructions.getMainModel()
 		
 		self.initializeTree()
 
@@ -177,8 +177,8 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		rotateToDefaultView()
 		
 		# Draw the currently selected model / part / step / whatnot to GL buffer
-		if (self.model):
-			self.model.drawModel()
+		if (self.currentSelection):
+			self.currentSelection.draw()
 		
 		# Copy GL buffer to a new cairo surface, then dump that surface to the current context
 		pixels = glReadPixels (0, 0, scaleWidth, scaleHeight, GL_RGBA,  GL_UNSIGNED_BYTE)
@@ -188,17 +188,17 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		cr.paint()
 		
 		# Draw any remaining 2D page elements, like borders, labels, etc
-		if (self.model and isinstance(self.model, Step)):
-			self.model.drawPageElements(cr)
+		if (self.currentSelection and isinstance(self.currentSelection, Step)):
+			self.currentSelection.drawPageElements(cr)
 	
 	def initializeTree(self):
 		print "*** Loading TreeView ***"
-		root = self.insert_row(self.treemodel, None, None, self.model.name, self.model)
-		self.addPagesToTree(self.model.partOGL.pages, root)
+		root = self.insert_row(self.treemodel, None, None, self.currentSelection.name, self.currentSelection)
+		self.addPagesToTree(self.currentSelection.partOGL.pages, root)
 
 	def treeview_button_press(self, obj, event):
 		treemodel, iter = self.tree.get_selection().get_selected()
-		self.model = treemodel.get_value(iter, 1)
+		self.currentSelection = treemodel.get_value(iter, 1)
 		self.on_expose_event()
 
 	def insert_row(self, model, parent, sibling, firstcol, secondcol):

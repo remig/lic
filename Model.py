@@ -257,7 +257,7 @@ class Page():
 		else:
 			self.number = 1
 
-	def drawModel(self):
+	def draw(self):
 		pass
 
 class BOM():
@@ -417,7 +417,7 @@ class PLI():
 			GLHelpers.adjustGLViewport(corner.x, corner.y - part.height, part.width, part.height)
 			glLoadIdentity()
 			GLHelpers.rotateToDefaultView(part.center.x, part.center.y, 0.0)
-			part.drawModel()
+			part.draw()
 		
 		GLHelpers.popAllGLMatrices()
 
@@ -559,7 +559,7 @@ class CSI():
 		self.callPreviousOGLDisplayLists(self.buffers)
 		glEndList()
 
-	def drawModel(self):
+	def draw(self):
 		global _windowWidth, _windowHeight
 		
 		GLHelpers.adjustGLViewport(0, 0, _windowWidth, _windowHeight + self.offsetPLI)
@@ -666,10 +666,10 @@ class Step():
 				for step in page.steps:
 					step.writeToGlobalFileArray()
 
-	def drawModel(self):
+	def draw(self):
 		""" Draw this step's CSI and PLI parts (not GUI elements, just the 3D GL bits) """
 		self.pli.drawParts()
-		self.csi.drawModel()
+		self.csi.draw()
 
 	def drawPageElements(self, context):
 		""" Draw this step's PLI and CSI page elements, and this step's number label. """
@@ -960,7 +960,7 @@ class PartOGL():
 		
 		glEndList()
 
-	def drawModel(self):
+	def draw(self):
 		if (self.width == UNINIT_PROP or self.height == UNINIT_PROP):
 			# TODO: Remove this check once all is well
 			print "ERROR: Trying to draw a part with uninitialized width / height!!: ", self.filename
@@ -1131,7 +1131,7 @@ class Part():
 		if (color != CurrentColor):
 			glPopAttrib()
 
-	def drawModel(self):
+	def draw(self):
 		
 		if (self.matrix):
 			glPushMatrix()
