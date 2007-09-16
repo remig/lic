@@ -539,3 +539,28 @@ def lookAtVector():
 	
 	copyFile.write('\tlocation (<-28, -14.5, -28> * 1000) + ' + lookAtVector + '\n')
 	copyFile.write( '\tlook_at   ' + lookAtVector + '\n')
+
+def displayGrid(self):
+	glBegin( GL_LINES )
+	glVertex3i( 0, 0, 0 )
+	glVertex3i( 1000, 0, 0 )
+	glVertex3i( 0, 0, 0 )
+	glVertex3i( 0, 1000, 0 )
+	glVertex3i( 0, 0, 0 )
+	glVertex3i( 0, 0, 1000 )
+	glEnd()
+
+def on_button_press(self, *args):
+	x = args[1].x
+	y = args[1].y
+	
+	if (x < (self.width/3)):
+		glRotatef( -10.0, 0.0, 1.0, 0.0,)
+	elif (x > (self.width*2/3)):
+		glRotatef( 10.0, 0.0, 1.0, 0.0,)
+	elif (y < (self.height/3)):
+		glRotatef( -10.0, 1.0, 0.0, 0.0,)
+	elif (y > (self.height*2/3)):
+		glRotatef( 10.0, 1.0, 0.0, 0.0,)
+	
+	self.on_draw_event()

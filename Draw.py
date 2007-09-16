@@ -41,17 +41,16 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 						gtk.gdk.BUTTON_RELEASE_MASK | gtk.gdk.BUTTON_PRESS_MASK |
 						gtk.gdk.SCROLL_MASK)
 		
-		self.connect( "expose_event", self.on_expose_event ) # expose = OnDraw
-		self.connect( "realize", self.on_realize )  # one shot initialization
-		self.connect( "configure_event", self.on_configure_event ) # given a size and width, resized
+		self.connect( "realize", self.on_init )
+		self.connect( "expose_event", self.on_draw_event )
+		self.connect( "configure_event", self.on_resize_event )
 		self.connect( "button_press_event", self.on_button_press )
 		self.connect( "delete_event", self.on_exit )
 		self.connect( "destroy", self.on_destroy )
 		
 		self.tree = gui_xml.get_widget("treeview")
-		self.treemodel = gtk.TreeStore(gobject.TYPE_STRING, gobject.TYPE_PYOBJECT)
+		self.treemodel = gtk.TreeStore(gobject.TYPE_STRING, gobject.TYPE_PYOBJECT, gobject.TYPE_PYOBJECT)
 		self.tree.connect("button_release_event", self.treeview_button_press)
-		
 		self.tree.set_reorderable(True)
 		self.tree.set_model(self.treemodel)
 		
@@ -59,17 +58,18 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		column = gtk.TreeViewColumn("Instructions", renderer, text=0)
 		self.tree.append_column(column)
 		
-		self.instructions = None # The complete Lego instructions book currently loaded
+		self.instructions = None      # The complete Lego instructions book currently loaded
 		self.currentSelection = None  # The currently selected item in the Instruction tree, whether a single part, submodel, step, or page
+		self.currentPage = 	None      # The currently selected page
 	
 	def on_generate_images(self, data):
 		print "Generating Images"
 		self.instructions.generateImages()
 	
 	def on_translate_part(self, data):
-		if (self.currentSelection  and isinstance(self.currentSelection , Step)):
-			self.currentSelection .parts[0].translate(0, 0, -10)
-			self.on_expose_event()
+		if self.currentSelection and isinstance(self.currentSelection , Step):
+			self.currentSelection.parts[0].translate(0, 0, -10)
+			self.on_draw_event()
 	
 	def on_exit(self, data):
 		return False
@@ -81,21 +81,9 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		gtk.main_quit()
 
 	def on_button_press(self, *args):
-		x = args[1].x
-		y = args[1].y
-		
-		if (x < (self.width/3)):
-			glRotatef( -10.0, 0.0, 1.0, 0.0,)
-		elif (x > (self.width*2/3)):
-			glRotatef( 10.0, 0.0, 1.0, 0.0,)
-		elif (y < (self.height/3)):
-			glRotatef( -10.0, 1.0, 0.0, 0.0,)
-		elif (y > (self.height*2/3)):
-			glRotatef( 10.0, 1.0, 0.0, 0.0,)
-		
-		self.on_expose_event()
+		pass
 
-	def on_realize(self, *args):
+	def on_init(self, *args):
 		""" Initialize the window. """
 		
 		specular = [1.0, 1.0, 1.0, 1.0]
@@ -125,24 +113,26 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		except IOError:
 			print "Could not find file %s" % (MODEL_NAME)
 			exit()
-
+		
 		self.instructions.resize(self.width, self.height)
 		self.instructions.initDraw(cr)
 		self.currentSelection = self.instructions.getMainModel()
+		self.currentPage = self.currentSelection.partOGL.pages[0]
 		
 		self.initializeTree()
 
-	def on_configure_event(self, *args):
+	def on_resize_event(self, *args):
 		""" Resize the window. """
 		
 		self.width = args[1].width
 		self.height = args[1].height
 		
-		if ((self.width < 5) or (self.height < 5)):
+		if (self.width < 5) or (self.height < 5):
 			return  # ignore resize if window is basically invisible
 		
-		if (self.instructions):
+		if self.instructions:
 			self.instructions.resize(self.width, self.height)
+		
 		gldrawable = self.get_gl_drawable()
 		glcontext = self.get_gl_context()
 		gldrawable.gl_begin(glcontext)
@@ -153,64 +143,45 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		gldrawable.gl_end()
 	
-	def on_expose_event(self, *args):
+	def on_draw_event(self, *args):
 		""" Draw the window. """
 		
 		# TODO: This all works, but slowly - have nasty flicker.  Need to double buffer or something
-		
 		# Create a fresh, blank cairo context attached to the window's display area
 		cr = self.window.cairo_create()
 		cr.identity_matrix()
-		
-		# Draw the overall page frame
-		# This leaves the cairo context translated to the top left corner of the page, but *NOT* scaled.
-		# Instead, it returns the width and height of the page.  Scaling here messes up GL drawing.
-		scaleWidth, scaleHeight = self.instructions.drawPage(cr, self.width, self.height)
 		
 		# Clear GL buffer
 		glClearColor(1.0, 1.0, 1.0, 0)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
-		# Fully reset the viewport - necessary if we've mangled it while calculating part dimensions
-		adjustGLViewport(0, 0, scaleWidth, scaleHeight)
-		glLoadIdentity()	
-		rotateToDefaultView()
-		
-		# Draw the currently selected model / part / step / whatnot to GL buffer
-		if (self.currentSelection):
-			self.currentSelection.draw()
-		
-		# Copy GL buffer to a new cairo surface, then dump that surface to the current context
-		pixels = glReadPixels (0, 0, scaleWidth, scaleHeight, GL_RGBA,  GL_UNSIGNED_BYTE)
-		surface = cairo.ImageSurface.create_for_data(pixels, cairo.FORMAT_ARGB32, scaleWidth, scaleHeight, scaleWidth * 4)
-		#crTmp = cairo.Context(surface)
-		cr.set_source_surface(surface)
-		cr.paint()
-		
-		# Draw any remaining 2D page elements, like borders, labels, etc
-		if (self.currentSelection and isinstance(self.currentSelection, Step)):
-			self.currentSelection.drawPageElements(cr)
+		# Draw the currently selected model / part / step / page / whatnot to GL buffer
+		if self.currentPage:
+			self.currentPage.draw(cr, self.currentSelection)
 	
-	def initializeTree(self):
-		print "*** Loading TreeView ***"
-		root = self.insert_row(self.treemodel, None, None, self.currentSelection.name, self.currentSelection)
-		self.addPagesToTree(self.currentSelection.partOGL.pages, root)
-
 	def treeview_button_press(self, obj, event):
 		treemodel, iter = self.tree.get_selection().get_selected()
 		self.currentSelection = treemodel.get_value(iter, 1)
-		self.on_expose_event()
+		self.currentPage = treemodel.get_value(iter, 2)
+		self.on_draw_event()
 
-	def insert_row(self, model, parent, sibling, firstcol, secondcol):
+	def initializeTree(self):
+		print "*** Loading TreeView ***"
+		root = self.insert_after(self.treemodel, None, None, self.currentSelection.name, self.currentSelection, self.currentPage)
+		self.addPagesToTree(self.currentSelection.partOGL.pages, root)
+
+	def insert_after(self, model, parent, sibling, name, selection, page):
 		iter = model.insert_after(parent, sibling)
-		model.set_value(iter, 0, firstcol)
-		model.set_value(iter, 1, secondcol)
+		model.set_value(iter, 0, name)
+		model.set_value(iter, 1, selection)
+		model.set_value(iter, 2, page)
 		return iter
 
-	def insert_before(self, model, parent, sibling, firstcol, secondcol):
+	def insert_before(self, model, parent, sibling, name, selection, page):
 		iter = model.insert_before(parent, sibling)
-		model.set_value(iter, 0, firstcol)
-		model.set_value(iter, 1, secondcol)
+		model.set_value(iter, 0, name)
+		model.set_value(iter, 1, selection)
+		model.set_value(iter, 2, page)
 		return iter
 	
 	def addPagesToTree(self, pages, root):
@@ -218,42 +189,32 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		iterPage = iterStep = iterPart = None
 		for page in pages:
 			
-			# Add each step to specified spot in tree
-			iterPage = self.insert_row(self.treemodel, root, iterPage, "Page " + str(page.number), page)
+			# Add each page to specified spot in tree
+			iterPage = self.insert_after(self.treemodel, root, iterPage, "Page " + str(page.number), page, page)
 			
 			for step in page.steps:
 				
-				iterStep = self.insert_row(self.treemodel, iterPage, iterStep, "Step " + str(step.number), step)
+				iterStep = self.insert_after(self.treemodel, iterPage, iterStep, "Step " + str(step.number), step, page)
 				
 				for part in step.parts:
 					
 					p = part.partOGL
-					if ((p.pages != []) and (p.name not in loadedSubModels)):
+					if (p.pages != []) and (p.name not in loadedSubModels):
 						
 						# This part has pages of its own, so add this part to specified root
-						subRoot = self.insert_before(self.treemodel, root, iterPage, "SubModel " + p.name, p)
+						subRoot = self.insert_before(self.treemodel, root, iterPage, "SubModel " + p.name, p, page)
 						loadedSubModels.append(p.name)
 						
 						# Add this part's steps into this part in the tree.
-						if (p.pages != []):
+						if p.pages != []:
 							self.addPagesToTree(p.pages, subRoot)
 					
 					# Add this part to tree, placed inside the current step.
-					iterPart = self.insert_row(self.treemodel, iterStep, iterPart, p.name, p)
+					iterPart = self.insert_after(self.treemodel, iterStep, iterPart, p.name, p, page)
 				
 				iterPart = None
 			iterStep = None
 	
-	def displayGrid(self):
-		glBegin( GL_LINES )
-		glVertex3i( 0, 0, 0 )
-		glVertex3i( 1000, 0, 0 )
-		glVertex3i( 0, 0, 0 )
-		glVertex3i( 0, 1000, 0 )
-		glVertex3i( 0, 0, 0 )
-		glVertex3i( 0, 0, 1000 )
-		glEnd()
-
 def go():
 	
 	area = DrawArea()

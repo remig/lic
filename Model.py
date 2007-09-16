@@ -43,11 +43,9 @@ class Instructions():
 	def __init__(self, filename):
 		global ldrawFile
 		
-		self.pagePadding = 20
-		self.filename = filename
-		
-		# line format: filename width height center-x center-y leftInset bottomInset
+		# Part dimensions cache line format: filename width height center-x center-y leftInset bottomInset
 		self.ImgDimensionsFilename = "PartDimensions_" + filename + ".cache"
+		self.filename = filename
 		
 		self.mainModel = Part(filename, isMainModel = True)
 		ldrawFile = self.mainModel.partOGL.ldrawFile
@@ -55,38 +53,12 @@ class Instructions():
 	def resize(self, width, height):
 		global _windowWidth, _windowHeight
 		
-		_windowWidth = width - (self.pagePadding * 2)
-		_windowHeight = height - (self.pagePadding * 2)
+		_windowWidth = width - (Page.pagePadding * 2)
+		_windowHeight = height - (Page.pagePadding * 2)
 		
 		for page in self.mainModel.partOGL.pages:
 			for step in page.steps:
 				step.resize()
-	
-	def drawPage(self, context, width, height):
-		
-		# TODO: This whole method belongs in the Page class - move it there, and use Pages inside this instruction book
-		# Flood context with grey background
-		context.set_source_rgb(0.5, 0.5, 0.5)
-		context.paint()
-		
-		scaleWidth = width - (self.pagePadding * 2)
-		scaleHeight = height - (self.pagePadding * 2)
-		width -= self.pagePadding * 2
-		height -= self.pagePadding * 2
-		
-		# Draw a slightly down-left translated black rectangle, for the page shadow effect
-		context.translate(self.pagePadding, self.pagePadding)
-		context.set_source_rgb(0,0,0)
-		context.rectangle(1, 1, width + 3, height + 3)
-		context.fill()
-		
-		# Draw the page itself - white with a thin black border
-		context.rectangle(0, 0, width, height)
-		context.stroke_preserve()
-		context.set_source_rgb(1,1,1)
-		context.fill()
-		
-		return (scaleWidth, scaleHeight)
 	
 	def getMainModel(self):
 		return self.mainModel
@@ -143,7 +115,7 @@ class Instructions():
 		# TODO: Make the part cache file not model specific, but rendered dimensions specific
 		for line in f:
 			filename, w, h, x, y, l, b, size = line.split()
-			if (not partDictionary.has_key(filename)):
+			if not partDictionary.has_key(filename):
 				print "Warning: part dimension cache contains part (%s) not present in model - suggest regenerating part dimension cache." % (filename)
 				continue
 			p = partDictionary[filename]
@@ -159,7 +131,7 @@ class Instructions():
 		for page in part.pages:
 			for step in page.steps:
 				for part in step.parts:
-					if (part.partOGL.filename not in loadedParts and part.partOGL.pages != []):
+					if part.partOGL.filename not in loadedParts and part.partOGL.pages != []:
 						csiList += self.buildCSIList(part.partOGL, loadedParts)
 					loadedParts.append(part.partOGL.filename)
 				if step.csi.fileLine is None:
@@ -243,6 +215,8 @@ class Page():
 	A single page in an instruction book.
 	"""
 	
+	pagePadding = 20
+	
 	def __init__(self, prevPage = None):
 		
 		self.box = Box()
@@ -257,8 +231,61 @@ class Page():
 		else:
 			self.number = 1
 
-	def draw(self):
-		pass
+	def drawPage(self, context):
+		global _windowWidth, _windowHeight
+		
+		width  = _windowWidth
+		height = _windowHeight
+		
+		# Flood context with grey background
+		context.set_source_rgb(0.5, 0.5, 0.5)
+		context.paint()
+		
+		# Draw a slightly down-left translated black rectangle, for the page shadow effect
+		context.translate(self.pagePadding, self.pagePadding)
+		context.set_source_rgb(0,0,0)
+		context.rectangle(1, 1, width + 3, height + 3)
+		context.fill()
+		
+		# Draw the page itself - white with a thin black border
+		context.rectangle(0, 0, width, height)
+		context.stroke_preserve()
+		context.set_source_rgb(1,1,1)
+		context.fill()
+	
+	def draw(self, context, selection = None):
+		global _windowWidth, _windowHeight
+		
+		# Draw the overall page frame
+		# This leaves the cairo context translated to the top left corner of the page, but *NOT* scaled
+		# Scaling here messes up GL drawing
+		self.drawPage(context)
+		
+		# Fully reset the viewport - necessary if we've mangled it while calculating part dimensions
+		GLHelpers.adjustGLViewport(0, 0, _windowWidth, _windowHeight)
+		GLHelpers.glLoadIdentity()	
+		GLHelpers.rotateToDefaultView()
+		
+		for step in self.steps:
+			step.draw(context)
+		
+		# Copy GL buffer to a new cairo surface, then dump that surface to the current context
+		pixels = glReadPixels (0, 0, _windowWidth, _windowHeight, GL_RGBA,  GL_UNSIGNED_BYTE)
+		surface = cairo.ImageSurface.create_for_data(pixels, cairo.FORMAT_ARGB32, _windowWidth, _windowHeight, _windowWidth * 4)
+		context.set_source_surface(surface)
+		context.paint()
+		
+		# Draw any remaining 2D page elements, like borders, labels, etc
+		for step in self.steps:
+			step.drawPageElements(context)
+		
+		if selection:
+			box = selection.boundingBox()
+			box.drawAsSelection(context)
+	
+	def boundingBox(self):
+		global _windowWidth, _windowHeight
+		return Box(0, 0, _windowWidth, _windowHeight)
 
 class BOM():
 	"""
@@ -286,14 +313,14 @@ class PLI():
 		self.fileLine = None
 
 	def isEmpty(self):
-		if (len(self.layout) > 0):
+		if len(self.layout) > 0:
 			return False
 		return True
 
 	def addPart(self, part):
 		
 		p = part.partOGL		
-		if (p.filename in self.layout):
+		if p.filename in self.layout:
 			self.layout[p.filename][0] += 1
 			self.layout[p.filename][-1] = part.fileLine
 		else:
@@ -306,7 +333,7 @@ class PLI():
 			return
 		
 		# If this PLI is empty, nothing to do here
-		if (len(self.layout) < 1):
+		if len(self.layout) < 1:
 			return
 		
 		# Return the height of the part in the specified layout item
@@ -316,9 +343,9 @@ class PLI():
 		# Compare the width of layout Items 1 and 2
 		def compareLayoutItemWidths(item1, item2):
 			""" Returns 1 if part 2 is wider than part 1, 0 if equal, -1 if narrower. """
-			if (item1[1].width < item2[1].width):
+			if item1[1].width < item2[1].width:
 				return 1
-			if (item1[1].width == item2[1].width):
+			if item1[1].width == item2[1].width:
 				return 0
 			return -1
 		
@@ -336,7 +363,7 @@ class PLI():
 		
 		for i, (count, part, corner, labelCorner, line) in enumerate(partList):  # item: [count, part, bottomLeftCorner, fileline]
 			
-			if (part.width == UNINIT_PROP or part.height == UNINIT_PROP):
+			if (part.width == UNINIT_PROP) or (part.height == UNINIT_PROP):
 				# TODO: Remove this check once all is well
 				print "ERROR: Trying to init the a PLI layout containing uninitialized parts!"
 				continue
@@ -348,12 +375,12 @@ class PLI():
 			# Check if the current PLI box is big enough to fit this part *below* the previous part,
 			# without making the box any bigger.  If so, position part there instead.
 			newWidth = part.width
-			if (i > 0):
+			if i > 0:
 				prevCorner = partList[i-1][2]
 				prevLabelCorner = partList[i-1][3]
 				remainingHeight = b.y + b.height - b.internalGap - b.internalGap - prevCorner.y
-				if (part.height < remainingHeight):
-					if (prevCorner.x > prevLabelCorner.x):
+				if part.height < remainingHeight:
+					if prevCorner.x > prevLabelCorner.x:
 						overallX = int(prevLabelCorner.x)
 						newWidth = (prevCorner.x - overallX) + partList[i-1][1].width
 					else:
@@ -365,7 +392,7 @@ class PLI():
 			# Position the part quantity label
 			labelCorner.x, labelCorner.y, xBearing, xHeight = self.initQtyLabelPos(context, count, part, corner)
 			
-			if (labelCorner.x < overallX):
+			if labelCorner.x < overallX:
 				# We're trying to draw the label to the left of the part's current position - shift everything
 				dx = overallX - labelCorner.x
 				overallX += dx
@@ -391,7 +418,7 @@ class PLI():
 		xbearing, ybearing, labelWidth, labelHeight, xa, ya = context.text_extents(label)
 		
 		# Position label based on part corner, empty corner triangle and label's size
-		if (part.leftInset == part.bottomInset == 0):
+		if part.leftInset == part.bottomInset == 0:
 			dx = -3   # Bottom left triangle is empty - shift just a little, for a touch more padding
 		else:
 			slope = part.leftInset / float(part.bottomInset)
@@ -401,13 +428,13 @@ class PLI():
 		y = int(partCorner.y + (xHeight / 2))
 		return (x, y, xbearing, xHeight)
 	
-	def drawParts(self):
+	def drawParts(self, context):
 		""" Must be called inside a valid gldrawable context. """
 		
-		if (len(self.layout) < 1):
+		if len(self.layout) < 1:
 			return  # No parts in this PLI - nothing to draw
 		
-		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
+		if (self.box.width == UNINIT_PROP) or (self.box.height == UNINIT_PROP):
 			print "ERROR: Trying to draw parts for an unitialized PLI layout!"
 			return
 		
@@ -417,17 +444,17 @@ class PLI():
 			GLHelpers.adjustGLViewport(corner.x, corner.y - part.height, part.width, part.height)
 			glLoadIdentity()
 			GLHelpers.rotateToDefaultView(part.center.x, part.center.y, 0.0)
-			part.draw()
+			part.draw(context)
 		
 		GLHelpers.popAllGLMatrices()
 
 	def drawPageElements(self, context):
 		""" Draw this PLI's background, border and quantity labels to the specified cairo context. """
 		
-		if (len(self.layout) < 1):
+		if len(self.layout) < 1:
 			return  # No parts in this PLI - nothing to draw
 		
-		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
+		if (self.box.width == UNINIT_PROP) or (self.box.height == UNINIT_PROP):
 			print "ERROR: Trying to draw an unitialized PLI layout box!"
 		
 		# Draw the PLIs overall bounding box
@@ -509,16 +536,16 @@ class CSI():
 		self.box.y = ((_windowHeight - self.offsetPLI) / 2.) - (self.box.height / 2.) + self.offsetPLI
 
 	def callPreviousOGLDisplayLists(self, currentBuffers = None):
-		if (self.step.prevStep):
+		if self.step.prevStep:
 			self.step.prevStep.csi.callPreviousOGLDisplayLists(currentBuffers)
 		
-		if (currentBuffers == []):
+		if currentBuffers == []:
 			# Draw the default list, since there's no buffers present
 			glCallList(self.oglDispIDs[0][0])
 		else:
 			# Have current buffer - draw corresponding list (need to search for it)
 			for id, buffer in self.oglDispIDs:
-				if (buffer == currentBuffers):
+				if buffer == currentBuffers:
 					glCallList(id)
 					return
 		
@@ -532,7 +559,7 @@ class CSI():
 		
 		# Ensure all parts in this step have proper display lists
 		for part in self.step.parts:
-			if (part.partOGL.oglDispID == UNINIT_OGL_DISPID):
+			if part.partOGL.oglDispID == UNINIT_OGL_DISPID:
 				part.partOGL.createOGLDisplayList()
 		
 		# Convert the list of buffers into a list of the concatenated buffer stack
@@ -559,7 +586,7 @@ class CSI():
 		self.callPreviousOGLDisplayLists(self.buffers)
 		glEndList()
 
-	def draw(self):
+	def draw(self, context):
 		global _windowWidth, _windowHeight
 		
 		GLHelpers.adjustGLViewport(0, 0, _windowWidth, _windowHeight + self.offsetPLI)
@@ -568,7 +595,7 @@ class CSI():
 		glCallList(self.oglDispID)
 
 	def drawPageElements(self, context):
-		if (self.box.width == UNINIT_PROP or self.box.height == UNINIT_PROP):
+		if (self.box.width == UNINIT_PROP) or (self.box.height == UNINIT_PROP):
 			print "ERROR: Trying to draw an unitialized CSI layout!"
 			return
 		self.box.draw(context)
@@ -600,7 +627,7 @@ class Step():
 		
 		self.fileLine = None
 		
-		if (prevStep):
+		if prevStep:
 			self.number = prevStep.number + 1
 		else:
 			self.number = 1
@@ -612,7 +639,7 @@ class Step():
 		self.parts.append(part)
 		part.translateCallback = self.csi.partTranslateCallback
 		
-		if (not part.ignorePLIState):
+		if not part.ignorePLIState:
 			self.pli.addPart(part)
 	
 	def resize(self):
@@ -640,7 +667,7 @@ class Step():
 					step.initLayout(context)
 		
 		# Determine space between top page edge and bottom of PLI, including gaps
-		if (self.pli.isEmpty()):
+		if self.pli.isEmpty():
 			topGap = self.internalGap
 		else:
 			topGap = self.internalGap * 2 + self.pli.box.height
@@ -666,10 +693,10 @@ class Step():
 				for step in page.steps:
 					step.writeToGlobalFileArray()
 
-	def draw(self):
+	def draw(self, context):
 		""" Draw this step's CSI and PLI parts (not GUI elements, just the 3D GL bits) """
-		self.pli.drawParts()
-		self.csi.draw()
+		self.pli.drawParts(context)
+		self.csi.draw(context)
 
 	def drawPageElements(self, context):
 		""" Draw this step's PLI and CSI page elements, and this step's number label. """
@@ -681,6 +708,10 @@ class Step():
 		context.move_to(self.stepNumberRefPt.x, self.stepNumberRefPt.y)
 		context.show_text(str(self.number))
 	
+	def boundingBox(self):
+		# TODO: Add the step number label to the bounding box
+		return self.pli.box + self.csi.box
+
 class PartOGL():
 	"""
 	Represents one 'abstract' part.  Could be regular part, like 2x4 brick, could be a 
@@ -714,7 +745,7 @@ class PartOGL():
 		self.leftInset = self.bottomInset = 0
 		self.center = Point(0, 0)
 		
-		if ((parentLDFile is not None) and (filename in parentLDFile.subModelArray)):
+		if (parentLDFile is not None) and (filename in parentLDFile.subModelArray):
 			self._loadFromSubModelArray(parentLDFile)
 		else:
 			self._loadFromFile(isMainModel)
@@ -906,15 +937,15 @@ class PartOGL():
 	def addBuffer(self, b):
 		buffer, state = b.values()
 			
-		if (state == BufferStore):
+		if state == BufferStore:
 			self.buffers.append((buffer, self.currentStep.number))
 			self.currentStep.csi.buffers = list(self.buffers)
 		
-		elif (state == BufferRetrieve):
-			if (self.buffers[-1][0] == buffer):
+		elif state == BufferRetrieve:
+			if self.buffers[-1][0] == buffer:
 				self.buffers.pop()
 				self.currentStep.csi.buffers = list(self.buffers)
-				if (self.currentStep.parts != []):
+				if self.currentStep.parts != []:
 					print "Buffer Exchange Error.  Restoring a buffer in Step ", self.currentStep.number, " after adding pieces to step.  Pieces will never be drawn."
 			else:
 				print "Buffer Exchange Error.  Last stored buffer: ", self.buffers[-1][0], " but trying to retrieve buffer: ", buffer
@@ -922,8 +953,8 @@ class PartOGL():
 	def setPLIState(self, line):
 		
 		state = lineToLPubPLIState(line)
-		if (self.ignorePLIState == state):
-			if (state):
+		if self.ignorePLIState == state:
+			if state:
 				print "PLI Ignore Error: Begnining PLI IGN when already begun.  Line: ", line[0]
 			else:
 				print "PLI Ignore Error: Ending PLI IGN when no valid PLI IGN had begun. Line: ", line[0]
@@ -932,7 +963,7 @@ class PartOGL():
 	
 	def createOGLDisplayList(self):
 		""" Initialize this part's display list.  Expensive call, but called only once. """
-		if (self.oglDispID != UNINIT_OGL_DISPID):
+		if self.oglDispID != UNINIT_OGL_DISPID:
 			return
 		
 		# Ensure any pages and steps in this part have been initialized
@@ -942,7 +973,7 @@ class PartOGL():
 		
 		# Ensure any parts in this part have been initialized
 		for part in self.parts:
-			if (part.partOGL.oglDispID == UNINIT_OGL_DISPID):
+			if part.partOGL.oglDispID == UNINIT_OGL_DISPID:
 				part.partOGL.createOGLDisplayList()
 		
 		self.oglDispID = glGenLists(1)
@@ -960,8 +991,8 @@ class PartOGL():
 		
 		glEndList()
 
-	def draw(self):
-		if (self.width == UNINIT_PROP or self.height == UNINIT_PROP):
+	def draw(self, context):
+		if (self.width == UNINIT_PROP) or (self.height == UNINIT_PROP):
 			# TODO: Remove this check once all is well
 			print "ERROR: Trying to draw a part with uninitialized width / height!!: ", self.filename
 			return
@@ -974,7 +1005,7 @@ class PartOGL():
 		pass
 
 	def dimensionsToString(self):
-		if (self.isPrimitive):
+		if self.isPrimitive:
 			return ""
 		return "%s %d %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x, self.center.y, self.leftInset, self.bottomInset, self.imageSize)
 
@@ -994,11 +1025,11 @@ class PartOGL():
 		"""
 		
 		# Primitive parts need not be sized
-		if (self.isPrimitive):
+		if self.isPrimitive:
 			return True
 		
 		params = GLHelpers.initImgSize(size, size, self.oglDispID, wantInsets = True, filename = self.filename)
-		if (params is None):
+		if params is None:
 			return False
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
@@ -1036,6 +1067,11 @@ class PartOGL():
 				#height = self.steps[i].csi.box.height
 				self.ldrawFile.createPov(self.imageSize, self.imageSize, dat)
 	
+	def boundingBox(self):
+		# TODO: This is entirely wrong - get rid of this once selection is working properly
+		global _windowWidth, _windowHeight
+		return Box(0, 0, _windowWidth, _windowHeight)
+
 class Part():
 	"""
 	Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough
@@ -1056,7 +1092,7 @@ class Part():
 		
 		self.translateCallback = None
 		
-		if (filename in partDictionary):
+		if filename in partDictionary:
 			self.partOGL = partDictionary[filename]
 		else:
 			self.partOGL = partDictionary[filename] = PartOGL(filename, ldrawFile, isMainModel)
@@ -1082,66 +1118,71 @@ class Part():
 
 	def shouldBeDrawn(self, currentBuffer):
 		
-		if (len(self.buffers) < 1):
+		if len(self.buffers) < 1:
 			return True  # Piece not in any buffer - draw always
 		
 		# This piece is in a buffer
-		if ((currentBuffer is None) or (len(currentBuffer) < 1)):
+		if (currentBuffer is None) or (len(currentBuffer) < 1):
 			return False  # Piece in a buffer, but no current buffer - don't draw
 		
-		if (self.buffers == currentBuffer): # Piece and current buffer match - draw
+		if self.buffers == currentBuffer: # Piece and current buffer match - draw
 			return True
 		
 		return False # Piece and current buffer don't match - don't draw
 
 	def callOGLDisplayList(self, currentBuffer = None):
 		
-		if (not self.shouldBeDrawn(currentBuffer)):
+		if not self.shouldBeDrawn(currentBuffer):
 			return
 		
 		# must be called inside a glNewList/EndList pair
-		if (self.color):
+		if self.color:
 			color = convertToRGBA(self.color)
 		else:
 			color = CurrentColor
 		
-		if (color != CurrentColor):
+		if color != CurrentColor:
 			glPushAttrib(GL_CURRENT_BIT)
-			if (len(color) == 3):
+			if len(color) == 3:
 				glColor3fv(color)
-			elif (len(color) == 4):
+			elif len(color) == 4:
 				glColor4fv(color)
 		
-		if (self.inverted):
+		if self.inverted:
 			glPushAttrib(GL_POLYGON_BIT)
 			glFrontFace(GL_CW)
 		
-		if (self.matrix):
+		if self.matrix:
 			glPushMatrix()
 			glMultMatrixf(self.matrix)
 			
 		glCallList(self.partOGL.oglDispID)
 		
-		if (self.matrix):
+		if self.matrix:
 			glPopMatrix()
 		
-		if (self.inverted):
+		if self.inverted:
 			glPopAttrib()
 		
-		if (color != CurrentColor):
+		if color != CurrentColor:
 			glPopAttrib()
 
-	def draw(self):
+	def draw(self, context):
 		
-		if (self.matrix):
+		if self.matrix:
 			glPushMatrix()
 			glMultMatrixf(self.matrix)
 		
 		glCallList(self.partOGL.oglDispID)
 		
-		if (self.matrix):
+		if self.matrix:
 			glPopMatrix()
 	
+	def boundingBox(self):
+		# TODO: This is entirely wrong - get rid of this once selection is working properly
+		global _windowWidth, _windowHeight
+		return Box(0, 0, _windowWidth, _windowHeight)
+
 class Primitive():
 	"""
 	Not a primitive in the LDraw sense, just a single line/triangle/quad.
@@ -1168,7 +1209,7 @@ class Primitive():
 		Ay = (Bz * Cx) - (Bx * Cz)
 		Az = (Bx * Cy) - (By * Cx)
 		l = math.sqrt((Ax*Ax)+(Ay*Ay)+(Az*Az))
-		if (l != 0):
+		if l != 0:
 			Ax /= l
 			Ay /= l
 			Az /= l
@@ -1179,16 +1220,16 @@ class Primitive():
 		# must be called inside a glNewList/EndList pair
 		color = convertToRGBA(self.color)
 		
-		if (color != CurrentColor):
+		if color != CurrentColor:
 			glPushAttrib(GL_CURRENT_BIT)
-			if (len(color) == 3):
+			if len(color) == 3:
 				glColor3fv(color)
-			elif (len(color) == 4):
+			elif len(color) == 4:
 				glColor4fv(color)
 		
 		p = self.points
 		
-		if (self.inverted):
+		if self.inverted:
 			normal = self.addNormal(p[6:9], p[3:6], p[0:3])
 			#glBegin( GL_LINES )
 			#glVertex3f(p[3], p[4], p[5])
@@ -1197,7 +1238,7 @@ class Primitive():
 			
 			glBegin( self.type )
 			glNormal3fv(normal)
-			if (self.type == GL_QUADS):
+			if self.type == GL_QUADS:
 				glVertex3f( p[9], p[10], p[11] )
 			glVertex3f( p[6], p[7], p[8] )
 			glVertex3f( p[3], p[4], p[5] )
@@ -1215,9 +1256,9 @@ class Primitive():
 			glVertex3f( p[0], p[1], p[2] )
 			glVertex3f( p[3], p[4], p[5] )
 			glVertex3f( p[6], p[7], p[8] )
-			if (self.type == GL_QUADS):
+			if self.type == GL_QUADS:
 				glVertex3f( p[9], p[10], p[11] )
 			glEnd()
 		
-		if (color != CurrentColor):
+		if color != CurrentColor:
 			glPopAttrib()

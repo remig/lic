@@ -43,10 +43,10 @@ class Line():
 	"""
 
 	# TODO: Define all members and their units in this class
-	def __init__(self, red = 0, green = 0, blue = 0):
+	def __init__(self, red = 0, green = 0, blue = 0, thickness = 0, dash = 0):
 		self.color = [red, green, blue]  # [red, green, blue], 0.0 - 1.0
-		self.thickness = 0
-		self.dash = 0
+		self.thickness = thickness
+		self.dash = dash
 
 class Fill():
 # TODO: Define all members and their units in this class
@@ -86,3 +86,25 @@ class Box():
 		context.set_source_rgb(*self.line.color)
 		context.rectangle(self.x, self.y, self.width, self.height)
 		context.stroke()
+
+	def drawAsSelection(self, context):
+		context.rectangle(self.x, self.y, self.width, self.height)
+		context.set_source_rgb(0, 0, 0)
+		context.stroke_preserve()
+		context.set_source_rgb(1.0, 1.0, 1.0)
+		context.set_dash([3, 3])
+		context.stroke()
+	
+	def growBy(self, point):
+		self.x = min(self.x, point.x)
+		self.y = min(self.y, point.y)
+		self.width = max(self.width, point.x - self.x)
+		self.height = max(self.height, point.y - self.y)
+	
+	def __add__(self, b):
+		c = Box(self.x, self.y, self.width, self.height)
+		c.growBy(Point(b.x, b.y))
+		c.growBy(Point(b.x + b.width, b.y))
+		c.growBy(Point(b.x, b.y + b.height))
+		c.growBy(Point(b.x + b.width, b.y + b.height))
+		return c
