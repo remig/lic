@@ -155,7 +155,7 @@ def lineToPLIItem(line):
 def isValidPageLine(line):
 	return isValidLICLine(line) and (len(line) > 3) and (line[3] == PageCommand)
 
-class LDrawFile():
+class LDrawFile:
 	def __init__(self, filename):
 		
 		self.filename = filename  # filename, like 3057.dat

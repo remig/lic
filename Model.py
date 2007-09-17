@@ -274,6 +274,7 @@ class Page:
 		surface = cairo.ImageSurface.create_for_data(pixels, cairo.FORMAT_ARGB32, _windowWidth, _windowHeight, _windowWidth * 4)
 		context.set_source_surface(surface)
 		context.paint()
+		surface.finish()
 		
 		# Draw any remaining 2D page elements, like borders, labels, etc
 		for step in self.steps:
@@ -646,6 +647,7 @@ class Step:
 	def __init__(self, filename, prevStep = None, buffers = []):
 		self.parts = []
 		self.prevStep = prevStep
+		self.nextStep = None
 		
 		self.internalGap = 20
 		self.stepNumberFont = Font(20)
@@ -734,6 +736,9 @@ class Step:
 		context.move_to(self.stepNumberRefPt.x, self.stepNumberRefPt.y)
 		context.show_text(str(self.number))
 	
+	def renderToPov(self):
+		pass
+
 	def boundingBox(self):
 		# TODO: Add the step number label to the bounding box
 		return self.pli.box + self.csi.box
@@ -929,14 +934,18 @@ class PartOGL:
 			self.currentPage.steps.pop()
 			self.currentStep = self.currentStep.prevStep
 		
-		# Create a new step, and make it the current step
-		self.currentStep = Step(self.filename, self.currentStep, list(self.buffers))
-		self.currentStep.fileLine = line
-		
-		if self.currentPage:
-			self.currentPage.steps.append(self.currentStep)
-		else:
+		if not self.currentPage:
 			print "Error: Trying to add a step when there's no current page to add step to."
+			return
+			
+		# Create a new step, set the current steps' nextStep to it, then make it the current step
+		newStep = Step(self.filename, self.currentStep, list(self.buffers))
+		if self.currentStep:
+			self.currentStep.nextStep = newStep
+		
+		self.currentStep = newStep
+		self.currentStep.fileLine = line
+		self.currentPage.steps.append(self.currentStep)
 
 	def addPart(self, p, line):
 		try:
@@ -1075,22 +1084,24 @@ class PartOGL:
 		#self.ldrawFile.createPov(self.width + 3, self.height + 3, filename)
 		
 		# If this part has pages and steps, need to generate dats, povs & images for each step
-		if self.pages != [] and self.pages[0].steps != []:
-			if self.ldArrayStartEnd:
-				stepDats = self.ldrawFile.splitStepDats(self.filename, *self.ldArrayStartEnd)
-			else:
-				stepDats = self.ldrawFile.splitStepDats()
-			
-			if len(stepDats) != self.pages[-1].steps[-1].number:
-				print "Error: Generated %d step dats, but have %d steps" % (len(stepDats), self.pages[-1].steps[-1].number)
-				return
-			
-			# Render any steps we generated above
-			for i, dat in enumerate(stepDats):
-				#width = self.steps[i].csi.box.width
-				#height = self.steps[i].csi.box.height
-				self.ldrawFile.createPov(self.imageSize, self.imageSize, dat)
-	
+		for page in self.pages:
+			for step in page.steps:
+				step.renderToPov()
+			"""	if self.ldArrayStartEnd:
+					stepDats = self.ldrawFile.splitStepDats(self.filename, *self.ldArrayStartEnd)
+				else:
+					stepDats = self.ldrawFile.splitStepDats()
+				
+				if len(stepDats) != self.pages[-1].steps[-1].number:
+					print "Error: Generated %d step dats, but have %d steps" % (len(stepDats), self.pages[-1].steps[-1].number)
+					return
+				
+				# Render any steps we generated above
+				for i, dat in enumerate(stepDats):
+					#width = self.steps[i].csi.box.width
+					#height = self.steps[i].csi.box.height
+					self.ldrawFile.createPov(256, 256, dat) """
+
 	def boundingBox(self):
 		# TODO: remove this check, and this entire method, once it is no longer ever called
 		print "Error: trying to determine a bounding box for a partOGL!: %s" % (self.filename)
