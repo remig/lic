@@ -564,3 +564,20 @@ def on_button_press(self, *args):
 		glRotatef( 10.0, 1.0, 0.0, 0.0,)
 	
 	self.on_draw_event()
+
+def renderStepDatsToPovOldWay():
+	if self.ldArrayStartEnd:
+		stepDats = self.ldrawFile.splitStepDats(self.filename, *self.ldArrayStartEnd)
+	else:
+		stepDats = self.ldrawFile.splitStepDats()
+
+	if len(stepDats) != self.pages[-1].steps[-1].number:
+		print "Error: Generated %d step dats, but have %d steps" % (len(stepDats), self.pages[-1].steps[-1].number)
+		return
+				
+	# Render any steps we generated above
+	for i, dat in enumerate(stepDats):
+		#width = self.steps[i].csi.box.width
+		#height = self.steps[i].csi.box.height
+		self.ldrawFile.createPov(256, 256, dat)
+

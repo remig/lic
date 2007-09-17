@@ -647,7 +647,6 @@ class Step:
 	def __init__(self, filename, prevStep = None, buffers = []):
 		self.parts = []
 		self.prevStep = prevStep
-		self.nextStep = None
 		
 		self.internalGap = 20
 		self.stepNumberFont = Font(20)
@@ -736,8 +735,9 @@ class Step:
 		context.move_to(self.stepNumberRefPt.x, self.stepNumberRefPt.y)
 		context.show_text(str(self.number))
 	
-	def renderToPov(self):
-		pass
+	def renderToPov(self, ldrawFile, start = 0, end = -1):
+		datFilename = ldrawFile.splitOneStepDat(self.fileLine, self.number, self.csi.filename, start, end)
+		ldrawFile.createPov(self.csi.box.width, self.csi.box.height, datFilename)
 
 	def boundingBox(self):
 		# TODO: Add the step number label to the bounding box
@@ -939,11 +939,7 @@ class PartOGL:
 			return
 			
 		# Create a new step, set the current steps' nextStep to it, then make it the current step
-		newStep = Step(self.filename, self.currentStep, list(self.buffers))
-		if self.currentStep:
-			self.currentStep.nextStep = newStep
-		
-		self.currentStep = newStep
+		self.currentStep = Step(self.filename, self.currentStep, list(self.buffers))
 		self.currentStep.fileLine = line
 		self.currentPage.steps.append(self.currentStep)
 
@@ -1083,24 +1079,13 @@ class PartOGL:
 		self.ldrawFile.createPov(self.imageSize, self.imageSize, filename)
 		#self.ldrawFile.createPov(self.width + 3, self.height + 3, filename)
 		
-		# If this part has pages and steps, need to generate dats, povs & images for each step
+		# If this part has pages and steps, render each one too
 		for page in self.pages:
 			for step in page.steps:
-				step.renderToPov()
-			"""	if self.ldArrayStartEnd:
-					stepDats = self.ldrawFile.splitStepDats(self.filename, *self.ldArrayStartEnd)
+				if self.ldArrayStartEnd:
+					step.renderToPov(self.ldrawFile, *self.ldArrayStartEnd)
 				else:
-					stepDats = self.ldrawFile.splitStepDats()
-				
-				if len(stepDats) != self.pages[-1].steps[-1].number:
-					print "Error: Generated %d step dats, but have %d steps" % (len(stepDats), self.pages[-1].steps[-1].number)
-					return
-				
-				# Render any steps we generated above
-				for i, dat in enumerate(stepDats):
-					#width = self.steps[i].csi.box.width
-					#height = self.steps[i].csi.box.height
-					self.ldrawFile.createPov(256, 256, dat) """
+					step.renderToPov(self.ldrawFile)
 
 	def boundingBox(self):
 		# TODO: remove this check, and this entire method, once it is no longer ever called

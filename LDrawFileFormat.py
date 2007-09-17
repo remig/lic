@@ -318,7 +318,26 @@ class LDrawFile:
 		f.close()
 		
 		return DatPath + filename
-	
+
+	def splitOneStepDat(self, stepLine, stepNumber, filename, start = 0, end = -1):
+
+		if end == -1:
+			end = len(self.fileArray)
+
+		rawFilename = os.path.splitext(os.path.basename(filename))[0]
+		datFilename = DatPath + rawFilename + '_step_%d' % (stepNumber) + '.dat'
+		f = open(datFilename, 'w')
+
+		inCurrentStep = False
+		for line in self.fileArray[start:end]:
+			if line == stepLine:
+				inCurrentStep = True
+			elif isValidStepLine(line) and inCurrentStep:
+				break
+			f.write(' '.join(line[1:]) + '\n')
+		f.close()
+		return datFilename
+
 	def splitStepDats(self, filename = None, start = 0, end = -1):
 		
 		if end == -1:
