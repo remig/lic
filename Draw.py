@@ -161,9 +161,10 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	
 	def treeview_button_press(self, obj, event):
 		treemodel, iter = self.tree.get_selection().get_selected()
-		self.currentSelection = treemodel.get_value(iter, 1)
-		self.currentPage = treemodel.get_value(iter, 2)
-		self.on_draw_event()
+		if iter:  # If nothing is selected, iter is None, and get_value crashes
+			self.currentSelection = treemodel.get_value(iter, 1)
+			self.currentPage = treemodel.get_value(iter, 2)
+			self.on_draw_event()
 
 	def initializeTree(self):
 		print "*** Loading TreeView ***"
@@ -186,7 +187,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	
 	def addPagesToTree(self, pages, root):
 		loadedSubModels = []
-		iterPage = iterStep = iterPart = None
+		iterPage = iterStep = iterPart = iterPLI = iterCSI = None
 		for page in pages:
 			
 			# Add each page to specified spot in tree
@@ -195,9 +196,14 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 			for step in page.steps:
 				
 				iterStep = self.insert_after(self.treemodel, iterPage, iterStep, "Step " + str(step.number), step, page)
-				self.insert_after(self.treemodel, iterStep, None, "PLI", step.pli, page)
-				self.insert_after(self.treemodel, iterStep, None, "CSI", step.csi, page)
 				
+				# Add all the parts in this PLI to the PLI tree node
+				iterPLI  = self.insert_after(self.treemodel, iterStep, None, "PLI", step.pli, page)
+				for partOGL in step.pli.getPartList():
+					self.insert_after(self.treemodel, iterPLI, None, partOGL.name, partOGL, page)
+				
+				# Add all the parts in this step to the step's CSI tree node
+				iterCSI  = self.insert_after(self.treemodel, iterStep, None, "CSI", step.csi, page)
 				for part in step.parts:
 					
 					p = part.partOGL
@@ -211,11 +217,11 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 						if p.pages != []:
 							self.addPagesToTree(p.pages, subRoot)
 					
-					# Add this part to tree, placed inside the current step.
-					iterPart = self.insert_after(self.treemodel, iterStep, iterPart, p.name, p, page)
+					# Add this part (not partOGL) to tree, placed inside the current CSI node
+					iterPart = self.insert_after(self.treemodel, iterCSI, iterPart, p.name, part, page)
 				
 				iterPart = None
-			iterStep = None
+			iterStep = iterPLI = iterCSI = None
 	
 def go():
 	

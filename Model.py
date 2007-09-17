@@ -281,12 +281,14 @@ class Page():
 		
 		if selection:
 			box = selection.boundingBox()
-			box.growBy(2)
-			box.drawAsSelection(context)
+			if box:
+				box.growBy(2)
+				box.drawAsSelection(context)
 	
 	def boundingBox(self):
-		global _windowWidth, _windowHeight
-		return Box(0, 0, _windowWidth, _windowHeight)
+#		global _windowWidth, _windowHeight
+#		return Box(0, 0, _windowWidth, _windowHeight)
+		return None
 
 class BOM():
 	"""
@@ -327,6 +329,9 @@ class PLI():
 		else:
 			self.layout[p.filename] = [1, p, Point(0, 0), Point(0, 0), part.fileLine]
 
+	def getPartList(self):
+		return [x[1] for x in self.layout.values()]
+	
 	def initLayout(self, context):
 		
 		if self.fileLine:
@@ -1075,9 +1080,9 @@ class PartOGL():
 				self.ldrawFile.createPov(self.imageSize, self.imageSize, dat)
 	
 	def boundingBox(self):
-		# TODO: This is entirely wrong - get rid of this once selection is working properly
-		global _windowWidth, _windowHeight
-		return Box(0, 0, _windowWidth, _windowHeight)
+		# TODO: remove this check, and this entire method, once it is no longer ever called
+		print "Error: trying to determine a bounding box for a partOGL!: %s" % (self.filename)
+		return None
 
 class Part():
 	"""
