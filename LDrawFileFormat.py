@@ -145,12 +145,12 @@ def isValidPLIItemLine(line):
 	return isValidLICLine(line) and (len(line) > 9) and (line[3] == PLIItemCommand)
 
 def lineToPLIItem(line):
-	# [index, Comment, LicCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y]
-	# {part filename: [count, part, bottomLeftCorner, qtyLabelReference]}
+	# [index, Comment, LicCommand, PLIItemCommand, filename, item.count, item.corner.x, item.corner.y, item.labelCorner.x, item.labelCorner.y, item.xBearing]
 	return {'filename': line[4],
 			'count': int(line[5]),
 			'corner': Point(float(line[6]), float(line[7])),
-			'labelCorner': Point(float(line[8]), float(line[9]))}
+			'labelCorner': Point(float(line[8]), float(line[9])),
+			'xBearing'   : float(line[10])}
 
 def isValidPageLine(line):
 	return isValidLICLine(line) and (len(line) > 3) and (line[3] == PageCommand)
@@ -191,7 +191,7 @@ class LDrawFile():
 			if isValidStepLine(line):   # Already have initial step - nothing to do here
 				currentFileLine = False
 			
-			if isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidLPubPLILine(line):
+			if isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidLPubPLILine(line) or isValidCSILine(line):
 				if currentFileLine:
 					lines.append(line)
 					currentFileLine = False

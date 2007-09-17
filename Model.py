@@ -301,12 +301,19 @@ class Callout:
 		self.box = Box(0, 0)
 
 class PLIItem:
-	def __init__(self, partOGL, count, corner, labelCorner, fileLine):
+	def __init__(self, partOGL, count, corner, labelCorner, xBearing, fileLine):
 		self.partOGL = partOGL
 		self.count = count
 		self.corner = corner
 		self.labelCorner = labelCorner
+		self.xBearing = xBearing
 		self.fileLine = fileLine
+
+	def boundingBox(self):
+		p = self.partOGL
+		b = Box(self.corner.x, self.corner.y - p.height, p.width, p.height)
+		b.growByXY(self.labelCorner.x - self.xBearing, self.labelCorner.y)
+		return b
 	
 class PLI:
 	"""
@@ -335,7 +342,7 @@ class PLI:
 			self.layout[p.filename].count += 1
 			self.layout[p.filename].fileLine = part.fileLine
 		else:
-			self.layout[p.filename] = PLIItem(p, 1, Point(), Point(), part.fileLine)
+			self.layout[p.filename] = PLIItem(p, 1, Point(), Point(), 0, part.fileLine)
 	
 	def initLayout(self, context):
 		
@@ -409,9 +416,10 @@ class PLI:
 				dx = overallX - item.labelCorner.x
 				overallX += dx
 				item.labelCorner.x += dx
-				corner.x += dx
+				item.corner.x += dx
 			
 			# Account for any x bearing in label (space between left corner of bounding box and actual reference point)
+			item.xBearing = xBearing
 			item.labelCorner.x -= xBearing
 			
 			# Increase overall x, box width and box height to make PLI box big enough for this part
@@ -493,7 +501,7 @@ class PLI:
 		# Write out each PLI item in the layout, positioned right after the last occurance of the part in this step
 		#for (count, part, corner, labelCorner, line) in self.layout.values():
 		for filename, item in self.layout.items():
-			ldrawFile.insertLine(item.fileLine[0], [Comment, LicCommand, PLIItemCommand, filename, item.count, item.corner.x, item.corner.y, item.labelCorner.x, item.labelCorner.y])
+			ldrawFile.insertLine(item.fileLine[0], [Comment, LicCommand, PLIItemCommand, filename, item.count, item.corner.x, item.corner.y, item.labelCorner.x, item.labelCorner.y, item.xBearing])
 
 	def boundingBox(self):
 		return Box(box = self.box)
@@ -882,7 +890,7 @@ class PartOGL:
 			return
 		
 		partLine = self.currentStep.parts[-1].fileLine
-		self.currentStep.pli.layout[d['filename']] = PLIItem(partDictionary[d['filename']], d['count'], d['corner'], d['labelCorner'], partLine)
+		self.currentStep.pli.layout[d['filename']] = PLIItem(partDictionary[d['filename']], d['count'], d['corner'], d['labelCorner'], d['xBearing'], partLine)
 	
 	def addCSI(self, line):
 		if not self.currentStep:

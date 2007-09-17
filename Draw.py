@@ -199,8 +199,8 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 				
 				# Add all the parts in this PLI to the PLI tree node
 				iterPLI  = self.insert_after(self.treemodel, iterStep, None, "PLI", step.pli, page)
-				#for partOGL in step.pli.getPartList():
-				#	self.insert_after(self.treemodel, iterPLI, None, partOGL.name, partOGL, page)
+				for item in step.pli.layout.values():
+					self.insert_after(self.treemodel, iterPLI, None, item.partOGL.name, item, page)
 				
 				# Add all the parts in this step to the step's CSI tree node
 				iterCSI  = self.insert_after(self.treemodel, iterStep, None, "CSI", step.csi, page)

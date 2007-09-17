@@ -111,16 +111,26 @@ class Box():
 		self.width += 2 * gap
 		self.height += 2 * gap
 	
+	def growByXY(self, x, y):
+		if x < self.x:
+			self.width += self.x - x
+			self.x = x
+		elif x > self.x + self.width:
+			self.width = x - self.x
+		
+		if y < self.y:
+			self.height += self.y - y
+			self.y = y
+		elif y > self.y + self.height:
+			self.height = y - self.y
+	
 	def growByPoint(self, point):
-		self.x = min(self.x, point.x)
-		self.y = min(self.y, point.y)
-		self.width = max(self.width, point.x - self.x)
-		self.height = max(self.height, point.y - self.y)
+		self.growByXY(point.x, point.y)
 	
 	def __add__(self, b):
 		c = Box(self.x, self.y, self.width, self.height)
-		c.growByPoint(Point(b.x, b.y))
-		c.growByPoint(Point(b.x + b.width, b.y))
-		c.growByPoint(Point(b.x, b.y + b.height))
-		c.growByPoint(Point(b.x + b.width, b.y + b.height))
+		c.growByXY(b.x, b.y)
+		c.growByXY(b.x + b.width, b.y)
+		c.growByXY(b.x, b.y + b.height)
+		c.growByXY(b.x + b.width, b.y + b.height)
 		return c
