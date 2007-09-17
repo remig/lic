@@ -97,9 +97,9 @@ class Box():
 		context.stroke()
 
 	def drawAsSelection(self, context):
-		context.set_line_width(1.0)
+		context.set_line_width(2.0)
 		context.rectangle(self.x - 0.5, self.y - 0.5, self.width + 1, self.height + 1)
-		context.set_source_rgb(0, 0, 0)
+		context.set_source_rgba(0, 0, 0, 0.75)
 		context.stroke_preserve()
 		context.set_source_rgb(1.0, 1.0, 1.0)
 		context.set_dash([5, 5])

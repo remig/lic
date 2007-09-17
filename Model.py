@@ -36,7 +36,7 @@ ldrawFile = None
 _windowWidth = -1
 _windowHeight = -1
 
-class Instructions():
+class Instructions:
 	"""	Represents an overall Lego instruction booklet.	"""
 	
 	# TODO: Instructions should be a tree, and be used more cleanly than the hack job currently in the tree GUI code.
@@ -210,7 +210,7 @@ class Instructions():
 		f.writelines(lines)
 		f.close()
 	
-class Page():
+class Page:
 	"""
 	A single page in an instruction book.
 	"""
@@ -290,17 +290,25 @@ class Page():
 #		return Box(0, 0, _windowWidth, _windowHeight)
 		return None
 
-class BOM():
+class BOM:
 	"""
 	Bill Of Materials - just an elaborate PLI, containing a list of all parts in the model, nicely laid out.
 	"""
 	pass
 
-class Callout():
+class Callout:
 	def __init__(self):
 		self.box = Box(0, 0)
 
-class PLI():
+class PLIItem:
+	def __init__(self, partOGL, count, corner, labelCorner, fileLine):
+		self.partOGL = partOGL
+		self.count = count
+		self.corner = corner
+		self.labelCorner = labelCorner
+		self.fileLine = fileLine
+	
+class PLI:
 	"""
 	Parts List Image.  Includes border and layout info for a list of parts added to a step.
 	"""
@@ -310,7 +318,7 @@ class PLI():
 		self.box = Box(topLeftCorner.x, topLeftCorner.y)
 		self.qtyLabelFont = Font(size = 14, bold = True)
 		self.qtyMultiplierChar = 'x'
-		self.layout = {}  # {part filename: [count, part, bottomLeftCorner, qtyLabelReference, partFileLine]}
+		self.layout = {}  # {part filename: PLIItem instance}
 		
 		self.step = step
 		self.fileLine = None
@@ -324,13 +332,10 @@ class PLI():
 		
 		p = part.partOGL		
 		if p.filename in self.layout:
-			self.layout[p.filename][0] += 1
-			self.layout[p.filename][-1] = part.fileLine
+			self.layout[p.filename].count += 1
+			self.layout[p.filename].fileLine = part.fileLine
 		else:
-			self.layout[p.filename] = [1, p, Point(0, 0), Point(0, 0), part.fileLine]
-
-	def getPartList(self):
-		return [x[1] for x in self.layout.values()]
+			self.layout[p.filename] = PLIItem(p, 1, Point(), Point(), part.fileLine)
 	
 	def initLayout(self, context):
 		
@@ -344,14 +349,14 @@ class PLI():
 		
 		# Return the height of the part in the specified layout item
 		def itemHeight(layoutItem):
-			return layoutItem[1].height
+			return layoutItem.partOGL.height
 		
 		# Compare the width of layout Items 1 and 2
 		def compareLayoutItemWidths(item1, item2):
 			""" Returns 1 if part 2 is wider than part 1, 0 if equal, -1 if narrower. """
-			if item1[1].width < item2[1].width:
+			if item1.partOGL.width < item2.partOGL.width:
 				return 1
-			if item1[1].width == item2[1].width:
+			if item1.partOGL.width == item2.partOGL.width:
 				return 0
 			return -1
 		
@@ -367,51 +372,52 @@ class PLI():
 		overallX = b.x + b.internalGap
 		b.width = b.height = UNINIT_PROP
 		
-		for i, (count, part, corner, labelCorner, line) in enumerate(partList):  # item: [count, part, bottomLeftCorner, fileline]
+		#for i, (corner, labelCorner) in enumerate(partList):
+		for i, item in enumerate(partList):
 			
-			if (part.width == UNINIT_PROP) or (part.height == UNINIT_PROP):
+			if (item.partOGL.width == UNINIT_PROP) or (item.partOGL.height == UNINIT_PROP):
 				# TODO: Remove this check once all is well
 				print "ERROR: Trying to init the a PLI layout containing uninitialized parts!"
 				continue
 			
 			# Calculate and store this part's bottom left corner
-			corner.x = overallX
-			corner.y = b.y + b.internalGap + part.height
+			item.corner.x = overallX
+			item.corner.y = b.y + b.internalGap + item.partOGL.height
 			
 			# Check if the current PLI box is big enough to fit this part *below* the previous part,
 			# without making the box any bigger.  If so, position part there instead.
-			newWidth = part.width
+			newWidth = item.partOGL.width
 			if i > 0:
-				prevCorner = partList[i-1][2]
-				prevLabelCorner = partList[i-1][3]
+				prevCorner = partList[i-1].corner
+				prevLabelCorner = partList[i-1].labelCorner
 				remainingHeight = b.y + b.height - b.internalGap - b.internalGap - prevCorner.y
-				if part.height < remainingHeight:
+				if item.partOGL.height < remainingHeight:
 					if prevCorner.x > prevLabelCorner.x:
 						overallX = int(prevLabelCorner.x)
-						newWidth = (prevCorner.x - overallX) + partList[i-1][1].width
+						newWidth = (prevCorner.x - overallX) + partList[i-1].partOGL.width
 					else:
 						overallX = prevCorner.x
-						newWidth = partList[i-1][1].width
-					corner.x = overallX + (newWidth - part.width)
-					corner.y = prevCorner.y + b.internalGap + part.height
+						newWidth = partList[i-1].partOGL.width
+					item.corner.x = overallX + (newWidth - item.partOGL.width)
+					item.corner.y = prevCorner.y + b.internalGap + item.partOGL.height
 			
 			# Position the part quantity label
-			labelCorner.x, labelCorner.y, xBearing, xHeight = self.initQtyLabelPos(context, count, part, corner)
+			item.labelCorner.x, item.labelCorner.y, xBearing, xHeight = self.initQtyLabelPos(context, item.count, item.partOGL, item.corner)
 			
-			if labelCorner.x < overallX:
+			if item.labelCorner.x < overallX:
 				# We're trying to draw the label to the left of the part's current position - shift everything
-				dx = overallX - labelCorner.x
+				dx = overallX - item.labelCorner.x
 				overallX += dx
-				labelCorner.x += dx
+				item.labelCorner.x += dx
 				corner.x += dx
 			
 			# Account for any x bearing in label (space between left corner of bounding box and actual reference point)
-			labelCorner.x -= xBearing
+			item.labelCorner.x -= xBearing
 			
 			# Increase overall x, box width and box height to make PLI box big enough for this part
 			overallX += newWidth + b.internalGap
 			b.width = overallX - b.x
-			b.height = max(b.height, part.height + int(xHeight / 2) + (b.internalGap * 2))
+			b.height = max(b.height, item.partOGL.height + int(xHeight / 2) + (b.internalGap * 2))
 
 	def initQtyLabelPos(self, context, count, part, partCorner):
 		
@@ -446,8 +452,9 @@ class PLI():
 		
 		GLHelpers.pushAllGLMatrices()
 		
-		for (count, part, corner, labelCorner, line) in self.layout.values():
-			GLHelpers.adjustGLViewport(corner.x, corner.y - part.height, part.width, part.height)
+		for item in self.layout.values():
+			part = item.partOGL
+			GLHelpers.adjustGLViewport(item.corner.x, item.corner.y - part.height, part.width, part.height)
 			glLoadIdentity()
 			GLHelpers.rotateToDefaultView(part.center.x, part.center.y, 0.0)
 			part.draw(context)
@@ -467,12 +474,10 @@ class PLI():
 		self.box.draw(context)
 		
 		# Draw the quantity label for each part, if needed
-		for (count, part, corner, labelCorner, line) in self.layout.values():
-			
-			# Draw part's quantity label
+		for item in self.layout.values():
 			self.qtyLabelFont.passToCairo(context)
-			context.move_to(labelCorner.x, labelCorner.y)
-			context.show_text(str(count) + self.qtyMultiplierChar)
+			context.move_to(item.labelCorner.x, item.labelCorner.y)
+			context.show_text(str(item.count) + self.qtyMultiplierChar)
 
 	def writeToGlobalFileArray(self):
 		global ldrawFile
@@ -486,13 +491,14 @@ class PLI():
 		ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
 		
 		# Write out each PLI item in the layout, positioned right after the last occurance of the part in this step
+		#for (count, part, corner, labelCorner, line) in self.layout.values():
 		for filename, item in self.layout.items():
-			ldrawFile.insertLine(item[-1][0], [Comment, LicCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y])
+			ldrawFile.insertLine(item.fileLine[0], [Comment, LicCommand, PLIItemCommand, filename, item.count, item.corner.x, item.corner.y, item.labelCorner.x, item.labelCorner.y])
 
 	def boundingBox(self):
 		return Box(box = self.box)
 
-class CSI():
+class CSI:
 	"""
 	Construction Step Image.  Includes border and positional info.
 	"""
@@ -628,7 +634,7 @@ class CSI():
 	def boundingBox(self):
 		return Box(box = self.box)
 	
-class Step():
+class Step:
 	def __init__(self, filename, prevStep = None, buffers = []):
 		self.parts = []
 		self.prevStep = prevStep
@@ -724,7 +730,7 @@ class Step():
 		# TODO: Add the step number label to the bounding box
 		return self.pli.box + self.csi.box
 
-class PartOGL():
+class PartOGL:
 	"""
 	Represents one 'abstract' part.  Could be regular part, like 2x4 brick, could be a 
 	simple primitive, like stud.dat, could be a full submodel with its own steps, buffers, etc.  
@@ -875,10 +881,8 @@ class PartOGL():
 			print "PLI item Error: Trying to add a non-existent part (%s) to a PLI.  Line %d" % (d['filename'], line[0])
 			return
 		
-		# [index, Comment, LicCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y]
-		# {part filename: [count, part, bottomLeftCorner, qtyLabelReference]}
 		partLine = self.currentStep.parts[-1].fileLine
-		self.currentStep.pli.layout[d['filename']] = [d['count'], partDictionary[d['filename']], d['corner'], d['labelCorner'], partLine]
+		self.currentStep.pli.layout[d['filename']] = PLIItem(partDictionary[d['filename']], d['count'], d['corner'], d['labelCorner'], partLine)
 	
 	def addCSI(self, line):
 		if not self.currentStep:
@@ -1084,7 +1088,7 @@ class PartOGL():
 		print "Error: trying to determine a bounding box for a partOGL!: %s" % (self.filename)
 		return None
 
-class Part():
+class Part:
 	"""
 	Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough
 	info to draw that abstract part in context of a model, ie color, positional 
@@ -1195,7 +1199,7 @@ class Part():
 		global _windowWidth, _windowHeight
 		return Box(0, 0, _windowWidth, _windowHeight)
 
-class Primitive():
+class Primitive:
 	"""
 	Not a primitive in the LDraw sense, just a single line/triangle/quad.
 	Used mainly to construct an OGL display list for a set of points.
