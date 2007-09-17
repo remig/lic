@@ -281,6 +281,7 @@ class Page():
 		
 		if selection:
 			box = selection.boundingBox()
+			box.growBy(2)
 			box.drawAsSelection(context)
 	
 	def boundingBox(self):
@@ -483,6 +484,9 @@ class PLI():
 		for filename, item in self.layout.items():
 			ldrawFile.insertLine(item[-1][0], [Comment, LicCommand, PLIItemCommand, filename, item[0], item[2].x, item[2].y, item[3].x, item[3].y])
 
+	def boundingBox(self):
+		return Box(box = self.box)
+
 class CSI():
 	"""
 	Construction Step Image.  Includes border and positional info.
@@ -615,6 +619,9 @@ class CSI():
 		self.createOGLDisplayList()
 		self.initSize(min(_windowWidth, _windowHeight))
 		self.resize()
+	
+	def boundingBox(self):
+		return Box(box = self.box)
 	
 class Step():
 	def __init__(self, filename, prevStep = None, buffers = []):

@@ -195,6 +195,8 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 			for step in page.steps:
 				
 				iterStep = self.insert_after(self.treemodel, iterPage, iterStep, "Step " + str(step.number), step, page)
+				self.insert_after(self.treemodel, iterStep, None, "PLI", step.pli, page)
+				self.insert_after(self.treemodel, iterStep, None, "CSI", step.csi, page)
 				
 				for part in step.parts:
 					

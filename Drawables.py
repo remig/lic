@@ -61,7 +61,7 @@ class Box():
 	and the position and size info needed to draw the border.
 	"""
 	
-	def __init__(self, x = UNINIT_PROP, y = UNINIT_PROP, width = UNINIT_PROP, height = UNINIT_PROP):
+	def __init__(self, x = UNINIT_PROP, y = UNINIT_PROP, width = UNINIT_PROP, height = UNINIT_PROP, box = None):
 		self.line = Line(0, 0, 0)
 		self.fill = Fill()
 		
@@ -73,7 +73,16 @@ class Box():
 		
 		self.cornerRadius = 0 # Radius for rounded corners. 0 = square
 		self.internalGap = 10  # Distance from inside edge of border to outside edge of contents
-
+		
+		if box:
+			self.clone(box)
+	
+	def clone(self, box):
+		self.x = box.x
+		self.y = box.y
+		self.width = box.width
+		self.height = box.height
+	
 	def __repr__(self):
 		return "Box(x: %d, y: %d, w: %d, h: %d)" % (self.x, self.y, self.width, self.height)
 	
@@ -88,14 +97,21 @@ class Box():
 		context.stroke()
 
 	def drawAsSelection(self, context):
-		context.rectangle(self.x, self.y, self.width, self.height)
+		context.set_line_width(1.0)
+		context.rectangle(self.x - 0.5, self.y - 0.5, self.width + 1, self.height + 1)
 		context.set_source_rgb(0, 0, 0)
 		context.stroke_preserve()
 		context.set_source_rgb(1.0, 1.0, 1.0)
-		context.set_dash([3, 3])
+		context.set_dash([5, 5])
 		context.stroke()
 	
-	def growBy(self, point):
+	def growBy(self, gap):
+		self.x -= gap
+		self.y -= gap
+		self.width += 2 * gap
+		self.height += 2 * gap
+	
+	def growByPoint(self, point):
 		self.x = min(self.x, point.x)
 		self.y = min(self.y, point.y)
 		self.width = max(self.width, point.x - self.x)
@@ -103,8 +119,8 @@ class Box():
 	
 	def __add__(self, b):
 		c = Box(self.x, self.y, self.width, self.height)
-		c.growBy(Point(b.x, b.y))
-		c.growBy(Point(b.x + b.width, b.y))
-		c.growBy(Point(b.x, b.y + b.height))
-		c.growBy(Point(b.x + b.width, b.y + b.height))
+		c.growByPoint(Point(b.x, b.y))
+		c.growByPoint(Point(b.x + b.width, b.y))
+		c.growByPoint(Point(b.x, b.y + b.height))
+		c.growByPoint(Point(b.x + b.width, b.y + b.height))
 		return c
