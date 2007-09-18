@@ -367,7 +367,7 @@ class LDrawFile:
 		
 		return stepDats
 	
-	def createPov(self, width, height, datFile = None):
+	def createPov(self, width, height, offsetX = 0, offsetY = 0, datFile = None):
 		
 		if datFile is None:
 			datFile = self.path + self.filename
@@ -386,7 +386,7 @@ class LDrawFile:
 		pngFile = PngPath + rawFilename + ".png"
 		
 		if not os.path.isfile(pngFile):
-			povray.fixPovFile(povFile, width, height)
+			povray.fixPovFile(povFile, width, height, offsetX, offsetY)
 			povCommand = povray.getDefaultCommand()
 			povCommand['inFile'] = povFile
 			povCommand['outFile'] = pngFile

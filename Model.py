@@ -737,7 +737,7 @@ class Step:
 	
 	def renderToPov(self, ldrawFile, start = 0, end = -1):
 		datFilename = ldrawFile.splitOneStepDat(self.fileLine, self.number, self.csi.filename, start, end)
-		ldrawFile.createPov(self.csi.box.width, self.csi.box.height, datFilename)
+		#ldrawFile.createPov(self.csi.box.width, self.csi.box.height, datFilename)
 
 	def boundingBox(self):
 		# TODO: Add the step number label to the bounding box
@@ -1076,8 +1076,8 @@ class PartOGL:
 			filename = self.ldrawFile.writeLinesToDat(self.filename, *self.ldArrayStartEnd)
 		
 		# Render this part to a pov file then a final image
-		self.ldrawFile.createPov(self.imageSize, self.imageSize, filename)
-		#self.ldrawFile.createPov(self.width + 3, self.height + 3, filename)
+		#self.ldrawFile.createPov(self.imageSize, self.imageSize, filename)
+		self.ldrawFile.createPov(self.width + 3, self.height + 3, self.center.x, self.center.y, filename)
 		
 		# If this part has pages and steps, render each one too
 		for page in self.pages:

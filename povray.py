@@ -51,7 +51,6 @@ povCommands = {
 	'include' : ['+HI', str], # Include any extra files - specify full filename
 }
 
-
 def runCommand(d):
 
 	path = r'C:\Program Files\POV-Ray\bin'
@@ -77,7 +76,7 @@ def runCommand(d):
 	return (povray, args, os.spawnv(os.P_WAIT, povray, args))
 	#return (povray, args)
 	
-def fixPovFile(filename, imgWidth, imgHeight):
+def fixPovFile(filename, imgWidth, imgHeight, offsetX = 0, offsetY = 0):
 
 	licHeader = "// Lic: Processed lights and camera\n"	
 	originalFile = open(filename, 'r')
@@ -103,12 +102,15 @@ def fixPovFile(filename, imgWidth, imgHeight):
 		if line == 'camera {\n':
 			inCamera = True
 			copyFile.write(line)
+			copyFile.write('\t#declare f  = 10.0 / 7.0;\n')
+			copyFile.write('\t#declare dx = f * %f;\n' % (-offsetX))
+			copyFile.write('\t#declare dy = f * %f - 4;\n' % (offsetY))
 			copyFile.write('\torthographic\n')
-			copyFile.write('\tlocation <-28, -14.5, -28> * 1000\n')
+			copyFile.write('\tlocation (<-28, -14.5, -28> * 1000) + <dx, dy, 0>\n')
 			copyFile.write('\tsky      -y\n')
 			copyFile.write('\tright    -%d * x\n' % (imgWidth))
 			copyFile.write('\tup        %d * y\n' % (imgHeight))
-			copyFile.write( '\tlook_at   <0, 0, 0>\n')
+			copyFile.write( '\tlook_at   <dx, dy, 0>\n')
 			copyFile.write('\trotate    <0, 1e-5, 0>\n')
 		
 		if line == '}\n' and inCamera:
