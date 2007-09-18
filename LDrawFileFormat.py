@@ -121,6 +121,12 @@ def lineToLPubPLIState(line):
 		return True
 	return False
 
+def isValidLPubSizeLine(line):
+	return isValidLPubLine(line) and (len(line) > 6) and (line[3] == PageCommand)
+
+def lineToLPubSize(line):
+	return (int(line[5]), int(line[6]))
+
 def isValidLICLine(line):
 	return (len(line) > 3) and (line[1] == Comment) and (line[2] == LicCommand)
 

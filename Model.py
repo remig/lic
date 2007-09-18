@@ -31,11 +31,10 @@ Should keep me busy for the next few weeks...
 # TODO: Implement rotation steps - good luck
 # TODO: remove partDictionary global variable - used in few enough spots that it shouldn't be global anymore
 # TODO: File load is sluggish, even if loading from a thoroughly Lic-created file
-# TODO: SubModel CSIs and PLIs are not being initialized properly
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 ldrawFile = None
-_windowWidth = -1
-_windowHeight = -1
+_docWidth = -1
+_docHeight = -1
 
 class Instructions:
 	"""	Represents an overall Lego instruction booklet.	"""
@@ -50,16 +49,6 @@ class Instructions:
 		
 		self.mainModel = Part(filename, isMainModel = True)
 		ldrawFile = self.mainModel.partOGL.ldrawFile
-	
-	def resize(self, width, height):
-		global _windowWidth, _windowHeight
-		
-		_windowWidth = width - (Page.pagePadding * 2)
-		_windowHeight = height - (Page.pagePadding * 2)
-		
-		for page in self.mainModel.partOGL.pages:
-			for step in page.steps:
-				step.resize()
 	
 	def getMainModel(self):
 		return self.mainModel
@@ -229,38 +218,37 @@ class Page:
 		else:
 			self.number = 1
 
-	def drawPage(self, context):
-		global _windowWidth, _windowHeight
-		
-		width  = _windowWidth
-		height = _windowHeight
+	def drawPage(self, context, width, height):
+		global _docWidth, _docHeight
 		
 		# Flood context with grey background
 		context.set_source_rgb(0.5, 0.5, 0.5)
 		context.paint()
 		
 		# Draw a slightly down-left translated black rectangle, for the page shadow effect
-		context.translate(self.pagePadding, self.pagePadding)
+		x = (width - _docWidth) / 2.0
+		y = (height - _docHeight) / 2.0
+		context.translate(max(x, self.pagePadding), max(y, self.pagePadding))
 		context.set_source_rgb(0,0,0)
-		context.rectangle(1, 1, width + 3, height + 3)
+		context.rectangle(1, 1, _docWidth + 3, _docHeight + 3)
 		context.fill()
 		
 		# Draw the page itself - white with a thin black border
-		context.rectangle(0, 0, width, height)
+		context.rectangle(0, 0, _docWidth, _docHeight)
 		context.stroke_preserve()
 		context.set_source_rgb(1,1,1)
 		context.fill()
 	
-	def draw(self, context, selection = None):
-		global _windowWidth, _windowHeight
+	def draw(self, context, selection = None, width = 0, height = 0):
+		global _docWidth, _docHeight
 		
 		# Draw the overall page frame
 		# This leaves the cairo context translated to the top left corner of the page, but *NOT* scaled
 		# Scaling here messes up GL drawing
-		self.drawPage(context)
+		self.drawPage(context, width, height)
 		
 		# Fully reset the viewport - necessary if we've mangled it while calculating part dimensions
-		GLHelpers.adjustGLViewport(0, 0, _windowWidth, _windowHeight)
+		GLHelpers.adjustGLViewport(0, 0, _docWidth, _docHeight)
 		GLHelpers.glLoadIdentity()	
 		GLHelpers.rotateToDefaultView()
 		
@@ -268,8 +256,8 @@ class Page:
 			step.draw(context)
 		
 		# Copy GL buffer to a new cairo surface, then dump that surface to the current context
-		pixels = glReadPixels (0, 0, _windowWidth, _windowHeight, GL_RGBA,  GL_UNSIGNED_BYTE)
-		surface = cairo.ImageSurface.create_for_data(pixels, cairo.FORMAT_ARGB32, _windowWidth, _windowHeight, _windowWidth * 4)
+		pixels = glReadPixels (0, 0, _docWidth, _docHeight, GL_RGBA,  GL_UNSIGNED_BYTE)
+		surface = cairo.ImageSurface.create_for_data(pixels, cairo.FORMAT_ARGB32, _docWidth, _docHeight, _docWidth * 4)
 		context.set_source_surface(surface)
 		context.paint()
 		surface.finish()
@@ -285,9 +273,9 @@ class Page:
 				box.drawAsSelection(context)
 	
 	def drawToFile(self, path):
-		global _windowWidth, _windowHeight
+		global _docWidth, _docHeight
 		
-		surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, _windowWidth, _windowHeight)
+		surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, _docWidth, _docHeight)
 		cr = cairo.Context(surface)
 		
 		for step in self.steps:
@@ -297,8 +285,6 @@ class Page:
 		surface.finish()
 	
 	def boundingBox(self):
-#		global _windowWidth, _windowHeight
-#		return Box(0, 0, _windowWidth, _windowHeight)
 		return None
 
 class BOM:
@@ -592,11 +578,6 @@ class CSI:
 		self.imgSize = size
 		return True
 
-	def resize(self):
-		global _windowWidth, _windowHeight
-		self.box.x = (_windowWidth / 2.) - (self.box.width / 2.)
-		self.box.y = ((_windowHeight - self.offsetPLI) / 2.) - (self.box.height / 2.) + self.offsetPLI
-
 	def callPreviousOGLDisplayLists(self, currentBuffers = None):
 		if self.step.prevStep:
 			self.step.prevStep.csi.callPreviousOGLDisplayLists(currentBuffers)
@@ -649,9 +630,9 @@ class CSI:
 		glEndList()
 
 	def draw(self, context):
-		global _windowWidth, _windowHeight
+		global _docWidth, _docHeight
 		
-		GLHelpers.adjustGLViewport(0, 0, _windowWidth, _windowHeight + self.offsetPLI)
+		GLHelpers.adjustGLViewport(0, 0, _docWidth, _docHeight + self.offsetPLI)
 		glLoadIdentity()
 		GLHelpers.rotateToDefaultView(self.centerOffset.x, self.centerOffset.y, 0.0)
 		glCallList(self.oglDispID)
@@ -686,9 +667,9 @@ class CSI:
 		ldrawFile.createPov(self.imgSize, self.imgSize, datFile = datFilename)
 	
 	def partTranslateCallback(self):
-		global _windowWidth, _windowHeight
+		global _docWidth, _docHeight
 		self.createOGLDisplayList()
-		self.initSize(min(_windowWidth, _windowHeight))
+		self.initSize(min(_docWidth, _docHeight))
 		self.resize()
 	
 	def boundingBox(self):
@@ -732,7 +713,6 @@ class Step:
 					step.resize()
 
 	def initLayout(self, context):
-		global _windowHeight
 		
 		# If this step's PLI has not been initialized by the LDraw file (first run?), choose a nice initial layout
 		if self.pli.fileLine is None:
@@ -906,7 +886,11 @@ class PartOGL:
 			
 			if isValidLPubPLILine(line):
 				self.setPLIState(line)
-		
+
+			elif isValidLPubSizeLine(line):
+				global _docWidth, _docHeight
+				_docWidth, _docHeight = lineToLPubSize(line)
+
 		elif isValidLICLine(line):
 			
 			if isValidCSILine(line):
@@ -1262,6 +1246,7 @@ class Part:
 			glPopAttrib()
 
 	def draw(self, context):
+		global _docWidth, _docHeight
 		
 		if self.matrix:
 			glPushMatrix()
@@ -1271,11 +1256,16 @@ class Part:
 		
 		if self.matrix:
 			glPopMatrix()
-	
+
+		pixels = glReadPixels (0, 0, _docWidth, _docHeight, GL_RGBA,  GL_UNSIGNED_BYTE)
+		surface = cairo.ImageSurface.create_for_data(pixels, cairo.FORMAT_ARGB32, _docWidth, _docHeight, _docWidth * 4)
+		context.set_source_surface(surface)
+		context.paint()
+		surface.finish()	
+
 	def boundingBox(self):
-		# TODO: This is entirely wrong - get rid of this once selection is working properly
-		global _windowWidth, _windowHeight
-		return Box(0, 0, _windowWidth, _windowHeight)
+		# TODO figure out a way to nicely show selected parts.  Maybe render all other parts mostly transparent?  Or a semi transparent colored overlay?
+		return None
 
 class Primitive:
 	"""

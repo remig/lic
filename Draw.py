@@ -114,7 +114,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 			print "Could not find file %s" % (MODEL_NAME)
 			exit()
 		
-		self.instructions.resize(self.width, self.height)
 		self.instructions.initDraw(cr)
 		self.currentSelection = self.instructions.getMainModel()
 		self.currentPage = self.currentSelection.partOGL.pages[0]
@@ -129,9 +128,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		if (self.width < 5) or (self.height < 5):
 			return  # ignore resize if window is basically invisible
-		
-		if self.instructions:
-			self.instructions.resize(self.width, self.height)
 		
 		gldrawable = self.get_gl_drawable()
 		glcontext = self.get_gl_context()
@@ -150,6 +146,8 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		# Create a fresh, blank cairo context attached to the window's display area
 		cr = self.window.cairo_create()
 		cr.identity_matrix()
+		cr.set_source_rgb(1, 1, 1)
+		cr.paint()
 		
 		# Clear GL buffer
 		glClearColor(1.0, 1.0, 1.0, 0)
@@ -157,7 +155,9 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		# Draw the currently selected model / part / step / page / whatnot to GL buffer
 		if self.currentPage:
-			self.currentPage.draw(cr, self.currentSelection)
+			self.currentPage.draw(cr, self.currentSelection, self.width, self.height)
+		elif self.currentSelection:
+			self.currentSelection.draw(cr)
 	
 	def treeview_button_press(self, obj, event):
 		treemodel, iter = self.tree.get_selection().get_selected()
@@ -168,7 +168,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 
 	def initializeTree(self):
 		print "*** Loading TreeView ***"
-		root = self.insert_after(self.treemodel, None, None, self.currentSelection.name, self.currentSelection, self.currentPage)
+		root = self.insert_after(self.treemodel, None, None, self.currentSelection.name, self.currentSelection, None)
 		self.addPagesToTree(self.currentSelection.partOGL.pages, root)
 
 	def insert_after(self, model, parent, sibling, name, selection, page):
@@ -210,7 +210,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 					if (p.pages != []) and (p.name not in loadedSubModels):
 						
 						# This part has pages of its own, so add this part to specified root
-						subRoot = self.insert_before(self.treemodel, root, iterPage, "SubModel " + p.name, p, page)
+						subRoot = self.insert_before(self.treemodel, root, iterPage, "SubModel " + p.name, part, None)
 						loadedSubModels.append(p.name)
 						
 						# Add this part's steps into this part in the tree.
