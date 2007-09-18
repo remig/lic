@@ -1,6 +1,7 @@
 import math
 import Image
 import cairo
+import os
 
 import GLHelpers
 
@@ -70,17 +71,14 @@ class Instructions:
 		for part in partDictionary.values():
 			if not part.isPrimitive:
 				part.renderToPov()
+				#part.drawBoundingBox()
 		
-		"""
-		# How to open an existing png and draw it into a cairo context:
-		surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 256, 256)
-		cr = cairo.Context(surface)
-		image = cairo.ImageSurface.create_from_png(r'c:\ldraw\lic\pngs\cairo.png')
-		cr.set_source_surface(image, 60, 35)
-		cr.paint()
-		surface.write_to_png(r'c:\ldraw\lic\pngs\cairo_paste.png')
-		surface.finish()
-		"""
+		path = "c:\ldraw\Lic\\" + self.mainModel.partOGL.filename + "\\"
+		if not os.path.isdir(path):
+			os.mkdir(path)
+		
+		for page in self.mainModel.partOGL.pages:
+			page.drawToFile(path)
 		
 		print "Instruction generation complete"
 	
@@ -286,6 +284,18 @@ class Page:
 				box.growBy(2)
 				box.drawAsSelection(context)
 	
+	def drawToFile(self, path):
+		global _windowWidth, _windowHeight
+		
+		surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, _windowWidth, _windowHeight)
+		cr = cairo.Context(surface)
+		
+		for step in self.steps:
+			step.drawToFile(cr)
+		
+		surface.write_to_png(path + "page_%d.png" % (self.number))
+		surface.finish()
+	
 	def boundingBox(self):
 #		global _windowWidth, _windowHeight
 #		return Box(0, 0, _windowWidth, _windowHeight)
@@ -309,6 +319,20 @@ class PLIItem:
 		self.labelCorner = labelCorner
 		self.xBearing = xBearing
 		self.fileLine = fileLine
+
+	def drawToFile(self, context):
+		if not hasattr(self.partOGL, 'pngFile'):
+			print "Error; Trying to draw PLIItem for %s that has no pngFile." % (self.partOGL.filename)
+			return
+		
+		destination = Point(self.corner.x, self.corner.y - self.partOGL.height)
+		p = self.partOGL
+		x = round(destination.x - ((p.imageSize / 2.0) - p.center.x - (p.width / 2.0) - 2))
+		y = round(destination.y - ((p.imageSize / 2.0) + p.center.y - (p.height / 2.0) - 2))
+		
+		imageSurface = cairo.ImageSurface.create_from_png(self.partOGL.pngFile)
+		context.set_source_surface(imageSurface, x, y)
+		context.paint()
 
 	def boundingBox(self):
 		p = self.partOGL
@@ -469,6 +493,17 @@ class PLI:
 			part.draw(context)
 		
 		GLHelpers.popAllGLMatrices()
+
+	def drawToFile(self, context):
+		if len(self.layout) < 1:
+			return  # No parts in this PLI - nothing to draw
+		
+		if (self.box.width == UNINIT_PROP) or (self.box.height == UNINIT_PROP):
+			print "ERROR: Trying to draw parts for an unitialized PLI layout!"
+			return
+		
+		for item in self.layout.values():
+			item.drawToFile(context)
 
 	def drawPageElements(self, context):
 		""" Draw this PLI's background, border and quantity labels to the specified cairo context. """
@@ -735,6 +770,10 @@ class Step:
 		context.move_to(self.stepNumberRefPt.x, self.stepNumberRefPt.y)
 		context.show_text(str(self.number))
 	
+	def drawToFile(self, context):
+		self.pli.drawToFile(context)
+		self.drawPageElements(context)
+
 	def renderToPov(self, ldrawFile, start = 0, end = -1):
 		datFilename = ldrawFile.splitOneStepDat(self.fileLine, self.number, self.csi.filename, start, end)
 		#ldrawFile.createPov(self.csi.box.width, self.csi.box.height, datFilename)
@@ -1076,8 +1115,8 @@ class PartOGL:
 			filename = self.ldrawFile.writeLinesToDat(self.filename, *self.ldArrayStartEnd)
 		
 		# Render this part to a pov file then a final image
-		#self.ldrawFile.createPov(self.imageSize, self.imageSize, filename)
-		self.ldrawFile.createPov(self.width + 3, self.height + 3, self.center.x, self.center.y, filename)
+		#self.ldrawFile.createPov(self.width + 3, self.height + 3, self.center.x, self.center.y, filename)
+		self.pngFile = self.ldrawFile.createPov(self.imageSize, self.imageSize, filename)
 		
 		# If this part has pages and steps, render each one too
 		for page in self.pages:
@@ -1087,6 +1126,23 @@ class PartOGL:
 				else:
 					step.renderToPov(self.ldrawFile)
 
+	
+	def drawBoundingBox(self):
+		
+		if not hasattr(self, 'pngFile'):
+			print "Error: Drawing part %s into instructions, but no pngFile to load." % (self.filename)
+			return
+		
+		surface = cairo.ImageSurface.create_from_png(self.pngFile)
+		cr = cairo.Context(surface)
+		cr.set_source_rgb(0, 0, 0)
+		x = (self.imageSize / 2.0) - self.center.x - (self.width / 2.0) - 2
+		y = (self.imageSize / 2.0) + self.center.y - (self.height / 2.0) - 2
+		cr.rectangle(x, y, self.width + 4, self.height + 4)
+		cr.stroke()
+		surface.write_to_png(self.pngFile)
+		surface.finish()
+	
 	def boundingBox(self):
 		# TODO: remove this check, and this entire method, once it is no longer ever called
 		print "Error: trying to determine a bounding box for a partOGL!: %s" % (self.filename)

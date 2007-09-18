@@ -392,5 +392,6 @@ class LDrawFile:
 			povCommand['outFile'] = pngFile
 			povCommand['width'] = width
 			povCommand['height'] = height
-			povCommand['alpha'] = False
 			povray.runCommand(povCommand)
+		
+		return pngFile
