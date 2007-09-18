@@ -665,6 +665,11 @@ class CSI:
 		
 		# TODO: fix this method so that it properly enlarges generated pov file by 2x the opengl displacement optimization (x & y, not center offset)
 		ldrawFile.createPov(self.imgSize, self.imgSize, datFile = datFilename)
+
+	def resize(self):
+		global _docWidth, _docHeight
+		self.box.x = (_docWidth / 2.) - (self.box.width / 2.)
+		self.box.y = ((_docHeight - self.offsetPLI) / 2.) - (self.box.height / 2.) + self.offsetPLI
 	
 	def partTranslateCallback(self):
 		global _docWidth, _docHeight

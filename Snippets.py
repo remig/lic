@@ -591,8 +591,3 @@ def resize(self, width, height):
 		for step in page.steps:
 			step.resize()
 
-def resize(self):
-	global _windowWidth, _windowHeight
-	self.box.x = (_windowWidth / 2.) - (self.box.width / 2.)
-	self.box.y = ((_windowHeight - self.offsetPLI) / 2.) - (self.box.height / 2.) + self.offsetPLI
-
