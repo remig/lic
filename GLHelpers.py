@@ -24,17 +24,25 @@ def adjustGLViewport(x, y, width, height):
 	glOrtho( -width, width, -height, height, -3000, 3000 )
 	glMatrixMode(GL_MODELVIEW)
 
-# TODO: Create a rotatetoPLIView, which rotates the way this does now, then make default the actual default, which matches MLCAD
 def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0):
 	# position (x,y,z), look at (x,y,z), up vector (x,y,z)
 	gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
 	glScalef(-1.0, 1.0, 1.0)
 	
-	# Rotate model into something approximating the regular ortho Lego view
+	# Rotate model into something approximating the generic ortho view
 	# TODO: Figure out the exact rotation for this
 	glRotatef(20.0, 1.0, 0.0, 0.0,)
-	glRotatef(-45.0, 0.0, 1.0, 0.0,)
+	glRotatef(45.0, 0.0, 1.0, 0.0,)
 	
+def rotateToPLIView(x = 0.0, y = 0.0, z = 0.0):
+	# position (x,y,z), look at (x,y,z), up vector (x,y,z)
+	gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
+	glScalef(-1.0, 1.0, 1.0)
+	
+	# Rotate model into something approximating the ortho view as seen in Lego PLIs
+	glRotatef(20.0, 1.0, 0.0, 0.0,)
+	glRotatef(-45.0, 0.0, 1.0, 0.0,)
+
 def pushAllGLMatrices():
 	glPushAttrib(GL_TRANSFORM_BIT | GL_VIEWPORT_BIT)
 	glMatrixMode(GL_PROJECTION)
@@ -101,22 +109,22 @@ def _checkImgMaxBounds(top, bottom, left, right, width, height, filename):
 	
 	if (top == 0) and (bottom == height-1): 
 		if (filename):
-			print "  top & bottom out of bounds"
+			print "%s - top & bottom out of bounds" % (filename)
 		return True
 	
 	if (left == 0) and (right == width-1):
 		if (filename):
-			print "  left & right out of bounds"
+			print "%s - left & right out of bounds" % (filename)
 		return True
 	
 	if (top == height) and (bottom == 0):
 		if (filename):
-			print "  blank page"
+			print "%s - blank page" % (filename)
 		return True
 	
 	if (left == width) and (right == 0):
 		if (filename):
-			print "  blank page"
+			print "%s - blank page" % (filename)
 		return True
 	
 	return False
@@ -124,13 +132,17 @@ def _checkImgMaxBounds(top, bottom, left, right, width, height, filename):
 def _checkImgTouchingBounds(top, bottom, left, right, width, height, filename):
 	
 	if (top == 0) or (bottom == height-1):
-		if (filename):
-			print "  top & bottom out of bounds"
+		if (filename) and (top == 0):
+			print "%s - top out of bounds" % (filename)
+		if (filename) and (bottom == height-1):
+			print "%s - bottom out of bounds" % (filename)
 		return True
 	
 	if (left == 0) or (right == width-1):
-		if (filename):
-			print "  left & right out of bounds"
+		if (filename) and (left == 0):
+			print "%s - left out of bounds" % (filename)
+		if (filename) and (right == width-1):
+			print "%s - right out of bounds" % (filename)
 		return True
 	
 	return False
@@ -164,7 +176,7 @@ def _checkPixelsRight(data, width, height, top, bottom, left):
 				return i
 	return width
 
-def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, first = "first"):
+def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False):
 	
 	# Clear the drawing buffer with white
 	glClearColor(1.0, 1.0, 1.0, 0)
@@ -172,9 +184,13 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, first = "first"):
 	
 	# Draw the piece in black
 	glLoadIdentity()
-	adjustGLViewport(0, 0, w, h)
-	rotateToDefaultView(x, y, 0.0)
 	glColor3f(0, 0, 0)
+	adjustGLViewport(0, 0, w, h)
+	if isCSI:
+		rotateToDefaultView(x, y, 0.0)
+	else:
+		rotateToPLIView(x, y, 0.0)
+
 	glCallList(oglDispID)
 	
 	pixels = glReadPixels (0, 0, w, h, GL_RGB,  GL_UNSIGNED_BYTE)
@@ -192,7 +208,7 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, first = "first"):
 	
 	return (top, bottom, left, right, bottom - leftInset, bottomInset - left)
 
-def initImgSize(width, height, oglDispID, wantInsets = True, filename = None):
+def initImgSize(width, height, oglDispID, isCSI, filename = None):
 	"""
 	Draw this piece to the already initialized GL Frame Buffer Object, in order to calculate
 	its displayed width and height.  These dimensions are required to properly lay out PLIs and CSIs.
@@ -202,22 +218,25 @@ def initImgSize(width, height, oglDispID, wantInsets = True, filename = None):
 		width: Width of FBO to render to, in pixels.
 		height: Height of FBO to render to, in pixels.
 		oglDispID: The GL Display List ID to be rendered and dimensioned.
-		wantInsets: If this function should calculate the bottom left empty corner of the image, set wantInsets True
+		isCSI: Need to do a few things differently if we're working with a CSI vs a PLI part
 		filename: Optional string used for debugging.
 	
 	Returns:
 		None, if the rendered image has been rendered partially or wholly out of frame.
-		If wantInsets is True, returns the (width, height, leftInset, bottomInset, centerPoint) parameters of this image.
-		If wantInsets is False, retuns the (width, height, centerPoint) parameters of this image.
+		If isCSI is True, retuns the (width, height, centerPoint) parameters of this image.
+		If isCSI is False, returns the (width, height, leftInset, bottomInset, centerPoint) parameters of this image.
 	"""
 	
 	# TODO: Ensure these resets are actually necessary - if not, remove them
 	adjustGLViewport(0, 0, width, height)
 	glLoadIdentity()
-	rotateToDefaultView()
+	if isCSI:
+		rotateToDefaultView()
+	else:
+		rotateToPLIView()
 	
 	# Draw piece to frame buffer, then calculate bounding box
-	top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(0.0, 0.0, width, height, oglDispID, filename)
+	top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(0.0, 0.0, width, height, oglDispID, filename, isCSI)
 	
 	if _checkImgMaxBounds(top, bottom, left, right, width, height, filename):
 		return None  # Drawn completely out of bounds
@@ -239,7 +258,7 @@ def initImgSize(width, height, oglDispID, wantInsets = True, filename = None):
 	
 	if (x != 0) or (y != 0):
 		# Drew at least one edge out of bounds - try moving part as much as possible and redrawing
-		top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(x, y, width, height, oglDispID, filename, 'second')
+		top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(x, y, width, height, oglDispID, filename, isCSI)
 	
 	if _checkImgTouchingBounds(top, bottom, left, right, width, height, filename):
 		return None  # Drew on edge out of bounds - could try another displacement, but easier to just try bigger size
@@ -255,7 +274,7 @@ def initImgSize(width, height, oglDispID, wantInsets = True, filename = None):
 	h = dy - (height/2)
 	imgCenter = Point(x - w, y + h)
 
-	if wantInsets:
-		return (imgWidth, imgHeight, imgLeftInset, imgBottomInset, imgCenter)
-	else:
+	if isCSI:
 		return (imgWidth, imgHeight, imgCenter)
+	else:
+		return (imgWidth, imgHeight, imgLeftInset, imgBottomInset, imgCenter)

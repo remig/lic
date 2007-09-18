@@ -489,7 +489,7 @@ class PLI:
 			part = item.partOGL
 			GLHelpers.adjustGLViewport(item.corner.x, item.corner.y - part.height, part.width, part.height)
 			glLoadIdentity()
-			GLHelpers.rotateToDefaultView(part.center.x, part.center.y, 0.0)
+			GLHelpers.rotateToPLIView(part.center.x, part.center.y, 0.0)
 			part.draw(context)
 		
 		GLHelpers.popAllGLMatrices()
@@ -584,7 +584,7 @@ class CSI:
 		print "CSI %s step %d - size %d" % (self.filename, self.step.number, size)
 		
 		rawFilename = os.path.splitext(os.path.basename(self.filename))[0]
-		params = GLHelpers.initImgSize(size, size, self.oglDispID, wantInsets = False, filename = rawFilename + "_step_" + str(self.step.number))
+		params = GLHelpers.initImgSize(size, size, self.oglDispID, True, rawFilename + "_step_" + str(self.step.number))
 		if params is None:
 			return False
 		
@@ -1114,7 +1114,7 @@ class PartOGL:
 		if self.isPrimitive:
 			return True
 		
-		params = GLHelpers.initImgSize(size, size, self.oglDispID, wantInsets = True, filename = self.filename)
+		params = GLHelpers.initImgSize(size, size, self.oglDispID, False, self.filename)
 		if params is None:
 			return False
 		
