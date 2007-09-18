@@ -28,18 +28,18 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		gtk.DrawingArea.__init__(self)
 		
 		self.set_events(gtk.gdk.BUTTON_MOTION_MASK  | gtk.gdk.KEY_PRESS_MASK |
-						gtk.gdk.KEY_RELEASE_MASK    | gtk.gdk.POINTER_MOTION_MASK |
-						gtk.gdk.BUTTON_RELEASE_MASK | gtk.gdk.BUTTON_PRESS_MASK |
-						gtk.gdk.SCROLL_MASK)
+				gtk.gdk.KEY_RELEASE_MASK    | gtk.gdk.POINTER_MOTION_MASK |
+				gtk.gdk.BUTTON_RELEASE_MASK | gtk.gdk.BUTTON_PRESS_MASK |
+				gtk.gdk.SCROLL_MASK)
 		
 		display_mode = (gtk.gdkgl.MODE_RGBA | gtk.gdkgl.MODE_DOUBLE)
 		glconfig = gtk.gdkgl.Config(mode=display_mode)
 		self.set_gl_capability(glconfig)
 		
 		self.set_events(gtk.gdk.BUTTON_MOTION_MASK  | gtk.gdk.KEY_PRESS_MASK |
-						gtk.gdk.KEY_RELEASE_MASK    | gtk.gdk.POINTER_MOTION_MASK |
-						gtk.gdk.BUTTON_RELEASE_MASK | gtk.gdk.BUTTON_PRESS_MASK |
-						gtk.gdk.SCROLL_MASK)
+				gtk.gdk.KEY_RELEASE_MASK    | gtk.gdk.POINTER_MOTION_MASK |
+				gtk.gdk.BUTTON_RELEASE_MASK | gtk.gdk.BUTTON_PRESS_MASK |
+				gtk.gdk.SCROLL_MASK)
 		
 		self.connect( "realize", self.on_init )
 		self.connect( "expose_event", self.on_draw_event )
@@ -80,8 +80,10 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def on_destroy(self, widget, data=None):
 		gtk.main_quit()
 
-	def on_button_press(self, *args):
-		pass
+	def on_button_press(self, widget, event):
+		x = event.x
+		y = event.y
+		# TODO: figure out a selection scheme
 
 	def on_init(self, *args):
 		""" Initialize the window. """
