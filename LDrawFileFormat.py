@@ -125,12 +125,13 @@ def isValidLICLine(line):
 	return (len(line) > 3) and (line[1] == Comment) and (line[2] == LicCommand)
 
 def isValidCSILine(line):
-	return isValidLICLine(line) and (len(line) > 9) and (line[3] == CSICommand)
+	return isValidLICLine(line) and (len(line) > 10) and (line[3] == CSICommand)
 
 def lineToCSI(line):
-	# [index, Comment, LicCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y]
+	# [index, Comment, LicCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y, self.imgSize]
 	return {'box': Box(float(line[4]), float(line[5]), float(line[6]), float(line[7])),
-			'offset': Point(float(line[8]), float(line[9]))}
+			'offset': Point(float(line[8]), float(line[9])),
+			'imgSize': int(line[10])}
 
 def isValidPLILine(line):
 	return isValidLICLine(line) and (len(line) > 10) and (line[3] == PLICommand)

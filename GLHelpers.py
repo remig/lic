@@ -24,6 +24,7 @@ def adjustGLViewport(x, y, width, height):
 	glOrtho( -width, width, -height, height, -3000, 3000 )
 	glMatrixMode(GL_MODELVIEW)
 
+# TODO: Create a rotatetoPLIView, which rotates the way this does now, then make default the actual default, which matches MLCAD
 def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0):
 	# position (x,y,z), look at (x,y,z), up vector (x,y,z)
 	gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
@@ -182,7 +183,6 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, first = "first"):
 	if filename:
 		rawFilename = os.path.splitext(os.path.basename(filename))[0]
 		img.save ("C:\\LDraw\\tmp\\%s.png" % (rawFilename))
-		#img.save ("C:\\LDraw\\tmp\\%s.png" % (filename, first, w))
 	
 	data = img.load()
 	top = _checkPixelsTop(data, w, h)
@@ -213,7 +213,7 @@ def initImgSize(width, height, oglDispID, wantInsets = True, filename = None):
 	
 	# TODO: Ensure these resets are actually necessary - if not, remove them
 	adjustGLViewport(0, 0, width, height)
-	glLoadIdentity()	
+	glLoadIdentity()
 	rotateToDefaultView()
 	
 	# Draw piece to frame buffer, then calculate bounding box

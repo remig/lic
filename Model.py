@@ -559,6 +559,7 @@ class CSI:
 		self.oglDispID = UNINIT_OGL_DISPID
 		
 		self.fileLine = None
+		self.imgSize = 1
 	
 	def initSize(self, size):
 		"""
@@ -582,11 +583,13 @@ class CSI:
 		# TODO: update some kind of load status bar her - this function is *slow*
 		print "CSI %s step %d - size %d" % (self.filename, self.step.number, size)
 		
-		params = GLHelpers.initImgSize(size, size, self.oglDispID, wantInsets = False, filename = self.filename + " - step " + str(self.step.number))
+		rawFilename = os.path.splitext(os.path.basename(self.filename))[0]
+		params = GLHelpers.initImgSize(size, size, self.oglDispID, wantInsets = False, filename = rawFilename + "_step_" + str(self.step.number))
 		if params is None:
 			return False
 		
 		self.box.width, self.box.height, self.centerOffset = params
+		self.imgSize = size
 		return True
 
 	def resize(self):
@@ -666,9 +669,22 @@ class CSI:
 		global ldrawFile
 		
 		if not self.fileLine:
-			self.fileLine = [Comment, LicCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y]
+			self.fileLine = [Comment, LicCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y, self.imgSize]
 			ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
 
+	def renderToPov(self, ldrawFile, datFilename):
+		center = Point(self.imgSize / 2.0, self.imgSize / 2.0)
+		center.x += self.centerOffset.x
+		center.y += self.centerOffset.y
+		w = (self.box.width / 2.0) - center.x
+		h = (self.box.height / 2.0) - center.y
+		
+		if w > 0:
+			pass
+		
+		# TODO: fix this method so that it properly enlarges generated pov file by 2x the opengl displacement optimization (x & y, not center offset)
+		ldrawFile.createPov(self.imgSize, self.imgSize, datFile = datFilename)
+	
 	def partTranslateCallback(self):
 		global _windowWidth, _windowHeight
 		self.createOGLDisplayList()
@@ -776,10 +792,9 @@ class Step:
 
 	def renderToPov(self, ldrawFile, start = 0, end = -1):
 		datFilename = ldrawFile.splitOneStepDat(self.fileLine, self.number, self.csi.filename, start, end)
-		#ldrawFile.createPov(self.csi.box.width, self.csi.box.height, datFilename)
+		self.csi.renderToPov(ldrawFile, datFilename)
 
 	def boundingBox(self):
-		# TODO: Add the step number label to the bounding box
 		return self.pli.box + self.csi.box
 
 class PartOGL:
@@ -941,12 +956,13 @@ class PartOGL:
 			print "CSI Warning: Trying to create a CSI outside of a step.  Line %d" % (line[0])
 			return
 		
-		#{'box': Box(*line[4:8]), 'offset': Point(line[8], line[9])}
+		#{'box': Box(*line[4:8]), 'offset': Point(line[8], line[9]), 'imgSize': int(line[10])}
 		d = lineToCSI(line)
 		csi = self.currentStep.csi
 		csi.fileLine = line
 		csi.box = d['box']
 		csi.centerOffset = d['offset']
+		csi.imgSize = d['imgSize']
 
 	def addPage(self, line):
 		if self.currentPage and self.currentPage.steps == []:
@@ -1092,6 +1108,8 @@ class PartOGL:
 			False if the part has been rendered partially or wholly out of frame.
 		"""
 		
+		# TODO: If a part is rendered at a size > 256, draw it smaller in the PLI - this sounds like a great way to know when to shrink a PLI image...
+		# TODO: Check how many pieces would be rendered successfully at 128 - if significant, test adding that to size list, see if it speeds part generation up
 		# Primitive parts need not be sized
 		if self.isPrimitive:
 			return True
