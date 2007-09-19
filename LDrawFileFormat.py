@@ -395,23 +395,32 @@ class LDrawFile:
 		
 		return stepDats
 	
-	def createPov(self, width, height, datFile, isCSI):
+	def createPov(self, width, height, datFile, isCSI, color = None):
 		
 		if datFile is None:
 			datFile = self.path + self.filename
 		
 		rawFilename = os.path.splitext(os.path.basename(datFile))[0]
-		povFile = PovPath + rawFilename + ".pov"
+		
+		if color:
+			povFile = "%s%s_%d.pov" % (PovPath, rawFilename, color)
+		else:
+			povFile = "%s%s.pov" % (PovPath, rawFilename)
 		
 		if not os.path.isfile(povFile):
 			# Create a pov from the specified dat via l3p
 			l3pCommand = l3p.getDefaultCommand()
 			l3pCommand['inFile'] = datFile
 			l3pCommand['outFile'] = povFile
+			if color:
+				l3pCommand['color'] = color
 			l3p.runCommand(l3pCommand)
 		
 		# Convert the generated pov into a nice png
-		pngFile = PngPath + rawFilename + ".png"
+		if color:
+			pngFile = "%s%s_%d.png" % (PngPath, rawFilename, color)
+		else:
+			pngFile = "%s%s.png" % (PngPath, rawFilename)
 		
 		if not os.path.isfile(pngFile):
 			povray.fixPovFile(povFile, width, height, isCSI)

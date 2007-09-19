@@ -58,15 +58,12 @@ class Instructions:
 		pass
 
 	def generateImages(self):
-		for part in partDictionary.values():
-			if not part.isPrimitive:
-				part.renderToPov()
-				#part.drawBoundingBox()
 		
 		path = "c:\ldraw\Lic\\" + self.mainModel.partOGL.filename + "\\"
 		if not os.path.isdir(path):
 			os.mkdir(path)
 		
+		self.mainModel.partOGL.renderToPov()
 		for page in self.mainModel.partOGL.pages:
 			page.drawToFile(path)
 		
@@ -310,13 +307,12 @@ class PLIItem:
 		self.xBearing = xBearing
 		self.fileLine = fileLine
 
-	def drawToFile(self, context):
-		if not hasattr(self.partOGL, 'pngFile'):
-			print "Error; Trying to draw PLIItem for %s that has no pngFile." % (self.partOGL.filename)
-			return
+	def drawToFile(self, context, color):
 		
-		destination = Point(self.corner.x, self.corner.y - self.partOGL.height)
 		p = self.partOGL
+		p.renderToPov(color)
+		
+		destination = Point(self.corner.x, self.corner.y - p.height)
 		x = round(destination.x - ((p.imageSize / 2.0) - p.center.x - (p.width / 2.0) - 2))
 		y = round(destination.y - ((p.imageSize / 2.0) + p.center.y - (p.height / 2.0) - 2))
 		
@@ -499,7 +495,7 @@ class PLI:
 		
 		# TODO: Fix image generation PLI colors
 		for (filename, color), item in self.layout.items():
-			item.drawToFile(context)
+			item.drawToFile(context, color)
 
 	def drawPageElements(self, context):
 		""" Draw this PLI's background, border and quantity labels to the specified cairo context. """
@@ -1119,7 +1115,7 @@ class PartOGL:
 		self.width, self.height, self.leftInset, self.bottomInset, self.center = params
 		return True
 	
-	def renderToPov(self):
+	def renderToPov(self, color = None):
 		
 		filename = None
 		if self.ldArrayStartEnd:
@@ -1127,7 +1123,7 @@ class PartOGL:
 			filename = self.ldrawFile.writeLinesToDat(self.filename, *self.ldArrayStartEnd)
 		
 		# Render this part to a pov file then a final image
-		self.pngFile = self.ldrawFile.createPov(self.imageSize, self.imageSize, filename, False)
+		self.pngFile = self.ldrawFile.createPov(self.imageSize, self.imageSize, filename, False, color)
 		
 		# If this part has pages and steps, render each one too
 		for page in self.pages:
