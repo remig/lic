@@ -59,5 +59,4 @@ def runCommand(d):
 			else:
 				args.append(value)
 	return (l3pApp, args, os.spawnv(os.P_WAIT, l3pApp, args))
-	#return (l3pApp, args)
-	
+

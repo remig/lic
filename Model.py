@@ -14,7 +14,6 @@ from OpenGL.GLU import *
 
 # Global constants
 UNINIT_OGL_DISPID = -1
-UNINIT_PROP = -1
 
 """
 TODO: Work on generating actual POV renderings from whatever is displayed:
@@ -29,7 +28,6 @@ Should keep me busy for the next few weeks...
 """
 
 # TODO: Implement rotation steps - good luck
-# TODO: remove partDictionary global variable - used in few enough spots that it shouldn't be global anymore
 # TODO: File load is sluggish, even if loading from a thoroughly Lic-created file
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 ldrawFile = None
@@ -109,7 +107,7 @@ class Instructions:
 			p.center = Point(int(x), int(y))
 			p.leftInset = int(l)
 			p.bottomInset = int(b)
-			p.imageSize = int(size)
+			p.imgSize = int(size)
 	
 	def buildCSIList(self, part, loadedParts = []):
 		csiList = []
@@ -313,8 +311,8 @@ class PLIItem:
 		p.renderToPov(color)
 		
 		destination = Point(self.corner.x, self.corner.y - p.height)
-		x = round(destination.x - ((p.imageSize / 2.0) - p.center.x - (p.width / 2.0) - 2))
-		y = round(destination.y - ((p.imageSize / 2.0) + p.center.y - (p.height / 2.0) - 2))
+		x = round(destination.x - ((p.imgSize / 2.0) - p.center.x - (p.width / 2.0) - 2))
+		y = round(destination.y - ((p.imgSize / 2.0) + p.center.y - (p.height / 2.0) - 2))
 		
 		imageSurface = cairo.ImageSurface.create_from_png(self.partOGL.pngFile)
 		context.set_source_surface(imageSurface, x, y)
@@ -389,15 +387,10 @@ class PLI:
 		# Note that PLI box's top left corner must be set by container before this layout call
 		b = self.box
 		overallX = b.x + b.internalGap
-		b.width = b.height = UNINIT_PROP
+		b.width = b.height = -1
 		
 		#for i, (corner, labelCorner) in enumerate(partList):
 		for i, item in enumerate(partList):
-			
-			if (item.partOGL.width == UNINIT_PROP) or (item.partOGL.height == UNINIT_PROP):
-				# TODO: Remove this check once all is well
-				print "ERROR: Trying to init the a PLI layout containing uninitialized parts!"
-				continue
 			
 			# Calculate and store this part's bottom left corner
 			item.corner.x = overallX
@@ -466,10 +459,6 @@ class PLI:
 		if len(self.layout) < 1:
 			return  # No parts in this PLI - nothing to draw
 		
-		if (self.box.width == UNINIT_PROP) or (self.box.height == UNINIT_PROP):
-			print "ERROR: Trying to draw parts for an unitialized PLI layout!"
-			return
-		
 		GLHelpers.pushAllGLMatrices()
 		glPushAttrib(GL_CURRENT_BIT)
 		
@@ -489,11 +478,6 @@ class PLI:
 		if len(self.layout) < 1:
 			return  # No parts in this PLI - nothing to draw
 		
-		if (self.box.width == UNINIT_PROP) or (self.box.height == UNINIT_PROP):
-			print "ERROR: Trying to draw parts for an unitialized PLI layout!"
-			return
-		
-		# TODO: Fix image generation PLI colors
 		for (filename, color), item in self.layout.items():
 			item.drawToFile(context, color)
 
@@ -502,9 +486,6 @@ class PLI:
 		
 		if len(self.layout) < 1:
 			return  # No parts in this PLI - nothing to draw
-		
-		if (self.box.width == UNINIT_PROP) or (self.box.height == UNINIT_PROP):
-			print "ERROR: Trying to draw an unitialized PLI layout box!"
 		
 		# Draw the PLIs overall bounding box
 		self.box.draw(context)
@@ -542,7 +523,7 @@ class CSI:
 	
 	def __init__(self, filename, step, buffers):
 		self.box = Box(0, 0)
-		self.centerOffset = Point(0, 0)
+		self.center = Point(0, 0)
 		self.offsetPLI = 0
 		self.filename = filename
 		self.step = step
@@ -581,7 +562,7 @@ class CSI:
 		if params is None:
 			return False
 		
-		self.box.width, self.box.height, self.centerOffset = params
+		self.box.width, self.box.height, self.center = params
 		self.imgSize = size
 		return True
 
@@ -640,11 +621,12 @@ class CSI:
 		global _docWidth, _docHeight
 		GLHelpers.adjustGLViewport(0, 0, _docWidth, _docHeight + self.offsetPLI)
 		glLoadIdentity()
-		GLHelpers.rotateToDefaultView(self.centerOffset.x, self.centerOffset.y, 0.0)
+		GLHelpers.rotateToDefaultView(self.center.x, self.center.y, 0.0)
 		glCallList(self.oglDispID)
 
 	def drawPageElements(self, context):
-		self.box.draw(context)
+		#self.box.draw(context)
+		pass
 
 	def callOGLDisplayList(self):
 		glCallList(self.oglDispIDs[0][0])
@@ -653,13 +635,13 @@ class CSI:
 		global ldrawFile
 		
 		if not self.fileLine:
-			self.fileLine = [Comment, LicCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y, self.imgSize]
+			self.fileLine = [Comment, LicCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.center.x, self.center.y, self.imgSize]
 			ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
 
 	def renderToPov(self, ldrawFile, datFilename):
 		center = Point(self.imgSize / 2.0, self.imgSize / 2.0)
-		center.x += self.centerOffset.x
-		center.y += self.centerOffset.y
+		center.x += self.center.x
+		center.y += self.center.y
 		w = (self.box.width / 2.0) - center.x
 		h = (self.box.height / 2.0) - center.y
 		
@@ -668,6 +650,15 @@ class CSI:
 		
 		# TODO: fix this method so that it properly enlarges generated pov file by 2x the opengl displacement optimization (x & y, not center offset)
 		self.pngFile = ldrawFile.createPov(self.imgSize, self.imgSize, datFilename, True)
+
+	def drawToFile(self, context):
+		destination = Point(self.box.x, self.box.y)
+		x = round(destination.x - ((self.imgSize / 2.0) - self.center.x - (self.box.width / 2.0)))
+		y = round(destination.y - ((self.imgSize / 2.0) + self.center.y - (self.box.height / 2.0)))
+		
+		imageSurface = cairo.ImageSurface.create_from_png(self.pngFile)
+		context.set_source_surface(imageSurface, x, y)
+		context.paint()
 
 	def resize(self):
 		global _docWidth, _docHeight
@@ -776,6 +767,7 @@ class Step:
 	
 	def drawToFile(self, context):
 		self.pli.drawToFile(context)
+		self.csi.drawToFile(context)
 		self.drawPageElements(context)
 
 	def renderToPov(self, ldrawFile, start = 0, end = -1):
@@ -814,7 +806,7 @@ class PartOGL:
 		self.buffers = []  #[(bufID, stepNumber)]
 		self.ignorePLIState = False
 		
-		self.width = self.height = self.imageSize = 1
+		self.width = self.height = self.imgSize = 1
 		self.leftInset = self.bottomInset = 0
 		self.center = Point(0, 0)
 		
@@ -956,7 +948,7 @@ class PartOGL:
 		csi = self.currentStep.csi
 		csi.fileLine = line
 		csi.box = d['box']
-		csi.centerOffset = d['offset']
+		csi.center = d['offset']
 		csi.imgSize = d['imgSize']
 
 	def addPage(self, line):
@@ -1081,7 +1073,7 @@ class PartOGL:
 	def dimensionsToString(self):
 		if self.isPrimitive:
 			return ""
-		return "%s %d %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x, self.center.y, self.leftInset, self.bottomInset, self.imageSize)
+		return "%s %d %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x, self.center.y, self.leftInset, self.bottomInset, self.imgSize)
 
 	def initSize(self, size):
 		"""
@@ -1100,9 +1092,8 @@ class PartOGL:
 		
 		# TODO: If a part is rendered at a size > 256, draw it smaller in the PLI - this sounds like a great way to know when to shrink a PLI image...
 		# TODO: Check how many pieces would be rendered successfully at 128 - if significant, test adding that to size list, see if it speeds part generation up
-		# Primitive parts need not be sized
 		if self.isPrimitive:
-			return True
+			return True  # Primitive parts need not be sized
 		
 		params = GLHelpers.initImgSize(size, size, self.oglDispID, False, self.filename)
 		if params is None:
@@ -1111,7 +1102,7 @@ class PartOGL:
 		# TODO: update some kind of load status bar her - this function is *slow*
 		print self.filename + " - size: %d" % (size)
 		
-		self.imageSize = size
+		self.imgSize = size
 		self.width, self.height, self.leftInset, self.bottomInset, self.center = params
 		return True
 	
@@ -1123,7 +1114,7 @@ class PartOGL:
 			filename = self.ldrawFile.writeLinesToDat(self.filename, *self.ldArrayStartEnd)
 		
 		# Render this part to a pov file then a final image
-		self.pngFile = self.ldrawFile.createPov(self.imageSize, self.imageSize, filename, False, color)
+		self.pngFile = self.ldrawFile.createPov(self.imgSize, self.imgSize, filename, False, color)
 		
 		# If this part has pages and steps, render each one too
 		for page in self.pages:
@@ -1136,15 +1127,11 @@ class PartOGL:
 	
 	def drawBoundingBox(self):
 		
-		if not hasattr(self, 'pngFile'):
-			print "Error: Drawing part %s into instructions, but no pngFile to load." % (self.filename)
-			return
-		
 		surface = cairo.ImageSurface.create_from_png(self.pngFile)
 		cr = cairo.Context(surface)
 		cr.set_source_rgb(0, 0, 0)
-		x = (self.imageSize / 2.0) - self.center.x - (self.width / 2.0) - 2
-		y = (self.imageSize / 2.0) + self.center.y - (self.height / 2.0) - 2
+		x = (self.imgSize / 2.0) - self.center.x - (self.width / 2.0) - 2
+		y = (self.imgSize / 2.0) + self.center.y - (self.height / 2.0) - 2
 		cr.rectangle(x, y, self.width + 4, self.height + 4)
 		cr.stroke()
 		surface.write_to_png(self.pngFile)

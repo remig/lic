@@ -2,7 +2,7 @@
 CurrentColor = 16
 ComplimentColor = 24
 
-# Array storing [R,G,B,name] values for each LDraw Color
+# Dictionary storing [R,G,B,name] values for each LDraw Color
 colors = {
 	0:  [0.13, 0.13, 0.13, 'Black'],
 	1:  [0.00, 0.20, 0.70, 'Blue'],

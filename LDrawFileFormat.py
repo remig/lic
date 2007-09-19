@@ -1,26 +1,25 @@
 import shutil  # for file copy / rename
 import os      # for path creation
 
-from Drawables import *
-
-import l3p
-import povray
+import Drawables  # Box, Point
+import povray     # Build images from povray files
+import l3p        # Build povray from DAT files
 
 LDrawPath = "C:\\LDrawParts\\"
 
 cwd = os.getcwd()
-DatPath = cwd + '\DATs\\'
-PovPath = cwd + '\POVs\\'
-PngPath = cwd + '\PNGs\\'
+datPath = cwd + '\DATs\\'
+povPath = cwd + '\POVs\\'
+pngPath = cwd + '\PNGs\\'
 
-if not os.path.isdir(DatPath):
-	os.mkdir(DatPath)   # Create DAT directory if needed
+if not os.path.isdir(datPath):
+	os.mkdir(datPath)   # Create DAT directory if needed
 
-if not os.path.isdir(PovPath):
-	os.mkdir(PovPath)   # Create POV directory if needed
+if not os.path.isdir(povPath):
+	os.mkdir(povPath)   # Create POV directory if needed
 
-if not os.path.isdir(PngPath):
-	os.mkdir(PngPath)   # Create PNG directory if needed
+if not os.path.isdir(pngPath):
+	os.mkdir(pngPath)   # Create PNG directory if needed
 
 Comment = '0'
 PartCommand = '1'
@@ -139,8 +138,8 @@ def isValidCSILine(line):
 
 def lineToCSI(line):
 	# [index, Comment, LicCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y, self.imgSize]
-	return {'box': Box(float(line[4]), float(line[5]), float(line[6]), float(line[7])),
-			'offset': Point(float(line[8]), float(line[9])),
+	return {'box': Drawables.Box(float(line[4]), float(line[5]), float(line[6]), float(line[7])),
+			'offset': Drawables.Point(float(line[8]), float(line[9])),
 			'imgSize': int(line[10])}
 
 def isValidPLILine(line):
@@ -148,7 +147,7 @@ def isValidPLILine(line):
 
 def lineToPLI(line):
 	# [index, Comment, LicCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
-	return {'box': Box(float(line[4]), float(line[5]), float(line[6]), float(line[7])),
+	return {'box': Drawables.Box(float(line[4]), float(line[5]), float(line[6]), float(line[7])),
 			'qtyLabel': line[8],
 			'font': Font(float(line[9]), line[10])}
 
@@ -159,8 +158,8 @@ def lineToPLIItem(line):
 	# [index, Comment, LicCommand, PLIItemCommand, filename, item.count, item.corner.x, item.corner.y, item.labelCorner.x, item.labelCorner.y, item.xBearing, color]
 	return {'filename': line[4],
 			'count': int(line[5]),
-			'corner': Point(float(line[6]), float(line[7])),
-			'labelCorner': Point(float(line[8]), float(line[9])),
+			'corner': Drawables.Point(float(line[6]), float(line[7])),
+			'labelCorner': Drawables.Point(float(line[8]), float(line[9])),
 			'xBearing'   : float(line[10]),
 			'color': int(line[11])}
 
@@ -335,17 +334,17 @@ class LDrawFile:
 
 	def writeLinesToDat(self, filename, start, end):
 		
-		if os.path.isfile(DatPath + filename):
+		if os.path.isfile(datPath + filename):
 			# TODO: Ensure this DAT is up to date wrt the main model
 			return   # DAT already exists - nothing to do
 		
 		print "Creating dat for: %s, line %d to %d" % (filename, start, end)
-		f = open(DatPath + filename, 'w')
+		f = open(datPath + filename, 'w')
 		for line in self.fileArray[start:end]:
 			f.write(' '.join(line[1:]) + '\n')
 		f.close()
 		
-		return DatPath + filename
+		return datPath + filename
 
 	def splitOneStepDat(self, stepLine, stepNumber, filename, start = 0, end = -1):
 		
@@ -353,7 +352,7 @@ class LDrawFile:
 			end = len(self.fileArray)
 		
 		rawFilename = os.path.splitext(os.path.basename(filename))[0]
-		datFilename = DatPath + rawFilename + '_step_%d' % (stepNumber) + '.dat'
+		datFilename = datPath + rawFilename + '_step_%d' % (stepNumber) + '.dat'
 		f = open(datFilename, 'w')
 		
 		inCurrentStep = False
@@ -386,7 +385,7 @@ class LDrawFile:
 		stepDats = []
 		for i, stepIndex in enumerate(stepList[1:]):
 			
-			datFilename = DatPath + rawFilename + '_step_%d' % (i+1) + '.dat'
+			datFilename = datPath + rawFilename + '_step_%d' % (i+1) + '.dat'
 			f = open(datFilename, 'w')
 			for line in self.fileArray[start:stepIndex]:
 				f.write(' '.join(line[1:]) + '\n')
@@ -403,9 +402,9 @@ class LDrawFile:
 		rawFilename = os.path.splitext(os.path.basename(datFile))[0]
 		
 		if color:
-			povFile = "%s%s_%d.pov" % (PovPath, rawFilename, color)
+			povFile = "%s%s_%d.pov" % (povPath, rawFilename, color)
 		else:
-			povFile = "%s%s.pov" % (PovPath, rawFilename)
+			povFile = "%s%s.pov" % (povPath, rawFilename)
 		
 		if not os.path.isfile(povFile):
 			# Create a pov from the specified dat via l3p
@@ -418,9 +417,9 @@ class LDrawFile:
 		
 		# Convert the generated pov into a nice png
 		if color:
-			pngFile = "%s%s_%d.png" % (PngPath, rawFilename, color)
+			pngFile = "%s%s_%d.png" % (pngPath, rawFilename, color)
 		else:
-			pngFile = "%s%s.png" % (PngPath, rawFilename)
+			pngFile = "%s%s.png" % (pngPath, rawFilename)
 		
 		if not os.path.isfile(pngFile):
 			povray.fixPovFile(povFile, width, height, isCSI)

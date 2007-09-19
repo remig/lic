@@ -1,7 +1,5 @@
 import cairo
 
-UNINIT_PROP = -1
-
 class Point():
 	def __init__(self, x = 0, y = 0):
 		self.x = x
@@ -49,7 +47,7 @@ class Line():
 		self.dash = dash
 
 class Fill():
-# TODO: Define all members and their units in this class
+	# TODO: Define all members and their units in this class
 	def __init__(self):
 		self.color = [0.0, 0.0, 0.0]  # [red, green, blue], 0.0 - 1.0
 		self.pattern = 0
@@ -61,7 +59,7 @@ class Box():
 	and the position and size info needed to draw the border.
 	"""
 	
-	def __init__(self, x = UNINIT_PROP, y = UNINIT_PROP, width = UNINIT_PROP, height = UNINIT_PROP, box = None):
+	def __init__(self, x = -1, y = -1, width = -1, height = -1, box = None):
 		self.line = Line(0, 0, 0)
 		self.fill = Fill()
 		
@@ -87,11 +85,6 @@ class Box():
 		return "Box(x: %d, y: %d, w: %d, h: %d)" % (self.x, self.y, self.width, self.height)
 	
 	def draw(self, context):
-		# TODO: Remove this check once all is well
-		if (self.x == UNINIT_PROP or self.y == UNINIT_PROP or self.width == UNINIT_PROP or self.height == UNINIT_PROP):
-			print "ERROR: Trying to draw an uninitialized box!!"
-			return
-		
 		context.set_source_rgb(*self.line.color)
 		context.rectangle(self.x, self.y, self.width, self.height)
 		context.stroke()

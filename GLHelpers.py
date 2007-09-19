@@ -30,7 +30,6 @@ def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0):
 	glScalef(-1.0, 1.0, 1.0)
 	
 	# Rotate model into something approximating the generic ortho view
-	# TODO: Figure out the exact rotation for this
 	glRotatef(20.0, 1.0, 0.0, 0.0,)
 	glRotatef(45.0, 0.0, 1.0, 0.0,)
 	
@@ -227,7 +226,6 @@ def initImgSize(width, height, oglDispID, isCSI, filename = None):
 		If isCSI is False, returns the (width, height, leftInset, bottomInset, centerPoint) parameters of this image.
 	"""
 	
-	# TODO: Ensure these resets are actually necessary - if not, remove them
 	adjustGLViewport(0, 0, width, height)
 	glLoadIdentity()
 	if isCSI:
