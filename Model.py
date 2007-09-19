@@ -671,7 +671,7 @@ class CSI:
 			pass
 		
 		# TODO: fix this method so that it properly enlarges generated pov file by 2x the opengl displacement optimization (x & y, not center offset)
-		ldrawFile.createPov(self.imgSize, self.imgSize, datFile = datFilename)
+		self.pngFile = ldrawFile.createPov(self.imgSize, self.imgSize, datFilename, True)
 
 	def resize(self):
 		global _docWidth, _docHeight
@@ -1127,8 +1127,7 @@ class PartOGL:
 			filename = self.ldrawFile.writeLinesToDat(self.filename, *self.ldArrayStartEnd)
 		
 		# Render this part to a pov file then a final image
-		#self.ldrawFile.createPov(self.width + 3, self.height + 3, self.center.x, self.center.y, filename)
-		self.pngFile = self.ldrawFile.createPov(self.imageSize, self.imageSize, filename)
+		self.pngFile = self.ldrawFile.createPov(self.imageSize, self.imageSize, filename, False)
 		
 		# If this part has pages and steps, render each one too
 		for page in self.pages:

@@ -69,7 +69,7 @@ def runCommand(d):
 				args.append(value)
 	return (povray, args, os.spawnv(os.P_WAIT, povray, args))
 	
-def fixPovFile(filename, imgWidth, imgHeight, offsetX = 0, offsetY = 0):
+def fixPovFile(filename, imgWidth, imgHeight, isCSI):
 
 	licHeader = "// Lic: Processed lights and camera\n"	
 	originalFile = open(filename, 'r')
@@ -96,7 +96,10 @@ def fixPovFile(filename, imgWidth, imgHeight, offsetX = 0, offsetY = 0):
 			inCamera = True
 			copyFile.write(line)
 			copyFile.write('\torthographic\n')
-			copyFile.write('\tlocation <-28, -14.5, -28> * 1000\n')
+			if isCSI:
+				copyFile.write('\tlocation <28, -14.5, -28> * 1000\n')
+			else:
+				copyFile.write('\tlocation <-28, -14.5, -28> * 1000\n')
 			copyFile.write('\tsky      -y\n')
 			copyFile.write('\tright    -%d * x\n' % (imgWidth))
 			copyFile.write('\tup        %d * y\n' % (imgHeight))
