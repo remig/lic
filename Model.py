@@ -127,7 +127,11 @@ class Instructions:
 		return csiList
 
 	def initCSIDimensions(self):
+		
 		csiList = self.buildCSIList(self.mainModel.partOGL)
+		if csiList == []:
+			return  # All CSIs initialized - nothing to do here
+		
 		csiList2 = []
 		sizes = [512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
 		
@@ -248,7 +252,7 @@ class Page:
 		self.drawPage(context, width, height)
 		
 		# Fully reset the viewport - necessary if we've mangled it while calculating part dimensions
-		GLHelpers.adjustGLViewport(0, 0, _docWidth, _docHeight)
+		GLHelpers.adjustGLViewport(0, 0, width, height)
 		GLHelpers.glLoadIdentity()	
 		GLHelpers.rotateToDefaultView()
 		
@@ -256,8 +260,8 @@ class Page:
 			step.draw()
 		
 		# Copy GL buffer to a new cairo surface, then dump that surface to the current context
-		pixels = glReadPixels (0, 0, _docWidth, _docHeight, GL_RGBA,  GL_UNSIGNED_BYTE)
-		surface = cairo.ImageSurface.create_for_data(pixels, cairo.FORMAT_ARGB32, _docWidth, _docHeight, _docWidth * 4)
+		pixels = glReadPixels (0, 0, width, height, GL_RGBA,  GL_UNSIGNED_BYTE)
+		surface = cairo.ImageSurface.create_for_data(pixels, cairo.FORMAT_ARGB32, width, height, width * 4)
 		context.set_source_surface(surface)
 		context.paint()
 		surface.finish()
@@ -638,7 +642,6 @@ class CSI:
 
 	def draw(self):
 		global _docWidth, _docHeight
-		
 		GLHelpers.adjustGLViewport(0, 0, _docWidth, _docHeight + self.offsetPLI)
 		glLoadIdentity()
 		GLHelpers.rotateToDefaultView(self.centerOffset.x, self.centerOffset.y, 0.0)
