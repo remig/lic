@@ -2,12 +2,6 @@ import shutil  # for file copy / rename
 import os      # for process creation
 import re      # for pov file parsing
 
-def listToCSVStr(l):
-	s = ''
-	for i in l:
-		s += str(i) + ','
-	return s[:-1]
-	
 def boolToCommand(command, bool):
 	if bool:
 		return command
@@ -74,7 +68,6 @@ def runCommand(d):
 			else:
 				args.append(value)
 	return (povray, args, os.spawnv(os.P_WAIT, povray, args))
-	#return (povray, args)
 	
 def fixPovFile(filename, imgWidth, imgHeight, offsetX = 0, offsetY = 0):
 

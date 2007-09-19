@@ -43,6 +43,7 @@ BufferRetrieve = 'RETRIEVE'
 
 LPubCommand = 'LPUB'
 LicCommand = 'LIC'
+LicInitialized = 'Initialized'
 CSICommand  = 'CSI'
 PLICommand  = 'PLI'
 PageCommand = 'PAGE'
@@ -84,7 +85,7 @@ def isValidPartLine(line):
 
 def lineToPart(line):
 	return {'filename': line[15],
-			'color': float(line[2]),
+			'color': int(line[2]),
 			'matrix': LDToOGLMatrix(line[3:15]),
 			'ghost': False}
 
@@ -127,11 +128,14 @@ def isValidLPubSizeLine(line):
 def lineToLPubSize(line):
 	return (int(line[5]), int(line[6]))
 
-def isValidLICLine(line):
+def isValidLicLine(line):
 	return (len(line) > 3) and (line[1] == Comment) and (line[2] == LicCommand)
 
+def isValidLicHeader(line):
+	return isValidLicLine(line) and (len(line) == 4) and (line[3] == LicInitialized)
+
 def isValidCSILine(line):
-	return isValidLICLine(line) and (len(line) > 10) and (line[3] == CSICommand)
+	return isValidLicLine(line) and (len(line) > 10) and (line[3] == CSICommand)
 
 def lineToCSI(line):
 	# [index, Comment, LicCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y, self.imgSize]
@@ -140,7 +144,7 @@ def lineToCSI(line):
 			'imgSize': int(line[10])}
 
 def isValidPLILine(line):
-	return isValidLICLine(line) and (len(line) > 10) and (line[3] == PLICommand)
+	return isValidLicLine(line) and (len(line) > 10) and (line[3] == PLICommand)
 
 def lineToPLI(line):
 	# [index, Comment, LicCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
@@ -149,7 +153,7 @@ def lineToPLI(line):
 			'font': Font(float(line[9]), line[10])}
 
 def isValidPLIItemLine(line):
-	return isValidLICLine(line) and (len(line) > 11) and (line[3] == PLIItemCommand)
+	return isValidLicLine(line) and (len(line) > 11) and (line[3] == PLIItemCommand)
 
 def lineToPLIItem(line):
 	# [index, Comment, LicCommand, PLIItemCommand, filename, item.count, item.corner.x, item.corner.y, item.labelCorner.x, item.labelCorner.y, item.xBearing, color]
@@ -161,7 +165,7 @@ def lineToPLIItem(line):
 			'color': int(line[11])}
 
 def isValidPageLine(line):
-	return isValidLICLine(line) and (len(line) > 3) and (line[3] == PageCommand)
+	return isValidLicLine(line) and (len(line) > 3) and (line[3] == PageCommand)
 
 class LDrawFile:
 	def __init__(self, filename):
@@ -180,19 +184,26 @@ class LDrawFile:
 	def addLicHeader(self):
 		
 		for i, line in enumerate(self.fileArray):
-			if isValidLICLine(line):
-				return True
+			
+			if isValidLicLine(line):
+				return
+			
 			if isValidStepLine(line) or isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidLPubPLILine(line):  
 				break  # We've hit the first real line in the file - insert header just before this
 		
-		self.insertLine(i, [Comment, LicCommand, 'Initialized'])
-		return False
+		self.insertLine(i, [Comment, LicCommand, LicInitialized])
 
 	def addInitialSteps(self):
 		
 		lines = []
 		currentFileLine = False
+		firstLine = -1
+		
 		for line in self.fileArray:
+			
+			if isValidLicHeader(line):
+				return  # Already initialized this file
+			
 			if isValidFileLine(line):
 				currentFileLine = True
 			
@@ -200,9 +211,15 @@ class LDrawFile:
 				currentFileLine = False
 			
 			if isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidLPubPLILine(line) or isValidCSILine(line):
-				if currentFileLine or len(lines) == 0:
+				if firstLine == -1:
+					firstLine = line[0]
+				if currentFileLine:
 					lines.append(line)
 					currentFileLine = False
+		
+		if lines == []:
+			# Found no FILE lines, so insert step right before first real line
+			lines.append(self.fileArray[max(0, firstLine-1)])
 		
 		for line in lines:
 			self.insertLine(line[0] - 1, [Comment, StepCommand])
@@ -211,6 +228,9 @@ class LDrawFile:
 		
 		lines = []
 		for line in self.fileArray:
+			
+			if isValidLicHeader(line):
+				return  # Already initialized this file
 			
 			if isValidPageLine(line):
 				return  # Already have pages in file - nothing to do here

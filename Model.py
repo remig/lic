@@ -176,15 +176,14 @@ class Instructions:
 			# Render each image and calculate their sizes
 			for partOGL in partList:
 				
-				successfulDraw = partOGL.initSize(size)  # Draw image and calculate its size
-				
-				if successfulDraw:					
+				if partOGL.initSize(size):  # Draw image and calculate its size:					
 					lines.append(partOGL.dimensionsToString())
 				else:
 					partList2.append(partOGL)
 			
 			# Clean up created FBO
 			GLHelpers.destroyFBO(*buffers)
+			
 			
 			if len(partList2) < 1:
 				break  # All images initialized successfully
@@ -194,7 +193,7 @@ class Instructions:
 		
 		# Create an image dimension cache file
 		print ""
-		f = file(self.ImgDimensionsFilename, "w")
+		f = open(self.ImgDimensionsFilename, "w")
 		f.writelines(lines)
 		f.close()
 	
@@ -202,8 +201,6 @@ class Page:
 	"""
 	A single page in an instruction book.
 	"""
-	
-	pagePadding = 20
 	
 	def __init__(self, prevPage = None):
 		
@@ -213,6 +210,8 @@ class Page:
 		self.steps = []
 		self.prevPage = prevPage		
 		self.fileLine = None
+		
+		self.pagePadding = 20
 		
 		if prevPage:
 			self.number = prevPage.number + 1
@@ -853,9 +852,9 @@ class PartOGL:
 		
 		self.ldrawFile = LDrawFile(self.filename)
 		if isMainModel:
-			self.ldrawFile.addLicHeader()
 			self.ldrawFile.addInitialSteps()
 			self.ldrawFile.addDefaultPages()
+			self.ldrawFile.addLicHeader()
 			self.ldArrayStartEnd = [0]
 		
 		self.isPrimitive = self.ldrawFile.isPrimitive
@@ -907,7 +906,7 @@ class PartOGL:
 				global _docWidth, _docHeight
 				_docWidth, _docHeight = lineToLPubSize(line)
 		
-		elif isValidLICLine(line):
+		elif isValidLicLine(line):
 			
 			if isValidCSILine(line):
 				self.addCSI(line)

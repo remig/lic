@@ -591,3 +591,9 @@ def resize(self, width, height):
 		for step in page.steps:
 			step.resize()
 
+def listToCSVStr(l):
+	s = ''
+	for i in l:
+		s += str(i) + ','
+	return s[:-1]
+	
