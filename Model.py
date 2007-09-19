@@ -253,7 +253,7 @@ class Page:
 		GLHelpers.rotateToDefaultView()
 		
 		for step in self.steps:
-			step.draw(context)
+			step.draw()
 		
 		# Copy GL buffer to a new cairo surface, then dump that surface to the current context
 		pixels = glReadPixels (0, 0, _docWidth, _docHeight, GL_RGBA,  GL_UNSIGNED_BYTE)
@@ -460,7 +460,7 @@ class PLI:
 		y = int(partCorner.y + (xHeight / 2))
 		return (x, y, xbearing, xHeight)
 	
-	def drawParts(self, context):
+	def drawParts(self):
 		""" Must be called inside a valid gldrawable context. """
 		
 		if len(self.layout) < 1:
@@ -479,7 +479,7 @@ class PLI:
 			glLoadIdentity()
 			GLHelpers.rotateToPLIView(p.center.x, p.center.y, 0.0)
 			glColor3fv(convertToRGBA(color))
-			p.draw(context)
+			p.draw()
 		
 		glPopAttrib()
 		GLHelpers.popAllGLMatrices()
@@ -636,7 +636,7 @@ class CSI:
 		self.callPreviousOGLDisplayLists(self.buffers)
 		glEndList()
 
-	def draw(self, context):
+	def draw(self):
 		global _docWidth, _docHeight
 		
 		GLHelpers.adjustGLViewport(0, 0, _docWidth, _docHeight + self.offsetPLI)
@@ -645,9 +645,6 @@ class CSI:
 		glCallList(self.oglDispID)
 
 	def drawPageElements(self, context):
-		if (self.box.width == UNINIT_PROP) or (self.box.height == UNINIT_PROP):
-			print "ERROR: Trying to draw an unitialized CSI layout!"
-			return
 		self.box.draw(context)
 
 	def callOGLDisplayList(self):
@@ -763,10 +760,10 @@ class Step:
 				for step in page.steps:
 					step.writeToGlobalFileArray()
 
-	def draw(self, context):
+	def draw(self):
 		""" Draw this step's CSI and PLI parts (not GUI elements, just the 3D GL bits) """
-		self.pli.drawParts(context)
-		self.csi.draw(context)
+		self.pli.drawParts()
+		self.csi.draw()
 
 	def drawPageElements(self, context):
 		""" Draw this step's PLI and CSI page elements, and this step's number label. """
@@ -1074,12 +1071,7 @@ class PartOGL:
 		
 		glEndList()
 
-	def draw(self, context):
-		if (self.width == UNINIT_PROP) or (self.height == UNINIT_PROP):
-			# TODO: Remove this check once all is well
-			print "ERROR: Trying to draw a part with uninitialized width / height!!: ", self.filename
-			return
-		
+	def draw(self):
 		glCallList(self.oglDispID)
 	
 	def initSize_checkRotation(self):
