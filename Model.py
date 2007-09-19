@@ -33,9 +33,10 @@ Should keep me busy for the next few weeks...
 # TODO: File load is sluggish, even if loading from a thoroughly Lic-created file
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 ldrawFile = None
-_docWidth = -1
-_docHeight = -1
+_docWidth = 800
+_docHeight = 600
 
+# TODO: Save the default image size to the file if its not there already
 class Instructions:
 	"""	Represents an overall Lego instruction booklet.	"""
 	
@@ -336,7 +337,7 @@ class PLI:
 		self.box = Box(topLeftCorner.x, topLeftCorner.y)
 		self.qtyLabelFont = Font(size = 14, bold = True)
 		self.qtyMultiplierChar = 'x'
-		self.layout = {}  # {part filename: PLIItem instance}
+		self.layout = {}  # {(part filename, color): PLIItem instance}
 		
 		self.step = step
 		self.fileLine = None
@@ -348,12 +349,13 @@ class PLI:
 
 	def addPart(self, part):
 		
-		p = part.partOGL		
-		if p.filename in self.layout:
-			self.layout[p.filename].count += 1
-			self.layout[p.filename].fileLine = part.fileLine
+		item = (part.partOGL.filename, part.color)
+		
+		if item in self.layout:
+			self.layout[item].count += 1
+			self.layout[item].fileLine = part.fileLine
 		else:
-			self.layout[p.filename] = PLIItem(p, 1, Point(), Point(), 0, part.fileLine)
+			self.layout[item] = PLIItem(part.partOGL, 1, Point(), Point(), 0, part.fileLine)
 	
 	def initLayout(self, context):
 		
@@ -470,17 +472,21 @@ class PLI:
 			return
 		
 		GLHelpers.pushAllGLMatrices()
+		glPushAttrib(GL_CURRENT_BIT)
 		
-		for item in self.layout.values():
-			part = item.partOGL
-			GLHelpers.adjustGLViewport(item.corner.x, item.corner.y - part.height, part.width, part.height)
+		for (filename, color), i in self.layout.items():
+			p = i.partOGL
+			GLHelpers.adjustGLViewport(i.corner.x, i.corner.y - p.height, p.width, p.height)
 			glLoadIdentity()
-			GLHelpers.rotateToPLIView(part.center.x, part.center.y, 0.0)
-			part.draw(context)
+			GLHelpers.rotateToPLIView(p.center.x, p.center.y, 0.0)
+			glColor3fv(convertToRGBA(color))
+			p.draw(context)
 		
+		glPopAttrib()
 		GLHelpers.popAllGLMatrices()
 
 	def drawToFile(self, context):
+		
 		if len(self.layout) < 1:
 			return  # No parts in this PLI - nothing to draw
 		
@@ -488,7 +494,8 @@ class PLI:
 			print "ERROR: Trying to draw parts for an unitialized PLI layout!"
 			return
 		
-		for item in self.layout.values():
+		# TODO: Fix image generation PLI colors
+		for (filename, color), item in self.layout.items():
 			item.drawToFile(context)
 
 	def drawPageElements(self, context):
@@ -522,8 +529,9 @@ class PLI:
 		
 		# Write out each PLI item in the layout, positioned right after the last occurance of the part in this step
 		#for (count, part, corner, labelCorner, line) in self.layout.values():
-		for filename, item in self.layout.items():
-			ldrawFile.insertLine(item.fileLine[0], [Comment, LicCommand, PLIItemCommand, filename, item.count, item.corner.x, item.corner.y, item.labelCorner.x, item.labelCorner.y, item.xBearing])
+		for (filename, color), i in self.layout.items():
+			line = [Comment, LicCommand, PLIItemCommand, filename, i.count, i.corner.x, i.corner.y, i.labelCorner.x, i.labelCorner.y, i.xBearing, color]
+			ldrawFile.insertLine(i.fileLine[0], line)
 
 	def boundingBox(self):
 		return Box(box = self.box)
@@ -822,8 +830,11 @@ class PartOGL:
 		
 		# Check if the last step in model is empty - occurs often, since we've implicitly
 		# created a step before adding any parts and many models end with a Step.
+		# If removing an empty step leaves the last page empty, remove that too
 		if (len(self.pages) > 0) and (len(self.pages[-1].steps) > 0) and (self.pages[-1].steps[-1].parts == []):
 			self.pages[-1].steps.pop()
+			if len(self.pages[-1].steps) == 0:
+				self.pages.pop()
 		
 		self.createOGLDisplayList()
 	
@@ -860,7 +871,7 @@ class PartOGL:
 				return
 			
 			self._loadOneLDrawLineCommand(line)
-
+		
 		if self.ldArrayStartEnd == [0]:
 			self.ldArrayStartEnd = None
 
@@ -891,11 +902,11 @@ class PartOGL:
 			
 			if isValidLPubPLILine(line):
 				self.setPLIState(line)
-
+			
 			elif isValidLPubSizeLine(line):
 				global _docWidth, _docHeight
 				_docWidth, _docHeight = lineToLPubSize(line)
-
+		
 		elif isValidLICLine(line):
 			
 			if isValidCSILine(line):
@@ -938,7 +949,7 @@ class PartOGL:
 			return
 		
 		partLine = self.currentStep.parts[-1].fileLine
-		self.currentStep.pli.layout[d['filename']] = PLIItem(partDictionary[d['filename']], d['count'], d['corner'], d['labelCorner'], d['xBearing'], partLine)
+		self.currentStep.pli.layout[(d['filename'], d['color'])] = PLIItem(partDictionary[d['filename']], d['count'], d['corner'], d['labelCorner'], d['xBearing'], partLine)
 	
 	def addCSI(self, line):
 		if not self.currentStep:
@@ -1163,7 +1174,7 @@ class Part:
 	that could be different between two 2x4 bricks in a model.
 	"""
 	
-	def __init__(self, filename, color = None, matrix = None, ghost = False, buffers = [], invert = False, ldrawFile = None, isMainModel = False):
+	def __init__(self, filename, color = 16, matrix = None, ghost = False, buffers = [], invert = False, ldrawFile = None, isMainModel = False):
 		
 		self.color = color
 		self.matrix = matrix
@@ -1219,10 +1230,7 @@ class Part:
 			return
 		
 		# must be called inside a glNewList/EndList pair
-		if self.color:
-			color = convertToRGBA(self.color)
-		else:
-			color = CurrentColor
+		color = convertToRGBA(self.color)
 		
 		if color != CurrentColor:
 			glPushAttrib(GL_CURRENT_BIT)
@@ -1261,7 +1269,7 @@ class Part:
 		
 		if self.matrix:
 			glPopMatrix()
-
+		
 		pixels = glReadPixels (0, 0, _docWidth, _docHeight, GL_RGBA,  GL_UNSIGNED_BYTE)
 		surface = cairo.ImageSurface.create_for_data(pixels, cairo.FORMAT_ARGB32, _docWidth, _docHeight, _docWidth * 4)
 		context.set_source_surface(surface)

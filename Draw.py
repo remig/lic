@@ -16,6 +16,7 @@ from OpenGL.GLU import *
 #MODEL_NAME = "pyramid_bufs.dat"
 #MODEL_NAME = "Blaster_shortened.mpd"
 MODEL_NAME = "Blaster.mpd"
+#MODEL_NAME = "3005s.dat"
 #MODEL_NAME = "2744.DAT"
 #MODEL_NAME = "4286.DAT"
 
@@ -88,23 +89,24 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def on_init(self, *args):
 		""" Initialize the window. """
 		
-		specular = [1.0, 1.0, 1.0, 1.0]
-		shininess = [50.0]
-		lightPos = [1.0, 1.0, 1.0, 0.0]
-		
-		glShadeModel(GL_SMOOTH)
-		
-		glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specular)
-		glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, shininess)
-		glLightfv(GL_LIGHT0, GL_POSITION, lightPos)
-		
 		glEnable(GL_LIGHTING)
 		glEnable(GL_LIGHT0)
+		glShadeModel(GL_SMOOTH)
+		
+		glEnable(GL_COLOR_MATERIAL)
+		glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
+		
+		lightPos = [100.0, 100.0, 100.0]
+		ambient = [0.2, 0.2, 0.2]
+		diffuse = [0.8, 0.8, 0.8]
+		specular = [0.5, 0.5, 0.5]
+		
+		glLightfv(GL_LIGHT0, GL_POSITION, lightPos)
+		glLightfv(GL_LIGHT0, GL_AMBIENT, ambient)
+		glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse)
+		glLightfv(GL_LIGHT0, GL_SPECULAR, specular)
 		
 		glEnable(GL_DEPTH_TEST)
-		#glCullFace(GL_BACK)
-		#glFrontFace(GL_CCW)
-		#glEnable(GL_CULL_FACE)
 		glClearColor(1.0, 1.0, 1.0, 1.0)  # Draw clear white screen
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		

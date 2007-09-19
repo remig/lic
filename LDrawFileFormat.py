@@ -149,15 +149,16 @@ def lineToPLI(line):
 			'font': Font(float(line[9]), line[10])}
 
 def isValidPLIItemLine(line):
-	return isValidLICLine(line) and (len(line) > 9) and (line[3] == PLIItemCommand)
+	return isValidLICLine(line) and (len(line) > 11) and (line[3] == PLIItemCommand)
 
 def lineToPLIItem(line):
-	# [index, Comment, LicCommand, PLIItemCommand, filename, item.count, item.corner.x, item.corner.y, item.labelCorner.x, item.labelCorner.y, item.xBearing]
+	# [index, Comment, LicCommand, PLIItemCommand, filename, item.count, item.corner.x, item.corner.y, item.labelCorner.x, item.labelCorner.y, item.xBearing, color]
 	return {'filename': line[4],
 			'count': int(line[5]),
 			'corner': Point(float(line[6]), float(line[7])),
 			'labelCorner': Point(float(line[8]), float(line[9])),
-			'xBearing'   : float(line[10])}
+			'xBearing'   : float(line[10]),
+			'color': int(line[11])}
 
 def isValidPageLine(line):
 	return isValidLICLine(line) and (len(line) > 3) and (line[3] == PageCommand)
@@ -199,7 +200,7 @@ class LDrawFile:
 				currentFileLine = False
 			
 			if isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidLPubPLILine(line) or isValidCSILine(line):
-				if currentFileLine:
+				if currentFileLine or len(lines) == 0:
 					lines.append(line)
 					currentFileLine = False
 		
@@ -327,14 +328,14 @@ class LDrawFile:
 		return DatPath + filename
 
 	def splitOneStepDat(self, stepLine, stepNumber, filename, start = 0, end = -1):
-
+		
 		if end == -1:
 			end = len(self.fileArray)
-
+		
 		rawFilename = os.path.splitext(os.path.basename(filename))[0]
 		datFilename = DatPath + rawFilename + '_step_%d' % (stepNumber) + '.dat'
 		f = open(datFilename, 'w')
-
+		
 		inCurrentStep = False
 		for line in self.fileArray[start:end]:
 			if line == stepLine:

@@ -100,23 +100,23 @@ colors = {
 	511: [1.00, 1.00, 1.00, 'Rubber White'],
 }
 
-complimentColors = [ 8, 9, 10, 11, 12, 13, 0, 8, 0, 1, 2, 3, 4, 5, 8, 8]
+complimentColors = [8, 9, 10, 11, 12, 13, 0, 8, 0, 1, 2, 3, 4, 5, 8, 8]
 
 def convertToRGBA(LDrawColorCode):
-	if (LDrawColorCode == CurrentColor):
+	if LDrawColorCode == CurrentColor:
 		return CurrentColor
-	if (LDrawColorCode == ComplimentColor):
+	if LDrawColorCode == ComplimentColor:
 		return ComplimentColor
 	return colors[LDrawColorCode][0:-1]
 	
 def getColorName(LDrawColorCode):
-	if (LDrawColorCode == CurrentColor):
+	if LDrawColorCode == CurrentColor:
 		return CurrentColor
-	if (LDrawColorCode == ComplimentColor):
+	if LDrawColorCode == ComplimentColor:
 		return ComplimentColor
 	return colors[LDrawColorCode][-1]
 
 def complimentColor(LDrawColorCode):
-	if (LDrawColorCode > len(complimentColors)):
+	if LDrawColorCode > len(complimentColors):
 		return convertToRGBA(complimentColors[-1])
 	return convertToRGBA(complimentColors[LDrawColorCode])
