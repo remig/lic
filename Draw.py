@@ -9,10 +9,10 @@ from GLHelpers import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-MODEL_NAME = "pyramid.dat"
+#MODEL_NAME = "pyramid.dat"
 #MODEL_NAME = "pyramid_bufs.dat"
 #MODEL_NAME = "Blaster_shortened.mpd"
-#MODEL_NAME = "Blaster.mpd"
+MODEL_NAME = "Blaster.mpd"
 #MODEL_NAME = "3005s.dat"
 #MODEL_NAME = "2744.DAT"
 #MODEL_NAME = "4286.DAT"

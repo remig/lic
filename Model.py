@@ -200,21 +200,16 @@ class Page:
 	A single page in an instruction book.
 	"""
 	
-	def __init__(self, prevPage = None):
+	def __init__(self, number):
 		
 		self.box = Box()
 		self.fill = Fill()
 		
+		self.number = number
 		self.steps = []
-		self.prevPage = prevPage		
 		self.fileLine = None
 		
 		self.pagePadding = 20
-		
-		if prevPage:
-			self.number = prevPage.number + 1
-		else:
-			self.number = 1
 
 	def drawPage(self, context, width, height):
 		global _docWidth, _docHeight
@@ -792,7 +787,7 @@ class PartOGL:
 	in common when present in a model.
 	"""
 	
-	def __init__(self, filename, parentLDFile = None, isMainModel = False):
+	def __init__(self, filename, parentLDFile = None, isMainModel = False, pageNumber = None):
 		
 		self.name = self.filename = filename
 		self.ldrawFile = None
@@ -805,8 +800,9 @@ class PartOGL:
 		self.oglDispID = UNINIT_OGL_DISPID
 		self.isPrimitive = False  # primitive here means any file in 'P'
 		
+		self.firstPageNumber = pageNumber
 		self.currentStep = None
-		self.currentPage = None
+		self.currentPage = self.prevPage = None
 		self.pages = []
 		
 		self.buffers = []  #[(bufID, stepNumber)]
@@ -962,7 +958,7 @@ class PartOGL:
 		if self.currentPage and self.currentPage.steps == []:
 			print "Page Warning: Empty page found on line %d. Ignoring Page %d" % (line[0], self.currentPage.number)
 			self.pages.pop()
-			self.currentPage = self.currentPage.prevPage
+			self.currentPage = self.prevPage
 		
 		if self.currentPage and self.currentStep and self.currentStep.parts == []:
 			print "Step Warning: Empty step found on line %d.  Ignoring Step %d" % (line[0], self.currentStep.number)
@@ -971,9 +967,16 @@ class PartOGL:
 			if self.currentPage.steps == []:
 				print "Page Warning: Empty page found on line %d. Ignoring Page %d" % (line[0], self.currentPage.number)
 				self.pages.pop()
-				self.currentPage = self.currentPage.prevPage
+				self.currentPage = self.prevPage
 		
-		self.currentPage = Page(self.currentPage)
+		self.prevPage = self.currentPage
+		if self.firstPageNumber:
+			self.currentPage = Page(self.firstPageNumber)
+			self.firstPageNumber = None
+		elif self.currentPage:
+			self.currentPage = Page(self.currentPage.number + 1)
+		else:
+			self.currentPage = Page(1)
 		self.currentPage.fileLine = line
 		self.pages.append(self.currentPage)
 	
@@ -994,7 +997,10 @@ class PartOGL:
 
 	def addPart(self, p, line):
 		try:
-			part = Part(p['filename'], p['color'], p['matrix'], p['ghost'], list(self.buffers), ldrawFile = self.ldrawFile)
+			if self.currentPage:
+				part = Part(p['filename'], p['color'], p['matrix'], p['ghost'], list(self.buffers), ldrawFile = self.ldrawFile, pageNumber = self.currentPage.number)
+			else:
+				part = Part(p['filename'], p['color'], p['matrix'], p['ghost'], list(self.buffers), ldrawFile = self.ldrawFile)
 		except IOError:
 			# TODO: This should be printed - commented out for debugging
 			#print "Could not find file: %s - Ignoring." % p['filename']
@@ -1007,6 +1013,10 @@ class PartOGL:
 			self.currentStep.addPart(part)
 		else:
 			self.parts.append(part)
+		
+		# TODO: If the same submodel is added more than once, page counts will be off - fix this
+		if not part.ignorePLIState and part.partOGL.pages != []:
+			self.currentPage.number = part.partOGL.pages[-1].number + 1
 	
 	def addPrimitive(self, p, shape):
 		primitive = Primitive(p['color'], p['points'], shape, self.inverted ^ self.invertNext)
@@ -1157,7 +1167,7 @@ class Part:
 	that could be different between two 2x4 bricks in a model.
 	"""
 	
-	def __init__(self, filename, color = 16, matrix = None, ghost = False, buffers = [], invert = False, ldrawFile = None, isMainModel = False):
+	def __init__(self, filename, color = 16, matrix = None, ghost = False, buffers = [], invert = False, ldrawFile = None, isMainModel = False, pageNumber = None):
 		
 		self.color = color
 		self.matrix = matrix
@@ -1172,7 +1182,7 @@ class Part:
 		if filename in partDictionary:
 			self.partOGL = partDictionary[filename]
 		else:
-			self.partOGL = partDictionary[filename] = PartOGL(filename, ldrawFile, isMainModel)
+			self.partOGL = partDictionary[filename] = PartOGL(filename, ldrawFile, isMainModel, pageNumber)
 		
 		self.name = self.partOGL.name
 
