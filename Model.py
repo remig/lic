@@ -13,14 +13,12 @@ from OpenGL.GLU import *
 
 """
 TODO:
-- Fix rotation steps so that opengl output matches pov output.
 - Fix exchange buffer output to dats so that pov output matches opengl output.
 
-Once all that's done, LIC is properly generating full instruction images, and is actually mildly useful.
+Once all that's done, Lic is properly generating full instruction images, and is actually mildly useful.
 Nothing revolutionary yet, but useful.
 """
 
-# TODO: Implement rotation steps - this really needs to get done for proper image generation, since pov output already handles it...
 # TODO: Each class holds a bunch of self attributes only used during initialization - once init is done, delete them maybe?
 # TODO: File load is sluggish, even if loading from a thoroughly Lic-created file - speed it up
 
@@ -617,6 +615,9 @@ class CSI:
 		GLHelpers.adjustGLViewport(0, 0, _docWidth, _docHeight + self.offsetPLI)
 		glLoadIdentity()
 		GLHelpers.rotateToDefaultView(self.center.x, self.center.y, 0.0)
+		if self.step.rotStep:
+			pt = self.step.rotStep['point']
+			GLHelpers.rotateView(pt.x, pt.y, pt.z)
 		glCallList(self.oglDispID)
 
 	def drawPageElements(self, context):
@@ -682,8 +683,10 @@ class Step:
 		
 		if prevStep:
 			self.number = prevStep.number + 1
+			self.rotStep  = prevStep.rotStep   # {'state': state, 'point': Point3D}
 		else:
 			self.number = 1
+			self.rotStep = None
 		
 		self.csi = CSI(filename, self, list(buffers))
 		self.pli = PLI(self, Point(self.internalGap, self.internalGap))
@@ -874,7 +877,10 @@ class PartOGL:
 		
 		elif isValidStepLine(line):
 			self.addStep(line)
-		
+	
+		elif isValidRotStepLine(line):
+			self.addRotStep(line)
+
 		elif isValidPartLine(line):
 			self.addPart(lineToPart(line), line)
 		
@@ -997,6 +1003,17 @@ class PartOGL:
 		self.currentStep = Step(self.filename, self.currentStep, list(self.buffers))
 		self.currentStep.fileLine = line
 		self.currentPage.steps.append(self.currentStep)
+
+	def addRotStep(self, line):
+		if not self.currentStep:
+			print "Rotation Step Error: Trying to create a rotation Step outside a valid Step. Line %d" % (line[0])
+			return
+
+ 		rotStep = lineToRotStep(line)
+		if rotStep['state'] == ENDCommand:
+			self.currentStep.rotStep = None
+		else:
+			self.currentStep.rotStep = rotStep
 
 	def addPart(self, p, line):
 		try:

@@ -7,6 +7,14 @@ class Point():
 	def __repr__(self):
 		return "Point(%d, %d)" % (self.x, self.y)
 
+class Point3D():
+	def __init__(self, x = 0, y = 0, z = 0):
+		self.x = x
+		self.y = y
+		self.z = z
+	def __repr__(self):
+		return "Point3D(%d, %d, %d)" % (self.x, self.y, self.z)
+
 class Font():
 	def __init__(self, size, face = "Arial", color = [0, 0, 0], bold = False, italic = False):
 		self.size = size

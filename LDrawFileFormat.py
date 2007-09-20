@@ -28,6 +28,7 @@ TriangleCommand = '3'
 QuadCommand = '4'
 ConditionalLineCommand = '5'
 
+RotStepCommand = 'ROTSTEP'
 StepCommand = 'STEP'
 FileCommand = 'FILE'
 ClearCommand = 'CLEAR'
@@ -79,6 +80,21 @@ def isValidFileLine(line):
 def isValidStepLine(line):
 	return (len(line) > 2) and (line[1] == Comment) and (line[2] == StepCommand)
 
+def isValidRotStepLine(line):
+	return (len(line) > 3) and (line[1] == Comment) and (line[2] == RotStepCommand)
+
+def lineToRotStep(line):
+	d = {}
+	if len(line) < 6:
+		d['state'] = ENDCommand
+	else:
+		d['point'] = Drawables.Point3D(float(line[3]), float(line[4]), float(line[5]))
+		if len(line) == 7:
+			d['state'] = line[6]
+		else:
+			d['state'] = 'REL'
+	return d
+	
 def isValidPartLine(line):
 	return (len(line) > 15) and (line[1] == PartCommand)
 
