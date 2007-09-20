@@ -1,7 +1,6 @@
-import math
-import Image
-import cairo
-import os
+import math   # for sqrt
+import cairo  # for gui preview drawing
+import os     # for output path creation
 
 import GLHelpers
 
@@ -12,23 +11,21 @@ from Drawables import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-# Global constants
+"""
+TODO:
+- Fix rotation steps so that opengl output matches pov output.
+- Fix exchange buffer output to dats so that pov output matches opengl output.
+
+Once all that's done, LIC is properly generating full instruction images, and is actually mildly useful.
+Nothing revolutionary yet, but useful.
+"""
+
+# TODO: Implement rotation steps - this really needs to get done for proper image generation, since pov output already handles it...
+# TODO: Each class holds a bunch of self attributes only used during initialization - once init is done, delete them maybe?
+# TODO: File load is sluggish, even if loading from a thoroughly Lic-created file - speed it up
+
+# Globals
 UNINIT_OGL_DISPID = -1
-
-"""
-TODO: Work on generating actual POV renderings from whatever is displayed:
-First, abstract away all the opengl calls in the gui preview window so that they can be easily replaced
-by calls to L3P / Pov-ray.
-Then, use existing layout / cairo drawing engine to create finalized, nice looking instruction book pages.
-
-Once all that's done, LIC is actually mildly useful.  Nothing revolutionary yet, but useful.
-
-
-Should keep me busy for the next few weeks...
-"""
-
-# TODO: Implement rotation steps - good luck
-# TODO: File load is sluggish, even if loading from a thoroughly Lic-created file
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 ldrawFile = None
 _docWidth = 800
@@ -56,16 +53,22 @@ class Instructions:
 		pass
 
 	def generateImages(self):
+		global _docWidth, _docHeight
 		
 		path = "c:\ldraw\Lic\\" + self.mainModel.partOGL.filename + "\\"
 		if not os.path.isdir(path):
 			os.mkdir(path)
 		
+		# Generate all dats / povs / pngs for individual parts and CSIs
 		self.mainModel.partOGL.renderToPov()
-		for page in self.mainModel.partOGL.pages:
-			page.drawToFile(path)
 		
-		print "Instruction generation complete"
+		surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, _docWidth, _docHeight)
+		context = cairo.Context(surface)
+		
+		for page in self.mainModel.partOGL.pages:
+			page.drawToFile(surface, context, path)
+		
+		print "\nInstruction generation complete"
 	
 	def initDraw(self, context):
 		
@@ -265,21 +268,21 @@ class Page:
 				box.growBy(2)
 				box.drawAsSelection(context)
 	
-	def drawToFile(self, path):
-		global _docWidth, _docHeight
+	def drawToFile(self, surface, context, path):
 		
+		print ".",
 		pngFile = path + "page_%d.png" % (self.number)
-		#if os.path.isfile(pngFile):
-		#	return
-		
-		surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, _docWidth, _docHeight)
-		cr = cairo.Context(surface)
+		draw = not os.path.isfile(pngFile)
+		if draw:
+			context.set_source_rgb(1, 1, 1)
+			context.paint()
 		
 		for step in self.steps:
-			step.drawToFile(cr, path)
+			step.drawToFile(surface, context, path, draw)
 		
-		surface.write_to_png(pngFile)
-		surface.finish()
+		if draw:
+			print "Generating page %d" % (self.number),
+			surface.write_to_png(pngFile)
 	
 	def boundingBox(self):
 		return None
@@ -757,23 +760,23 @@ class Step:
 		context.move_to(self.stepNumberRefPt.x, self.stepNumberRefPt.y)
 		context.show_text(str(self.number))
 	
-	def drawToFile(self, context, path):
-		self.pli.drawToFile(context)
-		self.csi.drawToFile(context)
-		self.drawPageElements(context)
+	def drawToFile(self, surface, context, path, draw):
+		if draw:
+			self.pli.drawToFile(context)
+			self.csi.drawToFile(context)
+			self.drawPageElements(context)
 		
 		for part in self.parts:
-			if part.partOGL.pages == []:
-				continue
-			path = path + part.partOGL.filename + '\\'
-			if not os.path.isdir(path):
-				os.mkdir(path)
 			for page in part.partOGL.pages:
-				page.drawToFile(path)
+				page.drawToFile(surface, context, path)
 
 	def renderToPov(self, ldrawFile, start = 0, end = -1):
 		datFilename = ldrawFile.splitOneStepDat(self.fileLine, self.number, self.csi.filename, start, end)
 		self.csi.renderToPov(ldrawFile, datFilename)
+		
+		for part in self.parts:
+			if not part.ignorePLIState:
+				part.partOGL.renderToPov()
 
 	def boundingBox(self):
 		return self.pli.box + self.csi.box
