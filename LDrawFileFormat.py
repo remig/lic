@@ -134,13 +134,14 @@ def isValidLicHeader(line):
 	return isValidLicLine(line) and (len(line) == 4) and (line[3] == LicInitialized)
 
 def isValidCSILine(line):
-	return isValidLicLine(line) and (len(line) > 10) and (line[3] == CSICommand)
+	return isValidLicLine(line) and (len(line) > 12) and (line[3] == CSICommand)
 
 def lineToCSI(line):
-	# [index, Comment, LicCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y, self.imgSize]
+	# [index, Comment, LicCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y, self.displacement.x, self.displacement.y, self.imgSize]
 	return {'box': Drawables.Box(float(line[4]), float(line[5]), float(line[6]), float(line[7])),
-			'offset': Drawables.Point(float(line[8]), float(line[9])),
-			'imgSize': int(line[10])}
+			'center': Drawables.Point(float(line[8]), float(line[9])),
+			'displacement': Drawables.Point(float(line[10]), float(line[11])),
+			'imgSize': int(line[12])}
 
 def isValidPLILine(line):
 	return isValidLicLine(line) and (len(line) > 10) and (line[3] == PLICommand)
@@ -149,7 +150,7 @@ def lineToPLI(line):
 	# [index, Comment, LicCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
 	return {'box': Drawables.Box(float(line[4]), float(line[5]), float(line[6]), float(line[7])),
 			'qtyLabel': line[8],
-			'font': Font(float(line[9]), line[10])}
+			'font': Drawables.Font(float(line[9]), line[10])}
 
 def isValidPLIItemLine(line):
 	return isValidLicLine(line) and (len(line) > 11) and (line[3] == PLIItemCommand)
@@ -184,10 +185,10 @@ class LDrawFile:
 		
 		for i, line in enumerate(self.fileArray):
 			
-			if isValidLicLine(line):
-				return
+			if isValidLicHeader(line):
+				return  # Already initialized this file
 			
-			if isValidStepLine(line) or isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidLPubPLILine(line):  
+			if isValidLicLine(line) or isValidStepLine(line) or isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidLPubPLILine(line):  
 				break  # We've hit the first real line in the file - insert header just before this
 		
 		self.insertLine(i, [Comment, LicCommand, LicInitialized])

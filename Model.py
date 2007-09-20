@@ -138,9 +138,9 @@ class Instructions:
 				print "ERROR: Failed to initialize FBO - aborting initCSIDimensions"
 				return
 			
-			# Render each image and calculate their sizes
+			# Render each CSI and calculate its size
 			for csi in csiList:
-				if not csi.initSize(size):  # Draw image and calculate its size:
+				if not csi.initSize(size):
 					csiList2.append(csi)
 			
 			# Clean up created FBO
@@ -182,7 +182,6 @@ class Instructions:
 			
 			# Clean up created FBO
 			GLHelpers.destroyFBO(*buffers)
-			
 			
 			if len(partList2) < 1:
 				break  # All images initialized successfully
@@ -274,13 +273,17 @@ class Page:
 	def drawToFile(self, path):
 		global _docWidth, _docHeight
 		
+		pngFile = path + "page_%d.png" % (self.number)
+		#if os.path.isfile(pngFile):
+		#	return
+		
 		surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, _docWidth, _docHeight)
 		cr = cairo.Context(surface)
 		
 		for step in self.steps:
-			step.drawToFile(cr)
+			step.drawToFile(cr, path)
 		
-		surface.write_to_png(path + "page_%d.png" % (self.number))
+		surface.write_to_png(pngFile)
 		surface.finish()
 	
 	def boundingBox(self):
@@ -355,10 +358,6 @@ class PLI:
 			self.layout[item] = PLIItem(part.partOGL, 1, Point(), Point(), 0, part.fileLine)
 	
 	def initLayout(self, context):
-		
-		if self.fileLine:
-			print "Trying to initalize a PLI that was alread initialized from file.  Ignoring call."
-			return
 		
 		# If this PLI is empty, nothing to do here
 		if len(self.layout) < 1:
@@ -500,8 +499,7 @@ class PLI:
 		global ldrawFile
 		
 		if self.fileLine:
-			# If this PLI already has a file line, it means it already exists in the file
-			return
+			return  # If this PLI already has a file line, it means it already exists in the file
 		
 		# Write out the main PLI command to file, including box and label position info
 		self.fileLine = [Comment, LicCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
@@ -522,8 +520,11 @@ class CSI:
 	"""
 	
 	def __init__(self, filename, step, buffers):
+		
 		self.box = Box(0, 0)
 		self.center = Point(0, 0)
+		self.displacement = Point(0, 0)
+		
 		self.offsetPLI = 0
 		self.filename = filename
 		self.step = step
@@ -550,10 +551,6 @@ class CSI:
 			False if the CSI has been rendered partially or wholly out of frame.
 		"""
 		
-		if self.fileLine:
-			print "Trying to initalize a CSI that was alread initialized from file.  Ignoring call."
-			return
-		
 		# TODO: update some kind of load status bar her - this function is *slow*
 		print "CSI %s step %d - size %d" % (self.filename, self.step.number, size)
 		
@@ -562,7 +559,7 @@ class CSI:
 		if params is None:
 			return False
 		
-		self.box.width, self.box.height, self.center = params
+		self.box.width, self.box.height, self.center, self.displacement = params
 		self.imgSize = size
 		return True
 
@@ -625,8 +622,8 @@ class CSI:
 		glCallList(self.oglDispID)
 
 	def drawPageElements(self, context):
-		#self.box.draw(context)
-		pass
+		self.box.draw(context)
+		#pass
 
 	def callOGLDisplayList(self):
 		glCallList(self.oglDispIDs[0][0])
@@ -634,27 +631,27 @@ class CSI:
 	def writeToGlobalFileArray(self):
 		global ldrawFile
 		
-		if not self.fileLine:
-			self.fileLine = [Comment, LicCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.center.x, self.center.y, self.imgSize]
-			ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
+		if self.fileLine:
+			return  # If this CSI already has a file line, it means it already exists in the file
+		
+		self.fileLine = [Comment, LicCommand, CSICommand,
+						 self.box.x, self.box.y, self.box.width, self.box.height,
+						 self.center.x, self.center.y,
+						 self.displacement.x, self.displacement.y,
+						 self.imgSize]
+		
+		ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
 
 	def renderToPov(self, ldrawFile, datFilename):
-		center = Point(self.imgSize / 2.0, self.imgSize / 2.0)
-		center.x += self.center.x
-		center.y += self.center.y
-		w = (self.box.width / 2.0) - center.x
-		h = (self.box.height / 2.0) - center.y
+		w = self.imgSize + abs(self.displacement.x * 2)
+		h = self.imgSize + abs(self.displacement.y * 2)
 		
-		if w > 0:
-			pass
-		
-		# TODO: fix this method so that it properly enlarges generated pov file by 2x the opengl displacement optimization (x & y, not center offset)
-		self.pngFile = ldrawFile.createPov(self.imgSize, self.imgSize, datFilename, True)
+		self.pngFile = ldrawFile.createPov(w, h, datFilename, True)
 
 	def drawToFile(self, context):
 		destination = Point(self.box.x, self.box.y)
-		x = round(destination.x - ((self.imgSize / 2.0) - self.center.x - (self.box.width / 2.0)))
-		y = round(destination.y - ((self.imgSize / 2.0) + self.center.y - (self.box.height / 2.0)))
+		x = round(destination.x + self.displacement.x - ((self.imgSize / 2.0) - self.center.x - (self.box.width / 2.0)))
+		y = round(destination.y + self.displacement.y - ((self.imgSize / 2.0) + self.center.y - (self.box.height / 2.0)))
 		
 		imageSurface = cairo.ImageSurface.create_from_png(self.pngFile)
 		context.set_source_surface(imageSurface, x, y)
@@ -765,10 +762,19 @@ class Step:
 		context.move_to(self.stepNumberRefPt.x, self.stepNumberRefPt.y)
 		context.show_text(str(self.number))
 	
-	def drawToFile(self, context):
+	def drawToFile(self, context, path):
 		self.pli.drawToFile(context)
 		self.csi.drawToFile(context)
 		self.drawPageElements(context)
+		
+		for part in self.parts:
+			if part.partOGL.pages == []:
+				continue
+			path = path + part.partOGL.filename + '\\'
+			if not os.path.isdir(path):
+				os.mkdir(path)
+			for page in part.partOGL.pages:
+				page.drawToFile(path)
 
 	def renderToPov(self, ldrawFile, start = 0, end = -1):
 		datFilename = ldrawFile.splitOneStepDat(self.fileLine, self.number, self.csi.filename, start, end)
@@ -943,12 +949,13 @@ class PartOGL:
 			print "CSI Warning: Trying to create a CSI outside of a step.  Line %d" % (line[0])
 			return
 		
-		#{'box': Box(*line[4:8]), 'offset': Point(line[8], line[9]), 'imgSize': int(line[10])}
+		#{'box': Box(*line[4:8]), 'center': Point(line[8], line[9]), 'displacement': Point(line[10], line[11]), 'imgSize': int(line[12])}
 		d = lineToCSI(line)
 		csi = self.currentStep.csi
 		csi.fileLine = line
 		csi.box = d['box']
-		csi.center = d['offset']
+		csi.center = d['center']
+		csi.displacement = d['displacement']
 		csi.imgSize = d['imgSize']
 
 	def addPage(self, line):

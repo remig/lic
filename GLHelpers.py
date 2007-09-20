@@ -273,6 +273,6 @@ def initImgSize(width, height, oglDispID, isCSI, filename = None):
 	imgCenter = Point(x - w, y + h)
 
 	if isCSI:
-		return (imgWidth, imgHeight, imgCenter)
+		return (imgWidth, imgHeight, imgCenter, Point(x, y))
 	else:
 		return (imgWidth, imgHeight, imgLeftInset, imgBottomInset, imgCenter)
