@@ -597,3 +597,31 @@ def listToCSVStr(l):
 		s += str(i) + ','
 	return s[:-1]
 	
+def splitStepDats(self, filename = None, start = 0, end = -1):
+	
+	if end == -1:
+		end = len(self.fileArray)
+	
+	if filename is None:
+		filename = self.filename
+	rawFilename = os.path.splitext(os.path.basename(filename))[0]
+	
+	stepList = []
+	for line in self.fileArray[start:end]:
+		if isValidStepLine(line):
+			# TODO: skip over steps with no parts, not just two Step lines in a row
+			if not isValidStepLine(self.fileArray[line[0] - 2]):
+				stepList.append(line[0] - 1)
+	stepList.append(end)
+	
+	stepDats = []
+	for i, stepIndex in enumerate(stepList[1:]):
+		
+		datFilename = datPath + rawFilename + '_step_%d' % (i+1) + '.dat'
+		f = open(datFilename, 'w')
+		for line in self.fileArray[start:stepIndex]:
+			f.write(' '.join(line[1:]) + '\n')
+		f.close()
+		stepDats.append(datFilename)
+	
+	return stepDats

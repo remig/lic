@@ -107,6 +107,9 @@ def lineToPart(line):
 def isValidGhostLine(line):
 	return (len(line) > 17) and (line[1] == Comment) and (line[2] == GhostCommand) and (line[3] == PartCommand)
 
+def ghostLineToPartLine(line):
+	return line[:1] + line[3:]
+
 def lineToGhostPart(line):
 	d = lineToPart(line[2:])
 	d['ghost'] = True
@@ -370,47 +373,57 @@ class LDrawFile:
 		
 		rawFilename = os.path.splitext(os.path.basename(filename))[0]
 		datFilename = datPath + rawFilename + '_step_%d' % (stepNumber) + '.dat'
-		f = open(datFilename, 'w')
 		
+		if os.path.isfile(datFilename):
+			return  # dat file already exists - no need to recreate
+		
+		fileLines = []
 		inCurrentStep = False
 		for line in self.fileArray[start:end]:
 			if line == stepLine:
 				inCurrentStep = True
 			elif isValidStepLine(line) and inCurrentStep:
 				break
+			fileLines.append(line)
+		
+		bufStack = ''
+		lineDict = {}
+		for i, line in enumerate(fileLines):
+			
+			if lineDict.has_key(bufStack):
+				lineDict[bufStack].append(i)
+			else:
+				lineDict[bufStack] = [i]
+			
+			if isValidBufferLine(line):
+				buffer, state = lineToBuffer(line).values()
+				
+				if state == BufferStore:
+					bufStack = bufStack + buffer
+					
+				elif state == BufferRetrieve:
+					if lineDict.has_key(bufStack):
+						lineDict.pop(bufStack)
+					if bufStack[-1] == buffer:
+						bufStack = bufStack[:-1]
+					else:
+						print "Buffer Exchange Error.  Last stored buffer: ", bufStack[-1], " but trying to retrieve buffer: ", buffer
+		
+		newLines = []
+		for lines in lineDict.values():
+			for i in lines:
+				line = fileLines[i]
+				if isValidGhostLine(line):
+					newLines.append(ghostLineToPartLine(line))
+				elif line[1] != Comment:
+					newLines.append(line)
+		
+		f = open(datFilename, 'w')
+		for line in newLines:
 			f.write(' '.join(line[1:]) + '\n')
 		f.close()
 		return datFilename
 
-	def splitStepDats(self, filename = None, start = 0, end = -1):
-		
-		if end == -1:
-			end = len(self.fileArray)
-		
-		if filename is None:
-			filename = self.filename
-		rawFilename = os.path.splitext(os.path.basename(filename))[0]
-		
-		stepList = []
-		for line in self.fileArray[start:end]:
-			if isValidStepLine(line):
-				# TODO: skip over steps with no parts, not just two Step lines in a row
-				if not isValidStepLine(self.fileArray[line[0] - 2]):
-					stepList.append(line[0] - 1)
-		stepList.append(end)
-		
-		stepDats = []
-		for i, stepIndex in enumerate(stepList[1:]):
-			
-			datFilename = datPath + rawFilename + '_step_%d' % (i+1) + '.dat'
-			f = open(datFilename, 'w')
-			for line in self.fileArray[start:stepIndex]:
-				f.write(' '.join(line[1:]) + '\n')
-			f.close()
-			stepDats.append(datFilename)
-		
-		return stepDats
-	
 	def createPov(self, width, height, datFile, isCSI, color = None):
 		
 		if datFile is None:

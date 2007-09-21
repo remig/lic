@@ -1009,8 +1009,8 @@ class PartOGL:
 		if not self.currentStep:
 			print "Rotation Step Error: Trying to create a rotation Step outside a valid Step. Line %d" % (line[0])
 			return
-
- 		rotStep = lineToRotStep(line)
+		
+		rotStep = lineToRotStep(line)
 		if rotStep['state'] == ENDCommand:
 			self.currentStep.rotStep = None
 		else:
