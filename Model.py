@@ -551,7 +551,9 @@ class CSI:
 		print "CSI %s step %d - size %d" % (self.filename, self.step.number, size)
 		
 		rawFilename = os.path.splitext(os.path.basename(self.filename))[0]
-		params = GLHelpers.initImgSize(size, size, self.oglDispID, True, rawFilename + "_step_" + str(self.step.number))
+		filename = "%s_step_%d" % (rawFilename, self.step.number)
+
+		params = GLHelpers.initImgSize(size, size, self.oglDispID, True, filename, self.step.rotStep)
 		if params is None:
 			return False
 		
@@ -616,8 +618,7 @@ class CSI:
 		glLoadIdentity()
 		GLHelpers.rotateToDefaultView(self.center.x, self.center.y, 0.0)
 		if self.step.rotStep:
-			pt = self.step.rotStep['point']
-			GLHelpers.rotateView(pt.x, pt.y, pt.z)
+			GLHelpers.rotateViewByPoint3D(self.step.rotStep['point'])
 		glCallList(self.oglDispID)
 
 	def drawPageElements(self, context):
