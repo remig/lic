@@ -375,7 +375,7 @@ class LDrawFile:
 		datFilename = datPath + rawFilename + '_step_%d' % (stepNumber) + '.dat'
 		
 		if os.path.isfile(datFilename):
-			return  # dat file already exists - no need to recreate
+			return datFilename  # dat file already exists - no need to recreate
 		
 		fileLines = []
 		inCurrentStep = False
