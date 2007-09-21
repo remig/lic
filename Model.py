@@ -53,7 +53,7 @@ class Instructions:
 	def generateImages(self):
 		global _docWidth, _docHeight
 		
-		path = "c:\ldraw\Lic\\" + self.mainModel.partOGL.filename + "\\"
+		path = "C:\LDraw\Lic\\" + self.mainModel.partOGL.filename + "\\"
 		if not os.path.isdir(path):
 			os.mkdir(path)
 		
@@ -66,7 +66,7 @@ class Instructions:
 		for page in self.mainModel.partOGL.pages:
 			page.drawToFile(surface, context, path)
 		
-		print "\nInstruction generation complete"
+		print "*** Generate Instructions Complete ***"
 	
 	def initDraw(self, context):
 		
@@ -210,6 +210,9 @@ class Page:
 		self.steps = []
 		self.fileLine = None
 		
+		self.pageNumberFont = Font(15)
+		self.pageNumberRefPt = Point(0, 0)
+		
 		self.pagePadding = 20
 
 	def drawPage(self, context, width, height):
@@ -233,6 +236,16 @@ class Page:
 		context.set_source_rgb(1,1,1)
 		context.fill()
 	
+	def drawPageNumber(self, context):
+		global _docWidth, _docHeight
+		self.pageNumberFont.passToCairo(context)
+		xbearing, ybearing, labelWidth, labelHeight, xa, ya = context.text_extents(str(self.number))
+		
+		self.pageNumberRefPt.x = _docWidth - xbearing - labelWidth - self.pagePadding
+		self.pageNumberRefPt.y = _docHeight - ybearing - labelHeight - self.pagePadding
+		context.move_to(self.pageNumberRefPt.x, self.pageNumberRefPt.y)
+		context.show_text(str(self.number))
+	
 	def draw(self, context, selection = None, width = 0, height = 0):
 		global _docWidth, _docHeight
 		
@@ -240,6 +253,7 @@ class Page:
 		# This leaves the cairo context translated to the top left corner of the page, but *NOT* scaled
 		# Scaling here messes up GL drawing
 		self.drawPage(context, width, height)
+		self.drawPageNumber(context)
 		
 		# Fully reset the viewport - necessary if we've mangled it while calculating part dimensions
 		GLHelpers.adjustGLViewport(0, 0, width, height)
@@ -268,7 +282,6 @@ class Page:
 	
 	def drawToFile(self, surface, context, path):
 		
-		print ".",
 		pngFile = path + "page_%d.png" % (self.number)
 		draw = not os.path.isfile(pngFile)
 		if draw:
@@ -279,7 +292,8 @@ class Page:
 			step.drawToFile(surface, context, path, draw)
 		
 		if draw:
-			print "Generating page %d" % (self.number),
+			self.drawPageNumber(context)
+			print "Generating page %d" % (self.number)
 			surface.write_to_png(pngFile)
 	
 	def boundingBox(self):
@@ -650,8 +664,8 @@ class CSI:
 
 	def drawToFile(self, context):
 		destination = Point(self.box.x, self.box.y)
-		x = round(destination.x + self.displacement.x - ((self.imgSize / 2.0) - self.center.x - (self.box.width / 2.0)))
-		y = round(destination.y + self.displacement.y - ((self.imgSize / 2.0) + self.center.y - (self.box.height / 2.0)))
+		x = round(destination.x - abs(self.displacement.x) - ((self.imgSize / 2.0) - self.center.x - (self.box.width / 2.0)))
+		y = round(destination.y - abs(self.displacement.y) - ((self.imgSize / 2.0) + self.center.y - (self.box.height / 2.0)))
 		
 		imageSurface = cairo.ImageSurface.create_from_png(self.pngFile)
 		context.set_source_surface(imageSurface, x, y)

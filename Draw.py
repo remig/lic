@@ -61,7 +61,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		self.currentPage = 	None      # The currently selected page
 	
 	def on_generate_images(self, data):
-		print "Generating Images"
+		print "*** Generating Instructions ***"
 		self.instructions.generateImages()
 	
 	def on_translate_part(self, data):
