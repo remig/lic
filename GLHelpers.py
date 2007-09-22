@@ -243,14 +243,6 @@ def initImgSize(width, height, oglDispID, isCSI, filename = None, rotStep = None
 		If isCSI is False, returns the (width, height, leftInset, bottomInset, centerPoint) parameters of this image.
 	"""
 	
-	# TODO - are these necessary here?  We do the same in ._getBounds
-	adjustGLViewport(0, 0, width, height)
-	glLoadIdentity()
-	if isCSI:
-		rotateToDefaultView()
-	else:
-		rotateToPLIView()
-	
 	# Draw piece to frame buffer, then calculate bounding box
 	top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(0.0, 0.0, width, height, oglDispID, filename, isCSI, rotStep)
 	

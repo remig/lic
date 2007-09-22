@@ -11,21 +11,12 @@ from Drawables import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-"""
-TODO:
-- Fix exchange buffer output to dats so that pov output matches opengl output.
-
-Once all that's done, Lic is properly generating full instruction images, and is actually mildly useful.
-Nothing revolutionary yet, but useful.
-"""
-
 # TODO: Each class holds a bunch of self attributes only used during initialization - once init is done, delete them maybe?
 # TODO: File load is sluggish, even if loading from a thoroughly Lic-created file - speed it up
 
 # Globals
 UNINIT_OGL_DISPID = -1
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
-ldrawFile = None
 _docWidth = 800
 _docHeight = 600
 
@@ -35,14 +26,12 @@ class Instructions:
 	
 	# TODO: Instructions should be a tree, and be used more cleanly than the hack job currently in the tree GUI code.
 	def __init__(self, filename):
-		global ldrawFile
 		
 		# Part dimensions cache line format: filename width height center.x center.y leftInset bottomInset
 		self.ImgDimensionsFilename = "PartDimensions_" + filename + ".cache"
 		self.filename = filename
 		
 		self.mainModel = Part(filename, isMainModel = True)
-		ldrawFile = self.mainModel.partOGL.ldrawFile
 	
 	def getMainModel(self):
 		return self.mainModel
@@ -76,7 +65,7 @@ class Instructions:
 		for page in self.mainModel.partOGL.pages:
 			for step in page.steps:
 				step.initLayout(context)
-				step.writeToGlobalFileArray()
+				step.writeToFileArray(self.mainModel.partOGL.ldrawFile)
 
 	def initPartDimensions(self):
 		
@@ -160,7 +149,7 @@ class Instructions:
 		partList = [part for part in partDictionary.values() if not part.isPrimitive]
 		partList2 = []
 		lines = []
-		sizes = [256, 512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
+		sizes = [128, 256, 512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
 		
 		for size in sizes:
 			
@@ -499,8 +488,7 @@ class PLI:
 			context.move_to(item.labelCorner.x, item.labelCorner.y)
 			context.show_text(str(item.count) + self.qtyMultiplierChar)
 
-	def writeToGlobalFileArray(self):
-		global ldrawFile
+	def writeToFileArray(self, ldrawFile):
 		
 		if self.fileLine:
 			return  # If this PLI already has a file line, it means it already exists in the file
@@ -523,15 +511,12 @@ class CSI:
 	Construction Step Image.  Includes border and positional info.
 	"""
 	
-	def __init__(self, filename, step, buffers):
+	def __init__(self, step, buffers):
 		
 		self.box = Box(0, 0)
 		self.center = Point(0, 0)
 		
 		self.offsetPLI = 0
-		# TODO: move filename definition to Step, since its rarely used here, and equally used in Step.
-		# Unless we're able to remove the Step backreference in CSI, that is...
-		self.filename = filename
 		self.step = step
 		self.buffers = buffers  # [(bufID, stepNumber)], set of buffers active inside this CSI
 		
@@ -556,11 +541,11 @@ class CSI:
 		"""
 		
 		# TODO: update some kind of load status bar her - this function is *slow*
-		print "CSI %s step %d - size %d" % (self.filename, self.step.number, size)
+		print "CSI %s step %d - size %d" % (self.step.filename, self.step.number, size)
 		
-		rawFilename = os.path.splitext(os.path.basename(self.filename))[0]
+		rawFilename = os.path.splitext(os.path.basename(self.step.filename))[0]
 		filename = "%s_step_%d" % (rawFilename, self.step.number)
-
+		
 		params = GLHelpers.initImgSize(size, size, self.oglDispID, True, filename, self.step.rotStep)
 		if params is None:
 			return False
@@ -635,8 +620,7 @@ class CSI:
 	def callOGLDisplayList(self):
 		glCallList(self.oglDispIDs[0][0])
 	
-	def writeToGlobalFileArray(self):
-		global ldrawFile
+	def writeToFileArray(self, ldrawFile):
 		
 		if self.fileLine:
 			return  # If this CSI already has a file line, it means it already exists in the file
@@ -683,6 +667,7 @@ class Step:
 		self.stepNumberFont = Font(20)
 		self.stepNumberRefPt = Point(0, 0)
 		
+		self.filename = filename
 		self.fileLine = None
 		
 		if prevStep:
@@ -692,7 +677,7 @@ class Step:
 			self.number = 1
 			self.rotStep = None
 		
-		self.csi = CSI(filename, self, list(buffers))
+		self.csi = CSI(self, list(buffers))
 		self.pli = PLI(self, Point(self.internalGap, self.internalGap))
 
 	def addPart(self, part):
@@ -743,14 +728,14 @@ class Step:
 		self.csi.offsetPLI = topGap
 		self.csi.resize()
 
-	def writeToGlobalFileArray(self):
-		self.pli.writeToGlobalFileArray()
-		self.csi.writeToGlobalFileArray()
+	def writeToFileArray(self, ldrawFile):
+		self.pli.writeToFileArray(ldrawFile)
+		self.csi.writeToFileArray(ldrawFile)
 		
 		for part in self.parts:
 			for page in part.partOGL.pages:
 				for step in page.steps:
-					step.writeToGlobalFileArray()
+					step.writeToFileArray(ldrawFile)
 
 	def draw(self):
 		""" Draw this step's CSI and PLI parts (not GUI elements, just the 3D GL bits) """
@@ -784,7 +769,7 @@ class Step:
 		
 		p = self.containingPart
 		start, end = p.ldArrayStartEnd if p.ldArrayStartEnd else (0, -1)
-		datFilename = p.ldrawFile.splitOneStepDat(self.fileLine, self.number, self.csi.filename, start, end)
+		datFilename = p.ldrawFile.splitOneStepDat(self.fileLine, self.number, self.filename, start, end)
 		self.csi.renderToPov(p.ldrawFile, datFilename)
 
 	def boundingBox(self):
