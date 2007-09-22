@@ -625,3 +625,15 @@ def splitStepDats(self, filename = None, start = 0, end = -1):
 		stepDats.append(datFilename)
 	
 	return stepDats
+
+def partOGL_drawBoundingBox(self):
+	
+	surface = cairo.ImageSurface.create_from_png(self.pngFile)
+	cr = cairo.Context(surface)
+	cr.set_source_rgb(0, 0, 0)
+	x = (self.imgSize / 2.0) - self.center.x - (self.width / 2.0) - 2
+	y = (self.imgSize / 2.0) + self.center.y - (self.height / 2.0) - 2
+	cr.rectangle(x, y, self.width + 4, self.height + 4)
+	cr.stroke()
+	surface.write_to_png(self.pngFile)
+	surface.finish()

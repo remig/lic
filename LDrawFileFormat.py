@@ -56,6 +56,9 @@ def LDToOGLMatrix(matrix):
 	m = [float(x) for x in matrix]
 	return [m[3], m[6], m[9], 0.0, m[4], m[7], m[10], 0.0, m[5], m[8], m[11], 0.0, m[0], m[1], m[2], 1.0]
 
+def isValidCommentLine(line):
+	return (len(line) > 2) and (line[1] == Comment)
+
 def isValidTriangleLine(line):
 	return (len(line) == 12) and (line[1] == TriangleCommand)
 
@@ -153,14 +156,12 @@ def isValidLicHeader(line):
 	return isValidLicLine(line) and (len(line) == 4) and (line[3] == LicInitialized)
 
 def isValidCSILine(line):
-	return isValidLicLine(line) and (len(line) > 12) and (line[3] == CSICommand)
+	return isValidLicLine(line) and (len(line) > 9) and (line[3] == CSICommand)
 
 def lineToCSI(line):
-	# [index, Comment, LicCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y, self.displacement.x, self.displacement.y, self.imgSize]
+	# [index, Comment, LicCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y]
 	return {'box': Drawables.Box(float(line[4]), float(line[5]), float(line[6]), float(line[7])),
-			'center': Drawables.Point(float(line[8]), float(line[9])),
-			'displacement': Drawables.Point(float(line[10]), float(line[11])),
-			'imgSize': int(line[12])}
+			'center': Drawables.Point(float(line[8]), float(line[9]))}
 
 def isValidPLILine(line):
 	return isValidLicLine(line) and (len(line) > 10) and (line[3] == PLICommand)
@@ -415,7 +416,7 @@ class LDrawFile:
 				line = fileLines[i]
 				if isValidGhostLine(line):
 					newLines.append(ghostLineToPartLine(line))
-				elif line[1] != Comment:
+				elif (not isValidCommentLine(line)) or (len(line) < 1):
 					newLines.append(line)
 		
 		f = open(datFilename, 'w')
@@ -424,7 +425,7 @@ class LDrawFile:
 		f.close()
 		return datFilename
 
-	def createPov(self, width, height, datFile, camera, color = None):
+	def createPov(self, width, height, datFile, camera, offset, color = None):
 		
 		if datFile is None:
 			datFile = self.path + self.filename
@@ -452,7 +453,7 @@ class LDrawFile:
 			pngFile = "%s%s.png" % (pngPath, rawFilename)
 		
 		if not os.path.isfile(pngFile):
-			povray.fixPovFile(povFile, width, height, camera)
+			povray.fixPovFile(povFile, width, height, offset, camera)
 			povCommand = povray.getDefaultCommand()
 			povCommand['inFile'] = povFile
 			povCommand['outFile'] = pngFile

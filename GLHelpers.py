@@ -243,6 +243,7 @@ def initImgSize(width, height, oglDispID, isCSI, filename = None, rotStep = None
 		If isCSI is False, returns the (width, height, leftInset, bottomInset, centerPoint) parameters of this image.
 	"""
 	
+	# TODO - are these necessary here?  We do the same in ._getBounds
 	adjustGLViewport(0, 0, width, height)
 	glLoadIdentity()
 	if isCSI:
@@ -283,13 +284,11 @@ def initImgSize(width, height, oglDispID, isCSI, filename = None, rotStep = None
 	imgLeftInset = leftInset 
 	imgBottomInset = bottomInset
 	
-	dx = left + (imgWidth/2)
-	dy = top + (imgHeight/2)
-	w = dx - (width/2)
-	h = dy - (height/2)
+	w = (left + (imgWidth/2)) - (width/2)
+	h = (top + (imgHeight/2)) - (height/2)
 	imgCenter = Point(x - w, y + h)
 
 	if isCSI:
-		return (imgWidth, imgHeight, imgCenter, Point(x, y))
+		return (imgWidth, imgHeight, imgCenter)
 	else:
 		return (imgWidth, imgHeight, imgLeftInset, imgBottomInset, imgCenter)

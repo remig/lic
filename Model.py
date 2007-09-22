@@ -37,7 +37,7 @@ class Instructions:
 	def __init__(self, filename):
 		global ldrawFile
 		
-		# Part dimensions cache line format: filename width height center-x center-y leftInset bottomInset
+		# Part dimensions cache line format: filename width height center.x center.y leftInset bottomInset
 		self.ImgDimensionsFilename = "PartDimensions_" + filename + ".cache"
 		self.filename = filename
 		
@@ -96,7 +96,7 @@ class Instructions:
 		# generate a size for it manually, then append that entry to the file
 		# TODO: Make the part cache file not model specific, but rendered dimensions specific
 		for line in f:
-			filename, w, h, x, y, l, b, size = line.split()
+			filename, w, h, x, y, l, b = line.split()
 			if not partDictionary.has_key(filename):
 				print "Warning: part dimension cache contains part (%s) not present in model - suggest regenerating part dimension cache." % (filename)
 				continue
@@ -106,7 +106,6 @@ class Instructions:
 			p.center = Point(int(x), int(y))
 			p.leftInset = int(l)
 			p.bottomInset = int(b)
-			p.imgSize = int(size)
 	
 	def buildCSIList(self, part, loadedParts = []):
 		csiList = []
@@ -322,12 +321,8 @@ class PLIItem:
 		p = self.partOGL
 		p.renderToPov(color)
 		
-		destination = Point(self.corner.x, self.corner.y - p.height)
-		x = round(destination.x - ((p.imgSize / 2.0) - p.center.x - (p.width / 2.0) - 2))
-		y = round(destination.y - ((p.imgSize / 2.0) + p.center.y - (p.height / 2.0) - 2))
-		
 		imageSurface = cairo.ImageSurface.create_from_png(self.partOGL.pngFile)
-		context.set_source_surface(imageSurface, x, y)
+		context.set_source_surface(imageSurface, round(self.corner.x), round(self.corner.y - p.height))
 		context.paint()
 
 	def boundingBox(self):
@@ -532,7 +527,6 @@ class CSI:
 		
 		self.box = Box(0, 0)
 		self.center = Point(0, 0)
-		self.displacement = Point(0, 0)
 		
 		self.offsetPLI = 0
 		# TODO: move filename definition to Step, since its rarely used here, and equally used in Step.
@@ -545,7 +539,6 @@ class CSI:
 		self.oglDispID = UNINIT_OGL_DISPID
 		
 		self.fileLine = None
-		self.imgSize = 1
 	
 	def initSize(self, size):
 		"""
@@ -572,8 +565,7 @@ class CSI:
 		if params is None:
 			return False
 		
-		self.box.width, self.box.height, self.center, self.displacement = params
-		self.imgSize = size
+		self.box.width, self.box.height, self.center = params
 		return True
 
 	def callPreviousOGLDisplayLists(self, currentBuffers = None):
@@ -651,29 +643,20 @@ class CSI:
 		
 		self.fileLine = [Comment, LicCommand, CSICommand,
 						 self.box.x, self.box.y, self.box.width, self.box.height,
-						 self.center.x, self.center.y,
-						 self.displacement.x, self.displacement.y,
-						 self.imgSize]
+						 self.center.x, self.center.y]
 		
 		ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
 
 	def renderToPov(self, ldrawFile, datFilename):
-		w = self.imgSize + abs(self.displacement.x * 2)
-		h = self.imgSize + abs(self.displacement.y * 2)
-		
 		camera = GLHelpers.getDefaultCamera()
 		if self.step.rotStep:
 			pt = self.step.rotStep['point']
 			camera = [('z', pt.z), ('y', pt.y), ('x', pt.x)] + camera
-		self.pngFile = ldrawFile.createPov(w, h, datFilename, camera)
+		self.pngFile = ldrawFile.createPov(self.box.width, self.box.height, datFilename, camera, self.center)
 
 	def drawToFile(self, context):
-		destination = Point(self.box.x, self.box.y)
-		x = round(destination.x - abs(self.displacement.x) - ((self.imgSize / 2.0) - self.center.x - (self.box.width / 2.0)))
-		y = round(destination.y - abs(self.displacement.y) - ((self.imgSize / 2.0) + self.center.y - (self.box.height / 2.0)))
-		
 		imageSurface = cairo.ImageSurface.create_from_png(self.pngFile)
-		context.set_source_surface(imageSurface, x, y)
+		context.set_source_surface(imageSurface, round(self.box.x), round(self.box.y))
 		context.paint()
 
 	def resize(self):
@@ -800,7 +783,7 @@ class Step:
 	def renderToPov(self):
 		
 		p = self.containingPart
-		start, end = p.ldArrayStartEnd if p.ldArrayStartEnd else (0, 0)
+		start, end = p.ldArrayStartEnd if p.ldArrayStartEnd else (0, -1)
 		datFilename = p.ldrawFile.splitOneStepDat(self.fileLine, self.number, self.csi.filename, start, end)
 		self.csi.renderToPov(p.ldrawFile, datFilename)
 
@@ -837,7 +820,7 @@ class PartOGL:
 		self.buffers = []  #[(bufID, stepNumber)]
 		self.ignorePLIState = False
 		
-		self.width = self.height = self.imgSize = 1
+		self.width = self.height = 1
 		self.leftInset = self.bottomInset = 0
 		self.center = Point(0, 0)
 		
@@ -977,14 +960,12 @@ class PartOGL:
 			print "CSI Warning: Trying to create a CSI outside of a step.  Line %d" % (line[0])
 			return
 		
-		#{'box': Box(*line[4:8]), 'center': Point(line[8], line[9]), 'displacement': Point(line[10], line[11]), 'imgSize': int(line[12])}
+		#{'box': Box(*line[4:8]), 'center': Point(line[8], line[9])}
 		d = lineToCSI(line)
 		csi = self.currentStep.csi
 		csi.fileLine = line
 		csi.box = d['box']
 		csi.center = d['center']
-		csi.displacement = d['displacement']
-		csi.imgSize = d['imgSize']
 
 	def addPage(self, line):
 		if self.currentPage and self.currentPage.steps == []:
@@ -1133,7 +1114,7 @@ class PartOGL:
 	def dimensionsToString(self):
 		if self.isPrimitive:
 			return ""
-		return "%s %d %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x, self.center.y, self.leftInset, self.bottomInset, self.imgSize)
+		return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x, self.center.y, self.leftInset, self.bottomInset)
 
 	def initSize(self, size):
 		"""
@@ -1162,7 +1143,6 @@ class PartOGL:
 		# TODO: update some kind of load status bar her - this function is *slow*
 		print self.filename + " - size: %d" % (size)
 		
-		self.imgSize = size
 		self.width, self.height, self.leftInset, self.bottomInset, self.center = params
 		return True
 	
@@ -1175,19 +1155,7 @@ class PartOGL:
 		
 		# Render this part to a pov file and a final png image
 		camera = GLHelpers.getPLICamera()
-		self.pngFile = self.ldrawFile.createPov(self.imgSize, self.imgSize, filename, camera, color)
-	
-	def drawBoundingBox(self):
-		
-		surface = cairo.ImageSurface.create_from_png(self.pngFile)
-		cr = cairo.Context(surface)
-		cr.set_source_rgb(0, 0, 0)
-		x = (self.imgSize / 2.0) - self.center.x - (self.width / 2.0) - 2
-		y = (self.imgSize / 2.0) + self.center.y - (self.height / 2.0) - 2
-		cr.rectangle(x, y, self.width + 4, self.height + 4)
-		cr.stroke()
-		surface.write_to_png(self.pngFile)
-		surface.finish()
+		self.pngFile = self.ldrawFile.createPov(self.width, self.height, filename, camera, self.center, color)
 	
 	def boundingBox(self):
 		# TODO: remove this check, and this entire method, once it is no longer ever called

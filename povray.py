@@ -68,7 +68,7 @@ def runCommand(d):
 	return (povray, args, os.spawnv(os.P_WAIT, povray, args))
 	
 # camera = [(x, 20), (y, 45), (y, -90)] - needs to be reversed before calling
-def fixPovFile(filename, imgWidth, imgHeight, camera):
+def fixPovFile(filename, imgWidth, imgHeight, offset, camera):
 
 	tmpFilename = filename + '.tmp'
 	licHeader = "// Lic: Processed lights, camera and rotation\n"
@@ -100,11 +100,11 @@ def fixPovFile(filename, imgWidth, imgHeight, camera):
 			inCamera = True
 			copyFile.write(line)
 			copyFile.write('\torthographic\n')
-			copyFile.write('\tlocation <0, 0, -1000>\n')
+			copyFile.write('\tlocation <-%f, %f, -1000>\n' % (offset.x, offset.y))
 			copyFile.write('\tsky      -y\n')
 			copyFile.write('\tright    -%d * x\n' % (imgWidth))
 			copyFile.write('\tup        %d * y\n' % (imgHeight))
-			copyFile.write('\tlook_at   <0, 0, 0>\n')
+			copyFile.write('\tlook_at   <-%f, %f, 0>\n' % (offset.x, offset.y))
 			copyFile.write('\trotate    <0, 1e-5, 0>\n')
 		
 		elif line == '}\n' and inCamera:
