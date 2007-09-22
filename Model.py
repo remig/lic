@@ -53,12 +53,10 @@ class Instructions:
 	def generateImages(self):
 		global _docWidth, _docHeight
 		
+		print "*** Generating Instructions ***"
 		path = "C:\LDraw\Lic\\" + self.mainModel.partOGL.filename + "\\"
 		if not os.path.isdir(path):
 			os.mkdir(path)
-		
-		# Generate all dats / povs / pngs for individual parts and CSIs
-		self.mainModel.partOGL.renderToPov()
 		
 		surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, _docWidth, _docHeight)
 		context = cairo.Context(surface)
@@ -283,18 +281,19 @@ class Page:
 	def drawToFile(self, surface, context, path):
 		
 		pngFile = path + "page_%d.png" % (self.number)
-		draw = not os.path.isfile(pngFile)
-		if draw:
+		if not os.path.isfile(pngFile):
 			context.set_source_rgb(1, 1, 1)
 			context.paint()
+			
+			for step in self.steps:
+				step.drawToFile(surface, context, path)
+			
+			print "Generating page %d" % (self.number)
+			self.drawPageNumber(context)
+			surface.write_to_png(pngFile)
 		
 		for step in self.steps:
-			step.drawToFile(surface, context, path, draw)
-		
-		if draw:
-			self.drawPageNumber(context)
-			print "Generating page %d" % (self.number)
-			surface.write_to_png(pngFile)
+			step.drawSubModelsToFile(surface, context, path)
 	
 	def boundingBox(self):
 		return None
@@ -536,6 +535,8 @@ class CSI:
 		self.displacement = Point(0, 0)
 		
 		self.offsetPLI = 0
+		# TODO: move filename definition to Step, since its rarely used here, and equally used in Step.
+		# Unless we're able to remove the Step backreference in CSI, that is...
 		self.filename = filename
 		self.step = step
 		self.buffers = buffers  # [(bufID, stepNumber)], set of buffers active inside this CSI
@@ -690,9 +691,10 @@ class CSI:
 		return Box(box = self.box)
 	
 class Step:
-	def __init__(self, filename, prevStep = None, buffers = []):
+	def __init__(self, filename, prevStep, buffers, containingPart):
 		self.parts = []
 		self.prevStep = prevStep
+		self.containingPart = containingPart
 		
 		self.internalGap = 20
 		self.stepNumberFont = Font(20)
@@ -774,31 +776,33 @@ class Step:
 
 	def drawPageElements(self, context):
 		""" Draw this step's PLI and CSI page elements, and this step's number label. """
-		self.csi.drawPageElements(context)
 		self.pli.drawPageElements(context)
+		self.csi.drawPageElements(context)
 		
 		# Draw this step's number label
 		self.stepNumberFont.passToCairo(context)
 		context.move_to(self.stepNumberRefPt.x, self.stepNumberRefPt.y)
 		context.show_text(str(self.number))
 	
-	def drawToFile(self, surface, context, path, draw):
-		if draw:
-			self.pli.drawToFile(context)
-			self.csi.drawToFile(context)
-			self.drawPageElements(context)
+	def drawToFile(self, surface, context, path):
+		
+		self.renderToPov()
+		self.pli.drawToFile(context)
+		self.csi.drawToFile(context)
+		self.drawPageElements(context)
+	
+	def drawSubModelsToFile(self, surface, context, path):
 		
 		for part in self.parts:
 			for page in part.partOGL.pages:
 				page.drawToFile(surface, context, path)
 
-	def renderToPov(self, ldrawFile, start = 0, end = -1):
-		datFilename = ldrawFile.splitOneStepDat(self.fileLine, self.number, self.csi.filename, start, end)
-		self.csi.renderToPov(ldrawFile, datFilename)
+	def renderToPov(self):
 		
-		for part in self.parts:
-			if not part.ignorePLIState:
-				part.partOGL.renderToPov()
+		p = self.containingPart
+		start, end = p.ldArrayStartEnd if p.ldArrayStartEnd else (0, 0)
+		datFilename = p.ldrawFile.splitOneStepDat(self.fileLine, self.number, self.csi.filename, start, end)
+		self.csi.renderToPov(p.ldrawFile, datFilename)
 
 	def boundingBox(self):
 		return self.pli.box + self.csi.box
@@ -1019,7 +1023,7 @@ class PartOGL:
 			return
 			
 		# Create a new step, set the current steps' nextStep to it, then make it the current step
-		self.currentStep = Step(self.filename, self.currentStep, list(self.buffers))
+		self.currentStep = Step(self.filename, self.currentStep, list(self.buffers), self)
 		self.currentStep.fileLine = line
 		self.currentPage.steps.append(self.currentStep)
 
@@ -1169,18 +1173,9 @@ class PartOGL:
 			# This is a submodel in main file - need to write this to its own .dat
 			filename = self.ldrawFile.writeLinesToDat(self.filename, *self.ldArrayStartEnd)
 		
-		# Render this part to a pov file then a final image
+		# Render this part to a pov file and a final png image
 		camera = GLHelpers.getPLICamera()
 		self.pngFile = self.ldrawFile.createPov(self.imgSize, self.imgSize, filename, camera, color)
-		
-		# If this part has pages and steps, render each one too
-		for page in self.pages:
-			for step in page.steps:
-				if self.ldArrayStartEnd:
-					step.renderToPov(self.ldrawFile, *self.ldArrayStartEnd)
-				else:
-					step.renderToPov(self.ldrawFile)
-
 	
 	def drawBoundingBox(self):
 		
