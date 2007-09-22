@@ -424,7 +424,7 @@ class LDrawFile:
 		f.close()
 		return datFilename
 
-	def createPov(self, width, height, datFile, isCSI, color = None):
+	def createPov(self, width, height, datFile, camera, color = None):
 		
 		if datFile is None:
 			datFile = self.path + self.filename
@@ -452,7 +452,7 @@ class LDrawFile:
 			pngFile = "%s%s.png" % (pngPath, rawFilename)
 		
 		if not os.path.isfile(pngFile):
-			povray.fixPovFile(povFile, width, height, isCSI)
+			povray.fixPovFile(povFile, width, height, camera)
 			povCommand = povray.getDefaultCommand()
 			povCommand['inFile'] = povFile
 			povCommand['outFile'] = pngFile

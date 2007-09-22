@@ -660,7 +660,11 @@ class CSI:
 		w = self.imgSize + abs(self.displacement.x * 2)
 		h = self.imgSize + abs(self.displacement.y * 2)
 		
-		self.pngFile = ldrawFile.createPov(w, h, datFilename, True)
+		camera = GLHelpers.getDefaultCamera()
+		if self.step.rotStep:
+			pt = self.step.rotStep['point']
+			camera = [('z', pt.z), ('y', pt.y), ('x', pt.x)] + camera
+		self.pngFile = ldrawFile.createPov(w, h, datFilename, camera)
 
 	def drawToFile(self, context):
 		destination = Point(self.box.x, self.box.y)
@@ -1166,7 +1170,8 @@ class PartOGL:
 			filename = self.ldrawFile.writeLinesToDat(self.filename, *self.ldArrayStartEnd)
 		
 		# Render this part to a pov file then a final image
-		self.pngFile = self.ldrawFile.createPov(self.imgSize, self.imgSize, filename, False, color)
+		camera = GLHelpers.getPLICamera()
+		self.pngFile = self.ldrawFile.createPov(self.imgSize, self.imgSize, filename, camera, color)
 		
 		# If this part has pages and steps, render each one too
 		for page in self.pages:

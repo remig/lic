@@ -1,6 +1,4 @@
-import shutil  # for file copy / rename
 import os      # for process creation
-import re      # for pov file parsing
 
 def boolToCommand(command, bool):
 	if bool:
@@ -69,9 +67,11 @@ def runCommand(d):
 				args.append(value)
 	return (povray, args, os.spawnv(os.P_WAIT, povray, args))
 	
-def fixPovFile(filename, imgWidth, imgHeight, isCSI):
+# camera = [(x, 20), (y, 45), (y, -90)] - needs to be reversed before calling
+def fixPovFile(filename, imgWidth, imgHeight, camera):
 
-	licHeader = "// Lic: Processed lights and camera\n"	
+	tmpFilename = filename + '.tmp'
+	licHeader = "// Lic: Processed lights, camera and rotation\n"
 	originalFile = open(filename, 'r')
 	
 	# Check if we've already processed this pov, abort if we have
@@ -79,34 +79,35 @@ def fixPovFile(filename, imgWidth, imgHeight, isCSI):
 		originalFile.close()
 		return
 
+	lastObjectLine = ''
 	inCamera = inLight = False
-	copyFile = open(filename + '.tmp', 'w')
+	copyFile = open(tmpFilename, 'w')
 	copyFile.write(licHeader)
-	
+
 	for line in originalFile:
 		
-		if line == 'light_source {\n':
+		if line.startswith('object { '):
+			lastObjectLine = line
+		
+		elif line == 'light_source {\n':
 			inLight = True
 		
-		if line == '}\n' and inLight:
+		elif line == '}\n' and inLight:
 			inLight = False
 			copyFile.write('\tshadowless\n')
 		
-		if line == 'camera {\n':
+		elif line == 'camera {\n':
 			inCamera = True
 			copyFile.write(line)
 			copyFile.write('\torthographic\n')
-			if isCSI:
-				copyFile.write('\tlocation <28, -14.5, -28> * 1000\n')
-			else:
-				copyFile.write('\tlocation <-28, -14.5, -28> * 1000\n')
+			copyFile.write('\tlocation <0, 0, -1000>\n')
 			copyFile.write('\tsky      -y\n')
 			copyFile.write('\tright    -%d * x\n' % (imgWidth))
 			copyFile.write('\tup        %d * y\n' % (imgHeight))
-			copyFile.write( '\tlook_at   <0, 0, 0>\n')
+			copyFile.write('\tlook_at   <0, 0, 0>\n')
 			copyFile.write('\trotate    <0, 1e-5, 0>\n')
 		
-		if line == '}\n' and inCamera:
+		elif line == '}\n' and inCamera:
 			inCamera = False
 		
 		if not inCamera:
@@ -114,5 +115,32 @@ def fixPovFile(filename, imgWidth, imgHeight, isCSI):
 	
 	originalFile.close()
 	copyFile.close()
-	shutil.move(filename + '.tmp', filename)
 	
+	# Need a second pass to fixup last object in file - could only determine last object on first pass, not fix it
+	originalFile = open(tmpFilename, 'r')
+	copyFile = open(filename, 'w')
+	
+	for line in originalFile:
+		
+		if line != lastObjectLine:
+			copyFile.write(line)
+		else:
+			# Insert the main object line...
+			split = lastObjectLine.partition('#if')
+			copyFile.write(split[0] + '\n')
+			
+			# ... with proper rotations inserted...
+			for axis, amount in camera:
+				if axis == 'x':
+					copyFile.write('\trotate <%f, 0, 0>\n' % amount)
+				elif axis == 'y':
+					copyFile.write('\trotate <0, %f, 0>\n' % amount)
+				elif axis == 'z':				
+					copyFile.write('\trotate <0, 0, %f>\n' % amount)
+			
+			# ... then the rest of the original object line
+			copyFile.write(''.join(split[1:]))
+	
+	originalFile.close()
+	copyFile.close()
+	os.remove(tmpFilename)
