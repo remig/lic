@@ -9,10 +9,10 @@ from GLHelpers import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-#MODEL_NAME = "pyramid.dat"
+MODEL_NAME = "pyramid.dat"
 #MODEL_NAME = "pyramid_bufs.dat"
 #MODEL_NAME = "Blaster_shortened.mpd"
-MODEL_NAME = "Blaster.mpd"
+#MODEL_NAME = "Blaster.mpd"
 #MODEL_NAME = "3005s.dat"
 #MODEL_NAME = "2744.DAT"
 #MODEL_NAME = "4286.DAT"
@@ -30,6 +30,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 				gtk.gdk.BUTTON_RELEASE_MASK | gtk.gdk.BUTTON_PRESS_MASK |
 				gtk.gdk.SCROLL_MASK)
 		
+		self.set_flags(gtk.CAN_FOCUS)
 		display_mode = (gtk.gdkgl.MODE_RGBA | gtk.gdkgl.MODE_DOUBLE)
 		glconfig = gtk.gdkgl.Config(mode=display_mode)
 		self.set_gl_capability(glconfig)
@@ -59,7 +60,43 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		self.instructions = None      # The complete Lego instructions book currently loaded
 		self.currentSelection = None  # The currently selected item in the Instruction tree, whether a single part, submodel, step, or page
 		self.currentPage = 	None      # The currently selected page
+
+	def on_treeview_key_press(self, *args):
+		print "tree key"
+		return False
 	
+	def on_treeview_key_release(self, *args):
+		print "tree key release"
+		return False
+	
+	def on_box_opengl_key_press(self, widget, event):
+		key = gtk.gdk.keyval_name(event.keyval)
+		print "box key press: " + key
+		if key == 'Up':
+			pass
+		elif key == 'Down':
+			pass
+		elif key == 'Left':
+			pass
+		elif key == 'Right':
+			pass
+	
+	def on_button_press(self, widget, event):
+		print "mouse button"
+		self.set_flags(gtk.HAS_FOCUS)
+		self.grab_focus()
+		
+		x = event.x
+		y = event.y
+		prevSelection = self.currentSelection
+		self.currentSelection = self.currentPage.select(x, y)
+		if prevSelection is not self.currentSelection:
+			self.on_draw_event()  # Selected a new instruction element - redraw
+
+	def on_box_opengl_key_release(self, *args):
+		pass
+		#print "box key release"
+
 	def on_generate_images(self, data):
 		self.instructions.generateImages()
 	
@@ -76,11 +113,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 
 	def on_destroy(self, widget, data=None):
 		gtk.main_quit()
-
-	def on_button_press(self, widget, event):
-		x = event.x
-		y = event.y
-		# TODO: figure out a selection scheme
 
 	def on_init(self, *args):
 		""" Initialize the window. """
@@ -116,8 +148,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		self.instructions.initDraw(cr)
 		self.currentSelection = self.instructions.getMainModel()
-		self.currentPage = self.currentSelection.partOGL.pages[0]
-		
 		self.initializeTree()
 
 	def on_resize_event(self, *args):
@@ -232,7 +262,13 @@ def go():
 	
 	sigs = {"on_menuGenerate_activate": area.on_generate_images,
 			"on_save_activate": area.on_save,
-			"on_quit_activate": area.on_destroy }
+			"on_quit_activate": area.on_destroy,
+			"on_treeview_key_press_event": area.on_treeview_key_press,
+			"on_treeview_key_release_event": area.on_treeview_key_release,
+			"on_box_opengl_key_press_event": area.on_box_opengl_key_press,
+			"on_box_opengl_key_release_event": area.on_box_opengl_key_release,
+			"on_quit_activate": area.on_destroy,
+			}
 	
 	gui_xml.signal_autoconnect(sigs)
 

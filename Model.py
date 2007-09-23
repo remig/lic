@@ -201,44 +201,46 @@ class Page:
 		
 		self.pagePadding = 20
 
-	def drawPage(self, context, width, height):
-		global _docWidth, _docHeight
+	def drawPage(self, context):
 		
 		# Flood context with grey background
 		context.set_source_rgb(0.5, 0.5, 0.5)
 		context.paint()
 		
 		# Draw a slightly down-left translated black rectangle, for the page shadow effect
-		x = (width - _docWidth) / 2.0
-		y = (height - _docHeight) / 2.0
-		context.translate(max(x, self.pagePadding), max(y, self.pagePadding))
+		context.translate(self.box.x, self.box.y)
 		context.set_source_rgb(0,0,0)
-		context.rectangle(1, 1, _docWidth + 3, _docHeight + 3)
+		context.rectangle(1, 1, self.box.width + 3, self.box.height + 3)
 		context.fill()
 		
 		# Draw the page itself - white with a thin black border
-		context.rectangle(0, 0, _docWidth, _docHeight)
+		context.rectangle(0, 0, self.box.width, self.box.height)
 		context.stroke_preserve()
 		context.set_source_rgb(1,1,1)
 		context.fill()
 	
 	def drawPageNumber(self, context):
-		global _docWidth, _docHeight
 		self.pageNumberFont.passToCairo(context)
 		xbearing, ybearing, labelWidth, labelHeight, xa, ya = context.text_extents(str(self.number))
 		
-		self.pageNumberRefPt.x = _docWidth - xbearing - labelWidth - self.pagePadding
-		self.pageNumberRefPt.y = _docHeight - ybearing - labelHeight - self.pagePadding
+		self.pageNumberRefPt.x = self.box.width - xbearing - labelWidth - self.pagePadding
+		self.pageNumberRefPt.y = self.box.height - ybearing - labelHeight - self.pagePadding
 		context.move_to(self.pageNumberRefPt.x, self.pageNumberRefPt.y)
 		context.show_text(str(self.number))
 	
 	def draw(self, context, selection = None, width = 0, height = 0):
 		global _docWidth, _docHeight
 		
+		# Save the specified page size to this page's box
+		self.box.x = max(self.pagePadding, (width - _docWidth) / 2.0)
+		self.box.y = max(self.pagePadding, (height - _docHeight) / 2.0)
+		self.box.width = _docWidth
+		self.box.height = _docHeight
+		
 		# Draw the overall page frame
 		# This leaves the cairo context translated to the top left corner of the page, but *NOT* scaled
 		# Scaling here messes up GL drawing
-		self.drawPage(context, width, height)
+		self.drawPage(context)
 		self.drawPageNumber(context)
 		
 		# Fully reset the viewport - necessary if we've mangled it while calculating part dimensions
@@ -285,6 +287,15 @@ class Page:
 	
 	def boundingBox(self):
 		return None
+	
+	def select(self, x, y):
+		# Translate passed in point by the amount this page is displaced from top left corner
+		x -= self.box.x
+		y -= self.box.y
+		for step in self.steps:
+			if step.boundingBox().ptInBox(x, y):
+				return step.select(x, y)
+		return None  # If we're here, nothing clicked on
 
 class BOM:
 	"""
@@ -505,6 +516,14 @@ class PLI:
 
 	def boundingBox(self):
 		return Box(box = self.box)
+		
+	def select(self, x, y):
+		if self.boundingBox().ptInBox(x, y):
+			for item in self.layout.values():
+				if item.boundingBox().ptInBox(x, y):
+					return item
+			return self
+		return None
 
 class CSI:
 	"""
@@ -774,6 +793,15 @@ class Step:
 
 	def boundingBox(self):
 		return self.pli.box + self.csi.box
+	
+	def select(self, x, y):
+		if self.boundingBox().ptInBox(x, y):
+			if self.csi.boundingBox().ptInBox(x, y):
+				return self.csi
+			elif self.pli.boundingBox().ptInBox(x, y):
+				return self.pli.select(x, y)
+			return self
+		return None
 
 class PartOGL:
 	"""

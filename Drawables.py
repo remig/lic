@@ -135,3 +135,7 @@ class Box():
 		c.growByXY(b.x, b.y + b.height)
 		c.growByXY(b.x + b.width, b.y + b.height)
 		return c
+	
+	def ptInBox(self, x, y):
+		return (self.x < x) and (self.x + self.width > x) and (self.y < y) and (self.y + self.height > y)
+
