@@ -308,19 +308,30 @@ class Callout:
 		self.box = Box(0, 0)
 
 class PLIItem:
-	def __init__(self, partOGL, count, corner, labelCorner, xBearing, fileLine):
+	def __init__(self, partOGL, count, corner, labelCorner, xBearing, partLine):
 		self.partOGL = partOGL
 		self.count = count
 		self.corner = corner
 		self.labelCorner = labelCorner
 		self.xBearing = xBearing
-		self.fileLine = fileLine
+		self.partLine = partLine
+		self.fileLine = None
 
+	def writeToFileArray(self, ldrawFile, filename, color):
+		self.fileLine = [Comment, LicCommand, PLIItemCommand, filename, self.count, self.corner.x, self.corner.y, self.labelCorner.x, self.labelCorner.y, self.xBearing, color]
+		self.fileLine = ldrawFile.insertLine(self.partLine[0], self.fileLine)
+	
+	def draw(self, color):
+		p = self.partOGL
+		GLHelpers.adjustGLViewport(self.corner.x, self.corner.y - p.height, p.width, p.height)
+		glLoadIdentity()
+		GLHelpers.rotateToPLIView(p.center.x, p.center.y, 0.0)
+		glColor3fv(convertToRGBA(color))
+		p.draw()
+	
 	def drawToFile(self, context, color):
-		
 		p = self.partOGL
 		p.renderToPov(color)
-		
 		imageSurface = cairo.ImageSurface.create_from_png(self.partOGL.pngFile)
 		context.set_source_surface(imageSurface, round(self.corner.x), round(self.corner.y - p.height))
 		context.paint()
@@ -331,6 +342,17 @@ class PLIItem:
 		b.growByXY(self.labelCorner.x - self.xBearing, self.labelCorner.y)
 		return b
 	
+	def move(self, x, y):
+		self.corner.move(x, y)
+		self.labelCorner.move(x, y)
+		self.updateFileLine()
+
+	def updateFileLine(self):
+		self.fileLine[6] = str(self.corner.x)
+		self.fileLine[7] = str(self.corner.y)
+		self.fileLine[8] = str(self.labelCorner.x)
+		self.fileLine[9] = str(self.labelCorner.y)
+
 class PLI:
 	"""
 	Parts List Image.  Includes border and layout info for a list of parts added to a step.
@@ -357,9 +379,9 @@ class PLI:
 		
 		if item in self.layout:
 			self.layout[item].count += 1
-			self.layout[item].fileLine = part.fileLine
-		else:
-			self.layout[item] = PLIItem(part.partOGL, 1, Point(), Point(), 0, part.fileLine)
+			self.layout[item].partLine = part.fileLine
+		else:  # TODO: think about including filename / color in item.  It'd mean redundant info, but easier iteration (over values instead of items) and fewer method args
+			self.layout[item] = PLIItem(part.partOGL, 1, Point(), Point(), 0, part.fileLine)  # TODO: check PLIItem default arg constructor
 	
 	def initLayout(self, context):
 		
@@ -465,13 +487,8 @@ class PLI:
 		GLHelpers.pushAllGLMatrices()
 		glPushAttrib(GL_CURRENT_BIT)
 		
-		for (filename, color), i in self.layout.items():
-			p = i.partOGL
-			GLHelpers.adjustGLViewport(i.corner.x, i.corner.y - p.height, p.width, p.height)
-			glLoadIdentity()
-			GLHelpers.rotateToPLIView(p.center.x, p.center.y, 0.0)
-			glColor3fv(convertToRGBA(color))
-			p.draw()
+		for (filename, color), item in self.layout.items():
+			item.draw(color)
 		
 		glPopAttrib()
 		GLHelpers.popAllGLMatrices()
@@ -506,13 +523,11 @@ class PLI:
 		
 		# Write out the main PLI command to file, including box and label position info
 		self.fileLine = [Comment, LicCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
-		ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
+		self.fileLine = ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
 		
 		# Write out each PLI item in the layout, positioned right after the last occurance of the part in this step
-		#for (count, part, corner, labelCorner, line) in self.layout.values():
-		for (filename, color), i in self.layout.items():
-			line = [Comment, LicCommand, PLIItemCommand, filename, i.count, i.corner.x, i.corner.y, i.labelCorner.x, i.labelCorner.y, i.xBearing, color]
-			ldrawFile.insertLine(i.fileLine[0], line)
+		for (filename, color), item in self.layout.items():
+			item.writeToFileArray(ldrawFile, filename, color)
 
 	def boundingBox(self):
 		return Box(box = self.box)
@@ -524,6 +539,16 @@ class PLI:
 					return item
 			return self
 		return None
+	
+	def move(self, x, y):
+		self.box.move(x, y)
+		for item in self.layout.values():
+			item.move(x, y)
+		self.updateFileLine()
+
+	def updateFileLine(self):
+		self.fileLine[4] = str(self.box.x)
+		self.fileLine[5] = str(self.box.y)
 
 class CSI:
 	"""
@@ -624,8 +649,7 @@ class CSI:
 		glEndList()
 
 	def draw(self):
-		global _docWidth, _docHeight
-		GLHelpers.adjustGLViewport(0, 0, _docWidth, _docHeight + self.offsetPLI)
+		GLHelpers.adjustGLViewport(self.box.x, self.box.y, self.box.width, self.box.height)
 		glLoadIdentity()
 		GLHelpers.rotateToDefaultView(self.center.x, self.center.y, 0.0)
 		if self.step.rotStep:
@@ -648,7 +672,7 @@ class CSI:
 						 self.box.x, self.box.y, self.box.width, self.box.height,
 						 self.center.x, self.center.y]
 		
-		ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
+		self.fileLine = ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
 
 	def renderToPov(self, ldrawFile, datFilename):
 		camera = GLHelpers.getDefaultCamera()
@@ -676,6 +700,14 @@ class CSI:
 	def boundingBox(self):
 		return Box(box = self.box)
 	
+	def move(self, x, y):
+		self.box.move(x, y)
+		self.updateFileLine()
+
+	def updateFileLine(self):
+		self.fileLine[4] = str(self.box.x)
+		self.fileLine[5] = str(self.box.y)
+
 class Step:
 	def __init__(self, filename, prevStep, buffers, containingPart):
 		self.parts = []
@@ -802,6 +834,11 @@ class Step:
 				return self.pli.select(x, y)
 			return self
 		return None
+	
+	def move(self, x, y):
+		self.pli.move(x, y)
+		self.csi.move(x, y)
+		self.stepNumberRefPt.move(x, y)
 
 class PartOGL:
 	"""
@@ -966,7 +1003,9 @@ class PartOGL:
 			return
 		
 		partLine = self.currentStep.parts[-1].fileLine
-		self.currentStep.pli.layout[(d['filename'], d['color'])] = PLIItem(partDictionary[d['filename']], d['count'], d['corner'], d['labelCorner'], d['xBearing'], partLine)
+		item = PLIItem(partDictionary[d['filename']], d['count'], d['corner'], d['labelCorner'], d['xBearing'], partLine)
+		item.fileLine = line
+		self.currentStep.pli.layout[(d['filename'], d['color'])] = item
 	
 	def addCSI(self, line):
 		if not self.currentStep:

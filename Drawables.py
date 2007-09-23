@@ -4,8 +4,13 @@ class Point():
 	def __init__(self, x = 0, y = 0):
 		self.x = x
 		self.y = y
+		
 	def __repr__(self):
 		return "Point(%d, %d)" % (self.x, self.y)
+	
+	def move(self, x, y):
+		self.x += x
+		self.y += y
 
 class Point3D():
 	def __init__(self, x = 0, y = 0, z = 0):
@@ -138,4 +143,7 @@ class Box():
 	
 	def ptInBox(self, x, y):
 		return (self.x < x) and (self.x + self.width > x) and (self.y < y) and (self.y + self.height > y)
-
+	
+	def move(self, x, y):
+		self.x += x
+		self.y += y

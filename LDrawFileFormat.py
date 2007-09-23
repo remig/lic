@@ -270,14 +270,14 @@ class LDrawFile:
 		"""
 		
 		# Convert line entries to strings, and prepend line number to the line command, as the file array expects
-		line = [str(x) for x in line]
-		line.insert(0, index+1)
+		fileLine = [str(x) for x in line]
+		fileLine.insert(0, index + 1)
 		
 		# Insert the new line
-		self.fileArray.insert(index, line)
+		self.fileArray.insert(index, fileLine)
 		
 		# Adjust all subsequent line numbers
-		for line in self.fileArray[index+1:]:
+		for line in self.fileArray[index + 1:]:
 			line[0] += 1
 		
 		# Adjust all line numbers in the subModel array too, if we inserted the line before their indices
@@ -287,6 +287,8 @@ class LDrawFile:
 				line[0] += 1
 			if line[1] >= index:
 				line[1] += 1
+		
+		return fileLine
 
 	def saveFile(self, filename = None):
 		

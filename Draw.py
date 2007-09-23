@@ -70,16 +70,25 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		return False
 	
 	def on_box_opengl_key_press(self, widget, event):
+		if not self.currentSelection:
+			return
+		
 		key = gtk.gdk.keyval_name(event.keyval)
-		print "box key press: " + key
+		d = 10 if event.state & gtk.gdk.SHIFT_MASK else 1
+		print "key " + key + ", d: %d" % d
 		if key == 'Up':
-			pass
+			self.currentSelection.move(0, -d)
+			self.on_draw_event()
 		elif key == 'Down':
-			pass
+			self.currentSelection.move(0, d)
+			self.on_draw_event()
 		elif key == 'Left':
-			pass
+			self.currentSelection.move(-d, 0)
+			self.on_draw_event()
 		elif key == 'Right':
-			pass
+			self.currentSelection.move(d, 0)
+			self.on_draw_event()
+		return True
 	
 	def on_button_press(self, widget, event):
 		print "mouse button"
