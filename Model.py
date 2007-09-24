@@ -200,6 +200,20 @@ class Page:
 		self.numberLabel = Label(str(self.number))
 		self.pagePadding = 20
 
+	def initPageSize(self, width, height, context = None):
+		global _docWidth, _docHeight
+		
+		# Save the specified page size to this page's box
+		self.box.x = max(self.pagePadding, (width - _docWidth) / 2.0)
+		self.box.y = max(self.pagePadding, (height - _docHeight) / 2.0)
+		self.box.width = _docWidth
+		self.box.height = _docHeight
+		
+		# Position page label in bottom right corner of page
+		# TODO: Page number is moveable, but position is not saved to file - update LIC PAGE command to include page number position & font
+		if context and self.numberLabel.refPt is None:
+			self.numberLabel.setBottomRightCorner(_docWidth - self.pagePadding, _docHeight - self.pagePadding, context)
+	
 	def drawPage(self, context):
 		
 		# Flood context with grey background
@@ -218,21 +232,13 @@ class Page:
 		context.set_source_rgb(1,1,1)
 		context.fill()
 	
-	def draw(self, context, selection = None, width = 0, height = 0):
-		global _docWidth, _docHeight
+	def draw(self, context, width, height, selection = None):
 		
-		# Save the specified page size to this page's box
-		self.box.x = max(self.pagePadding, (width - _docWidth) / 2.0)
-		self.box.y = max(self.pagePadding, (height - _docHeight) / 2.0)
-		self.box.width = _docWidth
-		self.box.height = _docHeight
-		
-		if self.numberLabel.refPt is None:
-			self.numberLabel.setBottomRightCorner(_docWidth - self.pagePadding, _docHeight - self.pagePadding, context)
+		# Let this Page know how big it should be drawn
+		self.initPageSize(width, height, context)
 		
 		# Draw the overall page frame
-		# This leaves the cairo context translated to the top left corner of the page, but *NOT* scaled
-		# Scaling here messes up GL drawing
+		# drawPage leaves the cairo context translated to the top left corner of the page but *NOT* scaled - scaling here messes up GL drawing
 		self.drawPage(context)
 		self.numberLabel.draw(context)
 		
@@ -241,6 +247,7 @@ class Page:
 		GLHelpers.glLoadIdentity()	
 		GLHelpers.rotateToDefaultView()
 		
+		# Draw each step in this page
 		for step in self.steps:
 			step.draw()
 		
@@ -566,8 +573,8 @@ class CSI:
 	
 	def __init__(self, step, buffers):
 		
-		self.box = Box(0, 0)
-		self.center = Point(0, 0)
+		self.box = Box()
+		self.center = Point()
 		
 		self.offsetPLI = 0
 		self.step = step
@@ -603,7 +610,7 @@ class CSI:
 		if params is None:
 			return False
 		
-		self.box.width, self.box.height, self.center = params
+		self.box.width, self.box.height, self.center, x, y = params
 		return True
 
 	def callPreviousOGLDisplayLists(self, currentBuffers = None):
@@ -1196,7 +1203,7 @@ class PartOGL:
 		# TODO: update some kind of load status bar her - this function is *slow*
 		print self.filename + " - size: %d" % (size)
 		
-		self.width, self.height, self.leftInset, self.bottomInset, self.center = params
+		self.width, self.height, self.center, self.leftInset, self.bottomInset = params
 		return True
 	
 	def renderToPov(self, color = None):
@@ -1307,20 +1314,25 @@ class Part:
 		if color != CurrentColor:
 			glPopAttrib()
 
-	def draw(self, context):
+	def draw(self, context, winWidth, winHeight):
 		global _docWidth, _docHeight
 		
-		if self.matrix:
-			glPushMatrix()
-			glMultMatrixf(self.matrix)
+		# Draw an empty page, just for a nice looking frame
+		page = Page(0)
+		page.initPageSize(winWidth, winHeight, context)
+		page.drawPage(context)
 		
-		glCallList(self.partOGL.oglDispID)
+		x = (_docWidth / 2.) - (self.partOGL.width / 2.)
+		y = (_docHeight / 2.) - (self.partOGL.height / 2.)
 		
-		if self.matrix:
-			glPopMatrix()
+		GLHelpers.adjustGLViewport(x, y, self.partOGL.width, self.partOGL.height)
+		glLoadIdentity()
+		GLHelpers.rotateToDefaultView(self.partOGL.center.x, self.partOGL.center.y, 0.0)
 		
-		pixels = glReadPixels (0, 0, _docWidth, _docHeight, GL_RGBA,  GL_UNSIGNED_BYTE)
-		surface = cairo.ImageSurface.create_for_data(pixels, cairo.FORMAT_ARGB32, _docWidth, _docHeight, _docWidth * 4)
+		self.partOGL.draw()
+		
+		pixels = glReadPixels (0, 0, winWidth, winHeight, GL_RGBA,  GL_UNSIGNED_BYTE)
+		surface = cairo.ImageSurface.create_for_data(pixels, cairo.FORMAT_ARGB32, winWidth, winHeight, winWidth * 4)
 		context.set_source_surface(surface)
 		context.paint()
 		surface.finish()	

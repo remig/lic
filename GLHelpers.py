@@ -280,7 +280,4 @@ def initImgSize(width, height, oglDispID, isCSI, filename = None, rotStep = None
 	h = (top + (imgHeight/2)) - (height/2)
 	imgCenter = Point(x - w, y + h)
 
-	if isCSI:
-		return (imgWidth, imgHeight, imgCenter)
-	else:
-		return (imgWidth, imgHeight, imgLeftInset, imgBottomInset, imgCenter)
+	return (imgWidth, imgHeight, imgCenter, imgLeftInset, imgBottomInset)

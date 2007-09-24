@@ -10,10 +10,10 @@ from GLHelpers import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-MODEL_NAME = "pyramid.dat"
+#MODEL_NAME = "pyramid.dat"
 #MODEL_NAME = "pyramid_bufs.dat"
 #MODEL_NAME = "Blaster_shortened.mpd"
-#MODEL_NAME = "Blaster.mpd"
+MODEL_NAME = "Blaster.mpd"
 #MODEL_NAME = "3005s.dat"
 #MODEL_NAME = "2744.DAT"
 #MODEL_NAME = "4286.DAT"
@@ -179,22 +179,23 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def on_draw_event(self, *args):
 		""" Draw the window. """
 		
-		# TODO: This all works, but slowly - have nasty flicker.  Need to double buffer or something
 		# Create a fresh, blank cairo context attached to the window's display area
+		# TODO: After draw debugging is done, double buffer this draw by drawing everything to a temp cairo surface,
+		# then dump that surface to the window's context.  Drawing directly onto the window flickers something nasty.
 		cr = self.window.cairo_create()
 		cr.identity_matrix()
 		cr.set_source_rgb(1, 1, 1)
 		cr.paint()
 		
-		# Clear GL buffer
+		# Clear the window's current GL buffers
 		glClearColor(1.0, 1.0, 1.0, 0)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
-		# Draw the currently selected model / part / step / page / whatnot to GL buffer
+		# Draw the currently selected model / part / step / page / whatnot
 		if self.currentPage:
-			self.currentPage.draw(cr, self.currentSelection, self.width, self.height)
-		elif self.currentSelection:
-			self.currentSelection.draw(cr)
+			self.currentPage.draw(cr, self.width, self.height, self.currentSelection)
+		elif self.currentSelection and isinstance(self.currentSelection, Part):
+			self.currentSelection.draw(cr, self.width, self.height)
 	
 	def treeview_button_press(self, obj, event):
 		treemodel, iter = self.tree.get_selection().get_selected()
