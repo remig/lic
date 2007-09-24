@@ -196,9 +196,7 @@ class Page:
 		self.steps = []
 		self.fileLine = None
 		
-		self.pageNumberFont = Font(15)
-		self.pageNumberRefPt = Point(0, 0)
-		
+		self.numberLabel = Label(str(self.number))
 		self.pagePadding = 20
 
 	def drawPage(self, context):
@@ -219,15 +217,6 @@ class Page:
 		context.set_source_rgb(1,1,1)
 		context.fill()
 	
-	def drawPageNumber(self, context):
-		self.pageNumberFont.passToCairo(context)
-		xbearing, ybearing, labelWidth, labelHeight, xa, ya = context.text_extents(str(self.number))
-		
-		self.pageNumberRefPt.x = self.box.width - xbearing - labelWidth - self.pagePadding
-		self.pageNumberRefPt.y = self.box.height - ybearing - labelHeight - self.pagePadding
-		context.move_to(self.pageNumberRefPt.x, self.pageNumberRefPt.y)
-		context.show_text(str(self.number))
-	
 	def draw(self, context, selection = None, width = 0, height = 0):
 		global _docWidth, _docHeight
 		
@@ -237,11 +226,14 @@ class Page:
 		self.box.width = _docWidth
 		self.box.height = _docHeight
 		
+		if self.numberLabel.refPt is None:
+			self.numberLabel.setBottomRightCorner(_docWidth - self.pagePadding, _docHeight - self.pagePadding, context)
+		
 		# Draw the overall page frame
 		# This leaves the cairo context translated to the top left corner of the page, but *NOT* scaled
 		# Scaling here messes up GL drawing
 		self.drawPage(context)
-		self.drawPageNumber(context)
+		self.numberLabel.draw(context)
 		
 		# Fully reset the viewport - necessary if we've mangled it while calculating part dimensions
 		GLHelpers.adjustGLViewport(0, 0, width, height)
@@ -279,7 +271,7 @@ class Page:
 				step.drawToFile(surface, context, path)
 			
 			print "Generating page %d" % (self.number)
-			self.drawPageNumber(context)
+			self.numberLabel.draw(context)
 			surface.write_to_png(pngFile)
 		
 		for step in self.steps:
@@ -292,6 +284,8 @@ class Page:
 		# Translate passed in point by the amount this page is displaced from top left corner
 		x -= self.box.x
 		y -= self.box.y
+		if self.numberLabel.boundingBox().ptInBox(x, y):
+			return self.numberLabel
 		for step in self.steps:
 			if step.boundingBox().ptInBox(x, y):
 				return step.select(x, y)
@@ -307,6 +301,7 @@ class Callout:
 	def __init__(self):
 		self.box = Box(0, 0)
 
+# TODO: Fix PLI and PLIItem by moving all quantity label stuff out of PLI into PLIItem, then replace it with Label
 class PLIItem:
 	def __init__(self, partOGL, count, corner, labelCorner, xBearing, partLine):
 		self.partOGL = partOGL
@@ -525,8 +520,8 @@ class PLI:
 		line = [Comment, LicCommand, PLICommand,
 				self.box.x, self.box.y, self.box.width, self.box.height,
 				self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face,
-				self.step.stepNumberRefPt.x, self.step.stepNumberRefPt.y,
-				self.step.stepNumberFont.size, self.step.stepNumberFont.face]
+				self.step.numberLabel.refPt.x, self.step.numberLabel.refPt.y,
+				self.step.numberLabel.font.size, self.step.numberLabel.font.face]
 		self.fileLine = ldrawFile.insertLine(self.step.fileLine[0], line)
 		
 		# Write out each PLI item in the layout, positioned right after the last occurance of the part in this step
@@ -558,10 +553,10 @@ class PLI:
 		self.fileLine[8] = str(self.qtyMultiplierChar)
 		self.fileLine[9] = str(self.qtyLabelFont.size)
 		self.fileLine[10] = str(self.qtyLabelFont.face)
-		self.fileLine[11] = str(self.step.stepNumberRefPt.x)
-		self.fileLine[12] = str(self.step.stepNumberRefPt.y)
-		self.fileLine[13] = str(self.step.stepNumberFont.size)
-		self.fileLine[14] = str(self.step.stepNumberFont.face)
+		self.fileLine[11] = str(self.step.numberLabel.refPt.x)
+		self.fileLine[12] = str(self.step.numberLabel.refPt.y)
+		self.fileLine[13] = str(self.step.numberLabel.font.size)
+		self.fileLine[14] = str(self.step.numberLabel.font.face)
 
 class CSI:
 	"""
@@ -724,19 +719,18 @@ class Step:
 		self.prevStep = prevStep
 		self.containingPart = containingPart
 		
-		self.internalGap = 20
-		self.stepNumberFont = Font(20)
-		self.stepNumberRefPt = Point(-1, -1)
-		
-		self.filename = filename
-		self.fileLine = None
-		
 		if prevStep:
 			self.number = prevStep.number + 1
 			self.rotStep  = prevStep.rotStep   # {'state': state, 'point': Point3D}
 		else:
 			self.number = 1
 			self.rotStep = None
+		
+		self.numberLabel = Label(str(self.number))
+		self.internalGap = 20
+		
+		self.filename = filename
+		self.fileLine = None
 		
 		self.csi = CSI(self, list(buffers))
 		self.pli = PLI(self, Point(self.internalGap, self.internalGap))
@@ -782,14 +776,8 @@ class Step:
 			self.csi.resize()
 		
 		# Determine a nice default position for the Step Number Label
-		if self.stepNumberRefPt == (-1, -1):
-			# Figure out the display height of the step number label
-			self.stepNumberFont.passToCairo(context)
-			xbearing, ybearing = context.text_extents(str(self.number))[:2]
-			
-			# Initialize this step number's label position
-			self.stepNumberRefPt.x = self.internalGap - xbearing
-			self.stepNumberRefPt.y = topGap - ybearing
+		if self.numberLabel.refPt is None:
+			self.numberLabel.setTopLeftCorner(self.internalGap, topGap, context)
 	
 	def writeToFileArray(self, ldrawFile):
 		self.pli.writeToFileArray(ldrawFile)
@@ -811,9 +799,7 @@ class Step:
 		self.csi.drawPageElements(context)
 		
 		# Draw this step's number label
-		self.stepNumberFont.passToCairo(context)
-		context.move_to(self.stepNumberRefPt.x, self.stepNumberRefPt.y)
-		context.show_text(str(self.number))
+		self.numberLabel.draw(context)
 	
 	def drawToFile(self, surface, context, path):
 		
@@ -836,13 +822,15 @@ class Step:
 		self.csi.renderToPov(p.ldrawFile, datFilename)
 
 	def boundingBox(self):
-		return self.pli.box + self.csi.box
+		return self.pli.box + self.csi.box + self.numberLabel.box
 	
 	def select(self, x, y):
 		if self.boundingBox().ptInBox(x, y):
+			if self.numberLabel.boundingBox().ptInBox(x, y):
+				return self.numberLabel
 			if self.csi.boundingBox().ptInBox(x, y):
 				return self.csi
-			elif self.pli.boundingBox().ptInBox(x, y):
+			if self.pli.boundingBox().ptInBox(x, y):
 				return self.pli.select(x, y)
 			return self
 		return None
@@ -850,7 +838,7 @@ class Step:
 	def moveBy(self, x, y):
 		self.pli.moveBy(x, y)
 		self.csi.moveBy(x, y)
-		self.stepNumberRefPt.moveBy(x, y)
+		self.numberLabel.moveBy(x, y)
 
 class PartOGL:
 	"""
@@ -996,8 +984,8 @@ class PartOGL:
 		pli.box = d['box']
 		pli.qtyMultiplierChar = d['qtyLabel']
 		pli.qtyLabelFont = d['qtyFont']
-		pli.step.stepNumberRefPt = d['stepLabelPt']
-		pli.step.stepNumberFont = d['stepLabelFont']
+		pli.step.numberLabel.refPt = d['stepLabelPt']
+		pli.step.numberLabel.font = d['stepLabelFont']
 	
 	def addPLIItem(self, line):
 		

@@ -90,7 +90,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		return True
 	
 	def on_button_press(self, widget, event):
-		print "mouse button"
 		self.set_flags(gtk.HAS_FOCUS)
 		self.grab_focus()
 		

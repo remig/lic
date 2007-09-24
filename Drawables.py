@@ -1,17 +1,20 @@
 import cairo
 
 class Point():
-	def __init__(self, x = 0, y = 0):
+	def __init__(self, x = 0, y = 0, point = None):
 		self.x = x
 		self.y = y
+		
+		if point:
+			self.clone(point)
 
 	def __repr__(self):
 		return "Point(%d, %d)" % (self.x, self.y)
 
-	def __getitem(self, key):
-		if key == 1:
+	def __getitem__(self, key):
+		if key == 0:
 			return self.x
-		if key == 2:
+		if key == 1:
 			return self.y
 		raise IndexError, "index %d out of range" % key
 
@@ -24,21 +27,31 @@ class Point():
 		self.x += x
 		self.y += y
 
+	def move(self, x, y):
+		self.x = x
+		self.y = y
+
+	def clone(self, pt):
+		self.move(*pt)
+
 class Point3D():
-	def __init__(self, x = 0, y = 0, z = 0):
+	def __init__(self, x = 0, y = 0, z = 0, point = None):
 		self.x = x
 		self.y = y
 		self.z = z
+		
+		if point:
+			self.clone(point)
 
 	def __repr__(self):
 		return "Point3D(%d, %d, %d)" % (self.x, self.y, self.z)
 
-	def __getitem(self, key):
-		if key == 1:
+	def __getitem__(self, key):
+		if key == 0:
 			return self.x
-		if key == 2:
+		if key == 1:
 			return self.y
-		if key == 3:
+		if key == 2:
 			return self.z
 		raise IndexError, "index %d out of range" % key
 
@@ -51,6 +64,14 @@ class Point3D():
 		self.x += x
 		self.y += y
 		self.z += z
+	
+	def move(self, x, y, z):
+		self.x = x
+		self.y = y
+		self.z = z
+
+	def clone(self, pt3D):
+		self.move(*pt3D)
 
 class Font():
 	def __init__(self, size, face = "Arial", color = [0, 0, 0], bold = False, italic = False):
@@ -129,6 +150,22 @@ class Box():
 	def __repr__(self):
 		return "Box(x: %d, y: %d, w: %d, h: %d)" % (self.x, self.y, self.width, self.height)
 	
+	def __getitem__(self, key):
+		if key == 0:
+			return self.x
+		if key == 1:
+			return self.y
+		if key == 2:
+			return self.width
+		if key == 3:
+			return self.height
+		raise IndexError, "index %d out of range" % key
+
+	def __eq__(self, item):
+		if (self.x == item[0]) and (self.y == item[1]) and (self.width == item[2]) and (self.height == item[3]):
+			return True
+		return False
+
 	def draw(self, context):
 		context.set_source_rgb(*self.line.color)
 		context.rectangle(self.x, self.y, self.width, self.height)
@@ -179,3 +216,73 @@ class Box():
 	def moveBy(self, x, y):
 		self.x += x
 		self.y += y
+
+	def move(self, x, y):
+		self.x = x
+		self.y = y
+
+class Label():
+	def __init__(self, string, font = Font(15)):
+		self.string = string
+		self.font = font
+		
+		self.refPt = self.box = None
+		self.tlCorner = self.trCorner = self.blCorner = self.brCorner = None
+
+	def setRefPt(self, context):
+		self.font.passToCairo(context)
+		xb, yb, lw, lh = context.text_extents(self.string)[:4]
+		if self.tlCorner:
+			self.refPt = Point(self.tlCorner.x - xb, self.tlCorner.y - yb)
+		elif self.trCorner:
+			self.refPt = Point(self.trCorner.x - lw - xb, self.trCorner.y - yb)
+		elif self.brCorner:
+			self.refPt = Point(self.brCorner.x - lw - xb, self.brCorner.y - lh - yb)
+		elif self.blCorner:
+			self.refPt = Point(self.blCorner.x - xb, self.blCorner.y - lh - yb)
+		self.box = Box(self.refPt.x + xb, self.refPt.y + yb, lw, lh)
+
+	def _setCorner(self, x, y, context = None):
+		self.refPt = self.tlCorner = self.trCorner = self.blCorner = self.brCorner = None
+		return Point(x, y)
+
+	def setTopLeftCorner(self, x, y, context = None):
+		self.tlCorner = self._setCorner(x, y)
+		if context:
+			self.setRefPt(context)
+
+	def setTopRightCorner(self, x, y, context = None):
+		self.trCorner = self._setCorner(x, y)
+		if context:
+			self.setRefPt(context)
+
+	def setBottomRightCorner(self, x, y, context = None):
+		self.brCorner = self._setCorner(x, y)
+		if context:
+			self.setRefPt(context)
+	
+	def setBottomLeftCorner(self, x, y, context = None):
+		self.blCorner = self._setCorner(x, y)
+		if context:
+			self.setRefPt(context)
+
+	def draw(self, context):
+		
+		# If we've already cached a calculated reference point for this label, use it 
+		if (not self.refPt) or (not self.box):
+			self.setRefPt(context)
+		
+		self.font.passToCairo(context)
+		context.move_to(self.refPt.x, self.refPt.y)
+		context.show_text(self.string)
+
+	def moveBy(self, x, y):
+		if self.refPt:
+			self.refPt.moveBy(x, y)
+		if self.box:
+			self.box.moveBy(x, y)
+	
+	def boundingBox(self):
+		b = Box(box = self.box)
+		b.growBy(2)
+		return b
