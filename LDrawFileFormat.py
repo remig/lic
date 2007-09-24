@@ -4,22 +4,7 @@ import os      # for path creation
 import Drawables  # Box, Point
 import povray     # Build images from povray files
 import l3p        # Build povray from DAT files
-
-LDrawPath = "C:\\LDrawParts\\"
-
-cwd = os.getcwd()
-datPath = cwd + '\DATs\\'
-povPath = cwd + '\POVs\\'
-pngPath = cwd + '\PNGs\\'
-
-if not os.path.isdir(datPath):
-	os.mkdir(datPath)   # Create DAT directory if needed
-
-if not os.path.isdir(povPath):
-	os.mkdir(povPath)   # Create POV directory if needed
-
-if not os.path.isdir(pngPath):
-	os.mkdir(pngPath)   # Create PNG directory if needed
+import config     # For user path info
 
 Comment = '0'
 PartCommand = '1'
@@ -195,16 +180,29 @@ def isValidPageLine(line):
 class LDrawFile:
 	def __init__(self, filename):
 		
-		self.filename = filename  # filename, like 3057.dat
-		self.name = ""            # coloquial name, like 2 x 2 brick
-		self.path = LDrawPath     # path where filename was found
-		self.isPrimitive = False  # Anything in the 'P' directory
+		self.path = config.LDrawPath  # path where filename was found
+		self.filename = filename      # filename, like 3057.dat
+		self.name = ""                # coloquial name, like 2 x 2 brick
+		self.isPrimitive = False      # Anything in the 'P' directory
 		
 		self.fileArray = []
 		self.subModelArray = {}
 		
 		self._loadFileArray()
 		self._findSubModelsInFile()
+		
+		cwd = os.getcwd()
+		self.datPath = os.path.join(cwd, 'DATs')
+		if not os.path.isdir(self.datPath):
+			os.mkdir(self.datPath)   # Create DAT directory if needed
+		
+		self.povPath = os.path.join(cwd, 'POVs')
+		if not os.path.isdir(self.povPath):
+			os.mkdir(self.povPath)   # Create POV directory if needed
+		
+		self.pngPath = os.path.join(cwd, 'PNGs')
+		if not os.path.isdir(self.pngPath):
+			os.mkdir(self.pngPath)   # Create PNG directory if needed
 
 	def addLicHeader(self):
 		
@@ -297,37 +295,35 @@ class LDrawFile:
 
 	def saveFile(self, filename = None):
 		
-		# TODO: Need to better and fully handle file paths here
 		if filename is None:
 			filename = self.filename
+		filename = os.path.join(self.path, filename)
 		
-		print "saving: ", self.path + filename
+		print "*** Saving: %s ***" % (filename)
 		
 		# First, make a backup copy of the existing file
-		shutil.move(self.path + filename, self.path + filename + ".bak")
+		shutil.move(filename, filename + ".bak")
 		
 		# Dump the current file array to the chosen file
-		f = open(self.path + filename, 'w')
+		f = open(filename, 'w')
 		for line in self.fileArray:
 			f.write(' '.join(line[1:]) + '\n')
 		f.close()
 
 	def _loadFileArray(self):
 		
-		# TODO: Need to better define part file search path, to include the current
-		# working directory, the directory of the main model, etc
 		try:
-			f = file(LDrawPath + "MODELS\\" + self.filename)
-			self.path += "MODELS\\"
+			f = file(os.path.join(config.LDrawPath, 'MODELS', self.filename))
+			self.path = os.path.join(self.path, 'MODELS')
 		except IOError:
 			try:
-				f = file(LDrawPath + "PARTS\\" + self.filename)
-				self.path += "PARTS\\"
+				f = file(os.path.join(config.LDrawPath, 'PARTS', self.filename))
+				self.path = os.path.join(self.path, 'PARTS')
 				if (self.filename[:2] == 's\\'):
 					self.isPrimitive = True
 			except IOError:
-				f = file(LDrawPath + "P\\" + self.filename)
-				self.path += "P\\"
+				f = file(os.path.join(config.LDrawPath, 'P', self.filename))
+				self.path = os.path.join(self.path, 'P')
 				self.isPrimitive = True
 		
 		# copy the file into an internal array, for easier access
@@ -362,17 +358,18 @@ class LDrawFile:
 
 	def writeLinesToDat(self, filename, start, end):
 		
-		if os.path.isfile(datPath + filename):
+		filename = os.path.join(self.datPath, filename)
+		if os.path.isfile(filename):
 			# TODO: Ensure this DAT is up to date wrt the main model
 			return   # DAT already exists - nothing to do
 		
 		print "Creating dat for: %s, line %d to %d" % (filename, start, end)
-		f = open(datPath + filename, 'w')
+		f = open(filename, 'w')
 		for line in self.fileArray[start:end]:
 			f.write(' '.join(line[1:]) + '\n')
 		f.close()
 		
-		return datPath + filename
+		return filename
 
 	def splitOneStepDat(self, stepLine, stepNumber, filename, start = 0, end = -1):
 		
@@ -380,7 +377,7 @@ class LDrawFile:
 			end = len(self.fileArray)
 		
 		rawFilename = os.path.splitext(os.path.basename(filename))[0]
-		datFilename = datPath + rawFilename + '_step_%d' % (stepNumber) + '.dat'
+		datFilename = os.path.join(self.datPath, '%s_step_%d.dat' % (rawFilename, stepNumber))
 		
 		if os.path.isfile(datFilename):
 			return datFilename  # dat file already exists - no need to recreate
@@ -435,14 +432,14 @@ class LDrawFile:
 	def createPov(self, width, height, datFile, camera, offset, color = None):
 		
 		if datFile is None:
-			datFile = self.path + self.filename
+			datFile = os.path.join(self.path, self.filename)
 		
 		rawFilename = os.path.splitext(os.path.basename(datFile))[0]
 		
 		if color:
-			povFile = "%s%s_%d.pov" % (povPath, rawFilename, color)
+			povFile = "%s%s_%d.pov" % (self.povPath, rawFilename, color)
 		else:
-			povFile = "%s%s.pov" % (povPath, rawFilename)
+			povFile = "%s%s.pov" % (self.povPath, rawFilename)
 		
 		if not os.path.isfile(povFile):
 			# Create a pov from the specified dat via l3p
@@ -454,10 +451,11 @@ class LDrawFile:
 			l3p.runCommand(l3pCommand)
 		
 		# Convert the generated pov into a nice png
+		pngFile = os.path.join(self.pngPath, rawFilename)
 		if color:
-			pngFile = "%s%s_%d.png" % (pngPath, rawFilename, color)
+			pngFile = "%s_%d.png" % (pngFile, color)
 		else:
-			pngFile = "%s%s.png" % (pngPath, rawFilename)
+			pngFile = "%s.png" % (pngFile)
 		
 		if not os.path.isfile(pngFile):
 			povray.fixPovFile(povFile, width, height, offset, camera)

@@ -43,7 +43,8 @@ class Instructions:
 		global _docWidth, _docHeight
 		
 		print "*** Generating Instructions ***"
-		path = "C:\LDraw\Lic\\" + self.mainModel.partOGL.filename + "\\"
+		rawFilename = os.path.splitext(os.path.basename(self.mainModel.partOGL.filename))[0]
+		path = os.path.join(os.getcwd(), rawFilename + '_images')
 		if not os.path.isdir(path):
 			os.mkdir(path)
 		
@@ -262,20 +263,20 @@ class Page:
 	
 	def drawToFile(self, surface, context, path):
 		
-		pngFile = path + "page_%d.png" % (self.number)
+		pngFile = os.path.join(path, "page_%d.png" % (self.number))
 		if not os.path.isfile(pngFile):
 			context.set_source_rgb(1, 1, 1)
 			context.paint()
 			
 			for step in self.steps:
-				step.drawToFile(surface, context, path)
+				step.drawToFile(surface, context)
 			
 			print "Generating page %d" % (self.number)
 			self.numberLabel.draw(context)
 			surface.write_to_png(pngFile)
 		
 		for step in self.steps:
-			step.drawSubModelsToFile(surface, context, path)
+			step.drawSubModelsToFile(surface, context)
 	
 	def boundingBox(self):
 		return None
@@ -801,7 +802,7 @@ class Step:
 		# Draw this step's number label
 		self.numberLabel.draw(context)
 	
-	def drawToFile(self, surface, context, path):
+	def drawToFile(self, surface, context):
 		
 		self.renderToPov()
 		self.pli.drawToFile(context)

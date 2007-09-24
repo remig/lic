@@ -1,3 +1,4 @@
+import os
 import gtk
 import gtk.glade
 import gtk.gtkgl
@@ -18,8 +19,7 @@ MODEL_NAME = "pyramid.dat"
 #MODEL_NAME = "4286.DAT"
 
 # TODO: Fix OGL surface normals and BFC, so OGL rendering can look better.
-
-gui_xml = gtk.glade.XML( r"C:\LDraw\Lic\LIC.glade")
+gui_xml = gtk.glade.XML(os.path.join(os.getcwd(), 'LIC.glade'))
 
 class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def __init__(self):
@@ -292,8 +292,3 @@ def go():
 
 if __name__ == '__main__':
 	go()
-
-#import hotshot
-#prof = hotshot.Profile("hotshot_stats_no_int")
-#prof.runcall(gogo)
-#prof.close()

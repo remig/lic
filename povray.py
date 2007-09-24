@@ -1,4 +1,5 @@
 import os      # for process creation
+import config
 
 def boolToCommand(command, bool):
 	if bool:
@@ -45,15 +46,10 @@ povCommands = {
 
 def runCommand(d):
 
-	path = r'C:\Program Files\POV-Ray\bin'
-	if not os.path.isdir(path):
-		path = r'C:\Program Files\POV-Ray for Windows v3.6\bin'
-	if not os.path.isdir(path):
-		# TODO: provide user a way to specify Pov-Ray path
-		print "Error: Could not find Pov-Ray."
+	povray = config.POVRay
+	if not os.path.isfile(povray):
+		print "Error: Could not find Pov-Ray - aborting image generation"
 		return
-
-	povray = path + '\\pvengine.exe'
 
 	args = ['"' + povray + '"']
 	for key, value in d.items():
@@ -65,7 +61,7 @@ def runCommand(d):
 				args.insert(1, value)  # Ensure input file is first command (after l3p.exe itself)
 			else:
 				args.append(value)
-	return (povray, args, os.spawnv(os.P_WAIT, povray, args))
+	os.spawnv(os.P_WAIT, povray, args)
 	
 # camera = [(x, 20), (y, 45), (y, -90)] - needs to be reversed before calling
 def fixPovFile(filename, imgWidth, imgHeight, offset, camera):

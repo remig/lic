@@ -1,4 +1,5 @@
-import os  # for setting LDraw environment and process creation
+import os      # For setting LDraw environment and process creation
+import config  # For path to l3p
 
 def listToCSVStr(l):
 	s = ''
@@ -42,12 +43,16 @@ l3pCommands = {
 	'LGEO' : ['', lambda b: boolToCommand('-lgeo', b)],   # Boolean
 }
 
-path = r'C:\LDraw\apps\l3p'
-os.environ['LDRAWDIR'] = r'C:\LDraw'
+os.environ['LDRAWDIR'] = config.LDrawPath
 	
 # d: {'camera position' : [20,-45,0], 'inputFile' : 'hello.dat'}
 def runCommand(d):
-	l3pApp = path + '\\l3p.exe'
+	
+	l3pApp = config.L3P
+	if not os.path.isfile(l3pApp):
+		print "Error: Could not find L3p - aborting image generation"
+		return
+	
 	args = [l3pApp]
 	for key, value in d.items():
 		command = l3pCommands[key]
@@ -58,5 +63,4 @@ def runCommand(d):
 				args.insert(1, value)  # Ensure input file is first command (after l3p.exe itself)
 			else:
 				args.append(value)
-	return (l3pApp, args, os.spawnv(os.P_WAIT, l3pApp, args))
-
+	os.spawnv(os.P_WAIT, l3pApp, args)
