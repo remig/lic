@@ -4,11 +4,23 @@ class Point():
 	def __init__(self, x = 0, y = 0):
 		self.x = x
 		self.y = y
-		
+
 	def __repr__(self):
 		return "Point(%d, %d)" % (self.x, self.y)
-	
-	def move(self, x, y):
+
+	def __getitem(self, key):
+		if key == 1:
+			return self.x
+		if key == 2:
+			return self.y
+		raise IndexError, "index %d out of range" % key
+
+	def __eq__(self, item):
+		if (self.x == item[0]) and (self.y == item[1]):
+			return True
+		return False
+
+	def moveBy(self, x, y):
 		self.x += x
 		self.y += y
 
@@ -17,8 +29,28 @@ class Point3D():
 		self.x = x
 		self.y = y
 		self.z = z
+
 	def __repr__(self):
 		return "Point3D(%d, %d, %d)" % (self.x, self.y, self.z)
+
+	def __getitem(self, key):
+		if key == 1:
+			return self.x
+		if key == 2:
+			return self.y
+		if key == 3:
+			return self.z
+		raise IndexError, "index %d out of range" % key
+
+	def __eq__(self, item):
+		if (self.x == item[0]) and (self.y == item[1]) and (self.z == item[2]):
+			return True
+		return False
+
+	def moveBy(self, x, y, z):
+		self.x += x
+		self.y += y
+		self.z += z
 
 class Font():
 	def __init__(self, size, face = "Arial", color = [0, 0, 0], bold = False, italic = False):
@@ -144,6 +176,6 @@ class Box():
 	def ptInBox(self, x, y):
 		return (self.x < x) and (self.x + self.width > x) and (self.y < y) and (self.y + self.height > y)
 	
-	def move(self, x, y):
+	def moveBy(self, x, y):
 		self.x += x
 		self.y += y

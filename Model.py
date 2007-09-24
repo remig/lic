@@ -318,8 +318,8 @@ class PLIItem:
 		self.fileLine = None
 
 	def writeToFileArray(self, ldrawFile, filename, color):
-		self.fileLine = [Comment, LicCommand, PLIItemCommand, filename, self.count, self.corner.x, self.corner.y, self.labelCorner.x, self.labelCorner.y, self.xBearing, color]
-		self.fileLine = ldrawFile.insertLine(self.partLine[0], self.fileLine)
+		line = [Comment, LicCommand, PLIItemCommand, filename, self.count, self.corner.x, self.corner.y, self.labelCorner.x, self.labelCorner.y, self.xBearing, color]
+		self.fileLine = ldrawFile.insertLine(self.partLine[0], line)
 	
 	def draw(self, color):
 		p = self.partOGL
@@ -342,9 +342,9 @@ class PLIItem:
 		b.growByXY(self.labelCorner.x - self.xBearing, self.labelCorner.y)
 		return b
 	
-	def move(self, x, y):
-		self.corner.move(x, y)
-		self.labelCorner.move(x, y)
+	def moveBy(self, x, y):
+		self.corner.moveBy(x, y)
+		self.labelCorner.moveBy(x, y)
 		self.updateFileLine()
 
 	def updateFileLine(self):
@@ -522,8 +522,12 @@ class PLI:
 			return  # If this PLI already has a file line, it means it already exists in the file
 		
 		# Write out the main PLI command to file, including box and label position info
-		self.fileLine = [Comment, LicCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
-		self.fileLine = ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
+		line = [Comment, LicCommand, PLICommand,
+				self.box.x, self.box.y, self.box.width, self.box.height,
+				self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face,
+				self.step.stepNumberRefPt.x, self.step.stepNumberRefPt.y,
+				self.step.stepNumberFont.size, self.step.stepNumberFont.face]
+		self.fileLine = ldrawFile.insertLine(self.step.fileLine[0], line)
 		
 		# Write out each PLI item in the layout, positioned right after the last occurance of the part in this step
 		for (filename, color), item in self.layout.items():
@@ -540,15 +544,24 @@ class PLI:
 			return self
 		return None
 	
-	def move(self, x, y):
-		self.box.move(x, y)
+	def moveBy(self, x, y):
+		self.box.moveBy(x, y)
 		for item in self.layout.values():
-			item.move(x, y)
+			item.moveBy(x, y)
 		self.updateFileLine()
 
 	def updateFileLine(self):
 		self.fileLine[4] = str(self.box.x)
 		self.fileLine[5] = str(self.box.y)
+		self.fileLine[6] = str(self.box.width)
+		self.fileLine[7] = str(self.box.height)
+		self.fileLine[8] = str(self.qtyMultiplierChar)
+		self.fileLine[9] = str(self.qtyLabelFont.size)
+		self.fileLine[10] = str(self.qtyLabelFont.face)
+		self.fileLine[11] = str(self.step.stepNumberRefPt.x)
+		self.fileLine[12] = str(self.step.stepNumberRefPt.y)
+		self.fileLine[13] = str(self.step.stepNumberFont.size)
+		self.fileLine[14] = str(self.step.stepNumberFont.face)
 
 class CSI:
 	"""
@@ -665,14 +678,11 @@ class CSI:
 	
 	def writeToFileArray(self, ldrawFile):
 		
-		if self.fileLine:
-			return  # If this CSI already has a file line, it means it already exists in the file
-		
-		self.fileLine = [Comment, LicCommand, CSICommand,
+		line = [Comment, LicCommand, CSICommand,
 						 self.box.x, self.box.y, self.box.width, self.box.height,
 						 self.center.x, self.center.y]
 		
-		self.fileLine = ldrawFile.insertLine(self.step.fileLine[0], self.fileLine)
+		self.fileLine = ldrawFile.insertLine(self.step.fileLine[0], line)
 
 	def renderToPov(self, ldrawFile, datFilename):
 		camera = GLHelpers.getDefaultCamera()
@@ -700,8 +710,8 @@ class CSI:
 	def boundingBox(self):
 		return Box(box = self.box)
 	
-	def move(self, x, y):
-		self.box.move(x, y)
+	def moveBy(self, x, y):
+		self.box.moveBy(x, y)
 		self.updateFileLine()
 
 	def updateFileLine(self):
@@ -716,7 +726,7 @@ class Step:
 		
 		self.internalGap = 20
 		self.stepNumberFont = Font(20)
-		self.stepNumberRefPt = Point(0, 0)
+		self.stepNumberRefPt = Point(-1, -1)
 		
 		self.filename = filename
 		self.fileLine = None
@@ -751,34 +761,36 @@ class Step:
 
 	def initLayout(self, context):
 		
-		# If this step's PLI has not been initialized by the LDraw file (first run?), choose a nice initial layout
-		if self.pli.fileLine is None:
-			self.pli.initLayout(context)
-		
 		# Ensure all sub model PLIs and steps are also initialized
 		for part in self.parts:
 			for page in part.partOGL.pages:
 				for step in page.steps:
 					step.initLayout(context)
 		
+		# If this step's PLI has not been initialized by the LDraw file (first run?), choose a nice initial layout
+		if self.pli.fileLine is None:
+			self.pli.initLayout(context)
+		
 		# Determine space between top page edge and bottom of PLI, including gaps
+		topGap = self.internalGap * 2 + self.pli.box.height
 		if self.pli.isEmpty():
 			topGap = self.internalGap
-		else:
-			topGap = self.internalGap * 2 + self.pli.box.height
-		
-		# Figure out the display height of the step number label
-		self.stepNumberFont.passToCairo(context)
-		xbearing, ybearing = context.text_extents(str(self.number))[:2]
-		
-		# Initialize this step number's label position
-		self.stepNumberRefPt.x = self.internalGap - xbearing
-		self.stepNumberRefPt.y = topGap - ybearing
 		
 		# Tell this step's CSI about the PLI, so it can center itself vertically better
-		self.csi.offsetPLI = topGap
-		self.csi.resize()
-
+		if self.csi.fileLine is None:
+			self.csi.offsetPLI = topGap
+			self.csi.resize()
+		
+		# Determine a nice default position for the Step Number Label
+		if self.stepNumberRefPt == (-1, -1):
+			# Figure out the display height of the step number label
+			self.stepNumberFont.passToCairo(context)
+			xbearing, ybearing = context.text_extents(str(self.number))[:2]
+			
+			# Initialize this step number's label position
+			self.stepNumberRefPt.x = self.internalGap - xbearing
+			self.stepNumberRefPt.y = topGap - ybearing
+	
 	def writeToFileArray(self, ldrawFile):
 		self.pli.writeToFileArray(ldrawFile)
 		self.csi.writeToFileArray(ldrawFile)
@@ -835,10 +847,10 @@ class Step:
 			return self
 		return None
 	
-	def move(self, x, y):
-		self.pli.move(x, y)
-		self.csi.move(x, y)
-		self.stepNumberRefPt.move(x, y)
+	def moveBy(self, x, y):
+		self.pli.moveBy(x, y)
+		self.csi.moveBy(x, y)
+		self.stepNumberRefPt.moveBy(x, y)
 
 class PartOGL:
 	"""
@@ -978,14 +990,14 @@ class PartOGL:
 			print "PLI Error: Trying to create a PLI outside of a step.  Line %d" % (line[0])
 			return
 		
-		# [index, Comment, LicCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
-		# {'box': Box(*line[4:8]), 'qtyLabel': line[8], 'font': Font(line[9], line[10])}
 		d = lineToPLI(line)
 		pli = self.currentStep.pli
 		pli.fileLine = line
 		pli.box = d['box']
 		pli.qtyMultiplierChar = d['qtyLabel']
-		pli.qtyLabelFont = d['font']
+		pli.qtyLabelFont = d['qtyFont']
+		pli.step.stepNumberRefPt = d['stepLabelPt']
+		pli.step.stepNumberFont = d['stepLabelFont']
 	
 	def addPLIItem(self, line):
 		

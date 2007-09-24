@@ -164,13 +164,18 @@ def lineToCSI(line):
 			'center': Drawables.Point(float(line[8]), float(line[9]))}
 
 def isValidPLILine(line):
-	return isValidLicLine(line) and (len(line) > 10) and (line[3] == PLICommand)
+	return isValidLicLine(line) and (len(line) > 14) and (line[3] == PLICommand)
 
 def lineToPLI(line):
-	# [index, Comment, LicCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face]
+	# [index, Comment, LicCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height,
+	#  self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face,
+	#  self.step.stepNumberRefPt.x, self.stepNumberRefPt.y,
+	#  self.step.stepNumberFont.size, self.step.stepNumberFont.face]
 	return {'box': Drawables.Box(float(line[4]), float(line[5]), float(line[6]), float(line[7])),
 			'qtyLabel': line[8],
-			'font': Drawables.Font(float(line[9]), line[10])}
+			'qtyFont': Drawables.Font(float(line[9]), line[10]),
+			'stepLabelPt': Drawables.Point(float(line[11]), float(line[12])),
+			'stepLabelFont': Drawables.Font(float(line[13]), line[14])}
 
 def isValidPLIItemLine(line):
 	return isValidLicLine(line) and (len(line) > 11) and (line[3] == PLIItemCommand)

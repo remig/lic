@@ -75,18 +75,17 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		
 		key = gtk.gdk.keyval_name(event.keyval)
 		d = 10 if event.state & gtk.gdk.SHIFT_MASK else 1
-		print "key " + key + ", d: %d" % d
 		if key == 'Up':
-			self.currentSelection.move(0, -d)
+			self.currentSelection.moveBy(0, -d)
 			self.on_draw_event()
 		elif key == 'Down':
-			self.currentSelection.move(0, d)
+			self.currentSelection.moveBy(0, d)
 			self.on_draw_event()
 		elif key == 'Left':
-			self.currentSelection.move(-d, 0)
+			self.currentSelection.moveBy(-d, 0)
 			self.on_draw_event()
 		elif key == 'Right':
-			self.currentSelection.move(d, 0)
+			self.currentSelection.moveBy(d, 0)
 			self.on_draw_event()
 		return True
 	
