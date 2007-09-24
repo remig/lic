@@ -437,9 +437,9 @@ class LDrawFile:
 		rawFilename = os.path.splitext(os.path.basename(datFile))[0]
 		
 		if color:
-			povFile = "%s%s_%d.pov" % (self.povPath, rawFilename, color)
+			povFile = "%s_%d.pov" % (os.path.join(self.povPath, rawFilename), color)
 		else:
-			povFile = "%s%s.pov" % (self.povPath, rawFilename)
+			povFile = "%s.pov" % (os.path.join(self.povPath, rawFilename))
 		
 		if not os.path.isfile(povFile):
 			# Create a pov from the specified dat via l3p

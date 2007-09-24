@@ -7,4 +7,5 @@ LDrawPath = "C:\\LDrawParts"
 L3P = "C:\\LDraw\\apps\\l3p\\l3p.exe"
 
 # POV-Ray executable
-POVRay = "C:\\Program Files\\POV-Ray\\bin\\pvengine.exe"  
+#POVRay = "C:\\Program Files\\POV-Ray\\bin\\pvengine.exe"  
+POVRay = "C:\\Program Files\\POV-Ray for Windows v3.6\\bin\\pvengine.exe"  

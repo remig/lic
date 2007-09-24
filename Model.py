@@ -269,7 +269,9 @@ class Page:
 				box.drawAsSelection(context)
 	
 	def drawToFile(self, surface, context, path):
-		
+		global _docWidth, _docHeight
+
+		self.initPageSize(_docWidth, _docHeight, context)
 		pngFile = os.path.join(path, "page_%d.png" % (self.number))
 		if not os.path.isfile(pngFile):
 			context.set_source_rgb(1, 1, 1)
@@ -283,7 +285,7 @@ class Page:
 			surface.write_to_png(pngFile)
 		
 		for step in self.steps:
-			step.drawSubModelsToFile(surface, context)
+			step.drawSubModelsToFile(surface, context, path)
 	
 	def boundingBox(self):
 		return None
@@ -673,8 +675,8 @@ class CSI:
 		glCallList(self.oglDispID)
 
 	def drawPageElements(self, context):
-		self.box.draw(context)
-		#pass
+		#self.box.draw(context)
+		pass
 
 	def callOGLDisplayList(self):
 		glCallList(self.oglDispIDs[0][0])
