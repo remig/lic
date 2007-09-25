@@ -179,8 +179,13 @@ def isValidPageLine(line):
 
 class LDrawFile:
 	def __init__(self, filename):
+		"""
+		Create a new LDrawFile based on a specific LDraw file.
 		
-		self.path = config.LDrawPath  # path where filename was found
+		Parameters:
+			filename: dat | ldr | mpd file to load into this LDrawFile.  Do not include any path
+		"""
+		
 		self.filename = filename      # filename, like 3057.dat
 		self.name = ""                # coloquial name, like 2 x 2 brick
 		self.isPrimitive = False      # Anything in the 'P' directory
@@ -295,14 +300,16 @@ class LDrawFile:
 
 	def saveFile(self, filename = None):
 		
-		if filename is None:
+		if filename:
+			self.filename = filename
+		else:
 			filename = self.filename
-		filename = os.path.join(self.path, filename)
 		
 		print "*** Saving: %s ***" % (filename)
 		
-		# First, make a backup copy of the existing file
-		shutil.move(filename, filename + ".bak")
+		# First, make a backup copy of the file if it exists
+		if os.path.isfile(filename):
+			shutil.move(filename, filename + ".bak")
 		
 		# Dump the current file array to the chosen file
 		f = open(filename, 'w')
@@ -314,16 +321,13 @@ class LDrawFile:
 		
 		try:
 			f = file(os.path.join(config.LDrawPath, 'MODELS', self.filename))
-			self.path = os.path.join(self.path, 'MODELS')
 		except IOError:
 			try:
 				f = file(os.path.join(config.LDrawPath, 'PARTS', self.filename))
-				self.path = os.path.join(self.path, 'PARTS')
 				if (self.filename[:2] == 's\\'):
 					self.isPrimitive = True
 			except IOError:
 				f = file(os.path.join(config.LDrawPath, 'P', self.filename))
-				self.path = os.path.join(self.path, 'P')
 				self.isPrimitive = True
 		
 		# copy the file into an internal array, for easier access
@@ -358,9 +362,9 @@ class LDrawFile:
 
 	def writeLinesToDat(self, filename, start, end):
 		
-		filename = os.path.join(self.datPath, filename)
+		filename = os.path.join(self.datPath, os.path.basename(filename))
 		if os.path.isfile(filename):
-			# TODO: Ensure this DAT is up to date wrt the main model
+			# TODO: Ensure this DAT is up to date wrt. the main model
 			return   # DAT already exists - nothing to do
 		
 		print "Creating dat for: %s, line %d to %d" % (filename, start, end)
@@ -432,7 +436,7 @@ class LDrawFile:
 	def createPov(self, width, height, datFile, camera, offset, color = None):
 		
 		if datFile is None:
-			datFile = os.path.join(self.path, self.filename)
+			datFile = self.filename
 		
 		rawFilename = os.path.splitext(os.path.basename(datFile))[0]
 		

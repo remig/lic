@@ -50,11 +50,11 @@
 		  </child>
 
 		  <child>
-		    <widget class="GtkImageMenuItem" id="open1">
+		    <widget class="GtkImageMenuItem" id="open">
 		      <property name="visible">True</property>
 		      <property name="label">gtk-open</property>
 		      <property name="use_stock">True</property>
-		      <signal name="activate" handler="on_open1_activate" last_modification_time="Fri, 06 Jul 2007 00:03:47 GMT"/>
+		      <signal name="activate" handler="on_open_activate" last_modification_time="Tue, 25 Sep 2007 01:57:59 GMT"/>
 		    </widget>
 		  </child>
 
@@ -68,11 +68,11 @@
 		  </child>
 
 		  <child>
-		    <widget class="GtkImageMenuItem" id="save_as1">
+		    <widget class="GtkImageMenuItem" id="save_as">
 		      <property name="visible">True</property>
 		      <property name="label">gtk-save-as</property>
 		      <property name="use_stock">True</property>
-		      <signal name="activate" handler="on_save_as1_activate" last_modification_time="Fri, 06 Jul 2007 00:03:47 GMT"/>
+		      <signal name="activate" handler="on_save_as_activate" last_modification_time="Tue, 25 Sep 2007 01:58:15 GMT"/>
 		    </widget>
 		  </child>
 

@@ -4,25 +4,18 @@ import gtk.glade
 import gtk.gtkgl
 import gobject
 
+import config
 from Model import *
 from GLHelpers import *
 
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-#MODEL_NAME = "pyramid.dat"
-#MODEL_NAME = "pyramid_bufs.dat"
-#MODEL_NAME = "Blaster_shortened.mpd"
-MODEL_NAME = "Blaster.mpd"
-#MODEL_NAME = "3005s.dat"
-#MODEL_NAME = "2744.DAT"
-#MODEL_NAME = "4286.DAT"
-
 # TODO: Fix OGL surface normals and BFC, so OGL rendering can look better.
 gui_xml = gtk.glade.XML(os.path.join(os.getcwd(), 'LIC.glade'))
 
 class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
-	def __init__(self):
+	def __init__(self, window):
 		gtk.DrawingArea.__init__(self)
 		
 		self.set_events(gtk.gdk.BUTTON_MOTION_MASK  | gtk.gdk.KEY_PRESS_MASK |
@@ -30,6 +23,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 				gtk.gdk.BUTTON_RELEASE_MASK | gtk.gdk.BUTTON_PRESS_MASK |
 				gtk.gdk.SCROLL_MASK)
 		
+		self.containingWindow = window
 		self.set_flags(gtk.CAN_FOCUS)
 		display_mode = (gtk.gdkgl.MODE_RGBA | gtk.gdkgl.MODE_DOUBLE)
 		glconfig = gtk.gdkgl.Config(mode=display_mode)
@@ -96,7 +90,8 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		x = event.x
 		y = event.y
 		prevSelection = self.currentSelection
-		self.currentSelection = self.currentPage.select(x, y)
+		if self.currentPage:
+			self.currentSelection = self.currentPage.select(x, y)
 		if prevSelection is not self.currentSelection:
 			self.on_draw_event()  # Selected a new instruction element - redraw
 
@@ -115,11 +110,77 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def on_exit(self, data):
 		return False
 
-	def on_save(self, data):
-		self.instructions.getMainModel().partOGL.ldrawFile.saveFile()
+	def file_browse(self, action, filename = ""):
+		
+		if action == gtk.FILE_CHOOSER_ACTION_OPEN:
+			title = "Open Model..."
+			buttons = (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_OPEN, gtk.RESPONSE_OK)
+		else:
+			title = "Save Model As..."
+			buttons = (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_SAVE, gtk.RESPONSE_OK)
+		
+		chooser = gtk.FileChooserDialog(title, None, action, buttons)
+		chooser.set_current_folder(os.path.join(config.LDrawPath, 'MODELS'))
+		
+		if action == gtk.FILE_CHOOSER_ACTION_SAVE:
+			chooser.set_current_name(filename)
+		
+		filter = gtk.FileFilter()
+		filter.set_name("LDraw Models...")
+		filter.add_pattern("*.dat")
+		filter.add_pattern("*.ldr")
+		filter.add_pattern("*.mpd")
+		chooser.add_filter(filter)
+		filter = gtk.FileFilter()
+		filter.set_name("All files...")
+		filter.add_pattern("*")
+		chooser.add_filter(filter)
+		
+		response = chooser.run()
+		if response == gtk.RESPONSE_OK:
+			filename = chooser.get_filename()
+		chooser.destroy()
+		
+		return filename
 
+	def on_open(self, widget):
+		# TODO: Holy crap GTK's FileChooser is horrid - try desperately to either sanitize it, or get GTK to use native window manager's open dialog.
+		# Why the heck would a toolkit like this create its own FileChooser without checking the underlying window manager first??
+		filename = self.file_browse(gtk.FILE_CHOOSER_ACTION_OPEN)
+		self.load_model(filename)
+		self.containingWindow.set_title("%s - Lic 0.01 (pre-pre-Alpha)" % os.path.basename(filename))
+	
+	def on_save(self, data):
+		self.instructions.save()
+
+	def on_save_as(self, *args):
+		# TODO: See on_open TODO - Save As is just as asstastic
+		filename = self.file_browse(gtk.FILE_CHOOSER_ACTION_SAVE, self.instructions.filename)
+		self.instructions.save(filename)
+		self.containingWindow.set_title("%s - Lic 0.01 (pre-pre-Alpha)" % os.path.basename(filename))
+	
 	def on_destroy(self, widget, data=None):
 		gtk.main_quit()
+
+	def load_model(self, filename):
+		
+		glEnable(GL_DEPTH_TEST)
+		glClearColor(1.0, 1.0, 1.0, 1.0)  # Draw clear white screen
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+		
+		#MODEL_NAME = "pyramid.dat"
+		#MODEL_NAME = "Blaster.mpd"
+		print "*** Loading Model ***"
+		cr = self.window.cairo_create()
+		try:
+			self.instructions = Instructions(filename)
+		except IOError:
+			print "Could not find file %s" % (filename)
+			return
+		
+		self.instructions.initDraw(cr)
+		self.currentSelection = self.instructions.getMainModel()
+		self.initializeTree()
 
 	def on_init(self, *args):
 		""" Initialize the window. """
@@ -140,22 +201,6 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		glLightfv(GL_LIGHT0, GL_AMBIENT, ambient)
 		glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse)
 		glLightfv(GL_LIGHT0, GL_SPECULAR, specular)
-		
-		glEnable(GL_DEPTH_TEST)
-		glClearColor(1.0, 1.0, 1.0, 1.0)  # Draw clear white screen
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-		
-		print "*** Loading Model ***"
-		cr = self.window.cairo_create()
-		try:
-			self.instructions = Instructions(MODEL_NAME)
-		except IOError:
-			print "Could not find file %s" % (MODEL_NAME)
-			exit()
-		
-		self.instructions.initDraw(cr)
-		self.currentSelection = self.instructions.getMainModel()
-		self.initializeTree()
 
 	def on_resize_event(self, *args):
 		""" Resize the window. """
@@ -260,16 +305,19 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 				
 				iterPart = None
 			iterStep = iterPLI = iterCSI = None
-	
+
 def go():
 	
-	area = DrawArea()
 	main = gui_xml.get_widget("main_window")
+	
+	area = DrawArea(main)
 	box = gui_xml.get_widget("box_opengl")
 	box.pack_start(area)
 	
 	sigs = {"on_menuGenerate_activate": area.on_generate_images,
+			"on_open_activate": area.on_open,
 			"on_save_activate": area.on_save,
+			"on_save_as_activate": area.on_save_as,
 			"on_quit_activate": area.on_destroy,
 			"on_treeview_key_press_event": area.on_treeview_key_press,
 			"on_treeview_key_release_event": area.on_treeview_key_release,
@@ -286,7 +334,7 @@ def go():
 	message_id = statusbar.push(context_id, "Hello")
 	
 	#main.maximize()
-	main.set_title("Lic")
+	main.set_title("Lic 0.01 (pre-pre-Alpha)")
 	main.show_all()
 	
 	gtk.main()

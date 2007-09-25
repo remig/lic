@@ -28,11 +28,13 @@ class Instructions:
 	def __init__(self, filename):
 		
 		# Part dimensions cache line format: filename width height center.x center.y leftInset bottomInset
-		self.ImgDimensionsFilename = "PartDimensions_" + filename + ".cache"
-		self.filename = filename
-		
+		self.partDimensionsFilename = "PartDimensions.cache"
 		self.mainModel = Part(filename, isMainModel = True)
 	
+	def __getattr__(self, attr):
+		if attr == 'filename':
+			return self.mainModel.partOGL.ldrawFile.filename
+
 	def getMainModel(self):
 		return self.mainModel
 	
@@ -59,7 +61,8 @@ class Instructions:
 	def initDraw(self, context):
 		
 		# Calculate the width and height of each partOGL in the part dictionary and each CSI
-		self.initPartDimensions()
+		self.initPartDimensionsFromFile()  # Init any parts we've already cached
+		self.initPartDimensionsManually()  # Init any parts not yet cached, and append to cache
 		self.initCSIDimensions()
 		
 		# Calculate an initial layout for each Step and PLI in this instruction book
@@ -68,27 +71,16 @@ class Instructions:
 				step.initLayout(context)
 				step.writeToFileArray(self.mainModel.partOGL.ldrawFile)
 
-	def initPartDimensions(self):
+	def initPartDimensionsFromFile(self):
+		"""Initializes part dimensions from the part dimension cache file."""
 		
-		try:
-			# Have a valid part dimension cache file for this model - load from there
-			f = file(self.ImgDimensionsFilename, "r")
-			self.initPartDimensionsFromFile(f)
-			f.close()
-		except IOError:
-			# Need to calculate all part dimensions from scratch
-			self.initPartDimensionsManually()
-
-	def initPartDimensionsFromFile(self, f):
-		""" Used to initialize all part dimensions from the specified valid part dimension cache file f."""
+		if not os.path.isfile(self.partDimensionsFilename):
+			return  # part cache file is gone!  initPartDimensionsManually will regenrate it
 		
-		# TODO: If there's a part in the model but not in this file, need to
-		# generate a size for it manually, then append that entry to the file
-		# TODO: Make the part cache file not model specific, but rendered dimensions specific
+		f = open(self.partDimensionsFilename, 'r')
 		for line in f:
 			filename, w, h, x, y, l, b = line.split()
 			if not partDictionary.has_key(filename):
-				print "Warning: part dimension cache contains part (%s) not present in model - suggest regenerating part dimension cache." % (filename)
 				continue
 			p = partDictionary[filename]
 			p.width = max(1, int(w))
@@ -96,6 +88,7 @@ class Instructions:
 			p.center = Point(int(x), int(y))
 			p.leftInset = int(l)
 			p.bottomInset = int(b)
+		f.close()
 	
 	def buildCSIList(self, part, loadedParts = []):
 		csiList = []
@@ -142,12 +135,12 @@ class Instructions:
 	
 	def initPartDimensionsManually(self):
 		"""
-		Used to calculate each part's display width and height if no valid part dimension cache file exists.
+		Calculates each uninitialized part's display width and height.
 		Creates GL FBOs to render a temp copy of each part, then uses those raw pixels to determine size.
-		Will create and store results in a part dimension cache file.
+		Will append results to the part dimension cache file.
 		"""
 		
-		partList = [part for part in partDictionary.values() if not part.isPrimitive]
+		partList = [part for part in partDictionary.values() if (not part.isPrimitive) and (part.width == part.height == -1)]
 		partList2 = []
 		lines = []
 		sizes = [128, 256, 512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
@@ -177,11 +170,14 @@ class Instructions:
 				partList = partList2  # Some images rendered out of frame - loop and try bigger frame
 				partList2 = []
 		
-		# Create an image dimension cache file
+		# Append any newly calculated part dimensions to cache file
 		print ""
-		f = open(self.ImgDimensionsFilename, "w")
+		f = open(self.partDimensionsFilename, 'a')
 		f.writelines(lines)
 		f.close()
+	
+	def save(self, filename = None):
+		self.mainModel.partOGL.ldrawFile.saveFile(filename)
 	
 class Page:
 	"""
@@ -682,6 +678,9 @@ class CSI:
 	
 	def writeToFileArray(self, ldrawFile):
 		
+		if self.fileLine:
+			return  # If this PLI already has a file line, it means it already exists in the file
+		
 		line = [Comment, LicCommand, CSICommand,
 						 self.box.x, self.box.y, self.box.width, self.box.height,
 						 self.center.x, self.center.y]
@@ -879,9 +878,9 @@ class PartOGL:
 		self.buffers = []  #[(bufID, stepNumber)]
 		self.ignorePLIState = False
 		
-		self.width = self.height = 1
-		self.leftInset = self.bottomInset = 0
-		self.center = Point(0, 0)
+		self.width = self.height = -1
+		self.leftInset = self.bottomInset = -1
+		self.center = Point(-1, -1)
 		
 		if (parentLDFile is not None) and (filename in parentLDFile.subModelArray):
 			self._loadFromSubModelArray(parentLDFile)
