@@ -248,6 +248,7 @@ class Page:
 			step.draw()
 		
 		# Copy GL buffer to a new cairo surface, then dump that surface to the current context
+		#glPixelStorei(GL_PACK_SWAP_BYTES, True)  # TODO: don't reverse colors in LDrawColors - figure out why glPixelStore won't work
 		pixels = glReadPixels (0, 0, width, height, GL_RGBA,  GL_UNSIGNED_BYTE)
 		surface = cairo.ImageSurface.create_for_data(pixels, cairo.FORMAT_ARGB32, width, height, width * 4)
 		context.set_source_surface(surface)

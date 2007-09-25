@@ -107,7 +107,9 @@ def convertToRGBA(LDrawColorCode):
 		return CurrentColor
 	if LDrawColorCode == ComplimentColor:
 		return ComplimentColor
-	return colors[LDrawColorCode][0:-1]
+	c  = colors[LDrawColorCode][0:-1]
+	c.reverse()
+	return c
 	
 def getColorName(LDrawColorCode):
 	if LDrawColorCode == CurrentColor:

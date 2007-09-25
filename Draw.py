@@ -56,16 +56,14 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		self.currentPage = 	None      # The currently selected page
 
 	def on_treeview_key_press(self, *args):
-		print "tree key"
 		return False
 	
 	def on_treeview_key_release(self, *args):
-		print "tree key release"
 		return False
 	
 	def on_box_opengl_key_press(self, widget, event):
 		if not self.currentSelection:
-			return
+			return True
 		
 		key = gtk.gdk.keyval_name(event.keyval)
 		d = 10 if event.state & gtk.gdk.SHIFT_MASK else 1
@@ -96,8 +94,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 			self.on_draw_event()  # Selected a new instruction element - redraw
 
 	def on_box_opengl_key_release(self, *args):
-		pass
-		#print "box key release"
+		return True
 
 	def on_generate_images(self, data):
 		self.instructions.generateImages()
@@ -168,16 +165,14 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		glClearColor(1.0, 1.0, 1.0, 1.0)  # Draw clear white screen
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
-		#MODEL_NAME = "pyramid.dat"
-		#MODEL_NAME = "Blaster.mpd"
 		print "*** Loading Model ***"
-		cr = self.window.cairo_create()
 		try:
 			self.instructions = Instructions(filename)
 		except IOError:
 			print "Could not find file %s" % (filename)
 			return
 		
+		cr = self.window.cairo_create()
 		self.instructions.initDraw(cr)
 		self.currentSelection = self.instructions.getMainModel()
 		self.initializeTree()
@@ -201,6 +196,12 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		glLightfv(GL_LIGHT0, GL_AMBIENT, ambient)
 		glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse)
 		glLightfv(GL_LIGHT0, GL_SPECULAR, specular)
+		
+		#modelName = None
+		modelName = "pyramid.dat"
+		#modelName = "Blaster.mpd"
+		if modelName:
+			self.load_model("c:\\ldrawparts\\models\\" + modelName)
 
 	def on_resize_event(self, *args):
 		""" Resize the window. """
