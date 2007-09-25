@@ -286,7 +286,7 @@ def go():
 	message_id = statusbar.push(context_id, "Hello")
 	
 	#main.maximize()
-	main.set_title("Title Goes Here When Close To Done")
+	main.set_title("Lic")
 	main.show_all()
 	
 	gtk.main()

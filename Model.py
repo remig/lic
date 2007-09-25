@@ -602,9 +602,6 @@ class CSI:
 			False if the CSI has been rendered partially or wholly out of frame.
 		"""
 		
-		# TODO: update some kind of load status bar her - this function is *slow*
-		print "CSI %s step %d - size %d" % (self.step.filename, self.step.number, size)
-		
 		rawFilename = os.path.splitext(os.path.basename(self.step.filename))[0]
 		filename = "%s_step_%d" % (rawFilename, self.step.number)
 		
@@ -612,6 +609,8 @@ class CSI:
 		if params is None:
 			return False
 		
+		# TODO: update some kind of load status bar her - this function is *slow*
+		print "CSI %s step %d - size %d" % (self.step.filename, self.step.number, size)
 		self.box.width, self.box.height, self.center, x, y = params
 		return True
 
@@ -1329,7 +1328,7 @@ class Part:
 		
 		GLHelpers.adjustGLViewport(x, y, self.partOGL.width, self.partOGL.height)
 		glLoadIdentity()
-		GLHelpers.rotateToDefaultView(self.partOGL.center.x, self.partOGL.center.y, 0.0)
+		GLHelpers.rotateToPLIView(self.partOGL.center.x, self.partOGL.center.y, 0.0)
 		
 		self.partOGL.draw()
 		
