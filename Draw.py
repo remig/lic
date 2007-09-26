@@ -197,8 +197,8 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse)
 		glLightfv(GL_LIGHT0, GL_SPECULAR, specular)
 		
-		#modelName = None
-		modelName = "pyramid.dat"
+		modelName = None
+		#modelName = "pyramid.dat"
 		#modelName = "Blaster.mpd"
 		if modelName:
 			self.load_model("c:\\ldrawparts\\models\\" + modelName)
