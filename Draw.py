@@ -12,8 +12,6 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 
 # TODO: Fix OGL surface normals and BFC, so OGL rendering can look better.
-gui_xml = gtk.glade.XML(os.path.join(os.getcwd(), 'LIC.glade'))
-
 class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 	def __init__(self, window):
 		gtk.DrawingArea.__init__(self)
@@ -41,7 +39,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		self.connect( "delete_event", self.on_exit )
 		self.connect( "destroy", self.on_destroy )
 		
-		self.tree = gui_xml.get_widget("treeview")
+		self.tree = main.gui_xml.get_widget("treeview")
 		self.treemodel = gtk.TreeStore(gobject.TYPE_STRING, gobject.TYPE_PYOBJECT, gobject.TYPE_PYOBJECT)
 		self.tree.connect("button_release_event", self.treeview_button_press)
 		self.tree.set_reorderable(True)
@@ -312,15 +310,26 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 				iterPart = None
 			iterStep = iterPLI = iterCSI = None
 
-
 if __name__ == '__main__':
+	gui_xml = gtk.glade.XML(os.path.join(os.getcwd(), 'LIC.glade'))
+
 	main = gui_xml.get_widget("main_window")
+	main.gui_xml = gui_xml
 	
 	area = DrawArea(main)
 	box = gui_xml.get_widget("box_opengl")
 	box.pack_start(area)
 	
-	sigs = {"on_menuGenerate_activate": area.on_generate_images,
+	edit_menu = gui_xml.get_widget("edit_menu")
+	edit_menu.set_sensitive(False)
+
+	help_menu = gui_xml.get_widget("help_menu")
+	help_menu.set_sensitive(False)
+
+	new_menu = gui_xml.get_widget("new_menu")
+	new_menu.set_sensitive(False)
+	
+	sigs = {"on_generate_activate": area.on_generate_images,
 			"on_open_activate": area.on_open,
 			"on_save_activate": area.on_save,
 			"on_save_as_activate": area.on_save_as,

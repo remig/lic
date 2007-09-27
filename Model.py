@@ -57,6 +57,7 @@ class Instructions:
 			page.drawToFile(surface, context, path)
 		
 		print "*** Generate Instructions Complete ***"
+		print "*** Images written to %s ***" % (path)
 	
 	def initDraw(self, context):
 		

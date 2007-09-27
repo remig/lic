@@ -32,25 +32,25 @@
 	  <property name="child_pack_direction">GTK_PACK_DIRECTION_LTR</property>
 
 	  <child>
-	    <widget class="GtkMenuItem" id="menuitem1">
+	    <widget class="GtkMenuItem" id="file_menu">
 	      <property name="visible">True</property>
 	      <property name="label" translatable="yes">_File</property>
 	      <property name="use_underline">True</property>
 
 	      <child>
-		<widget class="GtkMenu" id="menuitem1_menu">
+		<widget class="GtkMenu" id="file_menu_menu">
 
 		  <child>
-		    <widget class="GtkImageMenuItem" id="new1">
+		    <widget class="GtkImageMenuItem" id="new_menu">
 		      <property name="visible">True</property>
 		      <property name="label">gtk-new</property>
 		      <property name="use_stock">True</property>
-		      <signal name="activate" handler="on_new1_activate" last_modification_time="Fri, 06 Jul 2007 00:03:47 GMT"/>
+		      <signal name="activate" handler="on_new_activate" last_modification_time="Thu, 27 Sep 2007 01:23:49 GMT"/>
 		    </widget>
 		  </child>
 
 		  <child>
-		    <widget class="GtkImageMenuItem" id="open">
+		    <widget class="GtkImageMenuItem" id="open_menu">
 		      <property name="visible">True</property>
 		      <property name="label">gtk-open</property>
 		      <property name="use_stock">True</property>
@@ -83,7 +83,7 @@
 		  </child>
 
 		  <child>
-		    <widget class="GtkImageMenuItem" id="menuQuit">
+		    <widget class="GtkImageMenuItem" id="quit_menu">
 		      <property name="visible">True</property>
 		      <property name="label">gtk-quit</property>
 		      <property name="use_stock">True</property>
@@ -96,47 +96,47 @@
 	  </child>
 
 	  <child>
-	    <widget class="GtkMenuItem" id="menuitem2">
+	    <widget class="GtkMenuItem" id="edit_menu">
 	      <property name="visible">True</property>
 	      <property name="label" translatable="yes">_Edit</property>
 	      <property name="use_underline">True</property>
 
 	      <child>
-		<widget class="GtkMenu" id="menuitem2_menu">
+		<widget class="GtkMenu" id="edit_menu_menu">
 
 		  <child>
-		    <widget class="GtkImageMenuItem" id="cut1">
+		    <widget class="GtkImageMenuItem" id="cut_menu">
 		      <property name="visible">True</property>
 		      <property name="label">gtk-cut</property>
 		      <property name="use_stock">True</property>
-		      <signal name="activate" handler="on_cut1_activate" last_modification_time="Fri, 06 Jul 2007 00:03:47 GMT"/>
+		      <signal name="activate" handler="on_cut_activate" last_modification_time="Thu, 27 Sep 2007 01:24:18 GMT"/>
 		    </widget>
 		  </child>
 
 		  <child>
-		    <widget class="GtkImageMenuItem" id="copy1">
+		    <widget class="GtkImageMenuItem" id="copy_menu">
 		      <property name="visible">True</property>
 		      <property name="label">gtk-copy</property>
 		      <property name="use_stock">True</property>
-		      <signal name="activate" handler="on_copy1_activate" last_modification_time="Fri, 06 Jul 2007 00:03:47 GMT"/>
+		      <signal name="activate" handler="on_copy_activate" last_modification_time="Thu, 27 Sep 2007 01:24:27 GMT"/>
 		    </widget>
 		  </child>
 
 		  <child>
-		    <widget class="GtkImageMenuItem" id="paste1">
+		    <widget class="GtkImageMenuItem" id="paste_menu">
 		      <property name="visible">True</property>
 		      <property name="label">gtk-paste</property>
 		      <property name="use_stock">True</property>
-		      <signal name="activate" handler="on_paste1_activate" last_modification_time="Fri, 06 Jul 2007 00:03:47 GMT"/>
+		      <signal name="activate" handler="on_paste_activate" last_modification_time="Thu, 27 Sep 2007 01:24:32 GMT"/>
 		    </widget>
 		  </child>
 
 		  <child>
-		    <widget class="GtkImageMenuItem" id="delete1">
+		    <widget class="GtkImageMenuItem" id="delete_menu">
 		      <property name="visible">True</property>
 		      <property name="label">gtk-delete</property>
 		      <property name="use_stock">True</property>
-		      <signal name="activate" handler="on_delete1_activate" last_modification_time="Fri, 06 Jul 2007 00:03:47 GMT"/>
+		      <signal name="activate" handler="on_delete_activate" last_modification_time="Thu, 27 Sep 2007 01:24:38 GMT"/>
 		    </widget>
 		  </child>
 		</widget>
@@ -145,20 +145,20 @@
 	  </child>
 
 	  <child>
-	    <widget class="GtkMenuItem" id="menuInstructions">
+	    <widget class="GtkMenuItem" id="instructions_menu">
 	      <property name="visible">True</property>
 	      <property name="label" translatable="yes">_Instructions</property>
 	      <property name="use_underline">True</property>
 
 	      <child>
-		<widget class="GtkMenu" id="menuInstructions_menu">
+		<widget class="GtkMenu" id="instructions_menu_menu">
 
 		  <child>
-		    <widget class="GtkMenuItem" id="menuGenerate">
+		    <widget class="GtkMenuItem" id="generate_menu">
 		      <property name="visible">True</property>
 		      <property name="label" translatable="yes">Generate Instructions</property>
 		      <property name="use_underline">True</property>
-		      <signal name="activate" handler="on_menuGenerate_activate" last_modification_time="Thu, 30 Aug 2007 05:04:24 GMT"/>
+		      <signal name="activate" handler="on_generate_activate" last_modification_time="Thu, 27 Sep 2007 01:24:55 GMT"/>
 		    </widget>
 		  </child>
 		</widget>
@@ -167,20 +167,20 @@
 	  </child>
 
 	  <child>
-	    <widget class="GtkMenuItem" id="menuitem4">
+	    <widget class="GtkMenuItem" id="help_menu">
 	      <property name="visible">True</property>
 	      <property name="label" translatable="yes">_Help</property>
 	      <property name="use_underline">True</property>
 
 	      <child>
-		<widget class="GtkMenu" id="menuitem4_menu">
+		<widget class="GtkMenu" id="help_menu_menu">
 
 		  <child>
-		    <widget class="GtkMenuItem" id="about1">
+		    <widget class="GtkMenuItem" id="about_menu">
 		      <property name="visible">True</property>
 		      <property name="label" translatable="yes">_About</property>
 		      <property name="use_underline">True</property>
-		      <signal name="activate" handler="on_about1_activate" last_modification_time="Fri, 06 Jul 2007 00:03:47 GMT"/>
+		      <signal name="activate" handler="on_about_activate" last_modification_time="Thu, 27 Sep 2007 01:25:08 GMT"/>
 		    </widget>
 		  </child>
 		</widget>
