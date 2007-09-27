@@ -176,6 +176,7 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		self.instructions.initDraw(cr)
 		self.currentSelection = self.instructions.getMainModel()
 		self.initializeTree()
+		self.on_draw_event()
 
 	def on_init(self, *args):
 		""" Initialize the window. """
@@ -228,20 +229,24 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 		# Create a fresh, blank cairo context attached to the window's display area
 		# TODO: After draw debugging is done, double buffer this draw by drawing everything to a temp cairo surface,
 		# then dump that surface to the window's context.  Drawing directly onto the window flickers something nasty.
-		cr = self.window.cairo_create()
-		cr.identity_matrix()
-		cr.set_source_rgb(1, 1, 1)
-		cr.paint()
-		
 		# Clear the window's current GL buffers
 		glClearColor(1.0, 1.0, 1.0, 0)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 		
+		surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.width, self.height)
+		context = cairo.Context(surface)
+		cr = self.window.cairo_create()
+		
 		# Draw the currently selected model / part / step / page / whatnot
 		if self.currentPage:
-			self.currentPage.draw(cr, self.width, self.height, self.currentSelection)
+			self.currentPage.draw(context, self.width, self.height, self.currentSelection)
+			cr.set_source_surface(surface, 0, 0)
 		elif self.currentSelection and isinstance(self.currentSelection, Part):
-			self.currentSelection.draw(cr, self.width, self.height)
+			self.currentSelection.draw(context, self.width, self.height)
+			cr.set_source_surface(surface, 0, 0)
+		else:
+			cr.set_source_rgb(1, 1, 1)
+		cr.paint()
 	
 	def treeview_button_press(self, obj, event):
 		treemodel, iter = self.tree.get_selection().get_selected()
@@ -307,8 +312,8 @@ class DrawArea(gtk.DrawingArea, gtk.gtkgl.Widget):
 				iterPart = None
 			iterStep = iterPLI = iterCSI = None
 
-def go():
-	
+
+if __name__ == '__main__':
 	main = gui_xml.get_widget("main_window")
 	
 	area = DrawArea(main)
@@ -339,6 +344,3 @@ def go():
 	main.show_all()
 	
 	gtk.main()
-
-if __name__ == '__main__':
-	go()
