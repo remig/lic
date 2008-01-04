@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Project SYSTEM "Project-4.0.dtd">
+<!-- eric4 project file for project Lic -->
+<!-- Saved: 2008-01-02, 17:51:58 -->
+<!-- Copyright (C) 2008 Remi Gagne,  -->
+<Project version="4.0">
+  <ProgLanguage mixed="0">Python</ProgLanguage>
+  <UIType>Qt4</UIType>
+  <Description>Lic - Lego Instruction Creator</Description>
+  <Version>0.1</Version>
+  <Author>Remi Gagne</Author>
+  <Email></Email>
+  <Sources>
+    <Source>
+      <Name>config.py</Name>
+    </Source>
+    <Source>
+      <Name>Drawables.py</Name>
+    </Source>
+    <Source>
+      <Name>GLHelpers.py</Name>
+    </Source>
+    <Source>
+      <Name>l3p.py</Name>
+    </Source>
+    <Source>
+      <Name>LDrawColors.py</Name>
+    </Source>
+    <Source>
+      <Name>LDrawFileFormat.py</Name>
+    </Source>
+    <Source>
+      <Name>Lic.py</Name>
+    </Source>
+    <Source>
+      <Name>Model.py</Name>
+    </Source>
+    <Source>
+      <Name>offscreen_complete.py</Name>
+    </Source>
+    <Source>
+      <Name>povray.py</Name>
+    </Source>
+    <Source>
+      <Name>Snippets.py</Name>
+    </Source>
+  </Sources>
+  <Forms>
+  </Forms>
+  <Translations>
+  </Translations>
+  <Resources>
+  </Resources>
+  <Interfaces>
+  </Interfaces>
+  <Others>
+  </Others>
+  <Vcs>
+    <VcsType>None</VcsType>
+  </Vcs>
+  <FiletypeAssociations>
+    <FiletypeAssociation pattern="*.ui" type="FORMS" />
+    <FiletypeAssociation pattern="*.idl" type="INTERFACES" />
+    <FiletypeAssociation pattern="*.ptl" type="SOURCES" />
+    <FiletypeAssociation pattern="*.pyw" type="SOURCES" />
+    <FiletypeAssociation pattern="*.ui.h" type="FORMS" />
+    <FiletypeAssociation pattern="*.py" type="SOURCES" />
+    <FiletypeAssociation pattern="*.qrc" type="RESOURCES" />
+  </FiletypeAssociations>
+</Project>

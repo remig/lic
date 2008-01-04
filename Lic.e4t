@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Tasks SYSTEM "Tasks-3.8.dtd">
+<!-- eric4 tasks file for project Lic -->
+<!-- Saved: 2008-01-02, 17:51:58 -->
+<Tasks version="3.8">
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: Define all members and their units in this class</Description>
+    <Created>2008-01-02, 17:50:17</Created>
+    <Resource>
+      <Filename>
+        <Name>Drawables.py</Name>
+      </Filename>
+      <Linenumber>109</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: Define all members and their units in this class</Description>
+    <Created>2008-01-02, 17:50:17</Created>
+    <Resource>
+      <Filename>
+        <Name>Drawables.py</Name>
+      </Filename>
+      <Linenumber>116</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: Convert all of these to relative values (from 0..1, % of overall width | height)</Description>
+    <Created>2008-01-02, 17:50:17</Created>
+    <Resource>
+      <Filename>
+        <Name>Drawables.py</Name>
+      </Filename>
+      <Linenumber>132</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: implement all BFC options</Description>
+    <Created>2008-01-02, 17:50:19</Created>
+    <Resource>
+      <Filename>
+        <Name>LDrawFileFormat.py</Name>
+      </Filename>
+      <Linenumber>113</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: implement all BFC options</Description>
+    <Created>2008-01-02, 17:50:19</Created>
+    <Resource>
+      <Filename>
+        <Name>LDrawFileFormat.py</Name>
+      </Filename>
+      <Linenumber>117</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: Ensure this DAT is up to date wrt. the main model</Description>
+    <Created>2008-01-02, 17:50:19</Created>
+    <Resource>
+      <Filename>
+        <Name>LDrawFileFormat.py</Name>
+      </Filename>
+      <Linenumber>367</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: Fix OGL surface normals and BFC, so OGL rendering can look better.</Description>
+    <Created>2008-01-02, 17:51:33</Created>
+    <Resource>
+      <Filename>
+        <Name>Lic.py</Name>
+      </Filename>
+      <Linenumber>14</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: Holy crap GTK's FileChooser is horrid - try desperately to either sanitize it, or get GTK to use native window manager's open dialog.</Description>
+    <Created>2008-01-02, 17:51:33</Created>
+    <Resource>
+      <Filename>
+        <Name>Lic.py</Name>
+      </Filename>
+      <Linenumber>142</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: See on_open TODO - Save As is just as asstastic</Description>
+    <Created>2008-01-02, 17:51:33</Created>
+    <Resource>
+      <Filename>
+        <Name>Lic.py</Name>
+      </Filename>
+      <Linenumber>152</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: After draw debugging is done, double buffer this draw by drawing everything to a temp cairo surface,</Description>
+    <Created>2008-01-02, 17:51:33</Created>
+    <Resource>
+      <Filename>
+        <Name>Lic.py</Name>
+      </Filename>
+      <Linenumber>228</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: Each class holds a bunch of self attributes only used during initialization - once init is done, delete them maybe?</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>14</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: File load is sluggish, even if loading from a thoroughly Lic-created file - speed it up</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>15</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: Save the default image size to the file if its not there already</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>23</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: Instructions should be a tree, and be used more cleanly than the hack job currently in the tree GUI code.</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>27</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: Page number is moveable, but position is not saved to file - update LIC PAGE command to include page number position &amp; font</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>210</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: don't reverse colors in LDrawColors - figure out why glPixelStore won't work</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>252</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: Fix PLI and PLIItem by moving all quantity label stuff out of PLI into PLIItem, then replace it with Label</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>312</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: think about including filename / color in item.  It'd mean redundant info, but easier iteration (over values instead of items) and fewer method args</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>390</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: check PLIItem default arg constructor</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>391</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: update some kind of load status bar her - this function is *slow*</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>614</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: Ugly - find a more pythonic way to do this</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>647</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: Fix this! inverted = GL_CW</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>872</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: This should be printed - commented out for debugging</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>1095</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: If the same submodel is added more than once, page counts will be off - fix this</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>1107</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: Create a static list of all standard parts along with the necessary rotation needed</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>1176</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: If a part is rendered at a size &gt; 256, draw it smaller in the PLI - this sounds like a great way to know when to shrink a PLI image...</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>1200</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: Check how many pieces would be rendered successfully at 128 - if significant, test adding that to size list, see if it speeds part generation up</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>1201</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: update some kind of load status bar her - this function is *slow*</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>1209</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: remove this check, and this entire method, once it is no longer ever called</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>1227</Linenumber>
+    </Resource>
+  </Task>
+  <Task priority="1" completed="False" bugfix="False">
+    <Description>TODO: using numpy for all this would probably work a lot better</Description>
+    <Created>2008-01-02, 17:51:38</Created>
+    <Resource>
+      <Filename>
+        <Name>Model.py</Name>
+      </Filename>
+      <Linenumber>1362</Linenumber>
+    </Resource>
+  </Task>
+</Tasks>

@@ -329,7 +329,11 @@ class PLIItem:
 		GLHelpers.adjustGLViewport(self.corner.x, self.corner.y - p.height, p.width, p.height)
 		glLoadIdentity()
 		GLHelpers.rotateToPLIView(p.center.x, p.center.y, 0.0)
-		glColor3fv(convertToRGBA(color))
+		color = convertToRGBA(color)
+		if len(color) == 3:
+			glColor3fv(color)
+		elif len(color) == 4:
+			glColor4fv(color)
 		p.draw()
 	
 	def drawToFile(self, context, color):
