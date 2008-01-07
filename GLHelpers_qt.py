@@ -21,7 +21,7 @@ def adjustGLViewport(x, y, width, height):
     width = max(1, width / 2 * SCALE_WINDOW)
     height = max(1, height / 2 * SCALE_WINDOW)
     # Viewing box (left, right) (bottom, top), (near, far)
-    glOrtho( -width, width, -height, height, -3000, 3000 )
+    glOrtho( -width, width, height, -height, -3000, 3000 )
     glMatrixMode(GL_MODELVIEW)
 
 def rotateViewByPoint3D(pt3D):
@@ -47,11 +47,11 @@ def getDefaultCamera():
 def rotateToPLIView(x = 0.0, y = 0.0, z = 0.0):
     # position (x,y,z), look at (x,y,z), up vector (x,y,z)
     gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
-    glScalef(-1.0, 1.0, 1.0)
+    #glScalef(-1.0, 1.0, 1.0)
     
     # Rotate model into something approximating the ortho view as seen in Lego PLIs
     glRotatef(20.0, 1.0, 0.0, 0.0)
-    glRotatef(-45.0, 0.0, 1.0, 0.0)
+    glRotatef(45.0, 0.0, 1.0, 0.0)
 
 def getPLICamera():
     return [('y', -45.0), ('x', 20)]
@@ -68,55 +68,6 @@ def popAllGLMatrices():
     glMatrixMode(GL_PROJECTION)
     glPopMatrix()
     glPopAttrib()
-
-def createFBO(width, height):
-    """
-    Creates a new Frame Buffer Object of specified width and height (in pixels).
-    This rendering buffer is independent of any display resolution & size, which means
-    we can create it arbitrarily large.  Perfect for rendering parts to calculate their
-    eventual drawn dimensions.
-    
-    Returns a tuple consisting of all objects that need to be destroyed by destroyFBO.
-    So, just store the returned value then pass it right back to destroyFBO for easy cleanup.
-    """
-    
-    # Setup frame buffer
-    framebuffer = glGenFramebuffersEXT(1)
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, framebuffer)
-    
-    # Need a temporary image hanging around for the glTexImage2D call below to work
-    image = Image.new ("RGB", (width, height), (1, 1, 1))
-    bits = image.tostring("raw", "RGBX", 0, -1)
-    
-    # Setup depth buffer
-    depthbuffer = glGenRenderbuffersEXT(1)
-    glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, depthbuffer)
-    glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT, width, height)
-    
-    # Create texture to render to
-    texture = glGenTextures (1)
-    glBindTexture(GL_TEXTURE_2D, texture)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, bits)
-    
-    # Bind texture to frame buffer
-    glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, texture, 0);
-    glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, depthbuffer);
-    
-    status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
-    if (status != 0) and (status != GL_FRAMEBUFFER_COMPLETE_EXT):
-        print "Error in framebuffer activation.  Status: %d, expected %d" % (status, GL_FRAMEBUFFER_COMPLETE_EXT)
-        destroyFBO(texture, framebuffer)
-        return None
-
-    return (texture, framebuffer)
-    
-def destroyFBO(texture, framebuffer):
-    glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, 0)
-    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0)
-    glDeleteTextures(texture)
-    glDeleteFramebuffersEXT(1, [framebuffer])
 
 def _checkImgMaxBounds(top, bottom, left, right, width, height, filename):
     
@@ -189,7 +140,7 @@ def _checkPixelsRight(data, width, height, top, bottom, left):
                 return i
     return width
 
-def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotStep = None):
+def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotStep = None, pBuffer = None):
     
     # Clear the drawing buffer with white
     glClearColor(1.0, 1.0, 1.0, 0)
@@ -207,13 +158,22 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotSt
         rotateToPLIView(x, y, 0.0)
 
     glCallList(oglDispID)
-    
+
+    if pBuffer:
+        pass
+        # TODO: If the old way of calculating image size, with PLI's Image, is still slow, try this pBuffer's QImage
+        #image = pBuffer.toImage()
+        #if image:
+        #    print "have image again"
+        #    image.save("C:\\ldraw\\tmp\\part.png", None)
+
     pixels = glReadPixels (0, 0, w, h, GL_RGB,  GL_UNSIGNED_BYTE)
     img = Image.new ("RGB", (w, h), (1, 1, 1))
     img.fromstring(pixels)
-    #if filename:
-    #   rawFilename = os.path.splitext(os.path.basename(filename))[0]
-    #   img.save ("C:\\LDraw\\tmp\\%s.png" % (rawFilename))
+    img = img.transpose(Image.FLIP_TOP_BOTTOM)
+    if filename:
+       rawFilename = os.path.splitext(os.path.basename(filename))[0]
+       img.save ("C:\\LDraw\\tmp\\%s.png" % (rawFilename))
     
     data = img.load()
     top = _checkPixelsTop(data, w, h)
@@ -223,15 +183,14 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotSt
     
     return (top, bottom, left, right, bottom - leftInset, bottomInset - left)
 
-def initImgSize(width, height, oglDispID, isCSI, filename = None, rotStep = None):
+def initImgSize(width, height, oglDispID, isCSI, filename = None, rotStep = None, pBuffer = None):
     """
     Draw this piece to the already initialized GL Frame Buffer Object, in order to calculate
     its displayed width and height.  These dimensions are required to properly lay out PLIs and CSIs.
-    Note that an appropriate FBO *must* be initialized before calling initSize.
     
     Parameters:
-        width: Width of FBO to render to, in pixels.
-        height: Height of FBO to render to, in pixels.
+        width: Width of buffer to render to, in pixels.
+        height: Height of buffer to render to, in pixels.
         oglDispID: The GL Display List ID to be rendered and dimensioned.
         isCSI: Need to do a few things differently if we're working with a CSI vs a PLI part.
         filename: Optional string used for debugging.
@@ -244,7 +203,7 @@ def initImgSize(width, height, oglDispID, isCSI, filename = None, rotStep = None
     """
     
     # Draw piece to frame buffer, then calculate bounding box
-    top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(0.0, 0.0, width, height, oglDispID, filename, isCSI, rotStep)
+    top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(0.0, 0.0, width, height, oglDispID, filename, isCSI, rotStep, pBuffer)
     
     if _checkImgMaxBounds(top, bottom, left, right, width, height, filename):
         return None  # Drawn completely out of bounds
@@ -266,7 +225,7 @@ def initImgSize(width, height, oglDispID, isCSI, filename = None, rotStep = None
     
     if (x != 0) or (y != 0):
         # Drew at least one edge out of bounds - try moving part as much as possible and redrawing
-        top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(x, y, width, height, oglDispID, filename, isCSI, rotStep)
+        top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(x, y, width, height, oglDispID, filename, isCSI, rotStep, pBuffer)
     
     if _checkImgTouchingBounds(top, bottom, left, right, width, height, filename):
         return None  # Drew on edge out of bounds - could try another displacement, but easier to just try bigger size

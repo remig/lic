@@ -16,26 +16,6 @@ ConditionalLineCommand = '5'
 RotStepCommand = 'ROTSTEP'
 StepCommand = 'STEP'
 FileCommand = 'FILE'
-ClearCommand = 'CLEAR'
-PauseCommand = 'PAUSE'
-SaveCommand = 'SAVE'
-GhostCommand = 'GHOST'
-BufferCommand = 'BUFEXCHG'
-BFCCommand = 'BFC'
-
-BufferStore = 'STORE'
-BufferRetrieve = 'RETRIEVE'
-
-LPubCommand = 'LPUB'
-LicCommand = '!LIC'
-LicInitialized = 'Initialized'
-CSICommand  = 'CSI'
-PLICommand  = 'PLI'
-PageCommand = 'PAGE'
-PLIItemCommand  = 'PLII'
-BEGINCommand  = 'BEGIN'
-ENDCommand  = 'END'
-IGNCommand  = 'IGN'
 
 def LDToOGLMatrix(matrix):
     m = [float(x) for x in matrix]
@@ -91,91 +71,6 @@ def lineToPart(line):
             'color': int(line[2]),
             'matrix': LDToOGLMatrix(line[3:15]),
             'ghost': False}
-
-def isValidGhostLine(line):
-    return (len(line) > 17) and (line[1] == Comment) and (line[2] == GhostCommand) and (line[3] == PartCommand)
-
-def ghostLineToPartLine(line):
-    return line[:1] + line[3:]
-
-def lineToGhostPart(line):
-    d = lineToPart(line[2:])
-    d['ghost'] = True
-    return d
-
-def isValidBufferLine(line):
-    return (len(line) > 4) and (line[1] == Comment) and (line[2] == BufferCommand)
-
-def lineToBuffer(line):
-    return {'buffer': line[3], 'state': line[4]}
-
-def isValidBFCLine(line):
-    # TODO: implement all BFC options
-    return (len(line) > 3) and (line[1] == Comment) and (line[2] == BFCCommand)
-
-def lineToBFC(line):
-    # TODO: implement all BFC options
-    return {'command': line[3]}
-
-def isValidLPubLine(line):
-    return (len(line) > 3) and (line[1] == Comment) and (line[2] == LPubCommand)
-
-def isValidLPubPLILine(line):
-    return isValidLPubLine(line) and (len(line) > 4) and (line[3] == PLICommand)
-
-def lineToLPubPLIState(line):
-    if line[4] == BEGINCommand:
-        return True
-    return False
-
-def isValidLPubSizeLine(line):
-    return isValidLPubLine(line) and (len(line) > 6) and (line[3] == PageCommand)
-
-def lineToLPubSize(line):
-    return (int(line[5]), int(line[6]))
-
-def isValidLicLine(line):
-    return (len(line) > 3) and (line[1] == Comment) and (line[2] == LicCommand)
-
-def isValidLicHeader(line):
-    return isValidLicLine(line) and (len(line) == 4) and (line[3] == LicInitialized)
-
-def isValidCSILine(line):
-    return isValidLicLine(line) and (len(line) > 9) and (line[3] == CSICommand)
-
-def lineToCSI(line):
-    # [index, Comment, LicCommand, CSICommand, self.box.x, self.box.y, self.box.width, self.box.height, self.centerOffset.x, self.centerOffset.y]
-    return {'box': Drawables.Box(float(line[4]), float(line[5]), float(line[6]), float(line[7])),
-            'center': Drawables.Point(float(line[8]), float(line[9]))}
-
-def isValidPLILine(line):
-    return isValidLicLine(line) and (len(line) > 14) and (line[3] == PLICommand)
-
-def lineToPLI(line):
-    # [index, Comment, LicCommand, PLICommand, self.box.x, self.box.y, self.box.width, self.box.height,
-    #  self.qtyMultiplierChar, self.qtyLabelFont.size, self.qtyLabelFont.face,
-    #  self.step.stepNumberRefPt.x, self.stepNumberRefPt.y,
-    #  self.step.stepNumberFont.size, self.step.stepNumberFont.face]
-    return {'box': Drawables.Box(float(line[4]), float(line[5]), float(line[6]), float(line[7])),
-            'qtyLabel': line[8],
-            'qtyFont': Drawables.Font(float(line[9]), line[10]),
-            'stepLabelPt': Drawables.Point(float(line[11]), float(line[12])),
-            'stepLabelFont': Drawables.Font(float(line[13]), line[14])}
-
-def isValidPLIItemLine(line):
-    return isValidLicLine(line) and (len(line) > 11) and (line[3] == PLIItemCommand)
-
-def lineToPLIItem(line):
-    # [index, Comment, LicCommand, PLIItemCommand, filename, item.count, item.corner.x, item.corner.y, item.labelCorner.x, item.labelCorner.y, item.xBearing, color]
-    return {'filename': line[4],
-            'count': int(line[5]),
-            'corner': Drawables.Point(float(line[6]), float(line[7])),
-            'labelCorner': Drawables.Point(float(line[8]), float(line[9])),
-            'xBearing'   : float(line[10]),
-            'color': int(line[11])}
-
-def isValidPageLine(line):
-    return isValidLicLine(line) and (len(line) > 3) and (line[3] == PageCommand)
 
 class LDrawFile:
     def __init__(self, filename):
