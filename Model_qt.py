@@ -20,14 +20,6 @@ partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 def printRect(rect, text = ""):
     print text + ", l: %f, r: %f, t: %f, b: %f" % (rect.left(), rect.right(), rect.top(), rect.bottom())
 
-def roundPt(pt):
-    pass
-
-def roundRect(pt):
-    pt.setWidth(round(pt.width()))
-    pt.setHeight(round(pt.height()))
-    return pt
-    
 class Instructions(object):
 
     def __init__(self, filename, scene, qGLWidget):
@@ -210,7 +202,7 @@ class Page(QGraphicsRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
     
     NextNumber = 1
-    inset = QPointF(15.5, 15.5)
+    inset = QPointF(15, 15)
     pageInset = 10
     
     def __init__(self, scene, number = -1):
@@ -264,11 +256,6 @@ class Page(QGraphicsRectItem):
         rect = self.numberItem.boundingRect()
         rect.translate(self.numberItem.pos())
         painter.drawRect(rect)
-        printRect(rect, "page Rect:")
-        print "Page local x: %f, y: %f, w: %f, h: %f" % (self.numberItem.pos().x(), self.numberItem.pos().y(), self.numberItem.boundingRect().width(), self.numberItem.boundingRect().height())
-        pos = self.numberItem.mapToScene(self.numberItem.pos())
-        rec = self.numberItem.mapToScene(self.numberItem.boundingRect())
-        print "Page scene x: %f, y: %f, w: %f, h: %f" % (pos.x(), pos.y(), rect.width(), rect.height())
 
 class Step(QGraphicsRectItem):
     """ A single step in an instruction book.  Contains one optional PLI and exactly one CSI. """
@@ -477,6 +464,118 @@ class PLI(QGraphicsRectItem):
             newHeight = item.rect().height() + lblHeight + (inset * 2)
             b.setHeight(round(max(b.height(), newHeight)))
             self.setRect(b)
+
+class CSI(QGraphicsRectItem):
+    """
+    Construction Step Image.  Includes border and positional info.
+    """
+    
+    def __init__(self, parent):
+        QGraphicsRectItem.__init__(self, parent)
+        
+        self.offsetPLI = 0
+        self.step = step
+        
+        self.oglDispIDs = []  # [(dispID, buffer)]
+        self.oglDispID = UNINIT_OGL_DISPID
+    
+    def initSize(self, size):
+        """
+        Initialize this CSI's display width, height and center point. To do
+        this, draw this CSI to the already initialized GL Frame Buffer Object.
+        These dimensions are required to properly lay out PLIs and CSIs.
+        Note that an appropriate FBO *must* be initialized before calling initSize.
+        
+        Parameters:
+            size: Width & height of FBO to render to, in pixels.  Note that FBO is assumed square.
+        
+        Returns:
+            True if CSI rendered successfully.
+            False if the CSI has been rendered partially or wholly out of frame.
+        """
+        
+        rawFilename = os.path.splitext(os.path.basename(self.step.filename))[0]
+        filename = "%s_step_%d" % (rawFilename, self.step.number)
+        
+        params = GLHelpers_qt.initImgSize(size, size, self.oglDispID, True, filename, self.step.rotStep)
+        if params is None:
+            return False
+        
+        # TODO: update some kind of load status bar her - this function is *slow*
+        print "CSI %s step %d - size %d" % (self.step.filename, self.step.number, size)
+        self.box.width, self.box.height, self.center, x, y = params
+        return True
+
+    def callPreviousOGLDisplayLists(self, currentBuffers = None):
+        if self.step.prevStep:
+            self.step.prevStep.csi.callPreviousOGLDisplayLists(currentBuffers)
+        
+        if currentBuffers == []:
+            # Draw the default list, since there's no buffers present
+            glCallList(self.oglDispIDs[0][0])
+        else:
+            # Have current buffer - draw corresponding list (need to search for it)
+            for id, buffer in self.oglDispIDs:
+                if buffer == currentBuffers:
+                    glCallList(id)
+                    return
+        
+        # If we get here, no better display list was found, so call the default display list
+        glCallList(self.oglDispIDs[0][0])
+
+    def createOGLDisplayList(self):
+        
+        self.oglDispIDs = []
+        self.oglDispID = -1
+        
+        # Ensure all parts in this step have proper display lists
+        for part in self.step.parts:
+            if part.partOGL.oglDispID == UNINIT_OGL_DISPID:
+                part.partOGL.createOGLDisplayList()
+        
+        # Convert the list of buffers into a list of the concatenated buffer stack
+        # TODO: Ugly - find a more pythonic way to do this
+        bufferStackList = [[]]
+        for buffer in self.buffers:
+            tmp = list(bufferStackList[-1])
+            tmp.append(buffer)
+            bufferStackList.append(tmp)
+        
+        # Create one display list for each buffer set present in this Step
+        for buffers in bufferStackList:
+            id = glGenLists(1)
+            self.oglDispIDs.append((id, buffers))
+            glNewList(id, GL_COMPILE)
+            
+            for part in self.step.parts:
+                part.callOGLDisplayList(buffers)
+            
+            glEndList()
+        
+        self.oglDispID = glGenLists(1)
+        glNewList(self.oglDispID, GL_COMPILE)
+        self.callPreviousOGLDisplayLists(self.buffers)
+        glEndList()
+
+    def draw(self):
+        GLHelpers.adjustGLViewport(self.box.x, self.box.y, self.box.width, self.box.height)
+        glLoadIdentity()
+        GLHelpers.rotateToDefaultView(self.center.x, self.center.y, 0.0)
+        if self.step.rotStep:
+            GLHelpers.rotateViewByPoint3D(self.step.rotStep['point'])
+        glCallList(self.oglDispID)
+
+    def drawPageElements(self, context):
+        #self.box.draw(context)
+        pass
+
+    def callOGLDisplayList(self):
+        glCallList(self.oglDispIDs[0][0])
+    
+    def resize(self):
+        global _docWidth, _docHeight
+        self.box.x = (_docWidth / 2.) - (self.box.width / 2.)
+        self.box.y = ((_docHeight - self.offsetPLI) / 2.) - (self.box.height / 2.) + self.offsetPLI
 
 class PartOGL(object):
     """

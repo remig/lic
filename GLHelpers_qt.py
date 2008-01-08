@@ -171,9 +171,10 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotSt
     img = Image.new ("RGB", (w, h), (1, 1, 1))
     img.fromstring(pixels)
     img = img.transpose(Image.FLIP_TOP_BOTTOM)
+    
     if filename:
-       rawFilename = os.path.splitext(os.path.basename(filename))[0]
-       img.save ("C:\\LDraw\\tmp\\%s.png" % (rawFilename))
+        rawFilename = os.path.splitext(os.path.basename(filename))[0]
+        img.save ("C:\\LDraw\\tmp\\%s.png" % (rawFilename))
     
     data = img.load()
     top = _checkPixelsTop(data, w, h)
