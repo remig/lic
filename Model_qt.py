@@ -20,6 +20,14 @@ partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 def printRect(rect, text = ""):
     print text + ", l: %f, r: %f, t: %f, b: %f" % (rect.left(), rect.right(), rect.top(), rect.bottom())
 
+def roundPt(pt):
+    pass
+
+def roundRect(pt):
+    pt.setWidth(round(pt.width()))
+    pt.setHeight(round(pt.height()))
+    return pt
+    
 class Instructions(object):
 
     def __init__(self, filename, scene, qGLWidget):
@@ -179,7 +187,6 @@ class Instructions(object):
                 
                 if partOGL.initSize(size, pBuffer):  # Draw image and calculate its size:                    
                     lines.append(partOGL.dimensionsToString())
-                    print partOGL.dimensionsToString()
                 else:
                     partList2.append(partOGL)
             
@@ -257,6 +264,11 @@ class Page(QGraphicsRectItem):
         rect = self.numberItem.boundingRect()
         rect.translate(self.numberItem.pos())
         painter.drawRect(rect)
+        printRect(rect, "page Rect:")
+        print "Page local x: %f, y: %f, w: %f, h: %f" % (self.numberItem.pos().x(), self.numberItem.pos().y(), self.numberItem.boundingRect().width(), self.numberItem.boundingRect().height())
+        pos = self.numberItem.mapToScene(self.numberItem.pos())
+        rec = self.numberItem.mapToScene(self.numberItem.boundingRect())
+        print "Page scene x: %f, y: %f, w: %f, h: %f" % (pos.x(), pos.y(), rect.width(), rect.height())
 
 class Step(QGraphicsRectItem):
     """ A single step in an instruction book.  Contains one optional PLI and exactly one CSI. """
@@ -336,7 +348,6 @@ class PLIItem(QGraphicsRectItem):
         self.numberItem.setFont(QFont("Arial", 10))
         
         self.setPos(parent.inset)
-        print "PLI x: %f, y: %f" % (parent.pos().x(), parent.pos().y())
 
     def initLayout(self):
     
@@ -460,11 +471,11 @@ class PLI(QGraphicsRectItem):
             
             # Increase overall x, box width and box height to make PLI box big enough for this part
             overallX += newWidth + inset
-            b.setWidth(overallX)
+            b.setWidth(round(overallX))
             
             lblHeight = item.numberItem.boundingRect().height() / 2.0
             newHeight = item.rect().height() + lblHeight + (inset * 2)
-            b.setHeight(max(b.height(), newHeight))
+            b.setHeight(round(max(b.height(), newHeight)))
             self.setRect(b)
 
 class PartOGL(object):
@@ -600,7 +611,6 @@ class PartOGL(object):
         if self.isPrimitive:
             return None  # Do not generate any pixmaps for primitives
         
-        print "initializing pixmap %s, w: %f, h: %f" % (self.filename, self.width, self.height)
         pBuffer = QGLPixelBuffer(self.width, self.height, QGLFormat(), self.glContext)
         pBuffer.makeCurrent()
         
