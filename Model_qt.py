@@ -26,6 +26,8 @@ class Instructions(object):
         
         # Part dimensions cache line format: filename width height center.x center.y leftInset bottomInset
         self.partDimensionsFilename = "PartDimensions.cache"
+        
+        self.filename = os.path.splitext(os.path.basename(filename))[0]
         self.scene = scene
         self.qGLWidget = qGLWidget
         
@@ -34,7 +36,6 @@ class Instructions(object):
         self.importModel(filename)
         
         # First, generate all part GL display lists on the general glWidget.
-        # Then, create a GLPixelBuffer tied to the glWidget, and use that for actual rendering (for its toImage() speed boost).
         self.qGLWidget.makeCurrent()
         self.initDraw()
         
@@ -75,9 +76,9 @@ class Instructions(object):
     def addStep(self):
         # For now, this implicitly adds a new page for each new step
         
-        page = Page(self.scene)
+        page = Page(self)
         self.addPage(page)
-        self.currentStep = Step(page)
+        self.currentStep = Step(page, self.currentStep)
         page.addStep(self.currentStep)
 
     def addPart(self, p, line):
@@ -134,23 +135,21 @@ class Instructions(object):
     
     def initDraw(self):
         
-        # Initialize each part's gl display list, displayed dimensions, and pixmap
-        self.initAllParts()
+        # First initialize all GL display lists
+        for part in partDictionary.values():
+            part.createOGLDisplayList()
+            
+        # Calculate the width and height of each partOGL in the part dictionary
+        self.initPartDimensionsManually()
+
+        # Calculate the width and height of each CSI in this instruction book
+        self.initCSIDimensions()
         
         # Layout each step on each page.  
         # TODO: This should only happen if we're importing a new model.  Otherwise, layout should be pulled from load / save binary blob
         for page in self.pages:
             for step in page.steps:
                 step.initLayout()
-
-    def initAllParts(self):
-    
-        # First initialize all GL display lists
-        for part in partDictionary.values():
-            part.createOGLDisplayList()
-    
-        # Calculate the width and height of each partOGL in the part dictionary
-        self.initPartDimensionsManually()  # Init any parts we've already cached
     
     def initPartDimensionsManually(self):
         """
@@ -162,7 +161,7 @@ class Instructions(object):
         partList = [part for part in partDictionary.values() if (not part.isPrimitive) and (part.width == part.height == -1)]
         
         if not partList:
-            return    # If there's no parts to look up, we're done here
+            return    # If there's no parts to initialize, we're done here
     
         partList2 = []
         lines = []
@@ -171,7 +170,7 @@ class Instructions(object):
         for size in sizes:
             
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size,  size, QGLFormat(), self.qGLWidget)
+            pBuffer = QGLPixelBuffer(size, size, QGLFormat(), self.qGLWidget)
             pBuffer.makeCurrent()
             
             # Render each image and calculate their sizes
@@ -195,6 +194,40 @@ class Instructions(object):
             f.writelines(lines)
             f.close()
     
+    def initCSIDimensions(self):
+
+        csiList = []
+        for page in self.pages:
+            for step in page.steps:
+                csiList.append(step.csi)
+
+        if csiList == []:
+            return  # All CSIs initialized - nothing to do here
+        
+        self.qGLWidget.makeCurrent()
+        for csi in csiList:
+            csi.createOGLDisplayList()
+            
+        csiList2 = []
+        sizes = [512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
+        
+        for size in sizes:
+            
+            # Create a new buffer tied to the existing GLWidget, to get access to its display lists
+            pBuffer = QGLPixelBuffer(size, size, QGLFormat(), self.qGLWidget)
+            pBuffer.makeCurrent()
+
+            # Render each CSI and calculate its size
+            for csi in csiList:
+                if not csi.initSize(size, pBuffer):
+                    csiList2.append(csi)
+            
+            if len(csiList2) < 1:
+                break  # All images initialized successfully
+            else:
+                csiList = csiList2  # Some images rendered out of frame - loop and try bigger frame
+                csiList2 = []
+    
     def save(self, filename = None):
         self.mainModel.partOGL.ldrawFile.saveFile(filename)
     
@@ -205,12 +238,14 @@ class Page(QGraphicsRectItem):
     inset = QPointF(15, 15)
     pageInset = 10
     
-    def __init__(self, scene, number = -1):
-        QGraphicsRectItem.__init__(self, None, scene)
+    def __init__(self, instructions, number = -1):
+        QGraphicsRectItem.__init__(self, None, instructions.scene)
         
         # Position this rectangle inset from the containing scene
-        rect = scene.sceneRect().adjusted(Page.pageInset, Page.pageInset, -Page.pageInset, -Page.pageInset)
+        rect = instructions.scene.sceneRect().adjusted(Page.pageInset, Page.pageInset, -Page.pageInset, -Page.pageInset)
         self.setRect(rect)
+        
+        self.instructions = instructions
         
         # Give this page a number
         if number == -1:
@@ -263,9 +298,11 @@ class Step(QGraphicsRectItem):
     NextNumber = 1
     inset = QPointF(15.5, 15.5)
     
-    def __init__(self, parentPage, number = -1):
+    def __init__(self, parentPage, prevStep, number = -1):
         QGraphicsRectItem.__init__(self, parentPage)
     
+        self.page = parentPage
+        self.prevStep = prevStep
         self.setPos(parentPage.rect().topLeft())
         
         # Give this page a number
@@ -282,7 +319,7 @@ class Step(QGraphicsRectItem):
         
         self.parts = []
         self.pli = PLI(self.pos() + Step.inset, self)
-        #self.csi = CSI(self, list(buffers))
+        self.csi = CSI(self)
 
     def addPart(self, part):
     
@@ -470,16 +507,54 @@ class CSI(QGraphicsRectItem):
     Construction Step Image.  Includes border and positional info.
     """
     
-    def __init__(self, parent):
-        QGraphicsRectItem.__init__(self, parent)
+    def __init__(self, step):
+        QGraphicsRectItem.__init__(self, step)
         
         self.offsetPLI = 0
         self.step = step
         
-        self.oglDispIDs = []  # [(dispID, buffer)]
         self.oglDispID = UNINIT_OGL_DISPID
+        self.partialGLDispID = UNINIT_OGL_DISPID
     
-    def initSize(self, size):
+    def callPreviousOGLDisplayLists(self):
+        
+        if self.oglDispID == UNINIT_OGL_DISPID:
+            # TODO: remove this check once all is well
+            print "Trying to call previous CSI that has no display list"
+            return
+
+        # Call all previous step's CSI display list
+        if self.step.prevStep:
+            self.step.prevStep.csi.callPreviousOGLDisplayLists()
+        
+        # Now call this CSI's display list
+        glCallList(self.partialGLDispID)
+
+    def createOGLDisplayList(self):
+        
+        # Ensure all parts in this step have proper display lists
+        # TODO: remove this check once all is well
+        for part in self.step.parts:
+            if part.partOGL.oglDispID == UNINIT_OGL_DISPID:
+                part.partOGL.createOGLDisplayList()
+        
+        # Create a display list for just the parts in this CSI
+        self.partialGLDispID = glGenLists(1)
+        glNewList(self.partialGLDispID, GL_COMPILE)
+
+        for part in self.step.parts:
+            part.callOGLDisplayList()
+            
+        glEndList()
+        
+        # Create a display list that includes all previous CSIs plus this one,
+        # for a single display list giving a full model rendering up to this step.
+        self.oglDispID = glGenLists(1)
+        glNewList(self.oglDispID, GL_COMPILE)
+        self.callPreviousOGLDisplayLists()
+        glEndList()
+
+    def initSize(self, size, pBuffer):
         """
         Initialize this CSI's display width, height and center point. To do
         this, draw this CSI to the already initialized GL Frame Buffer Object.
@@ -494,88 +569,29 @@ class CSI(QGraphicsRectItem):
             False if the CSI has been rendered partially or wholly out of frame.
         """
         
-        rawFilename = os.path.splitext(os.path.basename(self.step.filename))[0]
+        if self.oglDispID == UNINIT_OGL_DISPID:
+            print "Trying to init a CSI size that has no display list"
+            return
+        
+        rawFilename = self.step.page.instructions.filename
         filename = "%s_step_%d" % (rawFilename, self.step.number)
         
-        params = GLHelpers_qt.initImgSize(size, size, self.oglDispID, True, filename, self.step.rotStep)
+        params = GLHelpers_qt.initImgSize(size, size, self.oglDispID, True, filename, None, pBuffer)
         if params is None:
             return False
         
         # TODO: update some kind of load status bar her - this function is *slow*
-        print "CSI %s step %d - size %d" % (self.step.filename, self.step.number, size)
-        self.box.width, self.box.height, self.center, x, y = params
+        print "CSI %s step %d - size %d" % (filename, self.step.number, size)
+        width, height, self.center, x, y = params
+        self.rect().setWidth(width)
+        self.rect().setHeight(height)
         return True
 
-    def callPreviousOGLDisplayLists(self, currentBuffers = None):
-        if self.step.prevStep:
-            self.step.prevStep.csi.callPreviousOGLDisplayLists(currentBuffers)
-        
-        if currentBuffers == []:
-            # Draw the default list, since there's no buffers present
-            glCallList(self.oglDispIDs[0][0])
-        else:
-            # Have current buffer - draw corresponding list (need to search for it)
-            for id, buffer in self.oglDispIDs:
-                if buffer == currentBuffers:
-                    glCallList(id)
-                    return
-        
-        # If we get here, no better display list was found, so call the default display list
-        glCallList(self.oglDispIDs[0][0])
-
-    def createOGLDisplayList(self):
-        
-        self.oglDispIDs = []
-        self.oglDispID = -1
-        
-        # Ensure all parts in this step have proper display lists
-        for part in self.step.parts:
-            if part.partOGL.oglDispID == UNINIT_OGL_DISPID:
-                part.partOGL.createOGLDisplayList()
-        
-        # Convert the list of buffers into a list of the concatenated buffer stack
-        # TODO: Ugly - find a more pythonic way to do this
-        bufferStackList = [[]]
-        for buffer in self.buffers:
-            tmp = list(bufferStackList[-1])
-            tmp.append(buffer)
-            bufferStackList.append(tmp)
-        
-        # Create one display list for each buffer set present in this Step
-        for buffers in bufferStackList:
-            id = glGenLists(1)
-            self.oglDispIDs.append((id, buffers))
-            glNewList(id, GL_COMPILE)
-            
-            for part in self.step.parts:
-                part.callOGLDisplayList(buffers)
-            
-            glEndList()
-        
-        self.oglDispID = glGenLists(1)
-        glNewList(self.oglDispID, GL_COMPILE)
-        self.callPreviousOGLDisplayLists(self.buffers)
-        glEndList()
-
-    def draw(self):
-        GLHelpers.adjustGLViewport(self.box.x, self.box.y, self.box.width, self.box.height)
-        glLoadIdentity()
-        GLHelpers.rotateToDefaultView(self.center.x, self.center.y, 0.0)
-        if self.step.rotStep:
-            GLHelpers.rotateViewByPoint3D(self.step.rotStep['point'])
-        glCallList(self.oglDispID)
-
-    def drawPageElements(self, context):
-        #self.box.draw(context)
-        pass
-
-    def callOGLDisplayList(self):
-        glCallList(self.oglDispIDs[0][0])
-    
     def resize(self):
-        global _docWidth, _docHeight
-        self.box.x = (_docWidth / 2.) - (self.box.width / 2.)
-        self.box.y = ((_docHeight - self.offsetPLI) / 2.) - (self.box.height / 2.) + self.offsetPLI
+        pass
+        #global _docWidth, _docHeight
+        #self.box.x = (_docWidth / 2.) - (self.box.width / 2.)
+        #self.box.y = ((_docHeight - self.offsetPLI) / 2.) - (self.box.height / 2.) + self.offsetPLI
 
 class PartOGL(object):
     """
