@@ -40,80 +40,75 @@ class LicWindow(QMainWindow):
         QMainWindow.__init__(self, parent)
 
         self.glWidget = QGLWidget(self)
-        self.filename = QString()
-        
         self.view = InstructionViewWidget(self)
-        self.tree = QTreeWidget(self)
-        
+        self.tree = LicTree(self)
+                
         self.scene = QGraphicsScene(self)
         self.scene.setSceneRect(0, 0, PageSize.width() + LicWindow.pageInset, PageSize.height() + LicWindow.pageInset)
         self.view.setScene(self.scene)
-    
+     
         self.mainSplitter = QSplitter(Qt.Horizontal)
         
-        if (0):
-            self.glWidget = GLPreviewWidget(self)
-            self.glSplitter = QSplitter(Qt.Horizontal)
-            self.glSplitter.addWidget(self.glWidget)
-            self.glSplitter.addWidget(self.view)
-        
-            self.mainSplitter.addWidget(self.tree)
-            self.mainSplitter.addWidget(self.glSplitter)
-            self.setCentralWidget(self.mainSplitter)
-        else:
-            self.mainSplitter.addWidget(self.tree)
-            self.mainSplitter.addWidget(self.view)
-            self.setCentralWidget(self.mainSplitter)
+        self.mainSplitter.addWidget(self.tree)
+        self.mainSplitter.addWidget(self.view)
+        self.setCentralWidget(self.mainSplitter)
 
         self.setWindowTitle(self.tr("Lic 0.1"))
         
         Page.pageInset = LicWindow.pageInset / 2.0
         
-        #modelName = None
-        modelName = "pyramid_orig.dat"
-        #modelName = "Blaster.mpd"
-        #modelName = "3001.DAT"
+        #self.filename = None
+        self.filename = "c:\\ldrawparts\\models\\pyramid_orig.dat"
+        #self.filename = "c:\\ldrawparts\\models\\Blaster.mpd"
+        #self.filename = "c:\\ldrawparts\\models\\3001.DAT"
         
-        if modelName:
-            self.load_model("c:\\ldrawparts\\models\\" + modelName)
+        self.initMenu()
+        statusBar = self.statusBar()
+        statusBar.showMessage("Model: " + self.filename)
+        
+        if self.filename:
+            self.loadModel(self.filename)
 
-    def position(self):
-        point = self.mapFromGlobal(QCursor.pos())
-        if not self.view.geometry().contains(point):
-            point = QPoint(20, 20)
-        else:
-            if point == self.prevPoint:
-                point += QPoint(self.addOffset, self.addOffset)
-                self.addOffset += 5
-            else:
-                self.addOffset = 5
-                self.prevPoint = point
-        return self.view.mapToScene(point)
+    def initMenu(self):
+        
+        menu = self.menuBar()
+        fileMenu = menu.addMenu("&File")
+        fileSaveAction = self.createMenuAction("&Save", self.fileSave, QKeySequence.Save, "Save the instruction book")
+        fileMenu.addAction(fileSaveAction)
+        
+        fileOpenAction = self.createMenuAction("&Open", self.fileOpen, QKeySequence.Open, "Open an existing instruction book")
+        fileMenu.addAction(fileOpenAction)
+        
+        editMenu = menu.addMenu("&Edit")
 
-    def addPixmap(self):
-        path = QFileInfo(self.filename).path() if not self.filename.isEmpty() else "."
-        fname = QFileDialog.getOpenFileName(self,
-                            "Page Designer - Add Pixmap", path,
-                            "Pixmap Files (*.bmp *.jpg *.png *.xpm)")
-        if fname.isEmpty():
-            return
-        self.createPixmapItem(QPixmap(fname), self.position())
-
-    def createPixmapItem(self, pixmap, position, matrix=QMatrix()):
-        item = QGraphicsPixmapItem(pixmap)
-        item.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsMovable)
-        item.setPos(position)
-        item.setMatrix(matrix)
-        self.scene.clearSelection()
-        self.scene.addItem(item)
-        item.setSelected(True)
-        global Dirty
-        Dirty = True
-
-    def load_model(self, filename):
+    def fileOpen(self):
+        dir = os.path.dirname(self.filename) if self.filename is not None else "."
+        formats = ["*.lic", "*.mpd", "*.dat"]
+        filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Open Instruction Book", dir, "Instruction Book files (%s)" % " ".join(formats)))
+        if filename:
+            self.loadModel(filename)
+            self.statusBar().showMessage("Instruction book loaded: " + self.filename)
+        
+    def fileSave(self):
+        self.statusBar().showMessage("Save NYI")
+    
+    def createMenuAction(self, text, slot = None, shortcut = None, tip = None, signal = "triggered()"):
+        
+        action = QAction(text, self)
+        if shortcut is not None:
+            action.setShortcut(shortcut)
+        if tip is not None:
+            action.setToolTip(tip)
+            action.setStatusTip(tip)
+        if slot is not None:
+            self.connect(action, SIGNAL(signal), slot)
+        return action
+    
+    def loadModel(self, filename):
     
         try:
             self.instructions = Instructions(filename, self.scene, self.glWidget)
+            self.tree.initTree(self.instructions)
         except IOError:
             print "Could not find file %s" % (filename)
             return

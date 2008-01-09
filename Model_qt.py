@@ -21,6 +21,37 @@ GlobalGLContext = None
 def printRect(rect, text = ""):
     print text + ", l: %f, r: %f, t: %f, b: %f" % (rect.left(), rect.right(), rect.top(), rect.bottom())
 
+class LicTree(QTreeWidget):
+
+    def __init__(self, parent):
+        QTreeWidget.__init__(self, parent)
+        
+    def initTree(self, instructions):
+        root = QTreeWidgetItem(self)
+        root.setText(0, instructions.filename)
+        self.addTopLevelItem(root)
+        
+        for page in instructions.pages:
+            pageNode = QTreeWidgetItem(root)
+            pageNode.setText(0, "Page %d" % page.number)
+            pageNode.setData(1, Qt.DisplayRole, QVariant())
+            
+            pageNode.addChild(QTreeWidgetItem(pageNode, QStringList("Page Number Label")))
+            
+            for step in page.steps:
+                stepNode = QTreeWidgetItem(pageNode)
+                stepNode.setText(0, "Step %d" % step.number)
+                stepNode.addChild(QTreeWidgetItem(stepNode, QStringList("Step Number Label")))
+                
+                pliNode = QTreeWidgetItem(stepNode)
+                pliNode.setText(0, "PLI")
+                
+                for item in step.pli.layout.values():
+                    itemNode = QTreeWidgetItem(pliNode)
+                    itemNode.setText(0, item.partOGL.name)
+                    
+                stepNode.addChild(QTreeWidgetItem(stepNode, QStringList("CSI")))
+    
 class Instructions(object):
 
     def __init__(self, filename, scene, glWidget):
@@ -145,10 +176,10 @@ class Instructions(object):
             part.createOGLDisplayList()
             
         # Calculate the width and height of each partOGL in the part dictionary
-        self.initPartDimensionsManually()
+        #self.initPartDimensionsManually()
 
         # Calculate the width and height of each CSI in this instruction book
-        self.initCSIDimensions()
+        #self.initCSIDimensions()
         
         # Layout each step on each page.  
         # TODO: This should only happen if we're importing a new model.  Otherwise, layout should be pulled from load / save binary blob
@@ -338,8 +369,8 @@ class Step(QGraphicsRectItem):
     def initLayout(self):
     
         print "initializing step: %d" % self.number
-        self.pli.initLayout()
-        self.csi.initLayout()
+        #self.pli.initLayout()
+        #self.csi.initLayout()
         
         # Position the Step number label beneath the PLI
         self.numberItem.setPos(self.pos() + Step.inset)
@@ -399,8 +430,12 @@ class PLIItem(QGraphicsRectItem):
         self.numberItem.setPos(dx, self.rect().height() - lblHeight)
 
         if self.pixmapItem is None:
+            # TODO: getPixmap can return None; trying to set a pixmap to None crashes... handle...
             pixmap = part.getPixmap(self.color)
-            self.pixmapItem = QGraphicsPixmapItem(pixmap, self)
+            if pixmap is None:
+                self.pixmapItem = QGraphicsPixmapItem(self)
+            else:
+                self.pixmapItem = QGraphicsPixmapItem(pixmap, self)
             self.numberItem.setZValue(self.pixmapItem.zValue() + 1)
 
     def _setCount(self, count):
