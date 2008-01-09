@@ -10,6 +10,28 @@ from OpenGL.GL.EXT.framebuffer_object import *
 # Global constants
 SCALE_WINDOW = 1
 
+def initFreshContext():
+    glEnable(GL_LIGHTING)
+    glEnable(GL_LIGHT0)
+    glShadeModel(GL_SMOOTH)
+    
+    glEnable(GL_COLOR_MATERIAL)
+    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
+    
+    lightPos = [100.0, 500.0, -500.0]
+    ambient = [0.2, 0.2, 0.2]
+    diffuse = [0.8, 0.8, 0.8]
+    specular = [0.5, 0.5, 0.5]
+    
+    glLightfv(GL_LIGHT0, GL_POSITION, lightPos)
+    glLightfv(GL_LIGHT0, GL_AMBIENT, ambient)
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse)
+    glLightfv(GL_LIGHT0, GL_SPECULAR, specular)
+    
+    glEnable(GL_DEPTH_TEST)
+    glClearColor(1.0, 1.0, 1.0, 1.0)
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        
 def adjustGLViewport(x, y, width, height):
     x = int(x)
     y = int(y)
@@ -47,14 +69,13 @@ def getDefaultCamera():
 def rotateToPLIView(x = 0.0, y = 0.0, z = 0.0):
     # position (x,y,z), look at (x,y,z), up vector (x,y,z)
     gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
-    #glScalef(-1.0, 1.0, 1.0)
     
     # Rotate model into something approximating the ortho view as seen in Lego PLIs
     glRotatef(20.0, 1.0, 0.0, 0.0)
     glRotatef(45.0, 0.0, 1.0, 0.0)
 
 def getPLICamera():
-    return [('y', -45.0), ('x', 20)]
+    return [('y', 45.0), ('x', 20)]
 
 def pushAllGLMatrices():
     glPushAttrib(GL_TRANSFORM_BIT | GL_VIEWPORT_BIT)
@@ -160,13 +181,13 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotSt
     glCallList(oglDispID)
 
     if pBuffer:
-        #pass
+        pass
         # TODO: If the old way of calculating image size, with PLI's Image, is still slow, try this pBuffer's QImage
-        if filename:
-            rawFilename = os.path.splitext(os.path.basename(filename))[0]
-            image = pBuffer.toImage()
-            if image:
-                image.save("C:\\LDraw\\tmp\\pixbuf_%s_%dx%d.png" % (rawFilename, w, h), None)
+        #if filename:
+        #    rawFilename = os.path.splitext(os.path.basename(filename))[0]
+        #    image = pBuffer.toImage()
+        #    if image:
+        #        image.save("C:\\LDraw\\tmp\\pixbuf_%s_%dx%d.png" % (rawFilename, w, h), None)
 
     pixels = glReadPixels (0, 0, w, h, GL_RGB,  GL_UNSIGNED_BYTE)
     img = Image.new ("RGB", (w, h), (1, 1, 1))

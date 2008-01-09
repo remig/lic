@@ -16,27 +16,29 @@ from Drawables import *
 
 UNINIT_OGL_DISPID = -1
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
+GlobalGLContext = None
 
 def printRect(rect, text = ""):
     print text + ", l: %f, r: %f, t: %f, b: %f" % (rect.left(), rect.right(), rect.top(), rect.bottom())
 
 class Instructions(object):
 
-    def __init__(self, filename, scene, qGLWidget):
+    def __init__(self, filename, scene, glWidget):
+        global GlobalGLContext
         
         # Part dimensions cache line format: filename width height center.x center.y leftInset bottomInset
         self.partDimensionsFilename = "PartDimensions.cache"
         
         self.filename = os.path.splitext(os.path.basename(filename))[0]
         self.scene = scene
-        self.qGLWidget = qGLWidget
+        GlobalGLContext = glWidget
         
         self.pages = []
         self.currentStep = None
         self.importModel(filename)
         
         # First, generate all part GL display lists on the general glWidget.
-        self.qGLWidget.makeCurrent()
+        GlobalGLContext.makeCurrent()
         self.initDraw()
         
         self.pages[-1].hide()
@@ -82,8 +84,10 @@ class Instructions(object):
         page.addStep(self.currentStep)
 
     def addPart(self, p, line):
+        global GlobalGLContext
+        
         try:
-            part = Part(p['filename'], self.qGLWidget, p['color'], p['matrix'])
+            part = Part(p['filename'], p['color'], p['matrix'])
         except IOError:
             # TODO: This should be printed - commented out for debugging
             #print "Could not find file: %s - Ignoring." % p['filename']
@@ -95,9 +99,10 @@ class Instructions(object):
         self.currentStep.addPart(part)
     
     def drawBuffer(self):
+        global GlobalGLContext
     
         size = 300
-        pBuffer = QGLPixelBuffer(size,  size, QGLFormat(), self.qGLWidget)
+        pBuffer = QGLPixelBuffer(size,  size, QGLFormat(), GlobalGLContext)
         pBuffer.makeCurrent()
         
         glEnable(GL_LIGHTING)
@@ -131,7 +136,7 @@ class Instructions(object):
             print "have image"
             image.save("C:\\ldraw\\first_qt_render.png", None)
         
-        self.qGLWidget.makeCurrent()
+        GlobalGLContext.makeCurrent()
     
     def initDraw(self):
         
@@ -157,6 +162,7 @@ class Instructions(object):
         Creates GL buffer to render a temp copy of each part, then uses those raw pixels to determine size.
         Will append results to the part dimension cache file.
         """
+        global GlobalGLContext
         
         partList = [part for part in partDictionary.values() if (not part.isPrimitive) and (part.width == part.height == -1)]
         
@@ -170,7 +176,7 @@ class Instructions(object):
         for size in sizes:
             
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, QGLFormat(), self.qGLWidget)
+            pBuffer = QGLPixelBuffer(size, size, QGLFormat(), GlobalGLContext)
             pBuffer.makeCurrent()
             
             # Render each image and calculate their sizes
@@ -195,6 +201,7 @@ class Instructions(object):
             f.close()
     
     def initCSIDimensions(self):
+        global GlobalGLContext
 
         csiList = []
         for page in self.pages:
@@ -204,7 +211,7 @@ class Instructions(object):
         if csiList == []:
             return  # All CSIs initialized - nothing to do here
         
-        self.qGLWidget.makeCurrent()
+        GlobalGLContext.makeCurrent()
         for csi in csiList:
             csi.createOGLDisplayList()
             
@@ -214,7 +221,7 @@ class Instructions(object):
         for size in sizes:
             
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, QGLFormat(), self.qGLWidget)
+            pBuffer = QGLPixelBuffer(size, size, QGLFormat(), GlobalGLContext)
             pBuffer.makeCurrent()
 
             # Render each CSI and calculate its size
@@ -332,6 +339,7 @@ class Step(QGraphicsRectItem):
     
         print "initializing step: %d" % self.number
         self.pli.initLayout()
+        self.csi.initLayout()
         
         # Position the Step number label beneath the PLI
         self.numberItem.setPos(self.pos() + Step.inset)
@@ -502,17 +510,18 @@ class PLI(QGraphicsRectItem):
             b.setHeight(round(max(b.height(), newHeight)))
             self.setRect(b)
 
-class CSI(QGraphicsRectItem):
+class CSI(QGraphicsPixmapItem):
     """
     Construction Step Image.  Includes border and positional info.
     """
     
     def __init__(self, step):
-        QGraphicsRectItem.__init__(self, step)
+        QGraphicsPixmapItem.__init__(self, step)
         
         self.offsetPLI = 0
         self.step = step
         
+        self.width = self.height = UNINIT_OGL_DISPID
         self.oglDispID = UNINIT_OGL_DISPID
         self.partialGLDispID = UNINIT_OGL_DISPID
     
@@ -554,6 +563,12 @@ class CSI(QGraphicsRectItem):
         self.callPreviousOGLDisplayLists()
         glEndList()
 
+    def initLayout(self):
+        x = (self.step.page.rect().width() / 2.0) - (self.width / 2.0)
+        pliBottom = self.step.pli.rect().bottom() + self.step.pli.pos().y()
+        y = pliBottom + ((self.step.page.rect().height() - pliBottom) / 2.0) - (self.height / 2.0)
+        self.setOffset(x, y)
+        
     def initSize(self, size, pBuffer):
         """
         Initialize this CSI's display width, height and center point. To do
@@ -582,11 +597,29 @@ class CSI(QGraphicsRectItem):
         
         # TODO: update some kind of load status bar her - this function is *slow*
         print "CSI %s step %d - size %d" % (filename, self.step.number, size)
-        width, height, self.center, x, y = params
-        self.rect().setWidth(width)
-        self.rect().setHeight(height)
+        self.width, self.height, self.center, x, y = params
+        self.initPixmap()
         return True
 
+    def initPixmap(self):
+        global GlobalGLContext
+        
+        pBuffer = QGLPixelBuffer(self.width, self.height, QGLFormat(), GlobalGLContext)
+        pBuffer.makeCurrent()
+        
+        GLHelpers_qt.initFreshContext()
+        GLHelpers_qt.adjustGLViewport(0, 0, self.width, self.height)
+        GLHelpers_qt.rotateToDefaultView(self.center.x, self.center.y, 0.0)
+        
+        glCallList(self.oglDispID)
+
+        image = pBuffer.toImage()
+        self.setPixmap(QPixmap.fromImage(image))
+        GlobalGLContext.makeCurrent()
+
+    def boundingRect(self):
+        return QRectF(self.offset().x(), self.offset().y(), self.width, self.height)
+            
     def resize(self):
         pass
         #global _docWidth, _docHeight
@@ -602,13 +635,11 @@ class PartOGL(object):
     in common when present in a model, everything inside 3001.dat.
     """
     
-    def __init__(self, filename, glContext):
+    def __init__(self, filename):
         
         print "Creating: " + filename
         self.name = self.filename = filename
         self.ldrawFile = None
-        
-        self.glContext = glContext
         
         self.inverted = False  # TODO: Fix this! inverted = GL_CW
         self.invertNext = False
@@ -651,7 +682,7 @@ class PartOGL(object):
         
     def addPart(self, p, line):
         try:
-            part = Part(p['filename'], self.glContext, p['color'], p['matrix'])
+            part = Part(p['filename'], p['color'], p['matrix'])
         except IOError:
             # TODO: This should be printed - commented out for debugging
             #print "Could not find file: %s - Ignoring." % p['filename']
@@ -722,34 +753,15 @@ class PartOGL(object):
         return True
 
     def getPixmap(self, color = 0):
+        global GlobalGLContext
 
         if self.isPrimitive:
             return None  # Do not generate any pixmaps for primitives
         
-        pBuffer = QGLPixelBuffer(self.width, self.height, QGLFormat(), self.glContext)
+        pBuffer = QGLPixelBuffer(self.width, self.height, QGLFormat(), GlobalGLContext)
         pBuffer.makeCurrent()
         
-        glEnable(GL_LIGHTING)
-        glEnable(GL_LIGHT0)
-        glShadeModel(GL_SMOOTH)
-        
-        glEnable(GL_COLOR_MATERIAL)
-        glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
-        
-        lightPos = [100.0, 500.0, -500.0]
-        ambient = [0.2, 0.2, 0.2]
-        diffuse = [0.8, 0.8, 0.8]
-        specular = [0.5, 0.5, 0.5]
-        
-        glLightfv(GL_LIGHT0, GL_POSITION, lightPos)
-        glLightfv(GL_LIGHT0, GL_AMBIENT, ambient)
-        glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse)
-        glLightfv(GL_LIGHT0, GL_SPECULAR, specular)
-
-        glEnable(GL_DEPTH_TEST)
-        glClearColor(1.0, 1.0, 1.0, 1.0)
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        
+        GLHelpers_qt.initFreshContext()
         GLHelpers_qt.adjustGLViewport(0, 0, self.width, self.height)
         GLHelpers_qt.rotateToPLIView(self.center.x, self.center.y, 0.0)
         
@@ -766,7 +778,7 @@ class PartOGL(object):
             image.save("C:\\ldraw\\tmp\\buffer_%s.png" % self.filename, None)
     
         pixmap = QPixmap.fromImage(image)
-        self.glContext.makeCurrent()
+        GlobalGLContext.makeCurrent()
         return pixmap
     
 class Part:
@@ -778,7 +790,7 @@ class Part:
     in one LDraw FILE (5) command.
     """
     
-    def __init__(self, filename, glContext, color = 16, matrix = None, invert = False):
+    def __init__(self, filename, color = 16, matrix = None, invert = False):
         
         self.color = color
         self.matrix = matrix
@@ -787,7 +799,7 @@ class Part:
         if filename in partDictionary:
             self.partOGL = partDictionary[filename]
         else:
-            self.partOGL = partDictionary[filename] = PartOGL(filename, glContext)
+            self.partOGL = partDictionary[filename] = PartOGL(filename)
         
         self.name = self.partOGL.name
 
