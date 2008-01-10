@@ -86,18 +86,28 @@ class LicWindow(QMainWindow):
         menu = self.menuBar()
         fileMenu = menu.addMenu("&File")
         
+        fileOpenAction = self.createMenuAction("&Open", self.fileOpen, QKeySequence.Open, "Open an existing Instruction book")
+        fileMenu.addAction(fileOpenAction)
+
+        fileCloseAction = self.createMenuAction("&Close", self.fileClose, QKeySequence.Close, "Close current Instruction book")
+        fileMenu.addAction(fileCloseAction)
+        
+        fileMenu.addSeparator()
+        
         fileSaveAction = self.createMenuAction("&Save", self.fileSave, QKeySequence.Save, "Save the Instruction book")
         fileMenu.addAction(fileSaveAction)
 
         fileSaveAsAction = self.createMenuAction("Save &As...", self.fileSaveAs, None, "Save the Instruction book using a new filename")
         fileMenu.addAction(fileSaveAsAction)
         
-        fileOpenAction = self.createMenuAction("&Open", self.fileOpen, QKeySequence.Open, "Open an existing Instruction book")
-        fileMenu.addAction(fileOpenAction)
-
-        fileImportAction = self.createMenuAction("&Import", self.fileImport, None, "Import an existing LDraw Model into a new Instruction book")
+        fileImportAction = self.createMenuAction("&Import Model", self.fileImport, None, "Import an existing LDraw Model into a new Instruction book")
         fileMenu.addAction(fileImportAction)
 
+        fileMenu.addSeparator()
+        
+        fileExitAction = self.createMenuAction("E&xit", SLOT("close()"), "Ctrl+Q", "Exit Lic")
+        fileMenu.addAction(fileExitAction)
+        
         editMenu = menu.addMenu("&Edit")
 
     def createMenuAction(self, text, slot = None, shortcut = None, tip = None, signal = "triggered()"):
@@ -111,7 +121,38 @@ class LicWindow(QMainWindow):
             self.connect(action, SIGNAL(signal), slot)
         return action
 
+    def closeEvent(self, event):
+        if self.offerSave():
+            event.accept()
+        else:
+            event.ignore()
+    
+    def fileClose(self):
+        if not self.offerSave():
+            return
+        self.tree.clear()
+        self.glWidget = QGLWidget(self)
+        self.instructions.clear()
+        self.update()
+
+    def offerSave(self):
+        """ 
+        Returns True if we should proceed with whateve 
+        operation was interrupted by this request.  False means cancel.
+        """
+        if not Dirty:
+            return True
+        reply = QMessageBox.question(self, "Lic - Unsaved Changes", "Save unsaved changes?", QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+        if reply == QMessageBox.Cancel:
+            return False
+        if reply == QMessageBox.Yes:
+            self.fileSave()
+        return True
+            
     def fileImport(self):
+        if not self.offerSave():
+            return
+        self.fileClose()
         dir = os.path.dirname(self.filename) if self.filename is not None else "."
         formats = ["*.mpd", "*.dat"]
         filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Import LDraw Model", dir, "LDraw Models (%s)" % " ".join(formats)))
@@ -148,6 +189,9 @@ class LicWindow(QMainWindow):
                 fh.close()
 
     def fileOpen(self):
+        if not self.offerSave():
+            return
+        self.fileClose()
         dir = os.path.dirname(self.filename) if self.filename is not None else "."
         filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Open Instruction Book", dir, "Lic Instruction Book files (*.lic)"))
         if filename:

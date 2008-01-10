@@ -80,6 +80,18 @@ class Instructions(object):
         self.pages[-1].hide()
         self.pages[0].show()
 
+    def clear(self):
+        global GlobalGLContext, partDictionary
+        GlobalGLContext = None
+        self.currentStep = None
+        for page in self.pages:
+            item = self.scene.removeItem(page)
+            del(item)
+        self.pages = []
+        partDictionary = {}
+        Page.NextNumber = 1
+        Step.NextNumber = 1
+        
     def addPage(self, page):
     
         self.pages.append(page)
