@@ -8,14 +8,19 @@ from PyQt4.QtOpenGL import *
 
 from Model_qt import *
 
+__version__ = 0.1
+MagicNumber = 0x14768126
+FileVersion = 1
+Dirty = False
+
 try:
     from OpenGL.GL import *
 except ImportError:
     app = QApplication(sys.argv)
     QMessageBox.critical(None, "Lic 0.1",
-                            "PyOpenGL must be installed to run Lic.",
-                            QMessageBox.Ok | QMessageBox.Default,
-                            QMessageBox.NoButton)
+                         "PyOpenGL must be installed to run Lic.",
+                         QMessageBox.Ok | QMessageBox.Default,
+                         QMessageBox.NoButton)
     sys.exit(1)
 
 PageSize = QSize(800, 600)
@@ -23,77 +28,79 @@ PageSize = QSize(800, 600)
 class InstructionViewWidget(QGraphicsView):
     def __init__(self,  parent = None):
         QGLWidget.__init__(self,  parent)
-        
+
         self.setDragMode(QGraphicsView.RubberBandDrag)
         self.setRenderHint(QPainter.Antialiasing)
         self.setRenderHint(QPainter.TextAntialiasing)
         self.setBackgroundBrush(QBrush(Qt.gray))
-        
+
     def resizeEvent(self, event = None):
         pass
 
 class LicWindow(QMainWindow):
 
     pageInset = 41
-    
+
     def __init__(self, parent = None):
         QMainWindow.__init__(self, parent)
 
         self.glWidget = QGLWidget(self)
         self.view = InstructionViewWidget(self)
         self.tree = LicTree(self)
-                
+
         self.scene = QGraphicsScene(self)
         self.scene.setSceneRect(0, 0, PageSize.width() + LicWindow.pageInset, PageSize.height() + LicWindow.pageInset)
         self.view.setScene(self.scene)
-     
+
         self.mainSplitter = QSplitter(Qt.Horizontal)
-        
+
         self.mainSplitter.addWidget(self.tree)
         self.mainSplitter.addWidget(self.view)
         self.setCentralWidget(self.mainSplitter)
 
-        self.setWindowTitle(self.tr("Lic 0.1"))
-        
         Page.pageInset = LicWindow.pageInset / 2.0
-        
-        #self.filename = None
-        self.filename = "c:\\ldrawparts\\models\\pyramid_orig.dat"
-        #self.filename = "c:\\ldrawparts\\models\\Blaster.mpd"
-        #self.filename = "c:\\ldrawparts\\models\\3001.DAT"
-        
+
+        self.filename = "C:\\ldraw\\lic\\pyramid_orig.lic"
+        self.modelName = "C:\\ldrawparts\\models\\pyramid_orig.dat"
+
+        #self.modelName = None
+        #self.modelName = "c:\\ldrawparts\\models\\Blaster.mpd"
+        #self.modelName = "c:\\ldrawparts\\models\\3001.DAT"
+
         self.initMenu()
         statusBar = self.statusBar()
-        statusBar.showMessage("Model: " + self.filename)
-        
+        statusBar.showMessage("Model: " + self.modelName)
+
         if self.filename:
-            self.loadModel(self.filename)
+            self.loadModel(self.modelName)
+
+        title = "Lic %s" % __version__
+        if self.filename:
+            title += " - " + os.path.basename(self.filename)
+        self.setWindowTitle(title)
+
+    def clicked(self, item = None, column = None):
+        self.statusBar.showMessage("Foo")
 
     def initMenu(self):
-        
         menu = self.menuBar()
         fileMenu = menu.addMenu("&File")
-        fileSaveAction = self.createMenuAction("&Save", self.fileSave, QKeySequence.Save, "Save the instruction book")
+        
+        fileSaveAction = self.createMenuAction("&Save", self.fileSave, QKeySequence.Save, "Save the Instruction book")
         fileMenu.addAction(fileSaveAction)
+
+        fileSaveAsAction = self.createMenuAction("Save &As...", self.fileSaveAs, None, "Save the Instruction book using a new filename")
+        fileMenu.addAction(fileSaveAsAction)
         
-        fileOpenAction = self.createMenuAction("&Open", self.fileOpen, QKeySequence.Open, "Open an existing instruction book")
+        fileOpenAction = self.createMenuAction("&Open", self.fileOpen, QKeySequence.Open, "Open an existing Instruction book")
         fileMenu.addAction(fileOpenAction)
-        
+
+        fileImportAction = self.createMenuAction("&Import", self.fileImport, None, "Import an existing LDraw Model into a new Instruction book")
+        fileMenu.addAction(fileImportAction)
+
         editMenu = menu.addMenu("&Edit")
 
-    def fileOpen(self):
-        dir = os.path.dirname(self.filename) if self.filename is not None else "."
-        formats = ["*.lic", "*.mpd", "*.dat"]
-        filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Open Instruction Book", dir, "Instruction Book files (%s)" % " ".join(formats)))
-        if filename:
-            self.loadModel(filename)
-            self.statusBar().showMessage("Instruction book loaded: " + self.filename)
-        
-    def fileSave(self):
-        self.statusBar().showMessage("Save NYI")
-    
     def createMenuAction(self, text, slot = None, shortcut = None, tip = None, signal = "triggered()"):
-        
         action = QAction(text, self)
         if shortcut is not None:
             action.setShortcut(shortcut)
@@ -103,16 +110,56 @@ class LicWindow(QMainWindow):
         if slot is not None:
             self.connect(action, SIGNAL(signal), slot)
         return action
-    
-    def loadModel(self, filename):
-    
-        try:
-            self.instructions = Instructions(filename, self.scene, self.glWidget)
-            self.tree.initTree(self.instructions)
-        except IOError:
-            print "Could not find file %s" % (filename)
-            return
 
+    def fileImport(self):
+        dir = os.path.dirname(self.filename) if self.filename is not None else "."
+        formats = ["*.mpd", "*.dat"]
+        filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Import LDraw Model", dir, "LDraw Models (%s)" % " ".join(formats)))
+        if filename:
+            self.loadModel(filename)
+            self.statusBar().showMessage("LDraw Model imported: " + self.modelName)
+
+    def fileSaveAs(self):
+        filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Safe File As", self.filename, "Lic Instruction Book files (*.lic)"))
+        if filename:
+            self.filename = filename
+            self.setWindowTitle("Lic %s - %s" % (__version__, os.path.basename(self.filename)))
+            return self.fileSave()
+        
+    def fileSave(self):
+        try:
+            fh = QFile(self.filename)
+            if not fh.open(QIODevice.WriteOnly):
+                raise IOError, unicode(fh.errorStriong())
+            stream = QDataStream(fh)
+            stream.setVersion(QDataStream.Qt_4_3)
+            stream.writeInt32(MagicNumber)
+            stream.writeInt16(FileVersion)
+
+            self.statusBar().showMessage("Saved to: " + self.filename)
+
+            global Dirty
+            Dirty = False
+
+        except (IOError, OSError), e:
+            QMessageBox.warning(self, "Lic - Save Error", "Failed to save %s: %s" % (filename, e))
+        finally:
+            if fh is not None:
+                fh.close()
+
+    def fileOpen(self):
+        dir = os.path.dirname(self.filename) if self.filename is not None else "."
+        filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Open Instruction Book", dir, "Lic Instruction Book files (*.lic)"))
+        if filename:
+            self.filename = filename
+            self.loadLicFile(filename)
+            self.setWindowTitle("Lic %s - %s" % (__version__, os.path.basename(self.filename)))
+            self.statusBar().showMessage("Instruction book loaded: " + self.filename)
+
+    def loadModel(self, filename):
+        self.instructions = Instructions(filename, self.scene, self.glWidget)
+        self.tree.initTree(self.instructions)
+        self.modelName = filename
         self.update()
 
 class GLPreviewWidget(QGLWidget):
@@ -164,7 +211,7 @@ class GLPreviewWidget(QGLWidget):
             self.updateGL()
 
     def initializeGL(self):
-    
+
         self.qglClearColor(self.purple.dark())
         self.object = self.makeObject()
         glShadeModel(GL_SMOOTH)
@@ -172,11 +219,11 @@ class GLPreviewWidget(QGLWidget):
         glEnable(GL_CULL_FACE)
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
-        
+
         self.drawBuffer()
 
     def drawBuffer(self):
-        
+
         size = 600
         pBuffer = QGLPixelBuffer(size,  size, QGLFormat(), self)
         pBuffer.makeCurrent()
@@ -184,7 +231,7 @@ class GLPreviewWidget(QGLWidget):
         painter = QPainter()
         painter.begin(pBuffer)
         painter.setRenderHint(QPainter.Antialiasing)
-        
+
         glPushAttrib(GL_ALL_ATTRIB_BITS)
         glMatrixMode(GL_PROJECTION)
         glPushMatrix()
@@ -197,12 +244,12 @@ class GLPreviewWidget(QGLWidget):
         glEnable(GL_CULL_FACE)
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
-        
+
         lightPosition = ( 0.5, 5.0, 7.0, 1.0 )
         glLightfv(GL_LIGHT0, GL_POSITION, lightPosition)
-        
+
         self.resizeGL(self.width(), self.height())
-        
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
         glLoadIdentity()
@@ -211,7 +258,7 @@ class GLPreviewWidget(QGLWidget):
         glRotated(self.yRot / 16.0, 0.0, 1.0, 0.0)
         glRotated(self.zRot / 16.0, 0.0, 0.0, 1.0)
         glCallList(self.object)
-        
+
         glDisable(GL_LIGHT0)
         glPopAttrib()
         glMatrixMode(GL_MODELVIEW)
@@ -229,14 +276,14 @@ class GLPreviewWidget(QGLWidget):
         self.makeCurrent()
 
     def paintGL(self):        
-    
+
         painter = QPainter()
         painter.begin(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        
+
         painter.setPen(QPen())
         painter.setBrush(QBrush())
-        
+
         glPushAttrib(GL_ALL_ATTRIB_BITS)
         glMatrixMode(GL_PROJECTION)
         glPushMatrix()
@@ -249,12 +296,12 @@ class GLPreviewWidget(QGLWidget):
         glEnable(GL_CULL_FACE)
         glEnable(GL_LIGHTING)
         glEnable(GL_LIGHT0)
-        
+
         lightPosition = ( 0.5, 5.0, 7.0, 1.0 )
         glLightfv(GL_LIGHT0, GL_POSITION, lightPosition)
-        
+
         self.resizeGL(self.width(), self.height())
-        
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
         glLoadIdentity()
@@ -263,7 +310,7 @@ class GLPreviewWidget(QGLWidget):
         glRotated(self.yRot / 16.0, 0.0, 1.0, 0.0)
         glRotated(self.zRot / 16.0, 0.0, 0.0, 1.0)
         glCallList(self.object)
-        
+
         glDisable(GL_LIGHT0)
         glPopAttrib()
         glMatrixMode(GL_MODELVIEW)
@@ -272,7 +319,7 @@ class GLPreviewWidget(QGLWidget):
         glPopMatrix()
 
         glDisable(GL_CULL_FACE)
-        
+
         painter.drawRect(QRect(3,  5,  10,  12))
         painter.end()
 
@@ -310,7 +357,7 @@ class GLPreviewWidget(QGLWidget):
 
         logoDiffuseColor = (self.green.red()/255.0, self.green.green()/255.0, self.green.blue()/255.0, 1.0)
         glMaterialfv(GL_FRONT, GL_DIFFUSE, logoDiffuseColor)
-        
+
         x1 = +0.06
         y1 = -0.14
         x2 = +0.14

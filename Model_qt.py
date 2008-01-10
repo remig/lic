@@ -25,8 +25,14 @@ class LicTree(QTreeWidget):
 
     def __init__(self, parent):
         QTreeWidget.__init__(self, parent)
+        self.instructions = None
+        x = self.connect(self, SIGNAL("itemClicked(QTreeWidgetItem *, int)"), self.clicked)               
+        
+    def clicked(self, item = None, column = None):
+        print "hello: %d, %s" % (column, str(item))
         
     def initTree(self, instructions):
+        self.instructions = instructions
         root = QTreeWidgetItem(self)
         root.setText(0, instructions.filename)
         self.addTopLevelItem(root)
@@ -34,7 +40,6 @@ class LicTree(QTreeWidget):
         for page in instructions.pages:
             pageNode = QTreeWidgetItem(root)
             pageNode.setText(0, "Page %d" % page.number)
-            pageNode.setData(1, Qt.DisplayRole, QVariant())
             
             pageNode.addChild(QTreeWidgetItem(pageNode, QStringList("Page Number Label")))
             
