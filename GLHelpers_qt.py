@@ -1,11 +1,10 @@
 import Image
 import os
 
-from Drawables import Point
-
 from OpenGL.GL import *
 from OpenGL.GLU import *
-from OpenGL.GL.EXT.framebuffer_object import *
+
+from PyQt4.QtCore import QPointF
 
 # Global constants
 SCALE_WINDOW = 1
@@ -260,6 +259,6 @@ def initImgSize(width, height, oglDispID, isCSI, filename = None, rotStep = None
     
     w = (left + (imgWidth/2)) - (width/2)
     h = (top + (imgHeight/2)) - (height/2)
-    imgCenter = Point(x - w, y + h)
+    imgCenter = QPointF(x - w, y + h)
 
     return (imgWidth, imgHeight, imgCenter, imgLeftInset, imgBottomInset)

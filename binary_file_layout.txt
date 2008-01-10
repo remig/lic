@@ -1,0 +1,88 @@
+int32 - magic number
+int8  - file version
+Instructions
+eof
+
+-----------------------
+
+Instructions:
+  int32 - length of part dictionary
+  ... PartOGL 0..n ...
+  int32 - number of pages
+  ... Page 0..n ...
+
+PartOGL:
+  QString filename
+  QString name
+  bool isPrimitive
+  int32 width
+  int32 height
+  int32 leftInset
+  int32 bottomInset
+  QPointF center
+  int32 number of primitives
+  ... Primitive 0..n ...
+  int32 number of parts
+  ... Part 0..n ...
+  
+Primitive:  # 9 points for triangle, 12 points for quad
+  bool inverted
+  int32 color
+  int8 type
+  float points[0]
+  ...
+  float points[8]  # for triangle
+  ...
+  float points[11] # for quad
+  
+Part:
+  QString filename  (links this to a partOGL)
+  bool inverted
+  int32 color
+  float matrix[0] 
+  ... 
+  float matrix[15]
+
+Page:
+  QPointf pos
+  QRectf rect
+  int32 number
+  QPointf number.pos
+  QFont number.font
+  int32 number of Steps
+  ... Step 0..n ...
+
+Step:
+  QPointf pos
+  QRectf rect
+  int32 number
+  QPointf number.pos
+  QFont number.font
+  int32 number of parts
+  .. Part 0..n ...
+  CSI csi
+  PLI pli
+
+CSI:
+  QPointf pos
+  int32 width
+  int32 height
+  QPointF center
+  QPixmap pixmap
+
+PLI:
+  QPointf pos
+  QRectf rect
+  QPen pen
+  int32 number of pliItems
+  ... PLIItem 0..n ...
+
+PLIItem:
+  QPointf pos
+  QRectf rect
+  int32 color
+  QString filename
+  int32 count
+  QFont numberItem.font
+  QPixmap pixmapItem.pixmap
+  

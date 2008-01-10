@@ -12,7 +12,6 @@ import GLHelpers_qt
 
 from LDrawFileFormat_qt import *
 from LDrawColors import *
-from Drawables import *
 
 UNINIT_OGL_DISPID = -1
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
@@ -132,8 +131,6 @@ class Instructions(object):
         page.addStep(self.currentStep)
 
     def addPart(self, p, line):
-        global GlobalGLContext
-        
         try:
             part = Part(p['filename'], p['color'], p['matrix'])
         except IOError:
@@ -193,10 +190,10 @@ class Instructions(object):
             part.createOGLDisplayList()
             
         # Calculate the width and height of each partOGL in the part dictionary
-        #self.initPartDimensionsManually()
+        self.initPartDimensionsManually()
 
         # Calculate the width and height of each CSI in this instruction book
-        #self.initCSIDimensions()
+        self.initCSIDimensions()
         
         # Layout each step on each page.  
         # TODO: This should only happen if we're importing a new model.  Otherwise, layout should be pulled from load / save binary blob
@@ -283,8 +280,16 @@ class Instructions(object):
                 csiList = csiList2  # Some images rendered out of frame - loop and try bigger frame
                 csiList2 = []
     
-    def save(self, filename = None):
-        self.mainModel.partOGL.ldrawFile.saveFile(filename)
+    def writeToStream(self, stream):
+        global partDictionary
+        
+        stream.writeInt32(len(partDictionary))
+        for partOGL in partDictionary.values():
+            partOGL.writeToStream(stream)
+        
+        stream.writeInt32(len(self.pages))
+        for page in self.pages:
+            page.writeToStream(stream)
     
 class Page(QGraphicsRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
@@ -330,6 +335,9 @@ class Page(QGraphicsRectItem):
     #        pass  # TODO: get a bloody QGraphicsItem out of that damn value
     #    return QGraphicsItem.itemChange(self, change, value)
 
+    def writeToStream(self, stream):
+        pass
+    
     def paint(self, painter, option, widget = None):
 
         # Draw a slightly down-right translated black rectangle, for the page shadow effect
@@ -386,8 +394,8 @@ class Step(QGraphicsRectItem):
     def initLayout(self):
     
         print "initializing step: %d" % self.number
-        #self.pli.initLayout()
-        #self.csi.initLayout()
+        self.pli.initLayout()
+        self.csi.initLayout()
         
         # Position the Step number label beneath the PLI
         self.numberItem.setPos(self.pos() + Step.inset)
@@ -429,6 +437,13 @@ class PLIItem(QGraphicsRectItem):
         
         self.setPos(parent.inset)
 
+    def paint(self, painter, option, widget = None):
+        pass
+#        rect = self.numberItem.boundingRect()
+#        rect.translate(self.numberItem.pos())
+#        painter.drawRect(rect)
+#        QGraphicsRectItem.paint(self, painter, option, widget)
+
     def initLayout(self):
     
         part = self.partOGL
@@ -464,13 +479,6 @@ class PLIItem(QGraphicsRectItem):
     
     count = property(fget = _getCount, fset = _setCount)
     
-    def paint(self, painter, option, widget = None):
-        pass
-#        rect = self.numberItem.boundingRect()
-#        rect.translate(self.numberItem.pos())
-#        painter.drawRect(rect)
-#        QGraphicsRectItem.paint(self, painter, option, widget)
-
 class PLI(QGraphicsRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
     
@@ -566,13 +574,12 @@ class CSI(QGraphicsPixmapItem):
     """
     Construction Step Image.  Includes border and positional info.
     """
-    
+
     def __init__(self, step):
         QGraphicsPixmapItem.__init__(self, step)
         
-        self.offsetPLI = 0
         self.step = step
-        
+        self.center = QPointF()
         self.width = self.height = UNINIT_OGL_DISPID
         self.oglDispID = UNINIT_OGL_DISPID
         self.partialGLDispID = UNINIT_OGL_DISPID
@@ -661,7 +668,7 @@ class CSI(QGraphicsPixmapItem):
         
         GLHelpers_qt.initFreshContext()
         GLHelpers_qt.adjustGLViewport(0, 0, self.width, self.height)
-        GLHelpers_qt.rotateToDefaultView(self.center.x, self.center.y, 0.0)
+        GLHelpers_qt.rotateToDefaultView(self.center.x(), self.center.y(), 0.0)
         
         glCallList(self.oglDispID)
 
@@ -691,7 +698,6 @@ class PartOGL(object):
         
         print "Creating: " + filename
         self.name = self.filename = filename
-        self.ldrawFile = None
         
         self.inverted = False  # TODO: Fix this! inverted = GL_CW
         self.invertNext = False
@@ -702,18 +708,18 @@ class PartOGL(object):
         
         self.width = self.height = -1
         self.leftInset = self.bottomInset = -1
-        self.center = Point(0, 0)
+        self.center = QPointF()
         
         self._loadFromFile()
     
     def _loadFromFile(self):
         
-        self.ldrawFile = LDrawFile(self.filename)
-        self.isPrimitive = self.ldrawFile.isPrimitive
-        self.name = self.ldrawFile.name
+        ldrawFile = LDrawFile(self.filename)
+        self.isPrimitive = ldrawFile.isPrimitive
+        self.name = ldrawFile.name
         
         # Loop over the specified LDraw file array, skipping the first line
-        for line in self.ldrawFile.fileArray[1:]:
+        for line in ldrawFile.fileArray[1:]:
             
             # A FILE line means we're finished loading this model
             if isValidFileLine(line):
@@ -773,7 +779,7 @@ class PartOGL(object):
     def dimensionsToString(self):
         if self.isPrimitive:
             return ""
-        return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x, self.center.y, self.leftInset, self.bottomInset)
+        return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x(), self.center.y(), self.leftInset, self.bottomInset)
 
     def initSize(self, size, pBuffer):
         """
@@ -815,7 +821,7 @@ class PartOGL(object):
         
         GLHelpers_qt.initFreshContext()
         GLHelpers_qt.adjustGLViewport(0, 0, self.width, self.height)
-        GLHelpers_qt.rotateToPLIView(self.center.x, self.center.y, 0.0)
+        GLHelpers_qt.rotateToPLIView(self.center.x(), self.center.y(), 0.0)
         
         color = convertToRGBA(color)
         if len(color) == 3:
@@ -833,6 +839,22 @@ class PartOGL(object):
         GlobalGLContext.makeCurrent()
         return pixmap
     
+    def writeToStream(self, stream):
+        
+        stream << QString(self.filename) << QString(self.name)
+        stream.writeBool(self.isPrimitive)
+        stream.writeInt32(self.width)
+        stream.writeInt32(self.height)
+        stream.writeInt32(self.leftInset)
+        stream.writeInt32(self.bottomInset)
+        stream << self.center
+        stream.writeInt32(len(self.primitives))
+        for primitive in self.primitives:
+            primitive.writeToStream(stream)
+        stream.writeInt32(len(self.parts))
+        for part in self.parts:
+            part.writeToStream(stream)
+        
 class Part:
     """
     Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough
@@ -888,6 +910,14 @@ class Part:
 
     def draw(self):
         self.partOGL.draw()
+    
+    def writeToStream(self, stream):
+        stream << QString(self.partOGL.filename)
+        stream.writeBool(self.inverted)
+        stream.writeInt32(self.color)
+        assert len(self.matrix) == 16
+        for point in self.matrix:
+            stream.writeFloat(point)
 
 class Primitive:
     """
@@ -900,6 +930,19 @@ class Primitive:
         self.type = type
         self.points = points
         self.inverted = invert
+
+    def writeToStream(self, stream):
+        stream.writeBool(self.inverted)
+        stream.writeInt32(self.color)
+        stream.writeInt16(self.type)
+
+        if self.type == GL_QUADS:
+            assert len(self.points) == 12
+        elif self.type == GL_TRIANGLES:
+            assert len(self.points) == 9
+            
+        for point in self.points:
+            stream.writeFloat(point)
 
     # TODO: using numpy for all this would probably work a lot better
     def addNormal(self, p1, p2, p3):

@@ -1,7 +1,8 @@
 import shutil  # for file copy / rename
 import os      # for path creation
 
-import Drawables  # Box, Point
+from Drawables import Point3D
+
 import povray     # Build images from povray files
 import l3p        # Build povray from DAT files
 import config     # For user path info
@@ -56,7 +57,7 @@ def lineToRotStep(line):
     if len(line) < 6:
         d['state'] = ENDCommand
     else:
-        d['point'] = Drawables.Point3D(float(line[3]), float(line[4]), float(line[5]))
+        d['point'] = Point3D(float(line[3]), float(line[4]), float(line[5]))
         if len(line) == 7:
             d['state'] = line[6]
         else:

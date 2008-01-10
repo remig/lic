@@ -2,6 +2,7 @@
 import random
 import sys
 import math
+
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
@@ -152,11 +153,11 @@ class LicWindow(QMainWindow):
     def fileImport(self):
         if not self.offerSave():
             return
-        self.fileClose()
         dir = os.path.dirname(self.filename) if self.filename is not None else "."
         formats = ["*.mpd", "*.dat"]
         filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Import LDraw Model", dir, "LDraw Models (%s)" % " ".join(formats)))
         if filename:
+            self.fileClose()
             self.loadModel(filename)
             self.statusBar().showMessage("LDraw Model imported: " + self.modelName)
 
@@ -176,9 +177,8 @@ class LicWindow(QMainWindow):
             stream.setVersion(QDataStream.Qt_4_3)
             stream.writeInt32(MagicNumber)
             stream.writeInt16(FileVersion)
-
+            self.instructions.writeToStream(stream)  # Big call
             self.statusBar().showMessage("Saved to: " + self.filename)
-
             global Dirty
             Dirty = False
 
@@ -191,10 +191,10 @@ class LicWindow(QMainWindow):
     def fileOpen(self):
         if not self.offerSave():
             return
-        self.fileClose()
         dir = os.path.dirname(self.filename) if self.filename is not None else "."
         filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Open Instruction Book", dir, "Lic Instruction Book files (*.lic)"))
         if filename:
+            self.fileClose()
             self.filename = filename
             self.loadLicFile(filename)
             self.setWindowTitle("Lic %s - %s" % (__version__, os.path.basename(self.filename)))
