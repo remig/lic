@@ -134,7 +134,6 @@ class LicWindow(QMainWindow):
         if not self.offerSave():
             return
         self.tree.clear()
-        self.glWidget = QGLWidget(self)
         self.instructions.clear()
         self.update()
 
@@ -197,8 +196,8 @@ class LicWindow(QMainWindow):
         dir = os.path.dirname(self.filename) if self.filename is not None else "."
         filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Open Instruction Book", dir, "Lic Instruction Book files (*.lic)"))
         if filename and filename != self.filename:
+            self.fileClose()
             if self.loadLicFile(filename):
-                self.fileClose()
                 self.filename = filename
                 self.setWindowTitle("Lic %s - %s" % (__version__, os.path.basename(self.filename)))
                 self.statusBar().showMessage("Instruction book loaded: " + self.filename)
@@ -212,15 +211,26 @@ class LicWindow(QMainWindow):
             fh = QFile(filename)
             if not fh.open(QIODevice.ReadOnly):
                 raise IOError, unicode(fh.errorString())
+            
             stream = QDataStream(fh)
             stream.setVersion(QDataStream.Qt_4_3)
+            
             magic = stream.readInt32()
             if magic != MagicNumber:
                 raise IOError, "not a valid .lic file"
+            
             fileVersion = stream.readInt16()
             if fileVersion != FileVersion:
                 raise IOError, "unrecognized .lic file version"
-            self.instructions.readFromStream(stream)  # Big call
+
+            self.instructions.readFromStream(stream, filename)  # Big call
+            self.tree.initTree(self.instructions)
+            
+            for page in self.instructions.pages:
+                page.hide()
+            self.instructions.pages[0].show()
+            
+            self.update()
             success = True
         except IOError, e:
             QMessageBox.warning(self, "Lic - Open Error", "Failed to open %s: %s" % (filename, e))

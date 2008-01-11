@@ -84,8 +84,7 @@ class Instructions(object):
 	self.pages[0].show()
 	
     def clear(self):
-        global GlobalGLContext, partDictionary
-        GlobalGLContext = None
+        global partDictionary
         self.currentStep = None
         for page in self.pages:
             item = self.scene.removeItem(page)
@@ -94,6 +93,7 @@ class Instructions(object):
         partDictionary = {}
         Page.NextNumber = 1
         Step.NextNumber = 1
+	GlobalGLContext.makeCurrent()
         
     def addPage(self, page):
     
@@ -295,9 +295,10 @@ class Instructions(object):
         for page in self.pages:
             page.writeToStream(stream)
             
-    def readFromStream(self, stream):
+    def readFromStream(self, stream, filename):
         global partDictionary
         
+	self.filename = os.path.splitext(os.path.basename(filename))[0]
         partCount = stream.readInt32()
         for i in range(0, partCount):
             part = PartOGL.readFromStream(stream)
@@ -371,9 +372,9 @@ class Page(QGraphicsRectItem):
 	page.numberItem.setFont(font)
 	
 	stepCount = stream.readInt32()
-	prevStep = None
+	step = None
 	for i in range(0, stepCount):
-	    step = Step.readFromStream(stream, page, prevStep)
+	    step = Step.readFromStream(stream, page, step)
 	    page.steps.append(step)
 	return page
     
@@ -501,20 +502,19 @@ class PLIItem(QGraphicsRectItem):
         self.color = color
         self._count = 1
         
-        self.pixmapItem = None
-        
         # Initialize the quantity label (position set in initLayout)
         self.numberItem = QGraphicsSimpleTextItem(str(self._count), self)
         self.numberItem.setFont(QFont("Arial", 10))
+        self.pixmapItem = QGraphicsPixmapItem(self)
         
         self.setPos(parent.inset)
 
     def paint(self, painter, option, widget = None):
-        pass
 #        rect = self.numberItem.boundingRect()
 #        rect.translate(self.numberItem.pos())
 #        painter.drawRect(rect)
 #        QGraphicsRectItem.paint(self, painter, option, widget)
+        pass
 
     def initLayout(self):
     
@@ -533,14 +533,12 @@ class PLIItem(QGraphicsRectItem):
 
         self.numberItem.setPos(dx, self.rect().height() - lblHeight)
 
-        if self.pixmapItem is None:
-            # TODO: getPixmap can return None; trying to set a pixmap to None crashes... handle...
-            pixmap = part.getPixmap(self.color)
-            if pixmap is None:
-                self.pixmapItem = QGraphicsPixmapItem(self)
-            else:
-                self.pixmapItem = QGraphicsPixmapItem(pixmap, self)
-            self.numberItem.setZValue(self.pixmapItem.zValue() + 1)
+	# TODO: getPixmap can return None; trying to set a pixmap to None crashes... handle...
+	pixmap = part.getPixmap(self.color)
+	if pixmap:
+	    self.pixmapItem.setPixmap(pixmap)
+	    
+	self.numberItem.setZValue(self.pixmapItem.zValue() + 1)
 
     def _setCount(self, count):
         self._count = count
@@ -552,7 +550,7 @@ class PLIItem(QGraphicsRectItem):
     count = property(fget = _getCount, fset = _setCount)
     
     def writeToStream(self, stream):
-        stream << self.partOGL.filename << self.pos() << self.rect()
+        stream << QString(self.partOGL.filename) << self.pos() << self.rect()
         stream.writeInt32(self.color)
         stream.writeInt32(self.count)
         stream << self.numberItem.pos() << self.numberItem.font() << self.pixmapItem.pixmap()
@@ -563,6 +561,7 @@ class PLIItem(QGraphicsRectItem):
 	pos = QPointF()
 	rect = QRectF()
 	stream >> filename >> pos >> rect
+	filename = str(filename)
 	
 	color = stream.readInt32()
 	count = stream.readInt32()
@@ -583,6 +582,7 @@ class PLIItem(QGraphicsRectItem):
 	pliItem.numberItem.setPos(pos)
 	pliItem.numberItem.setFont(font)
 	pliItem.pixmapItem.setPixmap(pixmap)
+	pliItem.numberItem.setZValue(pliItem.pixmapItem.zValue() + 1)
 	return pliItem
     
 class PLI(QGraphicsRectItem):
@@ -593,10 +593,9 @@ class PLI(QGraphicsRectItem):
     def __init__(self, pos, parent):
         QGraphicsRectItem.__init__(self, parent)
         
+        self.setPos(pos)
         self.setPen(QPen(Qt.black))
         self.layout = {}  # {(part filename, color): PLIItem instance}
-        self.setPos(pos)
-        self.setRect(0, 0, 200, 100)
 
     def isEmpty(self):
         return True if len(self.layout) == 0 else False
@@ -680,7 +679,7 @@ class PLI(QGraphicsRectItem):
         stream << self.pos() << self.rect() << self.pen()
         stream.writeInt32(len(self.layout))
         for item in self.layout.values():
-            item.writeToStream
+            item.writeToStream(stream)
 	    
     @staticmethod
     def readFromStream(stream, parentStep):
@@ -690,6 +689,8 @@ class PLI(QGraphicsRectItem):
 	stream >> pos >> rect >> pen
 	
 	pli = PLI(pos, parentStep)
+	pli.setPen(pen)
+	pli.setRect(rect)
 	
 	itemCount = stream.readInt32()
 	for i in range(0, itemCount):
@@ -808,7 +809,7 @@ class CSI(QGraphicsPixmapItem):
         return QRectF(self.offset().x(), self.offset().y(), self.width, self.height)
             
     def writeToStream(self, stream):
-        stream << self.pos()
+        stream << self.offset()
         stream.writeInt32(self.width)
         stream.writeInt32(self.height)
         stream << self.center
@@ -817,9 +818,9 @@ class CSI(QGraphicsPixmapItem):
     @staticmethod
     def readFromStream(stream, step):
 	csi = CSI(step)
-	pos = QPointF()
-	stream >> pos
-	csi.setPos(pos)
+	offset = QPointF()
+	stream >> offset
+	csi.setOffset(offset)
 	
 	csi.width = stream.readInt32()
 	csi.height = stream.readInt32()
@@ -1105,7 +1106,7 @@ class Part:
 	matrix = []
 	for i in range(0, 16):
 	    matrix.append(stream.readFloat())
-	return Part(filename, color, matrix, invert, False)
+	return Part(str(filename), color, matrix, invert, False)
     
 class Primitive:
     """
