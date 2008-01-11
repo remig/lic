@@ -16,10 +16,23 @@ from LDrawColors import *
 UNINIT_OGL_DISPID = -1
 partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 GlobalGLContext = None
+AllFlags = QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
 
 def printRect(rect, text = ""):
     print text + ", l: %f, r: %f, t: %f, b: %f" % (rect.left(), rect.right(), rect.top(), rect.bottom())
 
+class LicNodeTypes(object):
+    InstructionNode, \
+    PageNode, \
+    PageNumberNode, \
+    StepNode,  \
+    StepNumberNode, \
+    PLINode, \
+    PLIItemNode, \
+    PLIItemLabelNode, \
+    CSINode \
+    = range(QTreeWidgetItem.UserType + 1, QTreeWidgetItem.UserType + 10)
+    
 class LicTree(QTreeWidget):
 
     def __init__(self, parent):
@@ -28,19 +41,21 @@ class LicTree(QTreeWidget):
         x = self.connect(self, SIGNAL("itemClicked(QTreeWidgetItem *, int)"), self.clicked)               
         
     def clicked(self, item = None, column = None):
-        print "hello: %d, %s" % (column, str(item))
+        print "hello: %d, type: %d, %s" % (column, item.type(), str(item))
+	self.instructions.selectItem(item)
         
     def initTree(self, instructions):
         self.instructions = instructions
-        root = QTreeWidgetItem(self)
+        root = QTreeWidgetItem(self, LicNodeTypes.InstructionNode)
         root.setText(0, instructions.filename)
         self.addTopLevelItem(root)
         
         for page in instructions.pages:
-            pageNode = QTreeWidgetItem(root)
+            pageNode = QTreeWidgetItem(root, LicNodeTypes.PageNode)
             pageNode.setText(0, "Page %d" % page.number)
             
-            pageNode.addChild(QTreeWidgetItem(pageNode, QStringList("Page Number Label")))
+            pageNumberNode = QTreeWidgetItem(pageNode, QStringList("Page Number Label"), LicNodeTypes.PageNumberNode)
+            pageNode.addChild(pageNumberNode)
             
             for step in page.steps:
                 stepNode = QTreeWidgetItem(pageNode)
@@ -284,6 +299,9 @@ class Instructions(object):
                 csiList = csiList2  # Some images rendered out of frame - loop and try bigger frame
                 csiList2 = []
     
+    def selectItem(self, item):
+	pass
+    
     def writeToStream(self, stream):
         global partDictionary
         
@@ -324,7 +342,8 @@ class Page(QGraphicsRectItem):
         self.setRect(rect)
         
         self.instructions = instructions
-        
+        self.steps = []
+
         # Give this page a number
         if number == -1:
             self.number = Page.NextNumber
@@ -341,9 +360,9 @@ class Page(QGraphicsRectItem):
         rect = self.numberItem.boundingRect()
         rect.moveBottomRight(self.rect().bottomRight() - Page.inset)
         self.numberItem.setPos(rect.topLeft())
+	self.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable)
+	self.numberItem.setFlags(AllFlags)
         
-        self.steps = []
-
     def addStep(self, step):       
         self.steps.append(step)
 
@@ -394,6 +413,7 @@ class Page(QGraphicsRectItem):
         rect.translate(self.numberItem.pos())
         painter.drawRect(rect)
 
+	
 class Step(QGraphicsRectItem):
     """ A single step in an instruction book.  Contains one optional PLI and exactly one CSI. """
 
@@ -418,11 +438,13 @@ class Step(QGraphicsRectItem):
         # Initialize Step's number label (position set in initLayout)
         self.numberItem = QGraphicsSimpleTextItem(str(self.number), self)
         self.numberItem.setFont(QFont("Arial", 15))
-        
+	self.numberItem.setFlags(AllFlags)
+	self.setFlags(AllFlags)
+
         self.parts = []
         self.pli = PLI(self.pos() + Step.inset, self)
         self.csi = CSI(self)
-
+	
     def addPart(self, part):
     
         self.parts.append(part)
@@ -484,7 +506,9 @@ class Step(QGraphicsRectItem):
 	
 	partCount = stream.readInt32()
 	for i in range(0, partCount):
-	    step.parts.append(Part.readFromStream(stream))
+	    part = Part.readFromStream(stream)
+	    part.partOGL = partDictionary[part.filename]
+	    step.parts.append(part)
 	return step
     
     def paint(self, painter, option, widget = None):
@@ -498,6 +522,7 @@ class PLIItem(QGraphicsRectItem):
 
     def __init__(self, parent, partOGL, color):
         QGraphicsRectItem.__init__(self, parent)
+	
         self.partOGL = partOGL
         self.color = color
         self._count = 1
@@ -508,6 +533,9 @@ class PLIItem(QGraphicsRectItem):
         self.pixmapItem = QGraphicsPixmapItem(self)
         
         self.setPos(parent.inset)
+	self.setFlags(AllFlags)
+	self.numberItem.setFlags(AllFlags)
+	self.pixmapItem.setFlags(AllFlags)
 
     def paint(self, painter, option, widget = None):
 #        rect = self.numberItem.boundingRect()
@@ -596,6 +624,7 @@ class PLI(QGraphicsRectItem):
         self.setPos(pos)
         self.setPen(QPen(Qt.black))
         self.layout = {}  # {(part filename, color): PLIItem instance}
+	self.setFlags(AllFlags)
 
     def isEmpty(self):
         return True if len(self.layout) == 0 else False
@@ -712,6 +741,7 @@ class CSI(QGraphicsPixmapItem):
         self.width = self.height = UNINIT_OGL_DISPID
         self.oglDispID = UNINIT_OGL_DISPID
         self.partialGLDispID = UNINIT_OGL_DISPID
+	self.setFlags(AllFlags)
     
     def callPreviousOGLDisplayLists(self):
         
@@ -808,6 +838,22 @@ class CSI(QGraphicsPixmapItem):
     def boundingRect(self):
         return QRectF(self.offset().x(), self.offset().y(), self.width, self.height)
             
+    def keyReleaseEvent(self, event = None):
+	offset = 1
+	if event.modifiers() & Qt.ShiftModifier:
+	    if event.modifiers() & Qt.ControlModifier:
+		offset = 20
+	    else:
+		offset = 5
+	if event.key() == Qt.Key_Left:
+	    self.moveBy(-offset, 0)
+	elif event.key() == Qt.Key_Right:
+	    self.moveBy(offset, 0)
+	elif event.key() == Qt.Key_Up:
+	    self.moveBy(0, -offset)
+	elif event.key() == Qt.Key_Down:
+	    self.moveBy(0, offset)
+	
     def writeToStream(self, stream):
         stream << self.offset()
         stream.writeInt32(self.width)
@@ -830,12 +876,6 @@ class CSI(QGraphicsPixmapItem):
 	stream >> pixmap
 	csi.setPixmap(pixmap)
 	return csi
-    
-    def resize(self):
-        pass
-        #global _docWidth, _docHeight
-        #self.box.x = (_docWidth / 2.) - (self.box.width / 2.)
-        #self.box.y = ((_docHeight - self.offsetPLI) / 2.) - (self.box.height / 2.) + self.offsetPLI
 
 class PartOGL(object):
     """
@@ -1044,6 +1084,7 @@ class Part:
     
     def __init__(self, filename, color = 16, matrix = None, invert = False, setPartOGL = True):
         
+        self.filename = filename
         self.color = color
         self.matrix = matrix
         self.inverted = invert
