@@ -72,8 +72,10 @@ class LicWindow(QMainWindow):
         statusBar = self.statusBar()
         statusBar.showMessage("Model: " + self.modelName)
 
-        if self.filename:
-            self.loadModel(self.modelName)
+        self.instructions = Instructions(self.scene, self.glWidget)
+        
+#        if self.filename:
+#            self.loadModel(self.modelName)
 
         title = "Lic %s" % __version__
         if self.filename:
@@ -169,6 +171,7 @@ class LicWindow(QMainWindow):
             return self.fileSave()
         
     def fileSave(self):
+        fh = None
         try:
             fh = QFile(self.filename)
             if not fh.open(QIODevice.WriteOnly):
@@ -193,15 +196,42 @@ class LicWindow(QMainWindow):
             return
         dir = os.path.dirname(self.filename) if self.filename is not None else "."
         filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Open Instruction Book", dir, "Lic Instruction Book files (*.lic)"))
-        if filename:
-            self.fileClose()
-            self.filename = filename
-            self.loadLicFile(filename)
-            self.setWindowTitle("Lic %s - %s" % (__version__, os.path.basename(self.filename)))
-            self.statusBar().showMessage("Instruction book loaded: " + self.filename)
+        if filename and filename != self.filename:
+            if self.loadLicFile(filename):
+                self.fileClose()
+                self.filename = filename
+                self.setWindowTitle("Lic %s - %s" % (__version__, os.path.basename(self.filename)))
+                self.statusBar().showMessage("Instruction book loaded: " + self.filename)
 
+    def loadLicFile(self, filename):
+        global Dirty, FileVersion, MagicNumber
+        
+        fh = None
+        success = False
+        try:
+            fh = QFile(filename)
+            if not fh.open(QIODevice.ReadOnly):
+                raise IOError, unicode(fh.errorString())
+            stream = QDataStream(fh)
+            stream.setVersion(QDataStream.Qt_4_3)
+            magic = stream.readInt32()
+            if magic != MagicNumber:
+                raise IOError, "not a valid .lic file"
+            fileVersion = stream.readInt16()
+            if fileVersion != FileVersion:
+                raise IOError, "unrecognized .lic file version"
+            self.instructions.readFromStream(stream)  # Big call
+            success = True
+        except IOError, e:
+            QMessageBox.warning(self, "Lic - Open Error", "Failed to open %s: %s" % (filename, e))
+        finally:
+            if fh is not None:
+                fh.close()
+        Dirty = False
+        return success
+    
     def loadModel(self, filename):
-        self.instructions = Instructions(filename, self.scene, self.glWidget)
+        self.instructions.loadModel(filename)
         self.tree.initTree(self.instructions)
         self.modelName = filename
         self.update()

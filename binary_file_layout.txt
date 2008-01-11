@@ -58,10 +58,10 @@ Step:
   int32 number
   QPointf number.pos
   QFont number.font
-  int32 number of parts
-  .. Part 0..n ...
   CSI csi
   PLI pli
+  int32 number of parts
+  .. Part 0..n ...
 
 CSI:
   QPointf pos
@@ -78,11 +78,12 @@ PLI:
   ... PLIItem 0..n ...
 
 PLIItem:
+  QString filename
   QPointf pos
   QRectf rect
   int32 color
-  QString filename
   int32 count
+  QPointf numberItem.pos
   QFont numberItem.font
   QPixmap pixmapItem.pixmap
   

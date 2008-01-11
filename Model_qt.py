@@ -58,27 +58,31 @@ class LicTree(QTreeWidget):
     
 class Instructions(object):
 
-    def __init__(self, filename, scene, glWidget):
+    def __init__(self, scene, glWidget, filename = None):
         global GlobalGLContext
         
         # Part dimensions cache line format: filename width height center.x center.y leftInset bottomInset
         self.partDimensionsFilename = "PartDimensions.cache"
         
-        self.filename = os.path.splitext(os.path.basename(filename))[0]
+        self.filename = ""
         self.scene = scene
         GlobalGLContext = glWidget
+        GlobalGLContext.makeCurrent()
         
         self.pages = []
         self.currentStep = None
-        self.importModel(filename)
-        
-        # First, generate all part GL display lists on the general glWidget.
-        GlobalGLContext.makeCurrent()
-        self.initDraw()
-        
-        self.pages[-1].hide()
-        self.pages[0].show()
+	
+	if filename:
+	    self.filename = os.path.splitext(os.path.basename(filename))[0]
+	    self.loadModel(filename)
 
+    def loadModel(self, filename):
+	self.filename = os.path.splitext(os.path.basename(filename))[0]
+	self.importModel(filename)
+	self.initDraw()  # generate all part GL display lists on the general glWidget
+	self.pages[-1].hide()
+	self.pages[0].show()
+	
     def clear(self):
         global GlobalGLContext, partDictionary
         GlobalGLContext = None
@@ -290,6 +294,19 @@ class Instructions(object):
         stream.writeInt32(len(self.pages))
         for page in self.pages:
             page.writeToStream(stream)
+            
+    def readFromStream(self, stream):
+        global partDictionary
+        
+        partCount = stream.readInt32()
+        for i in range(0, partCount):
+            part = PartOGL.readFromStream(stream)
+            partDictionary[part.filename] = part
+            
+        pageCount = stream.readInt32()
+        for i in range(0, pageCount):
+            page = Page.readFromStream(stream, self)
+            self.addPage(page)
     
 class Page(QGraphicsRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
@@ -326,20 +343,41 @@ class Page(QGraphicsRectItem):
         
         self.steps = []
 
-    def addStep(self, step):
-        
+    def addStep(self, step):       
         self.steps.append(step)
 
-    #def itemChange(self, change, value):
-    #    if change == QGraphicsItem.ItemChildAddedChange:
-    #        pass  # TODO: get a bloody QGraphicsItem out of that damn value
-    #    return QGraphicsItem.itemChange(self, change, value)
-
     def writeToStream(self, stream):
-        pass
+        stream << self.pos() << self.rect()
+        stream.writeInt32(self.number)
+        stream << self.numberItem.pos() << self.numberItem.font()
+        stream.writeInt32(len(self.steps))
+        for step in self.steps:
+            step.writeToStream(stream)
+    
+    @staticmethod
+    def readFromStream(stream, instructions):
+	pos = QPointF()
+	rect = QRectF()
+	font = QFont()
+	
+	stream >> pos >> rect
+	number = stream.readInt32()
+	page = Page(instructions, number)
+	page.setPos(pos)
+	page.setRect(rect)
+	
+	stream >> pos >> font
+	page.numberItem.setPos(pos)
+	page.numberItem.setFont(font)
+	
+	stepCount = stream.readInt32()
+	prevStep = None
+	for i in range(0, stepCount):
+	    step = Step.readFromStream(stream, page, prevStep)
+	    page.steps.append(step)
+	return page
     
     def paint(self, painter, option, widget = None):
-
         # Draw a slightly down-right translated black rectangle, for the page shadow effect
         painter.setPen(Qt.NoPen)
         painter.setBrush(QBrush(Qt.black))
@@ -414,6 +452,40 @@ class Step(QGraphicsRectItem):
             self.csi.resize()
         """
     
+    def writeToStream(self, stream):
+        stream << self.pos() << self.rect()
+        stream.writeInt32(self.number)
+        stream << self.numberItem.pos() << self.numberItem.font()
+        self.csi.writeToStream(stream)
+        self.pli.writeToStream(stream)
+        stream.writeInt32(len(self.parts))
+        for part in self.parts:
+            part.writeToStream(stream)        
+        
+    @staticmethod
+    def readFromStream(stream, parentPage, prevPage):
+	pos = QPointF()
+	rect = QRectF()
+	font = QFont()
+	stream >> pos >> rect
+	
+	number = stream.readInt32()
+	step = Step(parentPage, prevPage, number)
+	step.setPos(pos)
+	step.setRect(rect)
+	
+	stream >> pos >> font
+	step.numberItem.setPos(pos)
+	step.numberItem.setFont(font)
+	
+	step.csi = CSI.readFromStream(stream, step)
+	step.pli = PLI.readFromStream(stream, step)
+	
+	partCount = stream.readInt32()
+	for i in range(0, partCount):
+	    step.parts.append(Part.readFromStream(stream))
+	return step
+    
     def paint(self, painter, option, widget = None):
         rect = self.numberItem.boundingRect()
         rect.translate(self.numberItem.pos())
@@ -479,6 +551,40 @@ class PLIItem(QGraphicsRectItem):
     
     count = property(fget = _getCount, fset = _setCount)
     
+    def writeToStream(self, stream):
+        stream << self.partOGL.filename << self.pos() << self.rect()
+        stream.writeInt32(self.color)
+        stream.writeInt32(self.count)
+        stream << self.numberItem.pos() << self.numberItem.font() << self.pixmapItem.pixmap()
+	
+    @staticmethod
+    def readFromStream(stream, pli):
+	filename = QString()
+	pos = QPointF()
+	rect = QRectF()
+	stream >> filename >> pos >> rect
+	
+	color = stream.readInt32()
+	count = stream.readInt32()
+
+	if filename in partDictionary:
+	    partOGL = partDictionary[filename]
+	else:
+	    print "LOAD ERROR: Could not find part in part dict: " + filename
+	pliItem = PLIItem(pli, partOGL, color)
+	pliItem.count = count
+	pliItem.setPos(pos)
+	pliItem.setRect(rect)
+	
+	font = QFont()
+	pixmap = QPixmap()
+	stream >> pos >> font >> pixmap
+	
+	pliItem.numberItem.setPos(pos)
+	pliItem.numberItem.setFont(font)
+	pliItem.pixmapItem.setPixmap(pixmap)
+	return pliItem
+    
 class PLI(QGraphicsRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
     
@@ -503,7 +609,7 @@ class PLI(QGraphicsRectItem):
             self.layout[item].count += 1
         else:
             self.layout[item] = PLIItem(self, part.partOGL, part.color)
-            self.layout[item].setParentItem(self)
+            self.layout[item].setParentItem(self)  # This needed?
     
     def initLayout(self):
         """ 
@@ -569,6 +675,28 @@ class PLI(QGraphicsRectItem):
             newHeight = item.rect().height() + lblHeight + (inset * 2)
             b.setHeight(round(max(b.height(), newHeight)))
             self.setRect(b)
+            
+    def writeToStream(self, stream):
+        stream << self.pos() << self.rect() << self.pen()
+        stream.writeInt32(len(self.layout))
+        for item in self.layout.values():
+            item.writeToStream
+	    
+    @staticmethod
+    def readFromStream(stream, parentStep):
+	pos = QPointF()
+	rect = QRectF()
+	pen = QPen()
+	stream >> pos >> rect >> pen
+	
+	pli = PLI(pos, parentStep)
+	
+	itemCount = stream.readInt32()
+	for i in range(0, itemCount):
+	    pliItem = PLIItem.readFromStream(stream, pli)
+	    item = (pliItem.partOGL.filename, pliItem.color)
+	    pli.layout[item] = pliItem
+	return pli
 
 class CSI(QGraphicsPixmapItem):
     """
@@ -679,6 +807,29 @@ class CSI(QGraphicsPixmapItem):
     def boundingRect(self):
         return QRectF(self.offset().x(), self.offset().y(), self.width, self.height)
             
+    def writeToStream(self, stream):
+        stream << self.pos()
+        stream.writeInt32(self.width)
+        stream.writeInt32(self.height)
+        stream << self.center
+        stream << self.pixmap()
+
+    @staticmethod
+    def readFromStream(stream, step):
+	csi = CSI(step)
+	pos = QPointF()
+	stream >> pos
+	csi.setPos(pos)
+	
+	csi.width = stream.readInt32()
+	csi.height = stream.readInt32()
+	stream >> csi.center
+	
+	pixmap = QPixmap()
+	stream >> pixmap
+	csi.setPixmap(pixmap)
+	return csi
+    
     def resize(self):
         pass
         #global _docWidth, _docHeight
@@ -694,11 +845,9 @@ class PartOGL(object):
     in common when present in a model, everything inside 3001.dat.
     """
     
-    def __init__(self, filename):
+    def __init__(self, filename = None, loadFromFile = False):
         
-        print "Creating: " + filename
         self.name = self.filename = filename
-        
         self.inverted = False  # TODO: Fix this! inverted = GL_CW
         self.invertNext = False
         self.parts = []
@@ -710,9 +859,10 @@ class PartOGL(object):
         self.leftInset = self.bottomInset = -1
         self.center = QPointF()
         
-        self._loadFromFile()
+        if filename and loadFromFile:
+            self.loadFromFile()
     
-    def _loadFromFile(self):
+    def loadFromFile(self):
         
         ldrawFile = LDrawFile(self.filename)
         self.isPrimitive = ldrawFile.isPrimitive
@@ -854,7 +1004,34 @@ class PartOGL(object):
         stream.writeInt32(len(self.parts))
         for part in self.parts:
             part.writeToStream(stream)
-        
+
+    @staticmethod
+    def readFromStream(stream):
+	filename = QString()
+	name = QString()
+        stream >> filename >> name
+	
+	part = PartOGL()
+        part.filename = str(filename)
+        part.name = str(name)
+	
+        part.isPrimitive = stream.readBool()
+        part.width = stream.readInt32()
+        part.height = stream.readInt32()
+        part.leftInset = stream.readInt32()
+        part.bottomInset = stream.readInt32()
+        stream >> part.center
+        primitiveCount = stream.readInt32()
+	for i in range(0, primitiveCount):
+	    p = Primitive.readFromStream(stream)
+	    part.primitives.append(p)
+	partCount = stream.readInt32()
+	for i in range(0, partCount):
+	    p = Part.readFromStream(stream)
+	    p.partOGL = part
+	    part.parts.append(p)
+	return part
+
 class Part:
     """
     Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough
@@ -864,18 +1041,18 @@ class Part:
     in one LDraw FILE (5) command.
     """
     
-    def __init__(self, filename, color = 16, matrix = None, invert = False):
+    def __init__(self, filename, color = 16, matrix = None, invert = False, setPartOGL = True):
         
         self.color = color
         self.matrix = matrix
         self.inverted = invert
         
-        if filename in partDictionary:
-            self.partOGL = partDictionary[filename]
-        else:
-            self.partOGL = partDictionary[filename] = PartOGL(filename)
-        
-        self.name = self.partOGL.name
+        if setPartOGL:
+	    if filename in partDictionary:
+		self.partOGL = partDictionary[filename]
+	    else:
+		self.partOGL = partDictionary[filename] = PartOGL(filename, loadFromFile = True)        
+            self.name = self.partOGL.name
 
     def callOGLDisplayList(self):
         
@@ -919,6 +1096,17 @@ class Part:
         for point in self.matrix:
             stream.writeFloat(point)
 
+    @staticmethod
+    def readFromStream(stream):
+	filename = QString()
+	stream >> filename
+	invert = stream.readBool()
+	color = stream.readInt32()
+	matrix = []
+	for i in range(0, 16):
+	    matrix.append(stream.readFloat())
+	return Part(filename, color, matrix, invert, False)
+    
 class Primitive:
     """
     Not a primitive in the LDraw sense, just a single line/triangle/quad.
@@ -944,6 +1132,17 @@ class Primitive:
         for point in self.points:
             stream.writeFloat(point)
 
+    @staticmethod
+    def readFromStream(stream):
+	invert = stream.readBool()
+	color = stream.readInt32()
+	type = stream.readInt16()
+	count = 9 if type == GL_TRIANGLES else 12
+	points = []
+	for i in range(0, count):
+	    points.append(stream.readFloat())
+	return Primitive(color, points, type, invert)
+    
     # TODO: using numpy for all this would probably work a lot better
     def addNormal(self, p1, p2, p3):
         Bx = p2[0] - p1[0]

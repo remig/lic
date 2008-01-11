@@ -637,3 +637,9 @@ def partOGL_drawBoundingBox(self):
 	cr.stroke()
 	surface.write_to_png(self.pngFile)
 	surface.finish()
+
+    #def itemChange(self, change, value):
+    #    if change == QGraphicsItem.ItemChildAddedChange:
+    #        pass  # TODO: get a bloody QGraphicsItem out of that damn value
+    #    return QGraphicsItem.itemChange(self, change, value)
+
