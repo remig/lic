@@ -32,6 +32,20 @@ QGraphicsPixmapItem.data = genericItemData
 def printRect(rect, text = ""):
     print text + ", l: %f, r: %f, t: %f, b: %f" % (rect.left(), rect.right(), rect.top(), rect.bottom())
 
+class LicTreeView(QTreeView):
+
+    def __init__(self, parent):
+        QTreeView.__init__(self, parent)
+        self.connect(self, SIGNAL("clicked(QModelIndex)"), self.clicked)
+
+    def clicked(self, index = None):
+	if not index:
+	    return
+	
+	instructions = self.model()
+	instructions.clearSelection()
+	index.internalPointer().setSelected(True)
+	
 class Instructions(QAbstractItemModel):
 
     def __init__(self, parent, scene, glWidget, filename = None):
@@ -81,8 +95,6 @@ class Instructions(QAbstractItemModel):
         return 1  # Every single item in the tree has exactly 1 column
 
     def flags(self, index):
-        if not index.isValid():
-            return 0
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
     def index(self, row, column, parent = QModelIndex()):
@@ -124,17 +136,24 @@ class Instructions(QAbstractItemModel):
         return self.createIndex(parentItem.row(), 0, parentItem)
 
     def headerData(self, section, orientation, role = Qt.DisplayRole):
-        return QVariant()
+        return QVariant("Instruction Book")
 
     def loadModel(self, filename):
+	self.emit(SIGNAL("layoutAboutToBeChanged"))
 	self.filename = os.path.splitext(os.path.basename(filename))[0]
 	self.importModel(filename)
 	self.initDraw()  # generate all part GL display lists on the general glWidget
 	self.pages[-1].hide()
 	self.pages[0].show()
+	self.emit(SIGNAL("layoutChanged()"))
 	
+    def clearSelection(self):
+	for page in self.pages:
+	    page.clearSelection()
+		
     def clear(self):
         global partDictionary
+	self.emit(SIGNAL("layoutAboutToBeChanged"))
         self.currentStep = None
         for page in self.pages:
             item = self.scene.removeItem(page)
@@ -144,6 +163,7 @@ class Instructions(QAbstractItemModel):
         Page.NextNumber = 1
         Step.NextNumber = 1
 	GlobalGLContext.makeCurrent()
+	self.emit(SIGNAL("layoutChanged()"))
         
     def addPage(self, page):
     
@@ -351,6 +371,7 @@ class Instructions(QAbstractItemModel):
     def readFromStream(self, stream, filename):
         global partDictionary
         
+	self.emit(SIGNAL("layoutAboutToBeChanged"))
 	self.filename = os.path.splitext(os.path.basename(filename))[0]
         partCount = stream.readInt32()
         for i in range(0, partCount):
@@ -361,6 +382,7 @@ class Instructions(QAbstractItemModel):
         for i in range(0, pageCount):
             page = Page.readFromStream(stream, self)
             self.addPage(page)
+	self.emit(SIGNAL("layoutChanged()"))
     
 class Page(QGraphicsRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
@@ -403,12 +425,14 @@ class Page(QGraphicsRectItem):
         return self.instructions
 
     def child(self, row):
-        if row < 0 or row >= len(self.steps):
+        if row < 0 or row > len(self.steps):
             return None
-        return self.steps[row]
+	if row == 0:
+	    return self.numberItem
+        return self.steps[row - 1]
 
     def childCount(self):
-        return len(self.steps)
+        return len(self.steps) + 1 # + 1 for the page number label
 
     def row(self):
         return self.number - 1
@@ -450,6 +474,12 @@ class Page(QGraphicsRectItem):
 	    page.steps.append(step)
 	return page
     
+    def clearSelection(self):
+	self.setSelected(False)
+	self.numberItem.setSelected(False)
+	for step in self.steps:
+	    step.clearSelection()
+	    
     def paint(self, painter, option, widget = None):
         # Draw a slightly down-right translated black rectangle, for the page shadow effect
         painter.setPen(Qt.NoPen)
@@ -465,7 +495,6 @@ class Page(QGraphicsRectItem):
         rect = self.numberItem.boundingRect()
         rect.translate(self.numberItem.pos())
         painter.drawRect(rect)
-
 	
 class Step(QGraphicsRectItem):
     """ A single step in an instruction book.  Contains one optional PLI and exactly one CSI. """
@@ -520,6 +549,12 @@ class Step(QGraphicsRectItem):
     def data(self, index = 0):
         return QVariant("Step %d" % self.number)
 
+    def clearSelection(self):
+	self.setSelected(False)
+	self.numberItem.setSelected(False)
+	self.csi.setSelected(False)
+	self.pli.clearSelection()
+	
     def addPart(self, part):
     
         self.parts.append(part)
@@ -599,12 +634,17 @@ class PLIItem(QGraphicsRectItem):
         QGraphicsRectItem.__init__(self, parent)
 	
         self.partOGL = partOGL
+	self.filename = partOGL.filename
         self.color = color
-        self._count = 1
+	self._count = 1
+	pen = self.pen()
+	pen.setStyle(Qt.NoPen)
+	self.setPen(pen)
         
         # Initialize the quantity label (position set in initLayout)
-        self.numberItem = QGraphicsSimpleTextItem(str(self._count), self)
+        self.numberItem = QGraphicsSimpleTextItem("x%d" % self._count, self)
         self.numberItem.setFont(QFont("Arial", 10))
+	self.numberItem.dataText = "Qty. Label (x%d)" % self._count
 
         self.pixmapItem = QGraphicsPixmapItem(self)
         self.pixmapItem.dataText = "Image"
@@ -613,7 +653,7 @@ class PLIItem(QGraphicsRectItem):
 	self.setFlags(AllFlags)
 	self.numberItem.setFlags(AllFlags)
 	self.pixmapItem.setFlags(AllFlags)
-
+	
     def parent(self):
         return self.parentItem()
 
@@ -637,20 +677,15 @@ class PLIItem(QGraphicsRectItem):
     def data(self, index = 0):
         return QVariant("%s - %s" % (self.partOGL.name, getColorName(self.color)))
 
-    def paint(self, painter, option, widget = None):
-#        rect = self.numberItem.boundingRect()
-#        rect.translate(self.numberItem.pos())
-#        painter.drawRect(rect)
-#        QGraphicsRectItem.paint(self, painter, option, widget)
-        pass
+    def clearSelection(self):
+	self.setSelected(False)
+	self.pixmapItem.setSelected(False)
+	self.numberItem.setSelected(False)
 
     def initLayout(self):
     
         part = self.partOGL
         lblHeight = self.numberItem.boundingRect().height() / 2.0
-        
-        # Set this item to the same width & height as its part image
-        self.setRect(0, 0, part.width, part.height)
         
         # Position quantity label based on part corner, empty corner triangle and label's size
         if part.leftInset == part.bottomInset == 0:
@@ -659,15 +694,18 @@ class PLIItem(QGraphicsRectItem):
             slope = part.leftInset / float(part.bottomInset)
             dx = ((part.leftInset - lblHeight) / slope) - 3  # 3 for a touch more padding
 
-        self.numberItem.setPos(dx, self.rect().height() - lblHeight)
+        self.numberItem.setPos(dx, part.height - lblHeight)
 
-	# TODO: getPixmap can return None; trying to set a pixmap to None crashes... handle...
 	pixmap = part.getPixmap(self.color)
 	if pixmap:
 	    self.pixmapItem.setPixmap(pixmap)
-	    
+
+	# Place qty label above the item image
 	self.numberItem.setZValue(self.pixmapItem.zValue() + 1)
 
+        # Set this item to the union of its image and qty label rects
+        self.setRect(self.numberItem.boundingRect() | self.pixmapItem.boundingRect())
+        
     def _setCount(self, count):
         self._count = count
         self.numberItem.setText("x%d" % self._count)
@@ -744,6 +782,11 @@ class PLI(QGraphicsRectItem):
     def data(self, index = 0):
         return QVariant("PLI")
 
+    def clearSelection(self):
+	self.setSelected(False)
+	for item in self.pliItems:
+	    item.clearSelection()
+	    
     def isEmpty(self):
         return True if len(self.pliItems) == 0 else False
 
