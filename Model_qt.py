@@ -21,8 +21,8 @@ AllFlags = QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraph
 def genericItemParent(self):
     return self.parentItem()
 
-def genericItemData(self, index = 0):
-    return QVariant(self.dataText)
+def genericItemData(self, index):
+    return self.dataText
 
 QGraphicsSimpleTextItem.parent = genericItemParent
 QGraphicsSimpleTextItem.data = genericItemData
@@ -37,6 +37,10 @@ class LicTreeView(QTreeView):
     def __init__(self, parent):
         QTreeView.__init__(self, parent)
         self.connect(self, SIGNAL("clicked(QModelIndex)"), self.clicked)
+	self.connect(self, SIGNAL("expanded(QModelIndex)"), self.expanded)
+	
+    def expanded(self, index = None):
+	print index.internalPointer()
 
     def clicked(self, index = None):
 	if not index:
@@ -77,17 +81,17 @@ class Instructions(QAbstractItemModel):
 	    self.loadModel(filename)
 
     def data(self, index, role = Qt.DisplayRole):
-        if not index.isValid():
-            return QVariant(self.filename)
-
         if role != Qt.DisplayRole:
             return QVariant()
+
+        if not index.isValid():
+            return QVariant(self.filename)
 
         item = index.internalPointer()
 
         return QVariant(item.data(0))
 
-    def rowCount(self, parent = QModelIndex()):
+    def rowCount(self, parent):
 
         if parent.column() > 0:
             return 0
@@ -100,13 +104,13 @@ class Instructions(QAbstractItemModel):
             return item.childCount()
         return 0
 
-    def columnCount(self, parentIndex = QModelIndex()):
+    def columnCount(self, parentIndex):
         return 1  # Every single item in the tree has exactly 1 column
 
     def flags(self, index):
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
-    def index(self, row, column, parent = QModelIndex()):
+    def index(self, row, column, parent):
         if row < 0 or column < 0:
             return QModelIndex()
 
@@ -394,7 +398,7 @@ class Page(QGraphicsRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
     
     NextNumber = 1
-    inset = QPointF(15, 15)
+    margin = QPointF(15, 15)
     pageInset = 10
     
     def __init__(self, instructions, number = -1):
@@ -422,7 +426,7 @@ class Page(QGraphicsRectItem):
 
         # Position page number in bottom right page corner
         rect = self.numberItem.boundingRect()
-        rect.moveBottomRight(self.rect().bottomRight() - Page.inset)
+        rect.moveBottomRight(self.rect().bottomRight() - Page.margin)
         self.numberItem.setPos(rect.topLeft())
 	self.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable)
 	self.numberItem.setFlags(AllFlags)
@@ -443,8 +447,8 @@ class Page(QGraphicsRectItem):
     def row(self):
         return self.number - 1
 
-    def data(self, index = 0):
-        return QVariant("Page %d" % self.number)
+    def data(self, index):
+        return "Page %d" % self.number
 
     def addStep(self, step):       
         self.steps.append(step)
@@ -492,22 +496,25 @@ class Page(QGraphicsRectItem):
         painter.drawRect(self.rect())
         
         # Draw a (debug) rect around the page number label
-        rect = self.numberItem.boundingRect()
-        rect.translate(self.numberItem.pos())
-        painter.drawRect(rect)
+        #rect = self.numberItem.boundingRect()
+        #rect.translate(self.numberItem.pos())
+        #painter.drawRect(rect)
 	
 class Step(QGraphicsRectItem):
     """ A single step in an instruction book.  Contains one optional PLI and exactly one CSI. """
 
     NextNumber = 1
-    inset = QPointF(15.5, 15.5)
     
     def __init__(self, parentPage, prevStep, number = -1):
         QGraphicsRectItem.__init__(self, parentPage)
     
+	pen = self.pen()
+	pen.setStyle(Qt.NoPen)
+	self.setPen(pen)
+	
         self.page = parentPage
         self.prevStep = prevStep
-        self.setPos(parentPage.rect().topLeft())
+        self.setPos(parentPage.rect().topLeft() + parentPage.margin)
         
         # Give this page a number
         if number == -1:
@@ -519,13 +526,14 @@ class Step(QGraphicsRectItem):
         
         # Initialize Step's number label (position set in initLayout)
         self.numberItem = QGraphicsSimpleTextItem(str(self.number), self)
+	self.numberItem.setPos(0, 0)
         self.numberItem.setFont(QFont("Arial", 15))
 	self.numberItem.setFlags(AllFlags)
 	self.numberItem.dataText = "Step Number Label"
 	self.setFlags(AllFlags)
 
         self.parts = []
-        self.pli = PLI(self.pos() + Step.inset, self)
+        self.pli = PLI(self)
         self.csi = CSI(self)
 
     def parent(self):
@@ -546,8 +554,8 @@ class Step(QGraphicsRectItem):
     def row(self):
         return self.number - 1
 
-    def data(self, index = 0):
-        return QVariant("Step %d" % self.number)
+    def data(self, index):
+        return "Step %d" % self.number
 
     def addPart(self, part):
     
@@ -563,9 +571,11 @@ class Step(QGraphicsRectItem):
         self.csi.initLayout()
         
         # Position the Step number label beneath the PLI
-        self.numberItem.setPos(self.pos() + Step.inset)
-        self.numberItem.moveBy(0, self.pli.rect().height() + Step.inset.y() + 0.5)
+        self.numberItem.setPos(0, 0)
+        self.numberItem.moveBy(0, self.pli.rect().height() + self.page.margin.y() + 0.5)
         
+        self.setRect(self.pli.rect() | self.csi.boundingRect())
+	
         """
         # Ensure all sub model PLIs and steps are also initialized
         for part in self.parts:
@@ -615,11 +625,11 @@ class Step(QGraphicsRectItem):
 	    step.parts.append(part)
 	return step
     
-    def paint(self, painter, option, widget = None):
-        rect = self.numberItem.boundingRect()
-        rect.translate(self.numberItem.pos())
-        painter.drawRect(rect)
-        QGraphicsRectItem.paint(self, painter, option, widget)
+#    def paint(self, painter, option, widget = None):
+#        rect = self.numberItem.boundingRect()
+#        rect.translate(self.numberItem.pos())
+#        painter.drawRect(rect)
+#        QGraphicsRectItem.paint(self, painter, option, widget)
     
 class PLIItem(QGraphicsRectItem):
     """ Represents one part inside a PLI along with its quantity label. """
@@ -643,7 +653,7 @@ class PLIItem(QGraphicsRectItem):
         self.pixmapItem = QGraphicsPixmapItem(self)
         self.pixmapItem.dataText = "Image"
 
-        self.setPos(parent.inset)
+        self.setPos(parent.margin)
 	self.setFlags(AllFlags)
 	self.numberItem.setFlags(AllFlags)
 	self.pixmapItem.setFlags(AllFlags)
@@ -668,8 +678,8 @@ class PLIItem(QGraphicsRectItem):
                 return index
         return 0
 
-    def data(self, index = 0):
-        return QVariant("%s - %s" % (self.partOGL.name, getColorName(self.color)))
+    def data(self, index):
+        return "%s - %s" % (self.partOGL.name, getColorName(self.color))
 
     def initLayout(self):
     
@@ -693,7 +703,9 @@ class PLIItem(QGraphicsRectItem):
 	self.numberItem.setZValue(self.pixmapItem.zValue() + 1)
 
         # Set this item to the union of its image and qty label rects
-        self.setRect(self.numberItem.boundingRect() | self.pixmapItem.boundingRect())
+	pixmapRect = self.pixmapItem.boundingRect().translated(self.pixmapItem.offset())
+	numberRect = self.numberItem.boundingRect().translated(self.numberItem.pos())
+        self.setRect(pixmapRect | numberRect)
         
     def _setCount(self, count):
         self._count = count
@@ -744,12 +756,12 @@ class PLIItem(QGraphicsRectItem):
 class PLI(QGraphicsRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
     
-    inset = QPointF(15, 15)
+    margin = QPointF(15, 15)
     
-    def __init__(self, pos, parent):
+    def __init__(self, parent):
         QGraphicsRectItem.__init__(self, parent)
         
-        self.setPos(pos)
+        self.setPos(0, 0)
         self.setPen(QPen(Qt.black))
         self.pliItems = []  # {(part filename, color): PLIItem instance}
 	self.setFlags(AllFlags)
@@ -768,8 +780,8 @@ class PLI(QGraphicsRectItem):
     def row(self):
         return 1
 
-    def data(self, index = 0):
-        return QVariant("PLI")
+    def data(self, index):
+        return "PLI"
 
     def isEmpty(self):
         return True if len(self.pliItems) == 0 else False
@@ -820,22 +832,24 @@ class PLI(QGraphicsRectItem):
         partList.sort(compareLayoutItemWidths)
         partList.insert(0, tallestPart)
         
+        # This rect will be enlarged as needed
         b = self.rect()
-        inset = PLI.inset.x()
-        overallX = inset
         b.setSize(QSizeF(-1, -1))
+	
+        overallX = xMargin = PLI.margin.x()
+	yMargin = PLI.margin.y()
         
         for i, item in enumerate(partList):
             
             # Move this PLIItem to its new position
-            item.setPos(overallX, inset)
+            item.setPos(overallX, xMargin)
             
             # Check if the current PLI box is big enough to fit this part *below* the previous part,
             # without making the box any bigger.  If so, position part there instead.
             newWidth = item.rect().width()
             if i > 0:
                 prevItem = partList[i-1]
-                remainingHeight = b.height() - inset - inset - prevItem.rect().height()
+                remainingHeight = b.height() - yMargin - yMargin - prevItem.rect().height()
                 if item.rect().height() < remainingHeight:
                     overallX = prevItem.pos().x()
                     newWidth = prevItem.rect().width()
@@ -844,11 +858,10 @@ class PLI(QGraphicsRectItem):
                     item.setPos(x, y)
             
             # Increase overall x, box width and box height to make PLI box big enough for this part
-            overallX += newWidth + inset
+            overallX += newWidth + xMargin
             b.setWidth(round(overallX))
             
-            lblHeight = item.numberItem.boundingRect().height() / 2.0
-            newHeight = item.rect().height() + lblHeight + (inset * 2)
+            newHeight = item.rect().height() + yMargin + yMargin
             b.setHeight(round(max(b.height(), newHeight)))
             self.setRect(b)
             
@@ -894,7 +907,7 @@ class CSI(QGraphicsPixmapItem):
         return self.step
 
     def data(self, index = 0):
-        return QVariant("CSI")
+        return "CSI"
 
     def callPreviousOGLDisplayLists(self):
         
