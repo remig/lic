@@ -41,9 +41,18 @@ class LicTreeView(QTreeView):
     def clicked(self, index = None):
 	if not index:
 	    return
-	
+
+	# Clear any existing selection
 	instructions = self.model()
-	instructions.clearSelection()
+	instructions.scene.clearSelection()
+	
+	# Find the selected item's parent page, then flip to that page
+	parent = QModelIndex(index)
+	while parent.parent().internalPointer():
+	    parent = parent.parent()
+	instructions.selectPage(parent.internalPointer().number)
+	
+	# Finally, select the thing we actually clicked on
 	index.internalPointer().setSelected(True)
 	
 class Instructions(QAbstractItemModel):
@@ -147,10 +156,6 @@ class Instructions(QAbstractItemModel):
 	self.pages[0].show()
 	self.emit(SIGNAL("layoutChanged()"))
 	
-    def clearSelection(self):
-	for page in self.pages:
-	    page.clearSelection()
-		
     def clear(self):
         global partDictionary
 	self.emit(SIGNAL("layoutAboutToBeChanged"))
@@ -168,12 +173,13 @@ class Instructions(QAbstractItemModel):
     def addPage(self, page):
     
         self.pages.append(page)
-        
-        for page in self.pages:
-            page.hide()
-    
-        self.pages[-1].show()
+        self.selectPage(page.number)
 
+    def selectPage(self, pageNumber):
+	for page in self.pages:
+	    page.hide()
+	self.pages[pageNumber - 1].show()
+	    
     def importModel(self, filename):
         """ Reads in an LDraw model file and popluates this instruction book with the info. """
         
@@ -473,13 +479,7 @@ class Page(QGraphicsRectItem):
 	    step = Step.readFromStream(stream, page, step)
 	    page.steps.append(step)
 	return page
-    
-    def clearSelection(self):
-	self.setSelected(False)
-	self.numberItem.setSelected(False)
-	for step in self.steps:
-	    step.clearSelection()
-	    
+    	    
     def paint(self, painter, option, widget = None):
         # Draw a slightly down-right translated black rectangle, for the page shadow effect
         painter.setPen(Qt.NoPen)
@@ -549,12 +549,6 @@ class Step(QGraphicsRectItem):
     def data(self, index = 0):
         return QVariant("Step %d" % self.number)
 
-    def clearSelection(self):
-	self.setSelected(False)
-	self.numberItem.setSelected(False)
-	self.csi.setSelected(False)
-	self.pli.clearSelection()
-	
     def addPart(self, part):
     
         self.parts.append(part)
@@ -677,11 +671,6 @@ class PLIItem(QGraphicsRectItem):
     def data(self, index = 0):
         return QVariant("%s - %s" % (self.partOGL.name, getColorName(self.color)))
 
-    def clearSelection(self):
-	self.setSelected(False)
-	self.pixmapItem.setSelected(False)
-	self.numberItem.setSelected(False)
-
     def initLayout(self):
     
         part = self.partOGL
@@ -782,11 +771,6 @@ class PLI(QGraphicsRectItem):
     def data(self, index = 0):
         return QVariant("PLI")
 
-    def clearSelection(self):
-	self.setSelected(False)
-	for item in self.pliItems:
-	    item.clearSelection()
-	    
     def isEmpty(self):
         return True if len(self.pliItems) == 0 else False
 

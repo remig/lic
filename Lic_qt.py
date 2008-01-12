@@ -221,10 +221,7 @@ class LicWindow(QMainWindow):
                 raise IOError, "unrecognized .lic file version"
 
             self.instructions.readFromStream(stream, filename)  # Big call
-
-            for page in self.instructions.pages:
-                page.hide()
-            self.instructions.pages[0].show()
+	    self.instructions.selectPage(1)
             
             self.update()
             success = True
