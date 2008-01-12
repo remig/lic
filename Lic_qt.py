@@ -46,18 +46,12 @@ class LicWindow(QMainWindow):
         QMainWindow.__init__(self, parent)
 
         self.glWidget = QGLWidget(self)
-        self.view = InstructionViewWidget(self)
-        self.tree = LicTree(self)
+        self.treeView = LicTree(self)
 
         self.scene = QGraphicsScene(self)
         self.scene.setSceneRect(0, 0, PageSize.width() + LicWindow.pageInset, PageSize.height() + LicWindow.pageInset)
-        self.view.setScene(self.scene)
-
-        self.mainSplitter = QSplitter(Qt.Horizontal)
-
-        self.mainSplitter.addWidget(self.tree)
-        self.mainSplitter.addWidget(self.view)
-        self.setCentralWidget(self.mainSplitter)
+        self.graphicsView = InstructionViewWidget(self)
+        self.graphicsView.setScene(self.scene)
 
         Page.pageInset = LicWindow.pageInset / 2.0
 
@@ -72,10 +66,19 @@ class LicWindow(QMainWindow):
         statusBar = self.statusBar()
         statusBar.showMessage("Model: " + self.modelName)
 
-        self.instructions = Instructions(self.scene, self.glWidget)
+        self.instructions = Instructions(self, self.scene, self.glWidget)
+	self.treeView.setModel(self.instructions)
         
-#        if self.filename:
+        if self.filename:
+            self.loadLicFile(self.filename)
 #            self.loadModel(self.modelName)
+
+        self.treeView.setModel(self.instructions)
+
+        self.mainSplitter = QSplitter(Qt.Horizontal)
+        self.mainSplitter.addWidget(self.treeView)
+        self.mainSplitter.addWidget(self.graphicsView)
+        self.setCentralWidget(self.mainSplitter)
 
         title = "Lic %s" % __version__
         if self.filename:
@@ -133,7 +136,6 @@ class LicWindow(QMainWindow):
     def fileClose(self):
         if not self.offerSave():
             return
-        self.tree.clear()
         self.instructions.clear()
         self.update()
 
@@ -223,8 +225,8 @@ class LicWindow(QMainWindow):
             if fileVersion != FileVersion:
                 raise IOError, "unrecognized .lic file version"
 
+            self.treeView.setModel(self.instructions)
             self.instructions.readFromStream(stream, filename)  # Big call
-            self.tree.initTree(self.instructions)
             
             for page in self.instructions.pages:
                 page.hide()
@@ -235,6 +237,7 @@ class LicWindow(QMainWindow):
         except IOError, e:
             QMessageBox.warning(self, "Lic - Open Error", "Failed to open %s: %s" % (filename, e))
         finally:
+            self.treeView.setModel(self.instructions)
             if fh is not None:
                 fh.close()
         Dirty = False
@@ -242,7 +245,7 @@ class LicWindow(QMainWindow):
     
     def loadModel(self, filename):
         self.instructions.loadModel(filename)
-        self.tree.initTree(self.instructions)
+        self.treeView.setModel(self.instructions)
         self.modelName = filename
         self.update()
 

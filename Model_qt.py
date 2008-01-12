@@ -18,62 +18,24 @@ partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 GlobalGLContext = None
 AllFlags = QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
 
+def genericItemParent(self):
+    return self.parentItem()
+
+def genericItemData(self, index = 0):
+    return QVariant(self.dataText)
+
+QGraphicsSimpleTextItem.parent = genericItemParent
+QGraphicsSimpleTextItem.data = genericItemData
+QGraphicsPixmapItem.parent = genericItemParent
+QGraphicsPixmapItem.data = genericItemData
+    
 def printRect(rect, text = ""):
     print text + ", l: %f, r: %f, t: %f, b: %f" % (rect.left(), rect.right(), rect.top(), rect.bottom())
 
-class LicNodeTypes(object):
-    InstructionNode, \
-    PageNode, \
-    PageNumberNode, \
-    StepNode,  \
-    StepNumberNode, \
-    PLINode, \
-    PLIItemNode, \
-    PLIItemLabelNode, \
-    CSINode \
-    = range(QTreeWidgetItem.UserType + 1, QTreeWidgetItem.UserType + 10)
-    
-class LicTree(QTreeWidget):
+class Instructions(QAbstractItemModel):
 
-    def __init__(self, parent):
-        QTreeWidget.__init__(self, parent)
-        self.instructions = None
-        x = self.connect(self, SIGNAL("itemClicked(QTreeWidgetItem *, int)"), self.clicked)               
-        
-    def clicked(self, item = None, column = None):
-        print "hello: %d, type: %d, %s" % (column, item.type(), str(item))
-	self.instructions.selectItem(item)
-        
-    def initTree(self, instructions):
-        self.instructions = instructions
-        root = QTreeWidgetItem(self, LicNodeTypes.InstructionNode)
-        root.setText(0, instructions.filename)
-        self.addTopLevelItem(root)
-        
-        for page in instructions.pages:
-            pageNode = QTreeWidgetItem(root, LicNodeTypes.PageNode)
-            pageNode.setText(0, "Page %d" % page.number)
-            
-            pageNumberNode = QTreeWidgetItem(pageNode, QStringList("Page Number Label"), LicNodeTypes.PageNumberNode)
-            pageNode.addChild(pageNumberNode)
-            
-            for step in page.steps:
-                stepNode = QTreeWidgetItem(pageNode)
-                stepNode.setText(0, "Step %d" % step.number)
-                stepNode.addChild(QTreeWidgetItem(stepNode, QStringList("Step Number Label")))
-                
-                pliNode = QTreeWidgetItem(stepNode)
-                pliNode.setText(0, "PLI")
-                
-                for item in step.pli.layout.values():
-                    itemNode = QTreeWidgetItem(pliNode)
-                    itemNode.setText(0, item.partOGL.name)
-                    
-                stepNode.addChild(QTreeWidgetItem(stepNode, QStringList("CSI")))
-    
-class Instructions(object):
-
-    def __init__(self, scene, glWidget, filename = None):
+    def __init__(self, parent, scene, glWidget, filename = None):
+        QAbstractItemModel.__init__(self, parent)
         global GlobalGLContext
         
         # Part dimensions cache line format: filename width height center.x center.y leftInset bottomInset
@@ -90,6 +52,79 @@ class Instructions(object):
 	if filename:
 	    self.filename = os.path.splitext(os.path.basename(filename))[0]
 	    self.loadModel(filename)
+
+    def data(self, index, role = Qt.DisplayRole):
+        if not index.isValid():
+            return QVariant(self.filename)
+
+        if role != Qt.DisplayRole:
+            return QVariant()
+
+        item = index.internalPointer()
+
+        return QVariant(item.data(0))
+
+    def rowCount(self, parent = QModelIndex()):
+
+        if parent.column() > 0:
+            return 0
+
+        if not parent.isValid():
+            return len(self.pages)
+
+        item = parent.internalPointer()
+	if hasattr(item, "childCount"):
+            return item.childCount()
+        return 0
+
+    def columnCount(self, parentIndex = QModelIndex()):
+        return 1  # Every single item in the tree has exactly 1 column
+
+    def flags(self, index):
+        if not index.isValid():
+            return 0
+        return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+
+    def index(self, row, column, parent = QModelIndex()):
+        if row < 0 or column < 0:
+            return QModelIndex()
+
+        if parent.isValid():
+            parentItem = parent.internalPointer()
+        else:
+            parentItem = self
+
+        if not hasattr(parentItem, "child"):
+            return QModelIndex()
+
+        childItem = parentItem.child(row)
+        if childItem:
+            return self.createIndex(row, column, childItem)
+        else:
+            return QModelIndex()
+
+    def child(self, row):
+        if row < 0 or row >= len(self.pages):
+            return None
+        return self.pages[row]
+
+    def childCount(self):
+        return len(self.pages)
+
+    def parent(self, index):
+        if not index.isValid():
+            return QModelIndex()
+        
+        childItem = index.internalPointer()
+        parentItem = childItem.parent()
+
+        if parentItem == self:
+            return QModelIndex()
+
+        return self.createIndex(parentItem.row(), 0, parentItem)
+
+    def headerData(self, section, orientation, role = Qt.DisplayRole):
+        return QVariant()
 
     def loadModel(self, filename):
 	self.filename = os.path.splitext(os.path.basename(filename))[0]
@@ -355,6 +390,7 @@ class Page(QGraphicsRectItem):
         # Setup this page's page number
         self.numberItem = QGraphicsSimpleTextItem(str(self.number), self)
         self.numberItem.setFont(QFont("Arial", 15))
+	self.numberItem.dataText = "Page Number Label"
 
         # Position page number in bottom right page corner
         rect = self.numberItem.boundingRect()
@@ -362,7 +398,24 @@ class Page(QGraphicsRectItem):
         self.numberItem.setPos(rect.topLeft())
 	self.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable)
 	self.numberItem.setFlags(AllFlags)
-        
+      
+    def parent(self):
+        return self.instructions
+
+    def child(self, row):
+        if row < 0 or row >= len(self.steps):
+            return None
+        return self.steps[row]
+
+    def childCount(self):
+        return len(self.steps)
+
+    def row(self):
+        return self.number - 1
+
+    def data(self, index = 0):
+        return QVariant("Page %d" % self.number)
+
     def addStep(self, step):       
         self.steps.append(step)
 
@@ -439,12 +492,34 @@ class Step(QGraphicsRectItem):
         self.numberItem = QGraphicsSimpleTextItem(str(self.number), self)
         self.numberItem.setFont(QFont("Arial", 15))
 	self.numberItem.setFlags(AllFlags)
+	self.numberItem.dataText = "Step Number Label"
 	self.setFlags(AllFlags)
 
         self.parts = []
         self.pli = PLI(self.pos() + Step.inset, self)
         self.csi = CSI(self)
-	
+
+    def parent(self):
+        return self.page
+
+    def child(self, row):
+        if row == 0:
+            return self.numberItem
+        if row == 1:
+            return self.pli
+        if row == 2:
+            return self.csi
+        return None
+
+    def childCount(self):
+        return 3
+
+    def row(self):
+        return self.number - 1
+
+    def data(self, index = 0):
+        return QVariant("Step %d" % self.number)
+
     def addPart(self, part):
     
         self.parts.append(part)
@@ -530,12 +605,37 @@ class PLIItem(QGraphicsRectItem):
         # Initialize the quantity label (position set in initLayout)
         self.numberItem = QGraphicsSimpleTextItem(str(self._count), self)
         self.numberItem.setFont(QFont("Arial", 10))
+
         self.pixmapItem = QGraphicsPixmapItem(self)
-        
+        self.pixmapItem.dataText = "Image"
+
         self.setPos(parent.inset)
 	self.setFlags(AllFlags)
 	self.numberItem.setFlags(AllFlags)
 	self.pixmapItem.setFlags(AllFlags)
+
+    def parent(self):
+        return self.parentItem()
+
+    def child(self, row):
+        if row == 0:
+            return self.pixmapItem
+        if row == 1:
+            return self.numberItem
+        return None
+      
+    def childCount(self):
+        return 2
+
+    def row(self):
+        pli = self.parentItem()
+        for index, item in enumerate(pli.pliItems):
+            if item is self:
+                return index
+        return 0
+
+    def data(self, index = 0):
+        return QVariant("%s - %s" % (self.partOGL.name, getColorName(self.color)))
 
     def paint(self, painter, option, widget = None):
 #        rect = self.numberItem.boundingRect()
@@ -570,7 +670,8 @@ class PLIItem(QGraphicsRectItem):
 
     def _setCount(self, count):
         self._count = count
-        self.numberItem.setText(str(self._count))
+        self.numberItem.setText("x%d" % self._count)
+        self.numberItem.dataText = "Qty. Label (x%d)" % self._count
 
     def _getCount(self):
         return self._count
@@ -623,21 +724,41 @@ class PLI(QGraphicsRectItem):
         
         self.setPos(pos)
         self.setPen(QPen(Qt.black))
-        self.layout = {}  # {(part filename, color): PLIItem instance}
+        self.pliItems = []  # {(part filename, color): PLIItem instance}
 	self.setFlags(AllFlags)
 
+    def parent(self):
+        return self.parentItem()
+
+    def child(self, row):
+        if row < 0 or row >= len(self.pliItems):
+            return None
+        return self.pliItems[row] 
+
+    def childCount(self):
+        return len(self.pliItems)
+
+    def row(self):
+        return 1
+
+    def data(self, index = 0):
+        return QVariant("PLI")
+
     def isEmpty(self):
-        return True if len(self.layout) == 0 else False
+        return True if len(self.pliItems) == 0 else False
 
     def addPart(self, part):
-        
-        item = (part.partOGL.filename, part.color)
-    
-        if item in self.layout:
-            self.layout[item].count += 1
-        else:
-            self.layout[item] = PLIItem(self, part.partOGL, part.color)
-            self.layout[item].setParentItem(self)  # This needed?
+      
+        found = False
+        for item in self.pliItems:
+            if item.color == part.color and item.filename == part.partOGL.filename:
+                item.count += 1
+                found = True
+                break
+        if not found:
+            item = PLIItem(self, part.partOGL, part.color)
+            item.setParentItem(self)
+            self.pliItems.append(item)
     
     def initLayout(self):
         """ 
@@ -645,11 +766,11 @@ class PLI(QGraphicsRectItem):
         """
 
         # If this PLI is empty, nothing to do here
-        if len(self.layout) < 1:
+        if len(self.pliItems) < 1:
             return
         
         # Initialize each item in this PLI, so they have good rects and properly positioned quantity labels
-        for item in self.layout.values():
+	for item in self.pliItems:
             item.initLayout()
     
         # Return the height of the part in the specified layout item
@@ -666,7 +787,7 @@ class PLI(QGraphicsRectItem):
             return -1
         
         # Sort the list of parts in this PLI from widest to narrowest, with the tallest one first
-        partList = self.layout.values()
+        partList = self.pliItems
         tallestPart = max(partList, key=itemHeight)
         partList.remove(tallestPart)
         partList.sort(compareLayoutItemWidths)
@@ -706,8 +827,8 @@ class PLI(QGraphicsRectItem):
             
     def writeToStream(self, stream):
         stream << self.pos() << self.rect() << self.pen()
-        stream.writeInt32(len(self.layout))
-        for item in self.layout.values():
+        stream.writeInt32(len(self.pliItems))
+	for item in self.pliItems:
             item.writeToStream(stream)
 	    
     @staticmethod
@@ -724,8 +845,7 @@ class PLI(QGraphicsRectItem):
 	itemCount = stream.readInt32()
 	for i in range(0, itemCount):
 	    pliItem = PLIItem.readFromStream(stream, pli)
-	    item = (pliItem.partOGL.filename, pliItem.color)
-	    pli.layout[item] = pliItem
+	    pli.pliItems.append(pliItem)
 	return pli
 
 class CSI(QGraphicsPixmapItem):
@@ -742,7 +862,13 @@ class CSI(QGraphicsPixmapItem):
         self.oglDispID = UNINIT_OGL_DISPID
         self.partialGLDispID = UNINIT_OGL_DISPID
 	self.setFlags(AllFlags)
-    
+   
+    def parent(self):
+        return self.step
+
+    def data(self, index = 0):
+        return QVariant("CSI")
+
     def callPreviousOGLDisplayLists(self):
         
         if self.oglDispID == UNINIT_OGL_DISPID:

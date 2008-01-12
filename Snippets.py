@@ -643,3 +643,56 @@ def partOGL_drawBoundingBox(self):
     #        pass  # TODO: get a bloody QGraphicsItem out of that damn value
     #    return QGraphicsItem.itemChange(self, change, value)
 
+class LicNodeTypes(object):
+    InstructionNode, \
+    PageNode, \
+    PageNumberNode, \
+    StepNode,  \
+    StepNumberNode, \
+    PLINode, \
+    PLIItemNode, \
+    PLIItemLabelNode, \
+    CSINode \
+    = range(QTreeWidgetItem.UserType + 1, QTreeWidgetItem.UserType + 10)
+    
+class LicTree(QTreeView):
+
+    def __init__(self, parent):
+        QTreeView.__init__(self, parent)
+        self.instructions = None
+        x = self.connect(self, SIGNAL("itemClicked(QTreeWidgetItem *, int)"), self.clicked)               
+        
+    def clicked(self, item = None, column = None):
+        print "hello: %d, type: %d, %s" % (column, item.type(), str(item))
+	self.instructions.selectItem(item)
+        
+    def initTree(self, instructions):
+        return
+        """
+        self.instructions = instructions
+        root = QTreeWidgetItem(self, LicNodeTypes.InstructionNode)
+        root.setText(0, instructions.filename)
+        self.addTopLevelItem(root)
+        
+        for page in instructions.pages:
+            pageNode = QTreeWidgetItem(root, LicNodeTypes.PageNode)
+            pageNode.setText(0, "Page %d" % page.number)
+            
+            pageNumberNode = QTreeWidgetItem(pageNode, QStringList("Page Number Label"), LicNodeTypes.PageNumberNode)
+            pageNode.addChild(pageNumberNode)
+            
+            for step in page.steps:
+                stepNode = QTreeWidgetItem(pageNode)
+                stepNode.setText(0, "Step %d" % step.number)
+                stepNode.addChild(QTreeWidgetItem(stepNode, QStringList("Step Number Label")))
+                
+                pliNode = QTreeWidgetItem(stepNode)
+                pliNode.setText(0, "PLI")
+                
+                for item in step.pli.layout.values():
+                    itemNode = QTreeWidgetItem(pliNode)
+                    itemNode.setText(0, item.partOGL.name)
+                    
+                stepNode.addChild(QTreeWidgetItem(stepNode, QStringList("CSI")))
+   
+        """
