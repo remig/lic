@@ -26,7 +26,7 @@ except ImportError:
 PageSize = QSize(800, 600)
 
 class InstructionViewWidget(QGraphicsView):
-    def __init__(self,  parent = None):
+    def __init__(self, parent):
         QGLWidget.__init__(self,  parent)
 
         self.setDragMode(QGraphicsView.RubberBandDrag)
@@ -34,6 +34,33 @@ class InstructionViewWidget(QGraphicsView):
         self.setRenderHint(QPainter.TextAntialiasing)
         self.setBackgroundBrush(QBrush(Qt.gray))
 
+    def keyReleaseEvent(self, event):
+        
+        key = event.key()
+        offset = 1
+        moved = False
+        
+        if event.modifiers() & Qt.ShiftModifier:
+            offset = 20 if event.modifiers() & Qt.ControlModifier else 5
+    
+        for item in self.scene().selectedItems():
+            if key == Qt.Key_Left:
+                item.moveBy(-offset, 0)
+                moved = True
+            elif key == Qt.Key_Right:
+                item.moveBy(offset, 0)
+                moved = True
+            elif key == Qt.Key_Up:
+                item.moveBy(0, -offset)
+                moved = True
+            elif key == Qt.Key_Down:
+                item.moveBy(0, offset)
+                moved = True
+            if moved and hasattr(item.parentItem(), "resetRect"):
+                    item.parentItem().resetRect()
+        if moved:
+            self.emit(SIGNAL("itemMoved"))
+            
 class LicWindow(QMainWindow):
 
     def __init__(self, parent = None):
@@ -46,6 +73,7 @@ class LicWindow(QMainWindow):
         self.graphicsView = InstructionViewWidget(self)
         self.graphicsView.setScene(self.scene)
         self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
+        self.connect(self.graphicsView, SIGNAL("itemMoved"), self.invalidateInstructions)
 
         self.mainSplitter = QSplitter(Qt.Horizontal)
         self.mainSplitter.addWidget(self.treeView)
@@ -70,7 +98,6 @@ class LicWindow(QMainWindow):
         self.treeView.setSelectionModel(self.selectionModel)
         self.treeView.connect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateSelection)
 
-
         if self.filename:
             self.loadLicFile(self.filename)
 #            self.loadModel(self.modelName)
@@ -80,6 +107,9 @@ class LicWindow(QMainWindow):
             title += " - " + os.path.basename(self.filename)
         self.setWindowTitle(title)
 
+    def invalidateInstructions(self):
+        self.instructions.dirty = True
+        
     def initMenu(self):
         menu = self.menuBar()
         fileMenu = menu.addMenu("&File")

@@ -20,33 +20,6 @@ AllFlags = QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraph
 
 Dirty = 0
 
-def genericKeyReleaseEvent(self, event):
-    
-    key = event.key()
-    offset = 1
-    moved = False
-    
-    if event.modifiers() & Qt.ShiftModifier:
-        offset = 20 if event.modifiers() & Qt.ControlModifier else 5
-
-    if key == Qt.Key_Left:
-        self.moveBy(-offset, 0)
-        moved = True
-    elif key == Qt.Key_Right:
-        self.moveBy(offset, 0)
-        moved = True
-    elif key == Qt.Key_Up:
-        self.moveBy(0, -offset)
-        moved = True
-    elif key == Qt.Key_Down:
-        self.moveBy(0, offset)
-        moved = True
-    if moved:
-        global Dirty
-        Dirty = True
-        if hasattr(self.parentItem(), "resetRect"):
-            self.parentItem().resetRect()
-
 def genericMousePressEvent(className):
     def _tmp(self, event):
         className.mousePressEvent(self, event)
@@ -69,7 +42,6 @@ def genericItemParent(self):
 def genericItemData(self, index):
     return self.dataText
 
-QGraphicsSimpleTextItem.keyReleaseEvent = genericKeyReleaseEvent
 QGraphicsSimpleTextItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
 QGraphicsSimpleTextItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
@@ -95,7 +67,6 @@ class LicTreeView(QTreeView):
         selection = self.selectionModel()
         selection.clear()
         
-        print "Updating tree selection, len: %d" % len(scene.selectedItems())
         for item in scene.selectedItems():
             index = model.graphicsItemToModelIndex(item)
             if index:
@@ -589,7 +560,6 @@ class Step(QGraphicsRectItem):
     """ A single step in an instruction book.  Contains one optional PLI and exactly one CSI. """
 
     NextNumber = 1
-    keyReleaseEvent = genericKeyReleaseEvent
     mousePressEvent = genericMousePressEvent(QGraphicsRectItem)
     mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsRectItem)
 
@@ -704,7 +674,6 @@ class Step(QGraphicsRectItem):
 class PLIItem(QGraphicsRectItem):
     """ Represents one part inside a PLI along with its quantity label. """
 
-    keyReleaseEvent = genericKeyReleaseEvent
     mousePressEvent = genericMousePressEvent(QGraphicsRectItem)
     mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsRectItem)
     
@@ -832,7 +801,6 @@ class PLI(QGraphicsRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
 
     margin = QPointF(15, 15)
-    keyReleaseEvent = genericKeyReleaseEvent
     mousePressEvent = genericMousePressEvent(QGraphicsRectItem)
     mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsRectItem)
 
@@ -977,7 +945,6 @@ class CSI(QGraphicsPixmapItem):
     Construction Step Image.  Includes border and positional info.
     """
 
-    keyReleaseEvent = genericKeyReleaseEvent
     mousePressEvent = genericMousePressEvent(QGraphicsPixmapItem)
     mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsPixmapItem)
 
