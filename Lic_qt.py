@@ -84,7 +84,7 @@ class LicWindow(QMainWindow):
         #self.modelName = "c:\\ldrawparts\\models\\3001.DAT"
         self.filename = "C:\\ldraw\\lic\\pyramid_orig.lic"
         #self.filename = "C:\\ldraw\\lic\\pyramid_orig_displaced.lic"
-        self.modelName = "C:\\ldrawparts\\models\\pyramid_orig.dat"
+        self.modelName = "C:\\ldraw\\lic\\models\\pyramid_orig.dat"
 
         self.initMenu()
         statusBar = self.statusBar()

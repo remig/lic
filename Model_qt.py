@@ -59,7 +59,6 @@ class LicTreeView(QTreeView):
         QTreeView.__init__(self, parent)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.connect(self, SIGNAL("clicked(QModelIndex)"), self.clicked)
-        self.connect(self, SIGNAL("expanded(QModelIndex)"), self.expanded)
         
     def updateSelection(self):
         model = self.model()
@@ -72,24 +71,17 @@ class LicTreeView(QTreeView):
             if index:
                 selection.select(index, QItemSelectionModel.Select)
 
-    def expanded(self, index = None):
-        #print index.internalPointer()
-        pass
-
     def clicked(self, index = None):
         if not index:
             return
 
+        # Get a list of everything selected in the tree
         selList = self.selectionModel().selectedIndexes()
-        
-        if len(selList) > 1:
-            # TODO: Ensure we can only multi-select items on the same page
-            pass
-        
+
         # Clear any existing selection
         instructions = self.model()
         instructions.scene.clearSelection()
-
+        
         # Find the selected item's parent page, then flip to that page
         parent = QModelIndex(index)
         while parent.parent().internalPointer():
@@ -243,6 +235,7 @@ class Instructions(QAbstractItemModel):
         for page in self.pages:
             page.hide()
         self.pages[pageNumber - 1].show()
+        self.scene.clearSelection()
 
     def importModel(self, filename):
         """ Reads in an LDraw model file and popluates this instruction book with the info. """
@@ -384,6 +377,14 @@ class Instructions(QAbstractItemModel):
                 csiList = csiList2  # Some images rendered out of frame - loop and try bigger frame
                 csiList2 = []
 
+        # Initialize each CSI's pixmap, for display in the gui
+        for csi in csiList:
+            pBuffer = QGLPixelBuffer(csi.width, csi.height, QGLFormat(), GlobalGLContext)
+            pBuffer.makeCurrent()
+            csi.initPixmap(pBuffer)
+            
+        GlobalGLContext.makeCurrent()
+
     def getPartDictionary(self):
         global partDictionary
         return partDictionary
@@ -516,7 +517,8 @@ class Step(QGraphicsRectItem):
         return 3
 
     def row(self):
-        return self.number
+        page = self.parentItem()
+        return page.steps.index(self) + 1  # + 1 for page number label
 
     def data(self, index):
         return "Step %d" % self.number
@@ -583,10 +585,7 @@ class PLIItem(QGraphicsRectItem):
 
     def row(self):
         pli = self.parentItem()
-        for index, item in enumerate(pli.pliItems):
-            if item is self:
-                return index
-        return 0
+        return pli.pliItems.index(self)
 
     def data(self, index):
         return "%s - %s" % (self.partOGL.name, getColorName(self.color))
@@ -850,14 +849,9 @@ class CSI(QGraphicsPixmapItem):
         # TODO: update some kind of load status bar her - this function is *slow*
         print "CSI %s step %d - size %d" % (filename, self.parentItem().number, size)
         self.width, self.height, self.center, x, y = params
-        self.initPixmap()
         return True
 
-    def initPixmap(self):
-        global GlobalGLContext
-
-        pBuffer = QGLPixelBuffer(self.width, self.height, QGLFormat(), GlobalGLContext)
-        pBuffer.makeCurrent()
+    def initPixmap(self, pBuffer):
 
         GLHelpers_qt.initFreshContext()
         GLHelpers_qt.adjustGLViewport(0, 0, self.width, self.height)
@@ -867,7 +861,6 @@ class CSI(QGraphicsPixmapItem):
 
         image = pBuffer.toImage()
         self.setPixmap(QPixmap.fromImage(image))
-        GlobalGLContext.makeCurrent()
         
 class PartOGL(object):
     """
@@ -997,7 +990,7 @@ class PartOGL(object):
         global GlobalGLContext
 
         if self.isPrimitive:
-            return None  # Do not generate any pixmaps for primitives
+            return None  # Do not generate pixmaps for primitives
 
         pBuffer = QGLPixelBuffer(self.width, self.height, QGLFormat(), GlobalGLContext)
         pBuffer.makeCurrent()
@@ -1015,13 +1008,12 @@ class PartOGL(object):
         self.draw()
 
         image = pBuffer.toImage()
-        if image:
-            image.save("C:\\ldraw\\tmp\\buffer_%s.png" % self.filename, None)
+        #if image:
+        #    image.save("C:\\ldraw\\tmp\\buffer_%s.png" % self.filename, None)
 
         pixmap = QPixmap.fromImage(image)
         GlobalGLContext.makeCurrent()
         return pixmap
-
 
 class Part:
     """
