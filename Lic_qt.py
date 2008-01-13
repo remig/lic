@@ -68,10 +68,12 @@ class LicWindow(QMainWindow):
         self.treeView.setModel(self.instructions)
         self.selectionModel = QItemSelectionModel(self.instructions)
         self.treeView.setSelectionModel(self.selectionModel)
+        self.treeView.connect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateSelection)
+
 
         if self.filename:
-#            self.loadLicFile(self.filename)
-            self.loadModel(self.modelName)
+            self.loadLicFile(self.filename)
+#            self.loadModel(self.modelName)
 
         title = "Lic %s" % __version__
         if self.filename:
@@ -121,6 +123,8 @@ class LicWindow(QMainWindow):
 
     def closeEvent(self, event):
         if self.offerSave():
+            # Need to explicitly disconnect this signal, because the scene emits an updateSelection right before it's deleted
+            self.disconnect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateSelection)
             event.accept()
         else:
             event.ignore()

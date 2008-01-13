@@ -88,17 +88,28 @@ class LicTreeView(QTreeView):
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.connect(self, SIGNAL("clicked(QModelIndex)"), self.clicked)
         self.connect(self, SIGNAL("expanded(QModelIndex)"), self.expanded)
+        
+    def updateSelection(self):
+        model = self.model()
+        scene = model.scene
+        selection = self.selectionModel()
+        selection.clear()
+        
+        print "Updating tree selection, len: %d" % len(scene.selectedItems())
+        for item in scene.selectedItems():
+            index = model.graphicsItemToModelIndex(item)
+            if index:
+                selection.select(index, QItemSelectionModel.Select)
 
     def expanded(self, index = None):
-        print index.internalPointer()
-        #pass 
+        #print index.internalPointer()
+        pass
 
     def clicked(self, index = None):
         if not index:
             return
 
         selList = self.selectionModel().selectedIndexes()
-        #print "selected: %d" % len(selList)
         
         if len(selList) > 1:
             # TODO: Ensure we can only multi-select items on the same page
@@ -220,6 +231,14 @@ class Instructions(QAbstractItemModel):
     def headerData(self, section, orientation, role = Qt.DisplayRole):
         return QVariant("Instruction Book")
 
+    def graphicsItemToModelIndex(self, item):
+        if item is self:
+            return QModelIndex()
+        if hasattr(item, "row"):
+            return self.createIndex(item.row(), 0, item)
+        else:
+            return self.createIndex(0, 0, item)
+    
     def loadModel(self, filename):
         self.emit(SIGNAL("layoutAboutToBeChanged"))
         self.filename = os.path.splitext(os.path.basename(filename))[0]
@@ -621,7 +640,7 @@ class Step(QGraphicsRectItem):
         return 3
 
     def row(self):
-        return self.number - 1
+        return self.number
 
     def data(self, index):
         return "Step %d" % self.number
@@ -974,6 +993,9 @@ class CSI(QGraphicsPixmapItem):
     def parent(self):
         return self.parentItem()
 
+    def row(self):
+        return 2
+    
     def data(self, index = 0):
         return "CSI"
 
