@@ -35,12 +35,11 @@ class InstructionViewWidget(QGraphicsView):
         self.setRenderHint(QPainter.TextAntialiasing)
         self.setBackgroundBrush(QBrush(Qt.gray))
 
-    def resizeEvent(self, event = None):
-        pass
-
+#    def mouseMoveEvent(self, event = None):
+#        QGraphicsView.mouseMoveEvent(self, event)
+#        print "."
+        
 class LicWindow(QMainWindow):
-
-    pageInset = 41
 
     def __init__(self, parent = None):
         QMainWindow.__init__(self, parent)
@@ -49,22 +48,21 @@ class LicWindow(QMainWindow):
         self.treeView = LicTreeView(self)
 
         self.scene = QGraphicsScene(self)
-        self.scene.setSceneRect(0, 0, PageSize.width() + LicWindow.pageInset, PageSize.height() + LicWindow.pageInset)
         self.graphicsView = InstructionViewWidget(self)
         self.graphicsView.setScene(self.scene)
+        self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
 
         self.mainSplitter = QSplitter(Qt.Horizontal)
         self.mainSplitter.addWidget(self.treeView)
         self.mainSplitter.addWidget(self.graphicsView)
         self.setCentralWidget(self.mainSplitter)
 
-        Page.pageInset = LicWindow.pageInset / 2.0
-
-	# temp debug code
+        # temp debug code
         #self.modelName = None
         #self.modelName = "c:\\ldrawparts\\models\\Blaster.mpd"
         #self.modelName = "c:\\ldrawparts\\models\\3001.DAT"
-        self.filename = "C:\\ldraw\\lic\\pyramid_orig.lic"
+        #self.filename = "C:\\ldraw\\lic\\pyramid_orig.lic"
+        self.filename = "C:\\ldraw\\lic\\pyramid_orig_displaced.lic"
         self.modelName = "C:\\ldrawparts\\models\\pyramid_orig.dat"
 
         self.initMenu()
@@ -72,8 +70,10 @@ class LicWindow(QMainWindow):
         statusBar.showMessage("Model: " + self.modelName)
 
         self.instructions = Instructions(self.treeView, self.scene, self.glWidget)
-	self.treeView.setModel(self.instructions)
-        
+        self.treeView.setModel(self.instructions)
+        self.selectionModel = QItemSelectionModel(self.instructions)
+        self.treeView.setSelectionModel(self.selectionModel)
+
         if self.filename:
             self.loadLicFile(self.filename)
 #            self.loadModel(self.modelName)
@@ -86,30 +86,32 @@ class LicWindow(QMainWindow):
     def initMenu(self):
         menu = self.menuBar()
         fileMenu = menu.addMenu("&File")
-        
+
         fileOpenAction = self.createMenuAction("&Open", self.fileOpen, QKeySequence.Open, "Open an existing Instruction book")
         fileMenu.addAction(fileOpenAction)
 
         fileCloseAction = self.createMenuAction("&Close", self.fileClose, QKeySequence.Close, "Close current Instruction book")
         fileMenu.addAction(fileCloseAction)
-        
+
         fileMenu.addSeparator()
-        
+
         fileSaveAction = self.createMenuAction("&Save", self.fileSave, QKeySequence.Save, "Save the Instruction book")
         fileMenu.addAction(fileSaveAction)
 
         fileSaveAsAction = self.createMenuAction("Save &As...", self.fileSaveAs, None, "Save the Instruction book using a new filename")
         fileMenu.addAction(fileSaveAsAction)
-        
+
         fileImportAction = self.createMenuAction("&Import Model", self.fileImport, None, "Import an existing LDraw Model into a new Instruction book")
         fileMenu.addAction(fileImportAction)
 
         fileMenu.addSeparator()
-        
+
         fileExitAction = self.createMenuAction("E&xit", SLOT("close()"), "Ctrl+Q", "Exit Lic")
         fileMenu.addAction(fileExitAction)
-        
+
         editMenu = menu.addMenu("&Edit")
+        
+        viewMenu = menu.addMenu("&View")
 
     def createMenuAction(self, text, slot = None, shortcut = None, tip = None, signal = "triggered()"):
         action = QAction(text, self)
@@ -127,11 +129,13 @@ class LicWindow(QMainWindow):
             event.accept()
         else:
             event.ignore()
-    
+
     def fileClose(self):
         if not self.offerSave():
             return
         self.instructions.clear()
+        self.setWindowTitle("Lic %s" % __version__)
+        self.filename = ""
         self.update()
 
     def offerSave(self):
@@ -147,7 +151,7 @@ class LicWindow(QMainWindow):
         if reply == QMessageBox.Yes:
             self.fileSave()
         return True
-            
+
     def fileImport(self):
         if not self.offerSave():
             return
@@ -165,7 +169,7 @@ class LicWindow(QMainWindow):
             self.filename = filename
             self.setWindowTitle("Lic %s - %s" % (__version__, os.path.basename(self.filename)))
             return self.fileSave()
-        
+
     def fileSave(self):
         fh = None
         try:
@@ -201,28 +205,28 @@ class LicWindow(QMainWindow):
 
     def loadLicFile(self, filename):
         global Dirty, FileVersion, MagicNumber
-        
+
         fh = None
         success = False
         try:
             fh = QFile(filename)
             if not fh.open(QIODevice.ReadOnly):
                 raise IOError, unicode(fh.errorString())
-            
+
             stream = QDataStream(fh)
             stream.setVersion(QDataStream.Qt_4_3)
-            
+
             magic = stream.readInt32()
             if magic != MagicNumber:
                 raise IOError, "not a valid .lic file"
-            
+
             fileVersion = stream.readInt16()
             if fileVersion != FileVersion:
                 raise IOError, "unrecognized .lic file version"
 
             self.instructions.readFromStream(stream, filename)  # Big call
-	    self.instructions.selectPage(1)
-            
+            self.instructions.selectPage(1)
+
             self.update()
             success = True
         except IOError, e:
@@ -232,7 +236,7 @@ class LicWindow(QMainWindow):
                 fh.close()
         Dirty = False
         return success
-    
+
     def loadModel(self, filename):
         self.instructions.loadModel(filename)
         self.modelName = filename

@@ -75,7 +75,7 @@ Excalion - Waterlines - Between The Lines
 Excalion - Waterlines - Life On Fire
 
 Gamma Ray - Majestic - Fight *
-Gamma Ray - Blast From The Past - Lust For Life
+Gamma Ray - Blast From The Past - Lust For Life *
 Gamma Ray - Blast From The Past - Man On A Mission **
 
 Hammerfall - Glory To The Brave - Child Of The Damned
@@ -100,7 +100,7 @@ Kamelot - The Fourth Legacy - The Fourth Legacy
 Kamelot - The Fourth Legacy - The Shadow Of Uther *
 
 Kotipelto - Serenity - Angels Will Cry **
-Kotipelto - Serenity - Once Upon A Time
+Kotipelto - Serenity - Once Upon A Time *
 Kotipelto - Serenity - Serenity
 Kotipelto - Serenity - Sleep Well !
 
@@ -108,8 +108,10 @@ Krypteria - Bloodangel's Cry - All Systems Go * (hot)
 
 Manticora - Roots Of Eternity - When Forever Ends
 
+Masterplan - Aeronautics - Wounds
+
 Nightwish - Oceanborn - Stargazers
-Nightwish - Wishmaster - Crownless
+Nightwish - Wishmaster - Crownless **
 Nightwish - Wishmaster - Wishmaster  *
 
 Pretty Maids - The Best Of... Back To Back - Back To Back
