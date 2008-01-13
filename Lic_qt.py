@@ -12,7 +12,6 @@ from Model_qt import *
 __version__ = 0.1
 MagicNumber = 0x14768126
 FileVersion = 1
-Dirty = False
 
 try:
     from OpenGL.GL import *
@@ -35,10 +34,6 @@ class InstructionViewWidget(QGraphicsView):
         self.setRenderHint(QPainter.TextAntialiasing)
         self.setBackgroundBrush(QBrush(Qt.gray))
 
-#    def mouseMoveEvent(self, event = None):
-#        QGraphicsView.mouseMoveEvent(self, event)
-#        print "."
-        
 class LicWindow(QMainWindow):
 
     def __init__(self, parent = None):
@@ -61,8 +56,8 @@ class LicWindow(QMainWindow):
         #self.modelName = None
         #self.modelName = "c:\\ldrawparts\\models\\Blaster.mpd"
         #self.modelName = "c:\\ldrawparts\\models\\3001.DAT"
-        #self.filename = "C:\\ldraw\\lic\\pyramid_orig.lic"
-        self.filename = "C:\\ldraw\\lic\\pyramid_orig_displaced.lic"
+        self.filename = "C:\\ldraw\\lic\\pyramid_orig.lic"
+        #self.filename = "C:\\ldraw\\lic\\pyramid_orig_displaced.lic"
         self.modelName = "C:\\ldrawparts\\models\\pyramid_orig.dat"
 
         self.initMenu()
@@ -75,8 +70,8 @@ class LicWindow(QMainWindow):
         self.treeView.setSelectionModel(self.selectionModel)
 
         if self.filename:
-            self.loadLicFile(self.filename)
-#            self.loadModel(self.modelName)
+#            self.loadLicFile(self.filename)
+            self.loadModel(self.modelName)
 
         title = "Lic %s" % __version__
         if self.filename:
@@ -143,7 +138,7 @@ class LicWindow(QMainWindow):
         Returns True if we should proceed with whateve 
         operation was interrupted by this request.  False means cancel.
         """
-        if not Dirty:
+        if not self.instructions.dirty:
             return True
         reply = QMessageBox.question(self, "Lic - Unsaved Changes", "Save unsaved changes?", QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
         if reply == QMessageBox.Cancel:

@@ -18,11 +18,60 @@ partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 GlobalGLContext = None
 AllFlags = QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
 
+Dirty = 0
+
+def genericKeyReleaseEvent(self, event):
+    
+    key = event.key()
+    offset = 1
+    moved = False
+    
+    if event.modifiers() & Qt.ShiftModifier:
+        offset = 20 if event.modifiers() & Qt.ControlModifier else 5
+
+    if key == Qt.Key_Left:
+        self.moveBy(-offset, 0)
+        moved = True
+    elif key == Qt.Key_Right:
+        self.moveBy(offset, 0)
+        moved = True
+    elif key == Qt.Key_Up:
+        self.moveBy(0, -offset)
+        moved = True
+    elif key == Qt.Key_Down:
+        self.moveBy(0, offset)
+        moved = True
+    if moved:
+        global Dirty
+        Dirty = True
+        if hasattr(self.parentItem(), "resetRect"):
+            self.parentItem().resetRect()
+
+def genericMousePressEvent(className):
+    def _tmp(self, event):
+        className.mousePressEvent(self, event)
+        self.lastPos = self.pos()
+    return _tmp
+    
+def genericMouseReleaseEvent(className):
+    def _tmp(self, event):
+        className.mouseReleaseEvent(self, event)
+        if self.pos() != self.lastPos:
+            global Dirty
+            Dirty = True
+            if hasattr(self.parentItem(), "resetRect"):
+                self.parentItem().resetRect()
+    return _tmp
+                
 def genericItemParent(self):
     return self.parentItem()
 
 def genericItemData(self, index):
     return self.dataText
+
+QGraphicsSimpleTextItem.keyReleaseEvent = genericKeyReleaseEvent
+QGraphicsSimpleTextItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
+QGraphicsSimpleTextItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
 QGraphicsSimpleTextItem.parent = genericItemParent
 QGraphicsSimpleTextItem.data = genericItemData
@@ -90,6 +139,16 @@ class Instructions(QAbstractItemModel):
             self.filename = os.path.splitext(os.path.basename(filename))[0]
             self.loadModel(filename)
 
+    def _setDirty(self, _dirty):
+        global Dirty
+        Dirty = _dirty
+
+    def _getDirty(self):
+        global Dirty
+        return Dirty
+
+    dirty = property(fget = _getDirty, fset = _setDirty)
+    
     def data(self, index, role = Qt.DisplayRole):
         if role != Qt.DisplayRole:
             return QVariant()
@@ -171,7 +230,7 @@ class Instructions(QAbstractItemModel):
         self.emit(SIGNAL("layoutChanged()"))
 
     def clear(self):
-        global partDictionary
+        global partDictionary, Dirty
         self.emit(SIGNAL("layoutAboutToBeChanged"))
         self.currentStep = None
         for page in self.pages:
@@ -181,6 +240,7 @@ class Instructions(QAbstractItemModel):
         partDictionary = {}
         Page.NextNumber = 1
         Step.NextNumber = 1
+        Dirty = False
         GlobalGLContext.makeCurrent()
         self.emit(SIGNAL("layoutChanged()"))
 
@@ -374,9 +434,6 @@ class Instructions(QAbstractItemModel):
                 csiList = csiList2  # Some images rendered out of frame - loop and try bigger frame
                 csiList2 = []
 
-    def selectItem(self, item):
-        pass
-
     def writeToStream(self, stream):
         global partDictionary
 
@@ -513,6 +570,9 @@ class Step(QGraphicsRectItem):
     """ A single step in an instruction book.  Contains one optional PLI and exactly one CSI. """
 
     NextNumber = 1
+    keyReleaseEvent = genericKeyReleaseEvent
+    mousePressEvent = genericMousePressEvent(QGraphicsRectItem)
+    mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsRectItem)
 
     def __init__(self, parentPage, prevStep, number = -1):
         QGraphicsRectItem.__init__(self, parentPage)
@@ -546,7 +606,7 @@ class Step(QGraphicsRectItem):
         self.csi = CSI(self)
 
     def parent(self):
-        return self.page
+        return self.parentItem()
 
     def child(self, row):
         if row == 0:
@@ -567,12 +627,13 @@ class Step(QGraphicsRectItem):
         return "Step %d" % self.number
 
     def addPart(self, part):
-
         self.parts.append(part)
-
         if self.pli:
             self.pli.addPart(part)
 
+    def resetRect(self):
+        self.setRect(self.childrenBoundingRect())
+        
     def initLayout(self):
 
         print "initializing step: %d" % self.number
@@ -581,9 +642,9 @@ class Step(QGraphicsRectItem):
 
         # Position the Step number label beneath the PLI
         self.numberItem.setPos(0, 0)
-        self.numberItem.moveBy(0, self.pli.rect().height() + self.page.margin.y() + 0.5)
+        self.numberItem.moveBy(0, self.pli.rect().height() + Page.margin.y() + 0.5)
 
-        self.setRect(self.pli.rect() | self.csi.boundingRect())
+        self.resetRect()
 
     def writeToStream(self, stream):
         stream << self.pos() << self.rect()
@@ -621,15 +682,13 @@ class Step(QGraphicsRectItem):
             step.parts.append(part)
         return step
 
-#    def paint(self, painter, option, widget = None):
-#        rect = self.numberItem.boundingRect()
-#        rect.translate(self.numberItem.pos())
-#        painter.drawRect(rect)
-#        QGraphicsRectItem.paint(self, painter, option, widget)
-
 class PLIItem(QGraphicsRectItem):
     """ Represents one part inside a PLI along with its quantity label. """
 
+    keyReleaseEvent = genericKeyReleaseEvent
+    mousePressEvent = genericMousePressEvent(QGraphicsRectItem)
+    mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsRectItem)
+    
     def __init__(self, parent, partOGL, color):
         QGraphicsRectItem.__init__(self, parent)
 
@@ -674,6 +733,10 @@ class PLIItem(QGraphicsRectItem):
     def data(self, index):
         return "%s - %s" % (self.partOGL.name, getColorName(self.color))
 
+    def resetRect(self):
+        self.setRect(self.childrenBoundingRect())
+        self.parentItem().resetRect()
+        
     def initLayout(self):
 
         part = self.partOGL
@@ -750,6 +813,9 @@ class PLI(QGraphicsRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
 
     margin = QPointF(15, 15)
+    keyReleaseEvent = genericKeyReleaseEvent
+    mousePressEvent = genericMousePressEvent(QGraphicsRectItem)
+    mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsRectItem)
 
     def __init__(self, parent):
         QGraphicsRectItem.__init__(self, parent)
@@ -779,6 +845,11 @@ class PLI(QGraphicsRectItem):
     def isEmpty(self):
         return True if len(self.pliItems) == 0 else False
 
+    def resetRect(self):
+        rect = self.childrenBoundingRect().adjusted(-PLI.margin.x(), -PLI.margin.y(), PLI.margin.x(), PLI.margin.y())
+        self.setRect(rect)
+        self.parentItem().resetRect()
+        
     def addPart(self, part):
 
         found = False
@@ -887,10 +958,13 @@ class CSI(QGraphicsPixmapItem):
     Construction Step Image.  Includes border and positional info.
     """
 
+    keyReleaseEvent = genericKeyReleaseEvent
+    mousePressEvent = genericMousePressEvent(QGraphicsPixmapItem)
+    mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsPixmapItem)
+
     def __init__(self, step):
         QGraphicsPixmapItem.__init__(self, step)
 
-        self.step = step
         self.center = QPointF()
         self.width = self.height = UNINIT_OGL_DISPID
         self.oglDispID = UNINIT_OGL_DISPID
@@ -898,7 +972,7 @@ class CSI(QGraphicsPixmapItem):
         self.setFlags(AllFlags)
 
     def parent(self):
-        return self.step
+        return self.parentItem()
 
     def data(self, index = 0):
         return "CSI"
@@ -911,8 +985,8 @@ class CSI(QGraphicsPixmapItem):
             return
 
         # Call all previous step's CSI display list
-        if self.step.prevStep:
-            self.step.prevStep.csi.callPreviousOGLDisplayLists()
+        if self.parentItem().prevStep:
+            self.parentItem().prevStep.csi.callPreviousOGLDisplayLists()
 
         # Now call this CSI's display list
         glCallList(self.partialGLDispID)
@@ -921,7 +995,7 @@ class CSI(QGraphicsPixmapItem):
 
         # Ensure all parts in this step have proper display lists
         # TODO: remove this check once all is well
-        for part in self.step.parts:
+        for part in self.parentItem().parts:
             if part.partOGL.oglDispID == UNINIT_OGL_DISPID:
                 part.partOGL.createOGLDisplayList()
 
@@ -929,7 +1003,7 @@ class CSI(QGraphicsPixmapItem):
         self.partialGLDispID = glGenLists(1)
         glNewList(self.partialGLDispID, GL_COMPILE)
 
-        for part in self.step.parts:
+        for part in self.parentItem().parts:
             part.callOGLDisplayList()
 
         glEndList()
@@ -942,9 +1016,10 @@ class CSI(QGraphicsPixmapItem):
         glEndList()
 
     def initLayout(self):
-        x = (self.step.page.rect().width() / 2.0) - (self.width / 2.0)
-        pliBottom = self.step.pli.rect().bottom() + self.step.pli.pos().y()
-        y = pliBottom + ((self.step.page.rect().height() - pliBottom) / 2.0) - (self.height / 2.0)
+        step = self.parentItem()
+        x = (step.page.rect().width() / 2.0) - (self.width / 2.0)
+        pliBottom = step.pli.rect().bottom() + step.pli.pos().y()
+        y = pliBottom + ((step.page.rect().height() - pliBottom) / 2.0) - (self.height / 2.0)
         self.setPos(x, y)
 
     def initSize(self, size, pBuffer):
@@ -966,15 +1041,15 @@ class CSI(QGraphicsPixmapItem):
             print "Trying to init a CSI size that has no display list"
             return
 
-        rawFilename = self.step.page.instructions.filename
-        filename = "%s_step_%d" % (rawFilename, self.step.number)
+        rawFilename = self.parentItem().page.instructions.filename
+        filename = "%s_step_%d" % (rawFilename, self.parentItem().number)
 
         params = GLHelpers_qt.initImgSize(size, size, self.oglDispID, True, filename, None, pBuffer)
         if params is None:
             return False
 
         # TODO: update some kind of load status bar her - this function is *slow*
-        print "CSI %s step %d - size %d" % (filename, self.step.number, size)
+        print "CSI %s step %d - size %d" % (filename, self.parentItem().number, size)
         self.width, self.height, self.center, x, y = params
         self.initPixmap()
         return True
@@ -994,24 +1069,18 @@ class CSI(QGraphicsPixmapItem):
         image = pBuffer.toImage()
         self.setPixmap(QPixmap.fromImage(image))
         GlobalGLContext.makeCurrent()
+        
+#    def mousePressEvent(self, event):
+#        QGraphicsPixmapItem.mousePressEvent(self, event)
+#        self.lastPos = self.pos()
 
-
-    def keyReleaseEvent(self, event = None):
-        offset = 1
-        if event.modifiers() & Qt.ShiftModifier:
-            if event.modifiers() & Qt.ControlModifier:
-                offset = 20
-            else:
-                offset = 5
-        if event.key() == Qt.Key_Left:
-            self.moveBy(-offset, 0)
-        elif event.key() == Qt.Key_Right:
-            self.moveBy(offset, 0)
-        elif event.key() == Qt.Key_Up:
-            self.moveBy(0, -offset)
-        elif event.key() == Qt.Key_Down:
-            self.moveBy(0, offset)
-
+#    def mouseReleaseEvent(self, event):
+#        QGraphicsPixmapItem.mouseReleaseEvent(self, event)
+#        if self.pos() != self.lastPos:
+#            global Dirty
+#            Dirty = True
+#           self.parentItem().resetRect()
+        
     def writeToStream(self, stream):
         stream << self.pos()
         stream.writeInt32(self.width)
@@ -1034,6 +1103,8 @@ class CSI(QGraphicsPixmapItem):
         stream >> pixmap
         csi.setPixmap(pixmap)
         return csi
+
+#CSI.keyReleaseEvent = keyReleaseEvent
 
 class PartOGL(object):
     """
