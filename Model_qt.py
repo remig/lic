@@ -107,7 +107,9 @@ class Instructions(QAbstractItemModel):
         GlobalGLContext.makeCurrent()
 
         self.pages = []
+        self.currentPage = None
         self.currentStep = None
+        self.currentCSI = None
 
         if filename:
             self.filename = os.path.splitext(os.path.basename(filename))[0]
@@ -214,7 +216,7 @@ class Instructions(QAbstractItemModel):
     def clear(self):
         global partDictionary, Dirty
         self.emit(SIGNAL("layoutAboutToBeChanged"))
-        self.currentStep = None
+        self.currentPage = self.currentStep = self.currentCSI = None
         for page in self.pages:
             item = self.scene.removeItem(page)
             del(item)
@@ -234,7 +236,8 @@ class Instructions(QAbstractItemModel):
     def selectPage(self, pageNumber):
         for page in self.pages:
             page.hide()
-        self.pages[pageNumber - 1].show()
+        self.currentPage = self.pages[pageNumber - 1]
+        self.currentPage.show()
         self.scene.clearSelection()
 
     def importModel(self, filename):
@@ -255,19 +258,19 @@ class Instructions(QAbstractItemModel):
 
         if isValidStepLine(line):
             self.addStep()
-
         elif isValidPartLine(line):
-            self.addPart(lineToPart(line), line)
+            self.addPart(lineToPart(line))
 
     def addStep(self):
+        
         # For now, this implicitly adds a new page for each new step
-
         page = Page(self)
         self.addPage(page)
-        self.currentStep = Step(page, self.currentStep)
-        page.addStep(self.currentStep)
+        self.currentStep = Step(page, -1, self.currentCSI)
+        self.currentCSI = self.currentStep.csi
+        page.steps.append(self.currentStep)
 
-    def addPart(self, p, line):
+    def addPart(self, p):
         try:
             part = Part(p['filename'], p['color'], p['matrix'])
         except IOError:
@@ -277,7 +280,6 @@ class Instructions(QAbstractItemModel):
 
         if not self.currentStep:
             self.addStep()
-
         self.currentStep.addPart(part)
 
     def initDraw(self):
@@ -444,9 +446,20 @@ class Page(QGraphicsRectItem):
     def data(self, index):
         return "Page %d" % self.number
 
-    def addStep(self, step):       
-        self.steps.append(step)
-
+    def getAllChildItems(self):
+        items = [self]
+        items.append(self.numberItem)
+        
+        for step in self.steps:
+            items.append(step)
+            items.append(step.numberItem)
+            items.append(step.pli)
+            for pliItem in step.pli.pliItems:
+                items.append(pliItem)
+                items.append(pliItem.numberItem)
+                
+        return items
+                
     def paint(self, painter, option, widget = None):
         # Draw a slightly down-right translated black rectangle, for the page shadow effect
         painter.setPen(Qt.NoPen)
@@ -470,15 +483,14 @@ class Step(QGraphicsRectItem):
     mousePressEvent = genericMousePressEvent(QGraphicsRectItem)
     mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsRectItem)
 
-    def __init__(self, parentPage, prevStep, number = -1):
+    def __init__(self, parentPage, number = -1, prevCSI = None):
         QGraphicsRectItem.__init__(self, parentPage)
 
         pen = self.pen()
         pen.setStyle(Qt.NoPen)
         self.setPen(pen)
 
-        self.page = parentPage
-        self.prevStep = prevStep
+        self.page = parentPage  # TODO: remove this and use parentItem()
         self.setPos(parentPage.rect().topLeft() + parentPage.margin)
 
         # Give this page a number
@@ -497,9 +509,8 @@ class Step(QGraphicsRectItem):
         self.numberItem.dataText = "Step Number Label"
         self.setFlags(AllFlags)
 
-        self.parts = []
         self.pli = PLI(self)
-        self.csi = CSI(self)
+        self.csi = CSI(self, prevCSI)
 
     def parent(self):
         return self.parentItem()
@@ -508,9 +519,9 @@ class Step(QGraphicsRectItem):
         if row == 0:
             return self.numberItem
         if row == 1:
-            return self.pli
-        if row == 2:
             return self.csi
+        if row == 2:
+            return self.pli
         return None
 
     def childCount(self):
@@ -524,7 +535,7 @@ class Step(QGraphicsRectItem):
         return "Step %d" % self.number
 
     def addPart(self, part):
-        self.parts.append(part)
+        self.csi.parts.append(part)
         if self.pli:
             self.pli.addPart(part)
 
@@ -657,7 +668,7 @@ class PLI(QGraphicsRectItem):
         return len(self.pliItems)
 
     def row(self):
-        return 1
+        return 2
 
     def data(self, index):
         return "PLI"
@@ -757,7 +768,7 @@ class CSI(QGraphicsPixmapItem):
     mousePressEvent = genericMousePressEvent(QGraphicsPixmapItem)
     mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsPixmapItem)
 
-    def __init__(self, step):
+    def __init__(self, step, prevCSI = None):
         QGraphicsPixmapItem.__init__(self, step)
 
         self.center = QPointF()
@@ -765,43 +776,35 @@ class CSI(QGraphicsPixmapItem):
         self.oglDispID = UNINIT_OGL_DISPID
         self.partialGLDispID = UNINIT_OGL_DISPID
         self.setFlags(AllFlags)
+        
+        self.prevCSI = prevCSI
+        self.parts = []
 
     def parent(self):
         return self.parentItem()
 
     def row(self):
-        return 2
+        return 1
     
     def data(self, index = 0):
         return "CSI"
 
     def callPreviousOGLDisplayLists(self):
 
-        if self.oglDispID == UNINIT_OGL_DISPID:
-            # TODO: remove this check once all is well
-            print "Trying to call previous CSI that has no display list"
-            return
-
         # Call all previous step's CSI display list
-        if self.parentItem().prevStep:
-            self.parentItem().prevStep.csi.callPreviousOGLDisplayLists()
+        if self.prevCSI:
+            self.prevCSI.callPreviousOGLDisplayLists()
 
         # Now call this CSI's display list
         glCallList(self.partialGLDispID)
 
     def createOGLDisplayList(self):
 
-        # Ensure all parts in this step have proper display lists
-        # TODO: remove this check once all is well
-        for part in self.parentItem().parts:
-            if part.partOGL.oglDispID == UNINIT_OGL_DISPID:
-                part.partOGL.createOGLDisplayList()
-
         # Create a display list for just the parts in this CSI
         self.partialGLDispID = glGenLists(1)
         glNewList(self.partialGLDispID, GL_COMPILE)
 
-        for part in self.parentItem().parts:
+        for part in self.parts:
             part.callOGLDisplayList()
 
         glEndList()

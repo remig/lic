@@ -15,7 +15,7 @@ Avantasia - The Metal Opera Pt 2 - The Looking Glass
 
 Axenstar - The Final Requiem - Final Requiem
 
-Beautiful Sin - The Unexpected - Take Me Home
+Beautiful Sin - The Unexpected - Take Me Home * 
 
 Black Majesty - Sands Of Time - Legacy
 Black Majesty - Sands Of Time - Sands Of Time
@@ -33,13 +33,14 @@ Concerto Moon - Concerto Moon - Like A Beast
 Dark Moor - Beyond The Sea - Before The Duel
 Dark Moor - Dark Moor - Eternity * 
 
-Dragonforce - Inhuman Rampage - Body Breakdown
-Dragonforce - Inhuman Rampage - Operation Ground And Pound
-Dragonforce - Inhuman Rampage - Revolution Deathsquad
+DragonForce - Inhuman Rampage - Body Breakdown
+DragonForce - Inhuman Rampage - Operation Ground And Pound
+DragonForce - Inhuman Rampage - Revolution Deathsquad
 DragonForce - Inhuman Rampage - Storming the Burning Fields
-Dragonforce - Inhuman Rampage - Through The Fire And Flames
-DragonForce - Sonic Firestorm - Fields Of Despair
+DragonForce - Inhuman Rampage - Through The Fire And Flames
 DragonForce - Sonic Firestorm - My Spirit Will Go On
+DragonForce - Sonic Firestorm - Fury Of The Storm
+DragonForce - Sonic Firestorm - Fields Of Despair
 DragonForce - Sonic Firestorm - Soldiers Of The Wasteland
 
 Dragonland - Starfall - Starfall
@@ -99,6 +100,8 @@ Kamelot - The Black Halo - When The Lights Are Down **
 Kamelot - The Fourth Legacy - Nights Of Arabia * 
 Kamelot - The Fourth Legacy - The Fourth Legacy
 Kamelot - The Fourth Legacy - The Shadow Of Uther *
+
+Kiuas - Winter In June - Warrior Soul
 
 Kotipelto - Serenity - Angels Will Cry **
 Kotipelto - Serenity - Once Upon A Time *

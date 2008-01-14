@@ -61,8 +61,41 @@ def __readInstructions(stream, filename, instructions):
     for i in range(0, pageCount):
         page = __readPage(stream, instructions)
         instructions.addPage(page)
+    
+    __linkAllPrevCSIs(instructions)
     instructions.emit(SIGNAL("layoutChanged()"))
 
+def __linkAllPrevCSIs(instructions):
+    
+    for page in instructions.pages:
+        for step in page.steps:
+            __linkPrevCSI(step.csi, instructions)
+
+def __linkPrevCSI(csi, instructions):
+
+    if not isinstance(csi.prevCSI, tuple) or len(csi.prevCSI) != 2:
+        print "Error linking prev CSIs - prevCSI isn't a tuple, it's a %s" % str(type(csi.prevCSI))
+        return
+    
+    prevPageNumber, prevStepNumber = csi.prevCSI
+    
+    csi.prevCSI = None
+    if prevPageNumber == 0 and prevStepNumber == 0:
+        return  # prevPageNumber == 0 means this is the first CSI; its previous is expected to be None
+        
+    prevPage = instructions.pages[prevPageNumber - 1]
+    prevStep = None
+    for step in prevPage.steps:
+        if step.number == prevStepNumber:
+            prevStep = step
+            break
+        
+    if not prevStep:
+        print "Error linking prev CSI: could not find step %d on page %d" % (prevStepNumber, prevPageNumber)
+        return
+
+    csi.prevCSI = step.csi
+    
 def __readPartOGL(stream):
     filename = QString()
     name = QString()
@@ -129,11 +162,11 @@ def __readPage(stream, instructions):
     stepCount = stream.readInt32()
     step = None
     for i in range(0, stepCount):
-        step = __readStep(stream, page, step)
+        step = __readStep(stream, page)
         page.steps.append(step)
     return page
 
-def __readStep(stream, parentPage, prevPage):
+def __readStep(stream, parentPage):
     global partDictionary
     
     pos = QPointF()
@@ -142,7 +175,7 @@ def __readStep(stream, parentPage, prevPage):
     stream >> pos >> rect
 
     number = stream.readInt32()
-    step = Step(parentPage, prevPage, number)
+    step = Step(parentPage, number, None)
     step.setPos(pos)
     step.setRect(rect)
 
@@ -152,12 +185,6 @@ def __readStep(stream, parentPage, prevPage):
 
     step.csi = __readCSI(stream, step)
     step.pli = __readPLI(stream, step)
-
-    partCount = stream.readInt32()
-    for i in range(0, partCount):
-        part = __readPart(stream)
-        part.partOGL = partDictionary[part.filename]
-        step.parts.append(part)
     return step
 
 def __readCSI(stream, step):
@@ -173,6 +200,16 @@ def __readCSI(stream, step):
     pixmap = QPixmap()
     stream >> pixmap
     csi.setPixmap(pixmap)
+    
+    prevPageNumber = stream.readInt32()
+    prevStepNumber = stream.readInt32()    
+    csi.prevCSI = (prevPageNumber, prevStepNumber)
+    
+    partCount = stream.readInt32()
+    for i in range(0, partCount):
+        part = __readPart(stream)
+        part.partOGL = partDictionary[part.filename]
+        csi.parts.append(part)
     return csi
 
 def __readPLI(stream, parentStep):
@@ -275,8 +312,7 @@ def __writePart(stream, part):
     for point in part.matrix:
         stream.writeFloat(point)
         
-def __writePage(stream, page):
-    
+def __writePage(stream, page):    
     stream << page.pos() << page.rect()
     stream.writeInt32(page.number)
     stream << page.numberItem.pos() << page.numberItem.font()
@@ -289,20 +325,30 @@ def __writeStep(stream, step):
     stream << step.pos() << step.rect()
     stream.writeInt32(step.number)
     stream << step.numberItem.pos() << step.numberItem.font()
-    
+
     __writeCSI(stream, step.csi)
     __writePLI(stream, step.pli)
     
-    stream.writeInt32(len(step.parts))
-    for part in step.parts:
-        __writePart(stream, part)
-
 def __writeCSI(stream, csi):
     stream << csi.pos()
     stream.writeInt32(csi.width)
     stream.writeInt32(csi.height)
     stream << csi.center
     stream << csi.pixmap()
+    
+    if csi.prevCSI:
+        prevStep = csi.prevCSI.parentItem()
+        prevStepNumber = prevStep.number
+        prevPageNumber = prevStep.parentItem().number
+    else:
+        prevStepNumber = 0
+        prevPageNumber = 0
+    stream.writeInt32(prevPageNumber)
+    stream.writeInt32(prevStepNumber)
+
+    stream.writeInt32(len(csi.parts))
+    for part in csi.parts:
+        __writePart(stream, part)
 
 def __writePLI(stream, pli):
     stream << pli.pos() << pli.rect() << pli.pen()

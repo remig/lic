@@ -137,6 +137,11 @@ class LicWindow(QMainWindow):
         editMenu = menu.addMenu("&Edit")
         
         viewMenu = menu.addMenu("&View")
+        
+        exportMenu = menu.addMenu("E&xport")
+        
+        exportImagesAction = self.createMenuAction("Generate Final Images", self.exportImages, None, "Generate final, high res images of each page in this Instruction book")
+        exportMenu.addAction(exportImagesAction)
 
     def createMenuAction(self, text, slot = None, shortcut = None, tip = None, signal = "triggered()"):
         action = QAction(text, self)
@@ -225,6 +230,22 @@ class LicWindow(QMainWindow):
         self.modelName = filename
         self.update()
 
+    def exportImages(self):
+        image = QImage(PageSize.width(), PageSize.height(), QImage.Format_ARGB32)
+        painter = QPainter()
+        painter.begin(image)
+        self.graphicsView.drawBackground(painter, QRectF(0, 0, PageSize.width(), PageSize.height()))
+        
+        page = self.instructions.currentPage
+        items = page.getAllChildItems()
+        print "exporting %d items..." % len(items)
+        options = QStyleOptionGraphicsItem()
+        optionList = [options] * len(items)
+        self.graphicsView.drawItems(painter, items, optionList)
+        painter.end()
+        image.save("C:\\LDraw\\tmp\\hello.png", None)
+        
+    
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     window = LicWindow()
