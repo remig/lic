@@ -9,6 +9,10 @@ from PyQt4.QtOpenGL import *
 
 from Model_qt import *
 import LicBinaryFile
+import config
+import l3p
+import povray
+import GLHelpers_qt
 
 try:
     from OpenGL.GL import *
@@ -82,7 +86,7 @@ class LicWindow(QMainWindow):
         #self.modelName = None
         #self.modelName = "c:\\ldrawparts\\models\\Blaster.mpd"
         #self.modelName = "c:\\ldrawparts\\models\\3001.DAT"
-        self.filename = "C:\\ldraw\\lic\\pyramid_orig.lic"
+        self.filename = "C:\\ldraw\\lic\\models\\pyramid_orig.lic"
         #self.filename = "C:\\ldraw\\lic\\pyramid_orig_displaced.lic"
         self.modelName = "C:\\ldraw\\lic\\models\\pyramid_orig.dat"
 
@@ -96,6 +100,8 @@ class LicWindow(QMainWindow):
         self.treeView.setSelectionModel(self.selectionModel)
         self.treeView.connect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateSelection)
 
+        config.config = self.initConfig()
+
         if self.filename:
             LicBinaryFile.loadLicFile(self.filename, self.instructions)
 #            self.loadModel(self.modelName)
@@ -104,6 +110,27 @@ class LicWindow(QMainWindow):
         if self.filename:
             title += " - " + os.path.basename(self.filename)
         self.setWindowTitle(title)
+
+    def initConfig(self):
+        config = {}
+        cwd = os.path.join(os.getcwd(), 'cache')
+        
+        if not os.path.isdir(cwd):
+            os.mkdir(cwd)   # Create DAT directory if needed
+            
+        config['datPath'] = os.path.join(cwd, 'DATs')
+        if not os.path.isdir(config['datPath']):
+            os.mkdir(config['datPath'])   # Create DAT directory if needed
+
+        config['povPath'] = os.path.join(cwd, 'POVs')
+        if not os.path.isdir(config['povPath']):
+            os.mkdir(config['povPath'])   # Create POV directory if needed
+
+        config['pngPath'] = os.path.join(cwd, 'PNGs')
+        if not os.path.isdir(config['pngPath']):
+            os.mkdir(config['pngPath'])   # Create PNG directory if needed
+
+        return config
 
     def invalidateInstructions(self):
         self.instructions.dirty = True
@@ -245,6 +272,24 @@ class LicWindow(QMainWindow):
         painter.end()
         image.save("C:\\LDraw\\tmp\\hello.png", None)
         
+        modelname = self.instructions.filename
+        datPath = os.path.join(config.config['datPath'], self.instructions.filename)
+        if not os.path.isdir(datPath):
+            os.mkdir(datPath)
+            
+        for page in self.instructions.pages:
+            for step in page.steps:
+                csiName = "CSI_Page_%d_Step_%d.dat" % step.csi.getPageStepNumberPair()
+                datFile = os.path.join(datPath, csiName)
+                
+                if not os.path.isfile(datFile):
+                    fh = open(datFile, 'w')
+                    step.csi.exportToLDrawFile(fh)
+                    fh.close()
+                    
+                camera = GLHelpers_qt.getDefaultCamera()
+                povFile = l3p.createPovFromDat(datFile, modelname)
+                pngFile = povray.createPngFromPov(povFile, modelname, step.csi.width, step.csi.height, step.csi.center, camera, None)
     
 if __name__ == '__main__':
     app = QApplication(sys.argv)

@@ -865,6 +865,28 @@ class CSI(QGraphicsPixmapItem):
         image = pBuffer.toImage()
         self.setPixmap(QPixmap.fromImage(image))
         
+    def exportToLDrawFile(self, fh):
+        if self.prevCSI:
+            self.prevCSI.exportToLDrawFile(fh)
+            
+        for part in self.parts:
+            part.exportToLDrawFile(fh)
+
+    def getPrevPageStepNumberPair(self):
+        if self.prevCSI:
+            prevStep = self.prevCSI.parentItem()
+            prevStepNumber = prevStep.number
+            prevPageNumber = prevStep.parentItem().number
+        else:
+            prevPageNumber = prevStepNumber = 0
+        return (prevPageNumber, prevStepNumber)
+    
+    def getPageStepNumberPair(self):
+        pn, sn = self.getPrevPageStepNumberPair()
+        pn += 1
+        sn += 1
+        return (pn, sn)
+        
 class PartOGL(object):
     """
     Represents one 'abstract' part.  Could be regular part, like 2x4 brick, could be a 
@@ -1075,6 +1097,9 @@ class Part:
     def draw(self):
         self.partOGL.draw()
 
+    def exportToLDrawFile(self, fh):
+        line = createPartLine(self.color, self.matrix, self.filename)
+        fh.write(line + '\n')
 
 class Primitive:
     """

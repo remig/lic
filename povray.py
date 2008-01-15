@@ -6,7 +6,7 @@ def boolToCommand(command, bool):
         return command
     return ''
     
-def getDefaultCommand():
+def __getDefaultCommand():
     return dict({
         'output type': 'N',
         'width': 512,
@@ -44,7 +44,7 @@ povCommands = {
     'include' : ['+HI', str], # Include any extra files - specify full filename
 }
 
-def runCommand(d):
+def __runCommand(d):
 
     povray = config.POVRay
     if not os.path.isfile(povray):
@@ -64,7 +64,7 @@ def runCommand(d):
     os.spawnv(os.P_WAIT, povray, args)
     
 # camera = [(x, 20), (y, 45), (y, -90)] - needs to be reversed before calling
-def fixPovFile(filename, imgWidth, imgHeight, offset, camera):
+def __fixPovFile(filename, imgWidth, imgHeight, offset, camera):
 
     tmpFilename = filename + '.tmp'
     licHeader = "// Lic: Processed lights, camera and rotation\n"
@@ -96,11 +96,11 @@ def fixPovFile(filename, imgWidth, imgHeight, offset, camera):
             inCamera = True
             copyFile.write(line)
             copyFile.write('\torthographic\n')
-            copyFile.write('\tlocation <-%f, %f, -1000>\n' % (offset.x, offset.y))
+            copyFile.write('\tlocation <-%f, %f, -1000>\n' % (offset.x(), offset.y()))
             copyFile.write('\tsky      -y\n')
             copyFile.write('\tright    -%d * x\n' % (imgWidth))
             copyFile.write('\tup        %d * y\n' % (imgHeight))
-            copyFile.write('\tlook_at   <-%f, %f, 0>\n' % (offset.x, offset.y))
+            copyFile.write('\tlook_at   <-%f, %f, 0>\n' % (offset.x(), offset.y()))
             copyFile.write('\trotate    <0, 1e-5, 0>\n')
         
         elif line == '}\n' and inCamera:
@@ -140,3 +140,30 @@ def fixPovFile(filename, imgWidth, imgHeight, offset, camera):
     originalFile.close()
     copyFile.close()
     os.remove(tmpFilename)
+
+def createPngFromPov(povFile, modelName, width, height, offset, camera, color = None):
+
+    pngPath = os.path.join(config.config['pngPath'], modelName)
+    if not os.path.isdir(pngPath):
+        os.mkdir(pngPath)
+    
+    rawFilename = os.path.splitext(os.path.basename(povFile))[0]
+    pngFile = os.path.join(pngPath, rawFilename)
+    if color:
+        pngFile = "%s_%d.png" % (pngFile, color)
+    else:
+        pngFile = "%s.png" % pngFile
+    
+    if not os.path.isfile(pngFile):
+        __fixPovFile(povFile, width, height, offset, camera)
+        povCommand = __getDefaultCommand()
+        povCommand['inFile'] = povFile
+        povCommand['outFile'] = pngFile
+        povCommand['width'] = width
+        povCommand['height'] = height
+        __runCommand(povCommand)
+        
+    return pngFile
+    
+
+

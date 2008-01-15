@@ -1,7 +1,7 @@
 Angra - Angels City / Holy Land - Carry On **
 Angra - Angels City / Holy Land - Nothing To Say
 Angra - Rebirth - Nova Era **
-Angra - Rebirth - Running Alone
+Angra - Rebirth - Running Alone *
 Angra - Temple Of Shadows - Angels And Demons (*)
 Angra - Temple Of Shadows - Waiting Silence
 
@@ -60,7 +60,7 @@ Edguy - Theater Of Salvation - Babylon **
 Edguy - Theatre Of Salvation - Falling Down *
 Edguy - Theater Of Salvation - Wake Up The King * 
 Edguy - Vain Glory Opera - Fairytale * 
-Edguy - Vain Glory Opera - How Many Miles
+Edguy - Vain Glory Opera - How Many Miles *
 Edguy - Vain Glory Opera - Until We Rise Again *
 
 Edu Falaschi - Almah - Take Back Your Spell
@@ -70,6 +70,8 @@ Elvenking - The Winter Wake - March Of The Fools
 Elvenking - The Winter Wake - Rats Are Following
 Elvenking - The Winter Wake - Trows Kind **
 Elvenking - Wyrd - Jigsaw Puzzle
+
+Epica - Consign To Oblivion - Mother Of Light
 
 Excalion - Waterlines - Arriving As The Dark
 Excalion - Waterlines - Between The Lines
@@ -87,11 +89,13 @@ Heavenly (Metal) - Virus - The Power & Fury *
 Heavenly (Metal) - Virus - Virus
 
 Helloween - Keeper Of The Seven Keys - Eagle Fly Free *(*)
+Helloween - Rabbit Don't Come Easy - Just A Little Sign *(*)
 Helloween - The Dark Ride - Mr. Torture
 
 I Am Ghost - We Are Always Searching - We Are Always Searching *
 
 Kamelot - Epica - Center Of The Universe !
+Kamelot - Epica - Farewell
 Kamelot - Epica - Wander
 Kamelot - Karma - Forever *
 Kamelot - Karma - Karma *
@@ -105,7 +109,7 @@ Kiuas - Winter In June - Warrior Soul
 
 Kotipelto - Serenity - Angels Will Cry **
 Kotipelto - Serenity - Once Upon A Time *
-Kotipelto - Serenity - Serenity
+Kotipelto - Serenity - Serenity !
 Kotipelto - Serenity - Sleep Well !
 
 Krypteria - Bloodangel's Cry - All Systems Go * (hot)
@@ -115,6 +119,7 @@ Manticora - Roots Of Eternity - When Forever Ends
 Masterplan - Aeronautics - Wounds
 
 Nightwish - Oceanborn - Stargazers
+Nightwish - Once - Nemo !
 Nightwish - Wishmaster - Crownless **
 Nightwish - Wishmaster - Wishmaster  *
 

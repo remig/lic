@@ -336,13 +336,7 @@ def __writeCSI(stream, csi):
     stream << csi.center
     stream << csi.pixmap()
     
-    if csi.prevCSI:
-        prevStep = csi.prevCSI.parentItem()
-        prevStepNumber = prevStep.number
-        prevPageNumber = prevStep.parentItem().number
-    else:
-        prevStepNumber = 0
-        prevPageNumber = 0
+    prevPageNumber, prevStepNumber = csi.getPrevPageStepNumberPair()
     stream.writeInt32(prevPageNumber)
     stream.writeInt32(prevStepNumber)
 

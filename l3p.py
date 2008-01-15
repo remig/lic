@@ -12,7 +12,7 @@ def boolToCommand(command, bool):
         return command
     return ''
 
-def getDefaultCommand():
+def __getDefaultCommand():
     return dict({
         'camera position' : [20, -45, 0],
         'background' : [1.0, 1.0, 1.0],
@@ -46,7 +46,7 @@ l3pCommands = {
 os.environ['LDRAWDIR'] = config.LDrawPath
     
 # d: {'camera position' : [20,-45,0], 'inputFile' : 'hello.dat'}
-def runCommand(d):
+def __runCommand(d):
     
     l3pApp = config.L3P
     if not os.path.isfile(l3pApp):
@@ -64,3 +64,28 @@ def runCommand(d):
             else:
                 args.append(value)
     os.spawnv(os.P_WAIT, l3pApp, args)
+
+def createPovFromDat(datFile, modelName, color = None):
+    
+    povPath = os.path.join(config.config['povPath'], modelName)
+    if not os.path.isdir(povPath):
+        os.mkdir(povPath)
+    
+    rawFilename = os.path.splitext(os.path.basename(datFile))[0]
+    povFile = os.path.join(povPath, rawFilename)
+    if color:
+        povFile = "%s_%d.pov" % (povFile, color)
+    else:
+        povFile = "%s.pov" % povFile
+    
+    if not os.path.isfile(povFile):
+        l3pCommand = __getDefaultCommand()
+        l3pCommand['inFile'] = datFile
+        l3pCommand['outFile'] = povFile
+        if color:
+            l3pCommand['color'] = color
+        __runCommand(l3pCommand)
+        
+    return povFile
+
+        

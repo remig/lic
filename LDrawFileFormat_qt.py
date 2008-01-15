@@ -22,6 +22,10 @@ def LDToOGLMatrix(matrix):
     m = [float(x) for x in matrix]
     return [m[3], m[6], m[9], 0.0, m[4], m[7], m[10], 0.0, m[5], m[8], m[11], 0.0, m[0], m[1], m[2], 1.0]
 
+def OGLToLDMatrix(matrix):
+    m = matrix
+    return [m[12], m[13], m[14], m[0], m[4], m[8], m[1], m[5], m[9], m[2], m[6], m[10]]
+
 def isValidCommentLine(line):
     return (len(line) > 2) and (line[1] == Comment)
 
@@ -72,6 +76,14 @@ def lineToPart(line):
             'color': int(line[2]),
             'matrix': LDToOGLMatrix(line[3:15]),
             'ghost': False}
+
+def createPartLine(color, matrix, filename):
+    l = [PartCommand, str(color)]
+    m = OGLToLDMatrix(matrix)
+    l += [str(x)[:-2] if str(x).endswith(".0") else str(x) for x in m]
+    l.append(filename)
+    line = ' '.join(l)
+    return line
 
 class LDrawFile:
     def __init__(self, filename):
