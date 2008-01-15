@@ -143,20 +143,19 @@ def __fixPovFile(filename, imgWidth, imgHeight, offset, camera):
     copyFile.close()
     os.remove(tmpFilename)
 
-def createPngFromPov(povFile, width, height, offset, camera = None, color = None):
+def createPngFromPov(povFile, width, height, offset, color = None, isPLIItem = False):
 
     rawFilename = os.path.splitext(os.path.basename(povFile))[0]
     pngFile = os.path.join(config.config['pngPath'], rawFilename)
+    pngFile = "%s.png" % pngFile
     
-    if color:
-        pngFile = "%s_%d.png" % (pngFile, color)
-    else:
-        pngFile = "%s.png" % pngFile
-    
-    if camera is None:
-        camera = GLHelpers_qt.getDefaultCamera()
-        
     if not os.path.isfile(pngFile):
+        
+        if isPLIItem:
+            camera = GLHelpers_qt.getPLICamera()            
+        else:
+            camera = GLHelpers_qt.getDefaultCamera()
+            
         __fixPovFile(povFile, width, height, offset, camera)
         povCommand = __getDefaultCommand()
         povCommand['inFile'] = povFile

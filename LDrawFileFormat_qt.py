@@ -106,16 +106,8 @@ class LDrawFile:
         
         cwd = os.getcwd()
         self.datPath = os.path.join(cwd, 'DATs')
-        if not os.path.isdir(self.datPath):
-            os.mkdir(self.datPath)   # Create DAT directory if needed
-        
         self.povPath = os.path.join(cwd, 'POVs')
-        if not os.path.isdir(self.povPath):
-            os.mkdir(self.povPath)   # Create POV directory if needed
-        
         self.pngPath = os.path.join(cwd, 'PNGs')
-        if not os.path.isdir(self.pngPath):
-            os.mkdir(self.pngPath)   # Create PNG directory if needed
 
     def addLicHeader(self):
         

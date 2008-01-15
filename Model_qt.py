@@ -470,6 +470,11 @@ class Page(QGraphicsRectItem):
     
     def renderFinalImage(self):
         
+        for step in self.steps:
+            step.csi.createPng()
+            for item in step.pli.pliItems:
+                item.createPng()
+                
         image = QImage(self.rect().width(), self.rect().height(), QImage.Format_ARGB32)
         painter = QPainter()
         painter.begin(image)
@@ -478,6 +483,13 @@ class Page(QGraphicsRectItem):
         options = QStyleOptionGraphicsItem()
         optionList = [options] * len(items)
         self.scene().drawItems(painter, items, optionList)
+
+        for step in self.steps:
+            if hasattr(step.csi, "pngImage"):
+                painter.drawImage(step.csi.pos(), step.csi.pngImage)
+            else:
+                print "Error: Trying to draw a csi that was not exported to png: page %d step %d" % step.csi.getPageStepNumberPair()
+                
         painter.end()
         
         imgName = os.path.join(config.config['imgPath'], "Page_%d.png" % self.number)
@@ -663,6 +675,21 @@ class PLIItem(QGraphicsRectItem):
         return self._count
 
     count = property(fget = _getCount, fset = _setCount)
+    
+    def createPng(self):
+    
+        datFile = os.path.join(config.LDrawPath, 'PARTS', self.filename)
+        if not os.path.isfile(datFile):
+            datFile = os.path.join(config.LDrawPath, 'P', self.filename)
+            if not os.path.isfile(datFile):
+                datFile = os.path.join(config.LDrawPath, 'MODELS', self.filename)
+                if not os.path.isfile(datFile):
+                    print "Error: could not find dat file for part %s" % self.filename
+                    return
+
+        povFile = l3p.createPovFromDat(datFile, self.color)
+        self.pngFile = povray.createPngFromPov(povFile, self.partOGL.width, self.partOGL.height, self.partOGL.center, self.color, True)
+        self.pngImage = QImage(self.pngFile)
 
 class PLI(QGraphicsRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
@@ -716,7 +743,7 @@ class PLI(QGraphicsRectItem):
             item = PLIItem(self, part.partOGL, part.color)
             item.setParentItem(self)
             self.pliItems.append(item)
-
+        
     def initLayout(self):
         """ 
         Allocate space for all parts in this PLI, and choose a decent layout.
@@ -899,8 +926,8 @@ class CSI(QGraphicsPixmapItem):
             fh.close()
             
         povFile = l3p.createPovFromDat(datFile)
-        pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center)
-        return pngFile
+        self.pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center)
+        self.pngImage = QImage(self.pngFile)
         
     def exportToLDrawFile(self, fh):
         if self.prevCSI:

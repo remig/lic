@@ -273,10 +273,6 @@ class LicWindow(QMainWindow):
         for page in self.instructions.pages:
             page.renderFinalImage()
             
-        for page in self.instructions.pages:
-            for step in page.steps:
-                step.csi.createPng()
-                
         print "\nExport complete"
     
 if __name__ == '__main__':
