@@ -1,5 +1,7 @@
 import os      # for process creation
+
 import config
+import GLHelpers_qt
 
 def boolToCommand(command, bool):
     if bool:
@@ -141,19 +143,19 @@ def __fixPovFile(filename, imgWidth, imgHeight, offset, camera):
     copyFile.close()
     os.remove(tmpFilename)
 
-def createPngFromPov(povFile, modelName, width, height, offset, camera, color = None):
+def createPngFromPov(povFile, width, height, offset, camera = None, color = None):
 
-    pngPath = os.path.join(config.config['pngPath'], modelName)
-    if not os.path.isdir(pngPath):
-        os.mkdir(pngPath)
-    
     rawFilename = os.path.splitext(os.path.basename(povFile))[0]
-    pngFile = os.path.join(pngPath, rawFilename)
+    pngFile = os.path.join(config.config['pngPath'], rawFilename)
+    
     if color:
         pngFile = "%s_%d.png" % (pngFile, color)
     else:
         pngFile = "%s.png" % pngFile
     
+    if camera is None:
+        camera = GLHelpers_qt.getDefaultCamera()
+        
     if not os.path.isfile(pngFile):
         __fixPovFile(povFile, width, height, offset, camera)
         povCommand = __getDefaultCommand()
@@ -165,5 +167,3 @@ def createPngFromPov(povFile, modelName, width, height, offset, camera, color = 
         
     return pngFile
     
-
-

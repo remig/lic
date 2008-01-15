@@ -65,14 +65,11 @@ def __runCommand(d):
                 args.append(value)
     os.spawnv(os.P_WAIT, l3pApp, args)
 
-def createPovFromDat(datFile, modelName, color = None):
-    
-    povPath = os.path.join(config.config['povPath'], modelName)
-    if not os.path.isdir(povPath):
-        os.mkdir(povPath)
+def createPovFromDat(datFile, color = None):
     
     rawFilename = os.path.splitext(os.path.basename(datFile))[0]
-    povFile = os.path.join(povPath, rawFilename)
+    povFile = os.path.join(config.config['povPath'], rawFilename)
+    
     if color:
         povFile = "%s_%d.pov" % (povFile, color)
     else:

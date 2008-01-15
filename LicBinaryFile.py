@@ -49,7 +49,10 @@ def __readInstructions(stream, filename, instructions):
     global partDictionary
 
     instructions.emit(SIGNAL("layoutAboutToBeChanged"))
-    instructions.filename = os.path.splitext(os.path.basename(filename))[0]
+    instructions.path = os.path.dirname(filename)
+    instructions.filename = os.path.basename(filename)
+    instructions.modelname = os.path.splitext(instructions.filename)[0]
+    
     partDictionary = instructions.getPartDictionary()
     
     partCount = stream.readInt32()

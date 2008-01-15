@@ -9,6 +9,8 @@ from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
 
 import GLHelpers_qt
+import l3p
+import povray
 
 from LDrawFileFormat_qt import *
 from LDrawColors import *
@@ -101,7 +103,10 @@ class Instructions(QAbstractItemModel):
         # Part dimensions cache line format: filename width height center.x center.y leftInset bottomInset
         self.partDimensionsFilename = "PartDimensions.cache"
 
-        self.filename = ""
+        # eg: c:\ldraw\lic\models\pyramid.lic 
+        self.path = ""       # c:\ldraw\lic\models
+        self.filename = ""   # pyramid.lic
+        self.modelname = ""  # pyramid
         self.scene = scene
         GlobalGLContext = glWidget
         GlobalGLContext.makeCurrent()
@@ -112,7 +117,6 @@ class Instructions(QAbstractItemModel):
         self.currentCSI = None
 
         if filename:
-            self.filename = os.path.splitext(os.path.basename(filename))[0]
             self.loadModel(filename)
 
     def _setDirty(self, _dirty):
@@ -130,7 +134,7 @@ class Instructions(QAbstractItemModel):
             return QVariant()
 
         if not index.isValid():
-            return QVariant(self.filename)
+            return QVariant(self.modelname)
 
         item = index.internalPointer()
 
@@ -206,7 +210,9 @@ class Instructions(QAbstractItemModel):
     
     def loadModel(self, filename):
         self.emit(SIGNAL("layoutAboutToBeChanged"))
-        self.filename = os.path.splitext(os.path.basename(filename))[0]
+        self.path = os.path.dirname(filename)
+        self.filename = os.path.basename(filename)
+        self.modelname = os.path.splitext(self.filename)[0]
         self.importModel(filename)
         self.initDraw()  # generate all part GL display lists on the general glWidget
         self.pages[-1].hide()
@@ -217,6 +223,7 @@ class Instructions(QAbstractItemModel):
         global partDictionary, Dirty
         self.emit(SIGNAL("layoutAboutToBeChanged"))
         self.currentPage = self.currentStep = self.currentCSI = None
+        self.filename = self.path = self.modelname = ""
         for page in self.pages:
             item = self.scene.removeItem(page)
             del(item)
@@ -338,11 +345,12 @@ class Instructions(QAbstractItemModel):
                 partList2 = []
 
         # Append any newly calculated part dimensions to cache file
-        print ""
-        if lines:
-            f = open(self.partDimensionsFilename, 'a')
-            f.writelines(lines)
-            f.close()
+        # TODO: fix this
+#        print ""
+#        if lines:
+#            f = open(self.partDimensionsFilename, 'a')
+#            f.writelines(lines)
+#            f.close()
 
     def initCSIDimensions(self):
         global GlobalGLContext
@@ -459,6 +467,21 @@ class Page(QGraphicsRectItem):
                 items.append(pliItem.numberItem)
                 
         return items
+    
+    def renderFinalImage(self):
+        
+        image = QImage(self.rect().width(), self.rect().height(), QImage.Format_ARGB32)
+        painter = QPainter()
+        painter.begin(image)
+        
+        items = self.getAllChildItems()
+        options = QStyleOptionGraphicsItem()
+        optionList = [options] * len(items)
+        self.scene().drawItems(painter, items, optionList)
+        painter.end()
+        
+        imgName = os.path.join(config.config['imgPath'], "Page_%d.png" % self.number)
+        image.save(imgName, None)
                 
     def paint(self, painter, option, widget = None):
         # Draw a slightly down-right translated black rectangle, for the page shadow effect
@@ -842,7 +865,7 @@ class CSI(QGraphicsPixmapItem):
             print "Trying to init a CSI size that has no display list"
             return
 
-        rawFilename = self.parentItem().page.instructions.filename
+        rawFilename = self.parentItem().page.instructions.modelname
         filename = "%s_step_%d" % (rawFilename, self.parentItem().number)
 
         params = GLHelpers_qt.initImgSize(size, size, self.oglDispID, True, filename, None, pBuffer)
@@ -864,6 +887,20 @@ class CSI(QGraphicsPixmapItem):
 
         image = pBuffer.toImage()
         self.setPixmap(QPixmap.fromImage(image))
+
+    def createPng(self):
+                
+        csiName = "CSI_Page_%d_Step_%d.dat" % self.getPageStepNumberPair()
+        datFile = os.path.join(config.config['datPath'], csiName)
+        
+        if not os.path.isfile(datFile):
+            fh = open(datFile, 'w')
+            self.exportToLDrawFile(fh)
+            fh.close()
+            
+        povFile = l3p.createPovFromDat(datFile)
+        pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center)
+        return pngFile
         
     def exportToLDrawFile(self, fh):
         if self.prevCSI:
