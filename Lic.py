@@ -77,7 +77,7 @@ class LicWindow(QMainWindow):
         self.graphicsView.setScene(self.scene)
         self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
         self.connect(self.graphicsView, SIGNAL("itemMoved"), self.invalidateInstructions)
-        #self.connect(self.scene, SIGNAL("changed(QList<QRectF>)"), self.invalidateInstructions)
+        self.connect(self.scene, SIGNAL("itemMoved"), self.invalidateInstructions)
 
         self.mainSplitter = QSplitter(Qt.Horizontal)
         self.mainSplitter.addWidget(self.treeView)

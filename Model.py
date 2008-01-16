@@ -20,8 +20,6 @@ partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 GlobalGLContext = None
 AllFlags = QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
 
-Dirty = 0
-
 def genericMousePressEvent(className):
     def _tmp(self, event):
         className.mousePressEvent(self, event)
@@ -32,8 +30,7 @@ def genericMouseReleaseEvent(className):
     def _tmp(self, event):
         className.mouseReleaseEvent(self, event)
         if self.pos() != self.lastPos:
-            global Dirty
-            Dirty = True
+            self.scene().emit(SIGNAL("itemMoved"))
             # TODO: get this to signal the change somehow
             if hasattr(self.parentItem(), "resetRect"):
                 self.parentItem().resetRect()
@@ -120,16 +117,6 @@ class Instructions(QAbstractItemModel):
         if filename:
             self.loadModel(filename)
 
-    def _setDirty(self, _dirty):
-        global Dirty
-        Dirty = _dirty
-
-    def _getDirty(self):
-        global Dirty
-        return Dirty
-
-    dirty = property(fget = _getDirty, fset = _setDirty)
-    
     def data(self, index, role = Qt.DisplayRole):
         if role != Qt.DisplayRole:
             return QVariant()
@@ -221,7 +208,7 @@ class Instructions(QAbstractItemModel):
         self.emit(SIGNAL("layoutChanged()"))
 
     def clear(self):
-        global partDictionary, Dirty
+        global partDictionary
         self.emit(SIGNAL("layoutAboutToBeChanged"))
         self.currentPage = self.currentStep = self.currentCSI = None
         self.filename = self.path = self.modelname = ""
@@ -232,7 +219,6 @@ class Instructions(QAbstractItemModel):
         partDictionary = {}
         Page.NextNumber = 1
         Step.NextNumber = 1
-        Dirty = False
         GlobalGLContext.makeCurrent()
         self.emit(SIGNAL("layoutChanged()"))
 
