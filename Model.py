@@ -30,8 +30,7 @@ def genericMouseReleaseEvent(className):
     def _tmp(self, event):
         className.mouseReleaseEvent(self, event)
         if self.pos() != self.lastPos:
-            self.scene().emit(SIGNAL("itemMoved"))
-            # TODO: get this to signal the change somehow
+            self.scene().emit(SIGNAL("itemMoved"), self, self.lastPos)
             if hasattr(self.parentItem(), "resetRect"):
                 self.parentItem().resetRect()
     return _tmp
@@ -66,12 +65,16 @@ class MoveCommand(QUndoCommand):
     
     def undo(self):
         self.item.setPos(self.oldPos)
+        if hasattr(self.item.parentItem(), "resetRect"):
+            self.item.parentItem().resetRect()
     
     def redo(self):
         self.item.setPos(self.newPos)
+        if hasattr(self.item.parentItem(), "resetRect"):
+            self.item.parentItem().resetRect()
     
-    def mergeWith(self, command):
-        pass
+#    def mergeWith(self, command):
+#        pass
     
 class LicTreeView(QTreeView):
 

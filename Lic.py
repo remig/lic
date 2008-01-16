@@ -39,6 +39,7 @@ class InstructionViewWidget(QGraphicsView):
         
         key = event.key()
         offset = 1
+        x = y = 0
         moved = False
         
         if event.modifiers() & Qt.ShiftModifier:
@@ -48,36 +49,41 @@ class InstructionViewWidget(QGraphicsView):
             if isinstance(item, Page):
                 continue
             if key == Qt.Key_Left:
-                item.moveBy(-offset, 0)
+                x = -offset
                 moved = True
             elif key == Qt.Key_Right:
-                item.moveBy(offset, 0)
+                x = offset
                 moved = True
             elif key == Qt.Key_Up:
-                item.moveBy(0, -offset)
+                y = -offset
                 moved = True
             elif key == Qt.Key_Down:
-                item.moveBy(0, offset)
+                y = offset
                 moved = True
-            if moved and hasattr(item.parentItem(), "resetRect"):
+            if moved:
+                oldPos = item.pos()
+                item.moveBy(x, y)
+                self.emit(SIGNAL("itemMoved"), item, oldPos)
+                if hasattr(item.parentItem(), "resetRect"):
                     item.parentItem().resetRect()
-        if moved:
-            self.emit(SIGNAL("itemMoved"))
             
 class LicWindow(QMainWindow):
 
     def __init__(self, parent = None):
         QMainWindow.__init__(self, parent)
         
+        self.undoStack = QUndoStack()
         self.glWidget = QGLWidget(self)
         self.treeView = LicTreeView(self)
 
+        statusBar = self.statusBar()
         self.scene = QGraphicsScene(self)
         self.graphicsView = InstructionViewWidget(self)
         self.graphicsView.setScene(self.scene)
         self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
-        self.connect(self.graphicsView, SIGNAL("itemMoved"), self.invalidateInstructions)
-        self.connect(self.scene, SIGNAL("itemMoved"), self.invalidateInstructions)
+        
+        self.connect(self.graphicsView, SIGNAL("itemMoved"), self.itemMoved)
+        self.connect(self.scene, SIGNAL("itemMoved"), self.itemMoved)
 
         self.mainSplitter = QSplitter(Qt.Horizontal)
         self.mainSplitter.addWidget(self.treeView)
@@ -85,7 +91,8 @@ class LicWindow(QMainWindow):
         self.setCentralWidget(self.mainSplitter)
 
         self.initMenu()
-        statusBar = self.statusBar()
+        self.connect(self.undoStack, SIGNAL("canRedoChanged(bool)"), self.redoAction, SLOT("setEnabled(bool)"))
+        self.connect(self.undoStack, SIGNAL("canUddoChanged(bool)"), self.undoAction, SLOT("setEnabled(bool)"))
 
         self.instructions = Instructions(self.treeView, self.scene, self.glWidget)
         self.treeView.setModel(self.instructions)
@@ -108,6 +115,10 @@ class LicWindow(QMainWindow):
             self.loadModel(self.modelName)
             statusBar.showMessage("Model: " + self.modelName)
             
+    def itemMoved(self, item, oldPos):
+        self.undoStack.push(MoveCommand(item, oldPos))
+        self.setWindowModified(True)
+        
     def __getFilename(self):
         return self.__filename
     
@@ -129,6 +140,8 @@ class LicWindow(QMainWindow):
         self.fileSaveAction.setEnabled(enabled)
         self.fileSaveAsAction.setEnabled(enabled)
         self.editMenu.setEnabled(enabled)
+        #self.undoAction.setEnabled(False)
+        #self.redoAction.setEnabled(False)
         self.viewMenu.setEnabled(enabled)
         self.exportMenu.setEnabled(enabled)
 
@@ -167,9 +180,6 @@ class LicWindow(QMainWindow):
 
         return config
 
-    def invalidateInstructions(self):
-        print "changed"
-        self.setWindowModified(True)
         
     def initMenu(self):
         menu = self.menuBar()
@@ -198,8 +208,6 @@ class LicWindow(QMainWindow):
         self.fileMenu.addAction(self.fileExitAction)
 
         self.editMenu = menu.addMenu("&Edit")
-        
-        self.undoStack = QUndoStack()
         
         self.undoAction = self.createMenuAction("&Undo", None, "Ctrl+Z", "Undo last action")
         self.undoAction.connect(self.undoAction, SIGNAL("triggered()"), self.undoStack, SLOT("undo()"))
