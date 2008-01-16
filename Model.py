@@ -53,6 +53,26 @@ QGraphicsPixmapItem.data = genericItemData
 def printRect(rect, text = ""):
     print text + ", l: %f, r: %f, t: %f, b: %f" % (rect.left(), rect.right(), rect.top(), rect.bottom())
 
+class MoveCommand(QUndoCommand):
+    
+    def __init__(self, item, oldPos):
+        QUndoCommand.__init__(self)
+        self.item = item
+        self.oldPos = oldPos
+        self.newPos = item.pos()
+    
+    def id(self):
+        return 123
+    
+    def undo(self):
+        self.item.setPos(self.oldPos)
+    
+    def redo(self):
+        self.item.setPos(self.newPos)
+    
+    def mergeWith(self, command):
+        pass
+    
 class LicTreeView(QTreeView):
 
     def __init__(self, parent):

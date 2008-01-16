@@ -199,6 +199,16 @@ class LicWindow(QMainWindow):
 
         self.editMenu = menu.addMenu("&Edit")
         
+        self.undoStack = QUndoStack()
+        
+        self.undoAction = self.createMenuAction("&Undo", None, "Ctrl+Z", "Undo last action")
+        self.undoAction.connect(self.undoAction, SIGNAL("triggered()"), self.undoStack, SLOT("undo()"))
+        self.editMenu.addAction(self.undoAction)
+        
+        self.redoAction = self.createMenuAction("&Redo", None, "Ctrl+Y", "Redo the last undone action")
+        self.redoAction.connect(self.redoAction, SIGNAL("triggered()"), self.undoStack, SLOT("redo()"))
+        self.editMenu.addAction(self.redoAction)
+        
         self.viewMenu = menu.addMenu("&View")
         
         self.exportMenu = menu.addMenu("E&xport")
