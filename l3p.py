@@ -70,10 +70,10 @@ def createPovFromDat(datFile, color = None):
     rawFilename = os.path.splitext(os.path.basename(datFile))[0]
     povFile = os.path.join(config.config['povPath'], rawFilename)
     
-    if color:
-        povFile = "%s_%d.pov" % (povFile, color)
-    else:
+    if color is None:
         povFile = "%s.pov" % povFile
+    else:
+        povFile = "%s_%d.pov" % (povFile, color)
     
     if not os.path.isfile(povFile):
         l3pCommand = __getDefaultCommand()

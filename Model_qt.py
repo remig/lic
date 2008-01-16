@@ -490,6 +490,12 @@ class Page(QGraphicsRectItem):
             else:
                 print "Error: Trying to draw a csi that was not exported to png: page %d step %d" % step.csi.getPageStepNumberPair()
                 
+            for item in step.pli.pliItems:
+                if hasattr(item, "pngImage"):
+                    painter.drawImage(item.scenePos(), item.pngImage)
+                else:
+                    print "Error: Trying to draw a pliItem that was not exported to png: step %d, item %s" % (step.number, item.filename)
+                
         painter.end()
         
         imgName = os.path.join(config.config['imgPath'], "Page_%d.png" % self.number)
@@ -688,7 +694,7 @@ class PLIItem(QGraphicsRectItem):
                     return
 
         povFile = l3p.createPovFromDat(datFile, self.color)
-        self.pngFile = povray.createPngFromPov(povFile, self.partOGL.width, self.partOGL.height, self.partOGL.center, self.color, True)
+        self.pngFile = povray.createPngFromPov(povFile, self.partOGL.width, self.partOGL.height, self.partOGL.center, True)
         self.pngImage = QImage(self.pngFile)
 
 class PLI(QGraphicsRectItem):
@@ -787,7 +793,7 @@ class PLI(QGraphicsRectItem):
         for i, item in enumerate(partList):
 
             # Move this PLIItem to its new position
-            item.setPos(overallX, xMargin)
+            item.setPos(overallX, yMargin)
 
             # Check if the current PLI box is big enough to fit this part *below* the previous part,
             # without making the box any bigger.  If so, position part there instead.
@@ -926,7 +932,7 @@ class CSI(QGraphicsPixmapItem):
             fh.close()
             
         povFile = l3p.createPovFromDat(datFile)
-        self.pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center)
+        self.pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, False)
         self.pngImage = QImage(self.pngFile)
         
     def exportToLDrawFile(self, fh):

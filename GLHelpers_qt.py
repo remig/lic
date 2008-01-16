@@ -74,7 +74,7 @@ def rotateToPLIView(x = 0.0, y = 0.0, z = 0.0):
     glRotatef(45.0, 0.0, 1.0, 0.0)
 
 def getPLICamera():
-    return [('y', 45.0), ('x', 20)]
+    return [('y', -45.0), ('x', 20)]
 
 def pushAllGLMatrices():
     glPushAttrib(GL_TRANSFORM_BIT | GL_VIEWPORT_BIT)

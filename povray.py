@@ -143,7 +143,7 @@ def __fixPovFile(filename, imgWidth, imgHeight, offset, camera):
     copyFile.close()
     os.remove(tmpFilename)
 
-def createPngFromPov(povFile, width, height, offset, color = None, isPLIItem = False):
+def createPngFromPov(povFile, width, height, offset, isPLIItem = False):
 
     rawFilename = os.path.splitext(os.path.basename(povFile))[0]
     pngFile = os.path.join(config.config['pngPath'], rawFilename)
