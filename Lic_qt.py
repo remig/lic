@@ -66,7 +66,7 @@ class LicWindow(QMainWindow):
 
     def __init__(self, parent = None):
         QMainWindow.__init__(self, parent)
-
+        
         self.glWidget = QGLWidget(self)
         self.treeView = LicTreeView(self)
 
@@ -81,17 +81,8 @@ class LicWindow(QMainWindow):
         self.mainSplitter.addWidget(self.graphicsView)
         self.setCentralWidget(self.mainSplitter)
 
-        # temp debug code
-        #self.modelName = None
-        #self.modelName = "c:\\ldrawparts\\models\\Blaster.mpd"
-        #self.modelName = "c:\\ldrawparts\\models\\3001.DAT"
-        self.filename = "C:\\ldraw\\lic\\models\\pyramid_orig.lic"
-        #self.filename = "C:\\ldraw\\lic\\pyramid_orig_displaced.lic"
-        self.modelName = "C:\\ldraw\\lic\\models\\pyramid_orig.dat"
-
         self.initMenu()
         statusBar = self.statusBar()
-        statusBar.showMessage("Model: " + self.modelName)
 
         self.instructions = Instructions(self.treeView, self.scene, self.glWidget)
         self.treeView.setModel(self.instructions)
@@ -99,18 +90,47 @@ class LicWindow(QMainWindow):
         self.treeView.setSelectionModel(self.selectionModel)
         self.treeView.connect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateSelection)
 
-        if self.filename:
-            LicBinaryFile.loadLicFile(self.filename, self.instructions)
-#            self.loadModel(self.modelName)
+        self.filename = ""   # This will trigger the __setFilename method below
 
-        # TODO: This needs to be called whenever we change models
-        config.config = self.initConfig()
+        # temp debug code from here to the end 
+        self.__filename = self.modelName = ""
+        #self.__filename = "C:\\ldraw\\lic\\models\\pyramid_orig.lic"
+        #self.modelName = "C:\\ldraw\\lic\\models\\pyramid_orig.dat"
 
-        title = "Lic %s" % __version__
-        if self.filename:
-            title += " - " + os.path.basename(self.filename)
-        self.setWindowTitle(title)
+        if self.__filename:
+            LicBinaryFile.loadLicFile(self.__filename, self.instructions)
+            self.filename = self.__filename
+            
+        if self.modelName:
+            self.loadModel(self.modelName)
+            statusBar.showMessage("Model: " + self.modelName)
+            
+    def __getFilename(self):
+        return self.__filename
+    
+    def __setFilename(self, filename):
+        self.__filename = filename
+        
+        if filename:
+            config.config = self.initConfig()
+            self.setWindowTitle("Lic %s - %s [*]" % (__version__, os.path.basename(filename)))
+            self.statusBar().showMessage("Instruction book loaded: " + filename)
+            enabled = True
+        else:
+            config.config = {}
+            self.setWindowTitle("Lic %s [*]" % __version__)
+            self.statusBar().showMessage("")
+            enabled = False
 
+        self.fileCloseAction.setEnabled(enabled)
+        self.fileSaveAction.setEnabled(enabled)
+        self.fileSaveAsAction.setEnabled(enabled)
+        self.editMenu.setEnabled(enabled)
+        self.viewMenu.setEnabled(enabled)
+        self.exportMenu.setEnabled(enabled)
+
+    filename = property(fget = __getFilename, fset = __setFilename)
+            
     def initConfig(self):
         """ 
         Create cache folders for temp dats, povs & pngs, if necessary.
@@ -146,41 +166,42 @@ class LicWindow(QMainWindow):
 
     def invalidateInstructions(self):
         self.instructions.dirty = True
+        self.setWindowModified(True)
         
     def initMenu(self):
         menu = self.menuBar()
-        fileMenu = menu.addMenu("&File")
+        self.fileMenu = menu.addMenu("&File")
 
-        fileOpenAction = self.createMenuAction("&Open", self.fileOpen, QKeySequence.Open, "Open an existing Instruction book")
-        fileMenu.addAction(fileOpenAction)
+        self.fileOpenAction = self.createMenuAction("&Open", self.fileOpen, QKeySequence.Open, "Open an existing Instruction book")
+        self.fileMenu.addAction(self.fileOpenAction)
 
-        fileCloseAction = self.createMenuAction("&Close", self.fileClose, QKeySequence.Close, "Close current Instruction book")
-        fileMenu.addAction(fileCloseAction)
+        self.fileCloseAction = self.createMenuAction("&Close", self.fileClose, QKeySequence.Close, "Close current Instruction book")
+        self.fileMenu.addAction(self.fileCloseAction)
 
-        fileMenu.addSeparator()
+        self.fileMenu.addSeparator()
 
-        fileSaveAction = self.createMenuAction("&Save", self.fileSave, QKeySequence.Save, "Save the Instruction book")
-        fileMenu.addAction(fileSaveAction)
+        self.fileSaveAction = self.createMenuAction("&Save", self.fileSave, QKeySequence.Save, "Save the Instruction book")
+        self.fileMenu.addAction(self.fileSaveAction)
 
-        fileSaveAsAction = self.createMenuAction("Save &As...", self.fileSaveAs, None, "Save the Instruction book using a new filename")
-        fileMenu.addAction(fileSaveAsAction)
+        self.fileSaveAsAction = self.createMenuAction("Save &As...", self.fileSaveAs, None, "Save the Instruction book using a new filename")
+        self.fileMenu.addAction(self.fileSaveAsAction)
 
-        fileImportAction = self.createMenuAction("&Import Model", self.fileImport, None, "Import an existing LDraw Model into a new Instruction book")
-        fileMenu.addAction(fileImportAction)
+        self.fileImportAction = self.createMenuAction("&Import Model", self.fileImport, None, "Import an existing LDraw Model into a new Instruction book")
+        self.fileMenu.addAction(self.fileImportAction)
 
-        fileMenu.addSeparator()
+        self.fileMenu.addSeparator()
 
-        fileExitAction = self.createMenuAction("E&xit", SLOT("close()"), "Ctrl+Q", "Exit Lic")
-        fileMenu.addAction(fileExitAction)
+        self.fileExitAction = self.createMenuAction("E&xit", SLOT("close()"), "Ctrl+Q", "Exit Lic")
+        self.fileMenu.addAction(self.fileExitAction)
 
-        editMenu = menu.addMenu("&Edit")
+        self.editMenu = menu.addMenu("&Edit")
         
-        viewMenu = menu.addMenu("&View")
+        self.viewMenu = menu.addMenu("&View")
         
-        exportMenu = menu.addMenu("E&xport")
+        self.exportMenu = menu.addMenu("E&xport")
         
-        exportImagesAction = self.createMenuAction("Generate Final Images", self.exportImages, None, "Generate final, high res images of each page in this Instruction book")
-        exportMenu.addAction(exportImagesAction)
+        self.exportImagesAction = self.createMenuAction("Generate Final Images", self.exportImages, None, "Generate final, high res images of each page in this Instruction book")
+        self.exportMenu.addAction(self.exportImagesAction)
 
     def createMenuAction(self, text, slot = None, shortcut = None, tip = None, signal = "triggered()"):
         action = QAction(text, self)
@@ -205,14 +226,12 @@ class LicWindow(QMainWindow):
         if not self.offerSave():
             return
         self.instructions.clear()
-        self.setWindowTitle("Lic %s" % __version__)
         self.filename = ""
-        self.update()
 
     def offerSave(self):
         """ 
-        Returns True if we should proceed with whateve 
-        operation was interrupted by this request.  False means cancel.
+        Returns True if we should proceed with whatever operation
+        was interrupted by this request.  False means cancel.
         """
         if not self.instructions.dirty:
             return True
@@ -234,19 +253,29 @@ class LicWindow(QMainWindow):
             self.loadModel(filename)
             self.statusBar().showMessage("LDraw Model imported: " + self.filename)
 
+    def loadModel(self, filename):
+        self.instructions.loadModel(filename)
+        config.config = self.initConfig()
+        self.statusBar().showMessage("Instruction book loaded")
+        self.fileCloseAction.setEnabled(True)
+        self.fileSaveAsAction.setEnabled(True)
+        self.editMenu.setEnabled(True)
+        self.viewMenu.setEnabled(True)
+        self.exportMenu.setEnabled(True)
+
     def fileSaveAs(self):
         filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Safe File As", self.filename, "Lic Instruction Book files (*.lic)"))
         if filename:
             self.filename = filename
-            self.setWindowTitle("Lic %s - %s" % (__version__, os.path.basename(self.filename)))
             return self.fileSave()
 
     def fileSave(self):
         try:
             LicBinaryFile.saveLicFile(self.filename, self.instructions)
+            self.setWindowModified(False)
             self.statusBar().showMessage("Saved to: " + self.filename)
         except (IOError, OSError), e:
-            QMessageBox.warning(self, "Lic - Save Error", "Failed to save %s: %s" % (filename, e))
+            QMessageBox.warning(self, "Lic - Save Error", "Failed to save %s: %s" % (self.filename, e))
 
     def fileOpen(self):
         if not self.offerSave():
@@ -258,15 +287,9 @@ class LicWindow(QMainWindow):
             try:
                 LicBinaryFile.loadLicFile(filename, self.instructions)
                 self.filename = filename
-                self.setWindowTitle("Lic %s - %s" % (__version__, os.path.basename(self.filename)))
-                self.statusBar().showMessage("Instruction book loaded: " + self.filename)
             except IOError, e:
                 QMessageBox.warning(self, "Lic - Open Error", "Failed to open %s: %s" % (filename, e))
                 self.fileClose()
-
-    def loadModel(self, filename):
-        self.instructions.loadModel(filename)
-        self.update()
 
     def exportImages(self):
         

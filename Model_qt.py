@@ -34,6 +34,7 @@ def genericMouseReleaseEvent(className):
         if self.pos() != self.lastPos:
             global Dirty
             Dirty = True
+            # TODO: get this to signal the change somehow
             if hasattr(self.parentItem(), "resetRect"):
                 self.parentItem().resetRect()
     return _tmp
