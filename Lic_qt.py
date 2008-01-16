@@ -7,7 +7,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
 
-from Model_qt import *
+from Model import *
 import LicBinaryFile
 import config
 import l3p
@@ -77,7 +77,7 @@ class LicWindow(QMainWindow):
         self.graphicsView.setScene(self.scene)
         self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
         self.connect(self.graphicsView, SIGNAL("itemMoved"), self.invalidateInstructions)
-        self.connect(self.scene, SIGNAL("changed(QList<QRectF>)"), self.invalidateInstructions)
+        #self.connect(self.scene, SIGNAL("changed(QList<QRectF>)"), self.invalidateInstructions)
 
         self.mainSplitter = QSplitter(Qt.Horizontal)
         self.mainSplitter.addWidget(self.treeView)

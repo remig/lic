@@ -8,11 +8,11 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
 
-import GLHelpers_qt
+import GLHelpers
 import l3p
 import povray
 
-from LDrawFileFormat_qt import *
+from LDrawFileFormat import *
 from LDrawColors import *
 
 UNINIT_OGL_DISPID = -1
@@ -902,7 +902,7 @@ class CSI(QGraphicsPixmapItem):
         rawFilename = self.parentItem().page.instructions.modelname
         filename = "%s_step_%d" % (rawFilename, self.parentItem().number)
 
-        params = GLHelpers_qt.initImgSize(size, size, self.oglDispID, True, filename, None, pBuffer)
+        params = GLHelpers.initImgSize(size, size, self.oglDispID, True, filename, None, pBuffer)
         if params is None:
             return False
 
@@ -913,9 +913,9 @@ class CSI(QGraphicsPixmapItem):
 
     def initPixmap(self, pBuffer):
 
-        GLHelpers_qt.initFreshContext()
-        GLHelpers_qt.adjustGLViewport(0, 0, self.width, self.height)
-        GLHelpers_qt.rotateToDefaultView(self.center.x(), self.center.y(), 0.0)
+        GLHelpers.initFreshContext()
+        GLHelpers.adjustGLViewport(0, 0, self.width, self.height)
+        GLHelpers.rotateToDefaultView(self.center.x(), self.center.y(), 0.0)
 
         glCallList(self.oglDispID)
 
@@ -1072,7 +1072,7 @@ class PartOGL(object):
         if self.isPrimitive:
             return True  # Primitive parts need not be sized
 
-        params = GLHelpers_qt.initImgSize(size, size, self.oglDispID, False, self.filename, None, pBuffer)
+        params = GLHelpers.initImgSize(size, size, self.oglDispID, False, self.filename, None, pBuffer)
         if params is None:
             return False
 
@@ -1091,9 +1091,9 @@ class PartOGL(object):
         pBuffer = QGLPixelBuffer(self.width, self.height, QGLFormat(), GlobalGLContext)
         pBuffer.makeCurrent()
 
-        GLHelpers_qt.initFreshContext()
-        GLHelpers_qt.adjustGLViewport(0, 0, self.width, self.height)
-        GLHelpers_qt.rotateToPLIView(self.center.x(), self.center.y(), 0.0)
+        GLHelpers.initFreshContext()
+        GLHelpers.adjustGLViewport(0, 0, self.width, self.height)
+        GLHelpers.rotateToPLIView(self.center.x(), self.center.y(), 0.0)
 
         color = convertToRGBA(color)
         if len(color) == 3:

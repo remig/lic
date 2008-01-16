@@ -1,6 +1,6 @@
 from PyQt4.QtCore import *
 
-from Model_qt import *
+from Model import *
 
 MagicNumber = 0x14768126
 FileVersion = 1

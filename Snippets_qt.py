@@ -150,15 +150,15 @@ def drawBuffer(self):
     glClearColor(1.0, 1.0, 1.0, 1.0)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-    GLHelpers_qt.adjustGLViewport(0, 0, size, size)
-    GLHelpers_qt.rotateToPLIView()
+    GLHelpers.adjustGLViewport(0, 0, size, size)
+    GLHelpers.rotateToPLIView()
 
     self.mainModel.draw()
 
     image = pBuffer.toImage()
     if image:
         print "have image"
-        image.save("C:\\ldraw\\first_qt_render.png", None)
+        image.save("C:\\ldraw\\first_render.png", None)
 
     GlobalGLContext.makeCurrent()
 

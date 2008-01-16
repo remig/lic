@@ -1,7 +1,7 @@
 import os      # for process creation
 
 import config
-import GLHelpers_qt
+import GLHelpers
 
 def boolToCommand(command, bool):
     if bool:
@@ -152,9 +152,9 @@ def createPngFromPov(povFile, width, height, offset, isPLIItem = False):
     if not os.path.isfile(pngFile):
         
         if isPLIItem:
-            camera = GLHelpers_qt.getPLICamera()            
+            camera = GLHelpers.getPLICamera()            
         else:
-            camera = GLHelpers_qt.getDefaultCamera()
+            camera = GLHelpers.getDefaultCamera()
             
         __fixPovFile(povFile, width, height, offset, camera)
         povCommand = __getDefaultCommand()
