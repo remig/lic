@@ -45,6 +45,8 @@ class InstructionViewWidget(QGraphicsView):
             offset = 20 if event.modifiers() & Qt.ControlModifier else 5
     
         for item in self.scene().selectedItems():
+            if isinstance(item, Page):
+                continue
             if key == Qt.Key_Left:
                 item.moveBy(-offset, 0)
                 moved = True
@@ -75,6 +77,7 @@ class LicWindow(QMainWindow):
         self.graphicsView.setScene(self.scene)
         self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
         self.connect(self.graphicsView, SIGNAL("itemMoved"), self.invalidateInstructions)
+        self.connect(self.scene, SIGNAL("changed(QList<QRectF>)"), self.invalidateInstructions)
 
         self.mainSplitter = QSplitter(Qt.Horizontal)
         self.mainSplitter.addWidget(self.treeView)
@@ -165,7 +168,7 @@ class LicWindow(QMainWindow):
         return config
 
     def invalidateInstructions(self):
-        self.instructions.dirty = True
+        print "changed"
         self.setWindowModified(True)
         
     def initMenu(self):
@@ -233,7 +236,7 @@ class LicWindow(QMainWindow):
         Returns True if we should proceed with whatever operation
         was interrupted by this request.  False means cancel.
         """
-        if not self.instructions.dirty:
+        if not self.isWindowModified():
             return True
         reply = QMessageBox.question(self, "Lic - Unsaved Changes", "Save unsaved changes?", QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
         if reply == QMessageBox.Cancel:
