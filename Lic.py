@@ -61,11 +61,12 @@ class InstructionViewWidget(QGraphicsView):
                 y = offset
                 moved = True
             if moved:
-                oldPos = item.pos()
+                item.oldPos = item.pos()
                 item.moveBy(x, y)
-                self.emit(SIGNAL("itemMoved"), item, oldPos)
                 if hasattr(item.parentItem(), "resetRect"):
                     item.parentItem().resetRect()
+        if moved:
+            self.emit(SIGNAL("itemsMoved"), self.scene().selectedItems())
             
 class LicWindow(QMainWindow):
 
@@ -73,6 +74,8 @@ class LicWindow(QMainWindow):
         QMainWindow.__init__(self, parent)
         
         self.undoStack = QUndoStack()
+        self.connect(self.undoStack, SIGNAL("cleanChanged(bool)"), self._setWindowModified)
+        
         self.glWidget = QGLWidget(self)
         self.treeView = LicTreeView(self)
 
@@ -82,8 +85,8 @@ class LicWindow(QMainWindow):
         self.graphicsView.setScene(self.scene)
         self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
         
-        self.connect(self.graphicsView, SIGNAL("itemMoved"), self.itemMoved)
-        self.connect(self.scene, SIGNAL("itemMoved"), self.itemMoved)
+        self.connect(self.graphicsView, SIGNAL("itemsMoved"), self.itemsMoved)
+        self.connect(self.scene, SIGNAL("itemsMoved"), self.itemsMoved)
 
         self.mainSplitter = QSplitter(Qt.Horizontal)
         self.mainSplitter.addWidget(self.treeView)
@@ -91,8 +94,6 @@ class LicWindow(QMainWindow):
         self.setCentralWidget(self.mainSplitter)
 
         self.initMenu()
-        self.connect(self.undoStack, SIGNAL("canRedoChanged(bool)"), self.redoAction, SLOT("setEnabled(bool)"))
-        self.connect(self.undoStack, SIGNAL("canUddoChanged(bool)"), self.undoAction, SLOT("setEnabled(bool)"))
 
         self.instructions = Instructions(self.treeView, self.scene, self.glWidget)
         self.treeView.setModel(self.instructions)
@@ -115,10 +116,15 @@ class LicWindow(QMainWindow):
             self.loadModel(self.modelName)
             statusBar.showMessage("Model: " + self.modelName)
             
-    def itemMoved(self, item, oldPos):
-        self.undoStack.push(MoveCommand(item, oldPos))
-        self.setWindowModified(True)
+    def _setWindowModified(self, bool):
+        # This is tied to the undo stack's cleanChanged signal.  Problem with that signal 
+        # is it sends the *opposite* bool to what we need to pass to setWindowModified,
+        # so can't just connect that signal straight to setWindowModified slot.
+        self.setWindowModified(not bool)
         
+    def itemsMoved(self, itemList):
+        self.undoStack.push(MoveCommand(itemList))
+
     def __getFilename(self):
         return self.__filename
     
@@ -132,16 +138,15 @@ class LicWindow(QMainWindow):
             enabled = True
         else:
             config.config = {}
+            self.undoStack.clear()
             self.setWindowTitle("Lic %s [*]" % __version__)
             self.statusBar().showMessage("")
             enabled = False
 
+        self.undoStack.setClean()
         self.fileCloseAction.setEnabled(enabled)
         self.fileSaveAction.setEnabled(enabled)
         self.fileSaveAsAction.setEnabled(enabled)
-        self.editMenu.setEnabled(enabled)
-        #self.undoAction.setEnabled(False)
-        #self.redoAction.setEnabled(False)
         self.viewMenu.setEnabled(enabled)
         self.exportMenu.setEnabled(enabled)
 
@@ -211,10 +216,14 @@ class LicWindow(QMainWindow):
         
         self.undoAction = self.createMenuAction("&Undo", None, "Ctrl+Z", "Undo last action")
         self.undoAction.connect(self.undoAction, SIGNAL("triggered()"), self.undoStack, SLOT("undo()"))
+        self.undoAction.setEnabled(False)
+        self.connect(self.undoStack, SIGNAL("canUndoChanged(bool)"), self.undoAction, SLOT("setEnabled(bool)"))
         self.editMenu.addAction(self.undoAction)
         
         self.redoAction = self.createMenuAction("&Redo", None, "Ctrl+Y", "Redo the last undone action")
         self.redoAction.connect(self.redoAction, SIGNAL("triggered()"), self.undoStack, SLOT("redo()"))
+        self.redoAction.setEnabled(False)
+        self.connect(self.undoStack, SIGNAL("canRedoChanged(bool)"), self.redoAction, SLOT("setEnabled(bool)"))
         self.editMenu.addAction(self.redoAction)
         
         self.viewMenu = menu.addMenu("&View")
@@ -272,7 +281,8 @@ class LicWindow(QMainWindow):
         if filename:
             self.fileClose()
             self.loadModel(filename)
-            self.statusBar().showMessage("LDraw Model imported: " + self.filename)
+            print "%s" % filename
+            self.statusBar().showMessage("LDraw Model imported: " + filename)
 
     def loadModel(self, filename):
         self.instructions.loadModel(filename)

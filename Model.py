@@ -23,14 +23,16 @@ AllFlags = QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraph
 def genericMousePressEvent(className):
     def _tmp(self, event):
         className.mousePressEvent(self, event)
-        self.lastPos = self.pos()
+        self.oldPos = self.pos()
     return _tmp
     
 def genericMouseReleaseEvent(className):
-    def _tmp(self, event):
+    
+    def _tmp(self, event):        
         className.mouseReleaseEvent(self, event)
-        if self.pos() != self.lastPos:
-            self.scene().emit(SIGNAL("itemMoved"), self, self.lastPos)
+        
+        if self.pos() != self.oldPos:
+            self.scene().emit(SIGNAL("itemsMoved"), self.scene().selectedItems())
             if hasattr(self.parentItem(), "resetRect"):
                 self.parentItem().resetRect()
     return _tmp
@@ -53,25 +55,35 @@ def printRect(rect, text = ""):
     print text + ", l: %f, r: %f, t: %f, b: %f" % (rect.left(), rect.right(), rect.top(), rect.bottom())
 
 class MoveCommand(QUndoCommand):
+
+    """
+    MoveCommand stores a list of parts moved together:
+    itemList[0] = (item, item.oldPos, item.newPos)
+    """
     
-    def __init__(self, item, oldPos):
+    def __init__(self, itemList):
         QUndoCommand.__init__(self)
-        self.item = item
-        self.oldPos = oldPos
-        self.newPos = item.pos()
+        
+        self.itemList = []
+        for item in itemList:
+            self.itemList.append((item, item.oldPos, item.pos()))
     
     def id(self):
         return 123
     
     def undo(self):
-        self.item.setPos(self.oldPos)
-        if hasattr(self.item.parentItem(), "resetRect"):
-            self.item.parentItem().resetRect()
+        for i in self.itemList:
+            item, oldPos, newPos = i
+            item.setPos(oldPos)
+            if hasattr(item.parentItem(), "resetRect"):
+                item.parentItem().resetRect()
     
     def redo(self):
-        self.item.setPos(self.newPos)
-        if hasattr(self.item.parentItem(), "resetRect"):
-            self.item.parentItem().resetRect()
+        for i in self.itemList:
+            item, oldPos, newPos = i
+            item.setPos(newPos)
+            if hasattr(item.parentItem(), "resetRect"):
+                item.parentItem().resetRect()
     
 #    def mergeWith(self, command):
 #        pass
