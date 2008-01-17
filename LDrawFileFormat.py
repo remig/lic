@@ -48,6 +48,9 @@ def lineToQuad(line):
 def isValidFileLine(line):
     return (len(line) > 2) and (line[1] == Comment) and (line[2] == FileCommand)
 
+def lineToFilename(line):
+    return ' '.join(line[3:])
+
 def isValidStepLine(line):
     return (len(line) > 2) and (line[1] == Comment) and (line[2] == StepCommand)
 
@@ -83,7 +86,7 @@ def createPartLine(color, matrix, filename):
     line = ' '.join(l)
     return line
 
-class LDrawFile:
+class LDrawFile(object):
     def __init__(self, filename):
         """
         Create a new LDrawFile based on a specific LDraw file.
@@ -95,16 +98,9 @@ class LDrawFile:
         self.filename = filename      # filename, like 3057.dat
         self.name = ""                # coloquial name, like 2 x 2 brick
         self.isPrimitive = False      # Anything in the 'P' directory
-        self.isBasicPart = False      # Any brick / part / whatever in the LDraw part library (ie, it has no submodels)
-        self.isModel = False
         
         self.fileArray = []
-        self.subModelArray = {}
-        
         self._loadFileArray()
-        
-        if not self.isPrimitive and not self.isBasicPart:
-            self._findSubModelsInFile()
 
     def _loadFileArray(self):
         
@@ -113,7 +109,6 @@ class LDrawFile:
         except:
             try:
                 f = file(os.path.join(config.LDrawPath, 'MODELS', self.filename))
-                self.isModel = True
             except IOError:
                 try:
                     f = file(os.path.join(config.LDrawPath, 'PARTS', self.filename))
@@ -132,13 +127,13 @@ class LDrawFile:
         
         self.name = ' '.join(self.fileArray[0][2:])
 
-    def _findSubModelsInFile(self):
+    def getSubModels(self):
         
         # Loop through the file array searching for sub model FILE declarations
         subModels = []  # subModels[0] = (filename, start line number)
-        for i, l in enumerate(self.fileArray):
+        for i, l in enumerate(self.fileArray[1:]):
             if isValidFileLine(l):
-                subModels.append((l[3], i))
+                subModels.append((l[3], i+1))  # + 1 because we start at line 1 not 0
         
         if len(subModels) < 1:
             return  # No subModels in file - we're done
@@ -150,5 +145,4 @@ class LDrawFile:
         # Last subModel is special case: its ending line is end of file array
         subModels[-1] = (subModels[-1][0], [subModels[-1][1], len(self.fileArray)])
         
-        # self.subModelArray = {"filename": [startline, endline]}
-        self.subModelArray = dict(subModels)
+        return dict(subModels)  # {filename: (start, stop)}

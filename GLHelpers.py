@@ -8,6 +8,7 @@ from PyQt4.QtCore import QPointF
 
 # Global constants
 SCALE_WINDOW = 1
+DEBUG = 0
 
 def initFreshContext():
     glEnable(GL_LIGHTING)
@@ -92,22 +93,22 @@ def popAllGLMatrices():
 def _checkImgMaxBounds(top, bottom, left, right, width, height, filename):
     
     if (top == 0) and (bottom == height-1): 
-        if (filename):
+        if DEBUG and filename:
             print "%s - top & bottom out of bounds" % (filename)
         return True
     
     if (left == 0) and (right == width-1):
-        if (filename):
+        if DEBUG and filename:
             print "%s - left & right out of bounds" % (filename)
         return True
     
     if (top == height) and (bottom == 0):
-        if (filename):
+        if DEBUG and filename:
             print "%s - blank page" % (filename)
         return True
     
     if (left == width) and (right == 0):
-        if (filename):
+        if DEBUG and filename:
             print "%s - blank page" % (filename)
         return True
     
@@ -116,16 +117,16 @@ def _checkImgMaxBounds(top, bottom, left, right, width, height, filename):
 def _checkImgTouchingBounds(top, bottom, left, right, width, height, filename):
     
     if (top == 0) or (bottom == height-1):
-        if (filename) and (top == 0):
+        if DEBUG and (filename) and (top == 0):
             print "%s - top out of bounds" % (filename)
-        if (filename) and (bottom == height-1):
+        if DEBUG and (filename) and (bottom == height-1):
             print "%s - bottom out of bounds" % (filename)
         return True
     
     if (left == 0) or (right == width-1):
-        if (filename) and (left == 0):
+        if DEBUG and (filename) and (left == 0):
             print "%s - left out of bounds" % (filename)
-        if (filename) and (right == width-1):
+        if DEBUG and (filename) and (right == width-1):
             print "%s - right out of bounds" % (filename)
         return True
     

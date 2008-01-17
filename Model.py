@@ -314,15 +314,22 @@ class Instructions(QAbstractItemModel):
     def importModel(self, filename):
         """ Reads in an LDraw model file and popluates this instruction book with the info. """
 
-        print "  *** Loading model %s ***" % filename
         ldrawFile = LDrawFile(filename)
+
+        subModels = ldrawFile.getSubModels()
+        for submodel, index in subModels.items():
+            part = SubModel(self)
+            lineArray = ldrawFile.fileArray[index[0]: index[1]]
+            part.loadFromLineArray(lineArray)
+            partDictionary[submodel] = part
+            Page.NextNumber = Step.NextNumber = 1
 
         # Loop over the specified LDraw file array, skipping the first line
         for line in ldrawFile.fileArray[1:]:
 
             # A FILE line means we're finished loading this model
             if isValidFileLine(line):
-                return
+                break
 
             self._loadOneLDrawLineCommand(line)
 
@@ -1026,7 +1033,7 @@ class CSI(QGraphicsPixmapItem):
         pn += 1
         sn += 1
         return (pn, sn)
-        
+
 class PartOGL(object):
     """
     Represents one 'abstract' part.  Could be regular part, like 2x4 brick, could be a 
@@ -1083,8 +1090,7 @@ class PartOGL(object):
         try:
             part = Part(p['filename'], p['color'], p['matrix'])
         except IOError:
-            # TODO: This should be printed - commented out for debugging
-            #print "Could not find file: %s - Ignoring." % p['filename']
+            print "Could not find file: %s - Ignoring." % p['filename']
             return
 
         self.parts.append(part)
@@ -1146,7 +1152,7 @@ class PartOGL(object):
             return False
 
         # TODO: update some kind of load status bar here - this function is *slow*
-        print self.filename + " - size: %d" % (size)
+        print "%s - size: %d" % (self.filename, size)
 
         self.width, self.height, self.center, self.leftInset, self.bottomInset = params
         return True
@@ -1180,6 +1186,47 @@ class PartOGL(object):
         GlobalGLContext.makeCurrent()
         return pixmap
 
+class SubModel(PartOGL):
+    """ A SubModel is just a PartOGL that also has steps. """
+
+    def __init__(self, instructions):
+        PartOGL.__init__(self)
+        self.instructions = instructions
+        self.pages = []
+        self.currentStep = None
+        self.currentCSI = None
+        
+    def loadFromLineArray(self, lineArray):
+
+        if isValidFileLine(lineArray[0]):
+            self.name = self.filename = lineToFilename(lineArray[0])
+            
+            for line in lineArray[1:]:
+                if isValidFileLine(line):
+                    return
+                self._loadOneLDrawLineCommand(line)
+    
+    def _loadOneLDrawLineCommand(self, line):
+        if isValidStepLine(line):
+            self.addStep()
+        elif isValidPartLine(line):
+            self.addPart(lineToPart(line), line)            
+        else:
+            PartOGL._loadOneLDrawLineCommand(self, line)
+
+    def addStep(self):        
+        page = Page(self.instructions)
+        self.pages.append(page)
+        self.currentStep = Step(page, -1, self.currentCSI)
+        self.currentCSI = self.currentStep.csi
+        page.steps.append(self.currentStep)
+        
+    def addPart(self, p, line):
+        PartOGL.addPart(self, p, line)
+        if self.currentStep is None:
+            self.addStep()
+        self.currentStep.addPart(self.parts[-1])
+
 class Part:
     """
     Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough
@@ -1200,7 +1247,7 @@ class Part:
             if filename in partDictionary:
                 self.partOGL = partDictionary[filename]
             else:
-                self.partOGL = partDictionary[filename] = PartOGL(filename, loadFromFile = True)        
+                self.partOGL = partDictionary[filename] = PartOGL(filename, loadFromFile = True)
             self.name = self.partOGL.name
 
     def callOGLDisplayList(self):
