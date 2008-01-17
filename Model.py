@@ -94,6 +94,9 @@ class LicTreeView(QTreeView):
         QTreeView.__init__(self, parent)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.connect(self, SIGNAL("clicked(QModelIndex)"), self.clicked)
+        #self.setDragEnabled(True)
+        #self.setDropIndicatorShown(True)
+        #self.setAcceptDrops(True)
         
     def updateSelection(self):
         model = self.model()
@@ -179,8 +182,13 @@ class Instructions(QAbstractItemModel):
     def columnCount(self, parentIndex):
         return 1  # Every single item in the tree has exactly 1 column
 
+    def supportedDropActions(self):
+        return Qt.CopyAction | Qt.MoveAction
+    
     def flags(self, index):
-        return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+        if index.isValid():
+            return (Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled)
+        return (Qt.ItemIsEnabled)
 
     def index(self, row, column, parent):
         if row < 0 or column < 0:
@@ -223,6 +231,37 @@ class Instructions(QAbstractItemModel):
     def headerData(self, section, orientation, role = Qt.DisplayRole):
         return QVariant("Instruction Book")
 
+    """
+    def insertRow(self, row, parentIndex):
+        print "insert row"
+        if not parentIndex.isValid():
+            return False
+        
+        self.beginInsertRows(parentIndex, row, row)
+        self.addPage(Page(self, row + 1), row)
+        return True
+    
+    def insertRows(self, row, count, parentIndex):
+        print "inserting rows"
+        if not parentIndex.isValid():
+            return False
+        
+        item = parentIndex.internalPointer()
+        if isinstance(item, Page):
+            print "Dropping onto a page"
+            
+        return False
+    
+        #self.beginInsertRows(parentIndex, row, row + count)
+        #for i in range(0, count):
+        #    self.addPage(Page(self, row + i + 1), row)
+        #return True
+    
+    def insertColumns(self, column, count, parentIndx):
+        print "inserting columns"
+        return False
+    """
+    
     def graphicsItemToModelIndex(self, item):
         if item is self:
             return QModelIndex()
@@ -257,9 +296,12 @@ class Instructions(QAbstractItemModel):
         GlobalGLContext.makeCurrent()
         self.emit(SIGNAL("layoutChanged()"))
 
-    def addPage(self, page):
+    def addPage(self, page, index = None):
 
-        self.pages.append(page)
+        if index is None:
+            self.pages.append(page)
+        else:
+            self.pages.insert(index, page)
         self.selectPage(page.number)
 
     def selectPage(self, pageNumber):
@@ -272,6 +314,7 @@ class Instructions(QAbstractItemModel):
     def importModel(self, filename):
         """ Reads in an LDraw model file and popluates this instruction book with the info. """
 
+        print "  *** Loading model %s ***" % filename
         ldrawFile = LDrawFile(filename)
 
         # Loop over the specified LDraw file array, skipping the first line
@@ -411,6 +454,8 @@ class Instructions(QAbstractItemModel):
 
         # Initialize each CSI's pixmap, for display in the gui
         for csi in csiList:
+            if len(csi.parts) == 0:
+                continue
             pBuffer = QGLPixelBuffer(csi.width, csi.height, QGLFormat(), GlobalGLContext)
             pBuffer.makeCurrent()
             csi.initPixmap(pBuffer)
@@ -773,7 +818,7 @@ class PLI(QGraphicsRectItem):
             self.pliItems.append(item)
         
     def initLayout(self):
-        """ 
+        """
         Allocate space for all parts in this PLI, and choose a decent layout.
         """
 
@@ -827,7 +872,7 @@ class PLI(QGraphicsRectItem):
                     overallX = prevItem.pos().x()
                     newWidth = prevItem.rect().width()
                     x = overallX + (newWidth - item.rect().width())
-                    y = prevCorner.y + b.internalGap + item.rect().height()
+                    y = prevItem.pos().y() + PLI.margin.y() + item.rect().height()
                     item.setPos(x, y)
 
             # Increase overall x, box width and box height to make PLI box big enough for this part
@@ -850,7 +895,7 @@ class CSI(QGraphicsPixmapItem):
         QGraphicsPixmapItem.__init__(self, step)
 
         self.center = QPointF()
-        self.width = self.height = UNINIT_OGL_DISPID
+        self.width = self.height = 0
         self.oglDispID = UNINIT_OGL_DISPID
         self.partialGLDispID = UNINIT_OGL_DISPID
         self.setFlags(AllFlags)
@@ -919,6 +964,9 @@ class CSI(QGraphicsPixmapItem):
         if self.oglDispID == UNINIT_OGL_DISPID:
             print "Trying to init a CSI size that has no display list"
             return
+        
+        if len(self.parts) == 0:
+            return True  # A CSI with no parts is already initialized
 
         rawFilename = self.parentItem().page.instructions.modelname
         filename = "%s_step_%d" % (rawFilename, self.parentItem().number)
@@ -929,7 +977,7 @@ class CSI(QGraphicsPixmapItem):
 
         # TODO: update some kind of load status bar her - this function is *slow*
         print "CSI %s step %d - size %d" % (filename, self.parentItem().number, size)
-        self.width, self.height, self.center, x, y = params
+        self.width, self.height, self.center, x, y = params  # x & y are just ignored placeholders
         return True
 
     def initPixmap(self, pBuffer):

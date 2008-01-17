@@ -1,7 +1,7 @@
 Angra - Angels City / Holy Land - Carry On **
 Angra - Angels City / Holy Land - Nothing To Say
 Angra - Rebirth - Nova Era **
-Angra - Rebirth - Running Alone *
+Angra - Rebirth - Running Alone *(*)
 Angra - Temple Of Shadows - Angels And Demons (*)
 Angra - Temple Of Shadows - Waiting Silence
 
@@ -55,6 +55,7 @@ Dreamtale - Beyond Reality - Dreamland
 Edguy - Burning Down The Opera - Vain Glory Opera (live)
 Edguy - Hellfire Club - Under The Moon  *
 Edguy - King Of Fools - New Age Messiah !
+Edguy - Mandrake - All The Clowns !
 Edguy - Mandrake - Fallen Angels
 Edguy - Theater Of Salvation - Babylon **
 Edguy - Theatre Of Salvation - Falling Down *

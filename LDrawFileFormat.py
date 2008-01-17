@@ -95,138 +95,33 @@ class LDrawFile:
         self.filename = filename      # filename, like 3057.dat
         self.name = ""                # coloquial name, like 2 x 2 brick
         self.isPrimitive = False      # Anything in the 'P' directory
+        self.isBasicPart = False      # Any brick / part / whatever in the LDraw part library (ie, it has no submodels)
+        self.isModel = False
         
         self.fileArray = []
         self.subModelArray = {}
         
         self._loadFileArray()
-        self._findSubModelsInFile()
         
-        cwd = os.getcwd()
-        self.datPath = os.path.join(cwd, 'DATs')
-        self.povPath = os.path.join(cwd, 'POVs')
-        self.pngPath = os.path.join(cwd, 'PNGs')
-
-    def addLicHeader(self):
-        
-        for i, line in enumerate(self.fileArray):
-            
-            if isValidLicHeader(line):
-                return  # Already initialized this file
-            
-            if isValidLicLine(line) or isValidStepLine(line) or isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidLPubPLILine(line):  
-                break  # We've hit the first real line in the file - insert header just before this
-        
-        self.insertLine(i, [Comment, LicCommand, LicInitialized])
-
-    def addInitialSteps(self):
-        
-        lines = []
-        currentFileLine = False
-        firstLine = -1
-        
-        for line in self.fileArray:
-            
-            if isValidLicHeader(line):
-                return  # Already initialized this file
-            
-            if isValidFileLine(line):
-                currentFileLine = True
-            
-            if isValidStepLine(line):   # Already have initial step - nothing to do here
-                currentFileLine = False
-            
-            if isValidPartLine(line) or isValidGhostLine(line) or isValidBufferLine(line) or isValidLPubPLILine(line) or isValidCSILine(line):
-                if firstLine == -1:
-                    firstLine = line[0]
-                if currentFileLine:
-                    lines.append(line)
-                    currentFileLine = False
-        
-        if lines == []:
-            # Found no FILE lines, so insert step right before first real line
-            lines.append(self.fileArray[max(0, firstLine-1)])
-        
-        for line in lines:
-            self.insertLine(line[0] - 1, [Comment, StepCommand])
-
-    def addDefaultPages(self):
-        
-        lines = []
-        for line in self.fileArray:
-            
-            if isValidLicHeader(line):
-                return  # Already initialized this file
-            
-            if isValidPageLine(line):
-                return  # Already have pages in file - nothing to do here
-            
-            if isValidStepLine(line):
-                lines.append(line)
-        
-        for line in lines:
-            self.insertLine(line[0] - 1, [Comment, LicCommand, PageCommand])
-    
-    def insertLine(self, index, line):
-        """
-        Insert the specified line into the file array at the specified index (0-based).
-        line is expected to be an array of various types, making up the overall LDraw line to be added.
-        Do not prepend the line number - line should start with one of the LDraw commands listed above.
-        line will be modified to include the appropriate line index, and all entries converted to strings.
-        """
-        
-        # Convert line entries to strings, and prepend line number to the line command, as the file array expects
-        fileLine = [str(x) for x in line]
-        fileLine.insert(0, index + 1)
-        
-        # Insert the new line
-        self.fileArray.insert(index, fileLine)
-        
-        # Adjust all subsequent line numbers
-        for line in self.fileArray[index + 1:]:
-            line[0] += 1
-        
-        # Adjust all line numbers in the subModel array too, if we inserted the line before their indices
-        # self.subModelArray = {"filename": [startline, endline]}
-        for line in self.subModelArray.values():
-            if line[0] >= index:
-                line[0] += 1
-            if line[1] >= index:
-                line[1] += 1
-        
-        return fileLine
-
-    def saveFile(self, filename = None):
-        
-        if filename:
-            self.filename = filename
-        else:
-            filename = self.filename
-        
-        print "*** Saving: %s ***" % (filename)
-        
-        # First, make a backup copy of the file if it exists
-        if os.path.isfile(filename):
-            shutil.move(filename, filename + ".bak")
-        
-        # Dump the current file array to the chosen file
-        f = open(filename, 'w')
-        for line in self.fileArray:
-            f.write(' '.join(line[1:]) + '\n')
-        f.close()
+        if not self.isPrimitive and not self.isBasicPart:
+            self._findSubModelsInFile()
 
     def _loadFileArray(self):
         
         try:
-            f = file(os.path.join(config.LDrawPath, 'MODELS', self.filename))
-        except IOError:
+            f = file(self.filename)
+        except:
             try:
-                f = file(os.path.join(config.LDrawPath, 'PARTS', self.filename))
-                if (self.filename[:2] == 's\\'):
-                    self.isPrimitive = True
+                f = file(os.path.join(config.LDrawPath, 'MODELS', self.filename))
+                self.isModel = True
             except IOError:
-                f = file(os.path.join(config.LDrawPath, 'P', self.filename))
-                self.isPrimitive = True
+                try:
+                    f = file(os.path.join(config.LDrawPath, 'PARTS', self.filename))
+                    if (self.filename[:2] == 's\\'):
+                        self.isPrimitive = True
+                except IOError:
+                    f = file(os.path.join(config.LDrawPath, 'P', self.filename))
+                    self.isPrimitive = True
         
         # copy the file into an internal array, for easier access
         i = 1
@@ -257,115 +152,3 @@ class LDrawFile:
         
         # self.subModelArray = {"filename": [startline, endline]}
         self.subModelArray = dict(subModels)
-
-    def writeLinesToDat(self, filename, start, end):
-        
-        filename = os.path.join(self.datPath, os.path.basename(filename))
-        if os.path.isfile(filename):
-            # TODO: Ensure this DAT is up to date wrt. the main model
-            return   # DAT already exists - nothing to do
-        
-        print "Creating dat for: %s, line %d to %d" % (filename, start, end)
-        f = open(filename, 'w')
-        for line in self.fileArray[start:end]:
-            f.write(' '.join(line[1:]) + '\n')
-        f.close()
-        
-        return filename
-
-    def splitOneStepDat(self, stepLine, stepNumber, filename, start = 0, end = -1):
-        
-        if end == -1:
-            end = len(self.fileArray)
-        
-        rawFilename = os.path.splitext(os.path.basename(filename))[0]
-        datFilename = os.path.join(self.datPath, '%s_step_%d.dat' % (rawFilename, stepNumber))
-        
-        if os.path.isfile(datFilename):
-            return datFilename  # dat file already exists - no need to recreate
-        
-        fileLines = []
-        inCurrentStep = False
-        for line in self.fileArray[start:end]:
-            if line == stepLine:
-                inCurrentStep = True
-            elif isValidStepLine(line) and inCurrentStep:
-                break
-            fileLines.append(line)
-        
-        bufStack = ''
-        lineDict = {}
-        for i, line in enumerate(fileLines):
-            
-            if lineDict.has_key(bufStack):
-                lineDict[bufStack].append(i)
-            else:
-                lineDict[bufStack] = [i]
-            
-            if isValidBufferLine(line):
-                buffer, state = lineToBuffer(line).values()
-                
-                if state == BufferStore:
-                    bufStack = bufStack + buffer
-                    
-                elif state == BufferRetrieve:
-                    if lineDict.has_key(bufStack):
-                        lineDict.pop(bufStack)
-                    if bufStack[-1] == buffer:
-                        bufStack = bufStack[:-1]
-                    else:
-                        print "Buffer Exchange Error.  Last stored buffer: ", bufStack[-1], " but trying to retrieve buffer: ", buffer
-        
-        newLines = []
-        for lines in lineDict.values():
-            for i in lines:
-                line = fileLines[i]
-                if isValidGhostLine(line):
-                    newLines.append(ghostLineToPartLine(line))
-                elif (not isValidCommentLine(line)) or (len(line) < 1):
-                    newLines.append(line)
-        
-        f = open(datFilename, 'w')
-        for line in newLines:
-            f.write(' '.join(line[1:]) + '\n')
-        f.close()
-        return datFilename
-
-    def createPov(self, width, height, datFile, camera, offset, color = None):
-        
-        if datFile is None:
-            datFile = self.filename
-        
-        rawFilename = os.path.splitext(os.path.basename(datFile))[0]
-        
-        if color:
-            povFile = "%s_%d.pov" % (os.path.join(self.povPath, rawFilename), color)
-        else:
-            povFile = "%s.pov" % (os.path.join(self.povPath, rawFilename))
-        
-        if not os.path.isfile(povFile):
-            # Create a pov from the specified dat via l3p
-            l3pCommand = l3p.getDefaultCommand()
-            l3pCommand['inFile'] = datFile
-            l3pCommand['outFile'] = povFile
-            if color:
-                l3pCommand['color'] = color
-            l3p.runCommand(l3pCommand)
-        
-        # Convert the generated pov into a nice png
-        pngFile = os.path.join(self.pngPath, rawFilename)
-        if color:
-            pngFile = "%s_%d.png" % (pngFile, color)
-        else:
-            pngFile = "%s.png" % (pngFile)
-        
-        if not os.path.isfile(pngFile):
-            povray.fixPovFile(povFile, width, height, offset, camera)
-            povCommand = povray.getDefaultCommand()
-            povCommand['inFile'] = povFile
-            povCommand['outFile'] = pngFile
-            povCommand['width'] = width
-            povCommand['height'] = height
-            povray.runCommand(povCommand)
-        
-        return pngFile
