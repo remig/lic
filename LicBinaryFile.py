@@ -151,12 +151,14 @@ def __readPage(stream, instructions):
     pos = QPointF()
     rect = QRectF()
     font = QFont()
+    filename = QString()
 
-    stream >> pos >> rect
+    stream >> pos >> rect >> filename
     number = stream.readInt32()
     page = Page(instructions, number)
     page.setPos(pos)
     page.setRect(rect)
+    page.filename = str(filename)
 
     stream >> pos >> font
     page.numberItem.setPos(pos)
@@ -316,7 +318,7 @@ def __writePart(stream, part):
         stream.writeFloat(point)
         
 def __writePage(stream, page):    
-    stream << page.pos() << page.rect()
+    stream << page.pos() << page.rect() << QString(page.filename)
     stream.writeInt32(page.number)
     stream << page.numberItem.pos() << page.numberItem.font()
     

@@ -269,17 +269,6 @@ class Instructions(QAbstractItemModel):
             return self.createIndex(item.row(), 0, item)
         else:
             return self.createIndex(0, 0, item)
-    
-    def loadModel(self, filename):
-        self.emit(SIGNAL("layoutAboutToBeChanged"))
-        self.path = os.path.dirname(filename)
-        self.filename = os.path.basename(filename)
-        self.modelname = os.path.splitext(self.filename)[0]
-        self.importModel(filename)
-        self.initDraw()  # generate all part GL display lists on the general glWidget
-        self.pages[-1].hide()
-        self.pages[0].show()
-        self.emit(SIGNAL("layoutChanged()"))
 
     def clear(self):
         global partDictionary
@@ -296,12 +285,15 @@ class Instructions(QAbstractItemModel):
         GlobalGLContext.makeCurrent()
         self.emit(SIGNAL("layoutChanged()"))
 
-    def addPage(self, page, index = None):
-
-        if index is None:
-            self.pages.append(page)
-        else:
-            self.pages.insert(index, page)
+    def insertPage(self, newPage):
+        for page in self.pages[newPage.number - 1:]:
+            page.number += 1
+        self.pages.insert(newPage.number - 1, newPage)
+    
+    def addPage(self, page):
+        if not self.pages:
+            page.filename = self.filename
+        self.pages.append(page)
         self.selectPage(page.number)
 
     def selectPage(self, pageNumber):
@@ -311,38 +303,7 @@ class Instructions(QAbstractItemModel):
         self.currentPage.show()
         self.scene.clearSelection()
 
-    def importModel(self, filename):
-        """ Reads in an LDraw model file and popluates this instruction book with the info. """
-
-        ldrawFile = LDrawFile(filename)
-
-        subModels = ldrawFile.getSubModels()
-        for submodel, index in subModels.items():
-            part = SubModel(self)
-            lineArray = ldrawFile.fileArray[index[0]: index[1]]
-            part.loadFromLineArray(lineArray)
-            partDictionary[submodel] = part
-            Page.NextNumber = Step.NextNumber = 1
-
-        # Loop over the specified LDraw file array, skipping the first line
-        for line in ldrawFile.fileArray[1:]:
-
-            # A FILE line means we're finished loading this model
-            if isValidFileLine(line):
-                break
-
-            self._loadOneLDrawLineCommand(line)
-
-    def _loadOneLDrawLineCommand(self, line):
-
-        if isValidStepLine(line):
-            self.addStep()
-        elif isValidPartLine(line):
-            self.addPart(lineToPart(line))
-
     def addStep(self):
-        
-        # For now, this implicitly adds a new page for each new step
         page = Page(self)
         self.addPage(page)
         self.currentStep = Step(page, -1, self.currentCSI)
@@ -353,13 +314,78 @@ class Instructions(QAbstractItemModel):
         try:
             part = Part(p['filename'], p['color'], p['matrix'])
         except IOError:
-            # TODO: This should be printed - commented out for debugging
-            #print "Could not find file: %s - Ignoring." % p['filename']
+            print "Could not find file: %s - Ignoring." % p['filename']
             return
 
         if not self.currentStep:
             self.addStep()
         self.currentStep.addPart(part)
+
+    def loadModel(self, filename):
+        self.emit(SIGNAL("layoutAboutToBeChanged"))
+        self.path = os.path.dirname(filename)
+        self.filename = os.path.basename(filename)
+        self.modelname = os.path.splitext(self.filename)[0]
+        self.importModel(filename)
+        self.initDraw()  # generate all part GL display lists on the general glWidget
+        self.pages[-1].hide()
+        self.pages[0].show()
+        self.emit(SIGNAL("layoutChanged()"))
+
+    def importModel(self, filename):
+        """ Reads in an LDraw model file and popluates this instruction book with the info. """
+
+        ldrawFile = LDrawFile(filename)
+
+        self.submodels = []
+        subModelList = ldrawFile.getSubModels()
+        if subModelList:
+            for submodelFilename, index in subModelList.items():
+                part = SubModel(self, submodelFilename)
+                lineArray = ldrawFile.fileArray[index[0]: index[1]]
+                part.loadFromLineArray(lineArray)
+                partDictionary[submodelFilename] = part
+                Page.NextNumber = Step.NextNumber = 1
+                self.submodels.append(part)
+
+        # Loop over the specified LDraw file array, skipping the first line
+        for line in ldrawFile.fileArray[1:]:
+
+            # A FILE line means we're finished loading this model
+            if isValidFileLine(line):
+                break
+
+            self._loadOneLDrawLineCommand(line)
+            
+        # Loop over each submodel and insert their pages into the this instruction book
+        for submodel in self.submodels:
+            self.insertOneSubmodel(submodel)
+
+    def insertOneSubmodel(self, submodel):
+        
+        if not submodel.pages:
+            return   # No pages in submodel - nothing to insert
+
+        # Need to find where this submodel is first used in the main model - hideous...
+        for page in self.pages:
+            for step in page.steps:
+                for part in step.csi.parts:
+                    if part.filename == submodel.filename:
+                        self.emit(SIGNAL("layoutAboutToBeChanged"))
+                        
+                        for submodelPage in submodel.pages:
+                            submodelPage.number = page.number
+                            self.insertPage(submodelPage)
+                        
+                        self.emit(SIGNAL("layoutChanged()"))
+                        return
+
+    def _loadOneLDrawLineCommand(self, line):
+
+        if isValidStepLine(line):
+            self.addStep()
+        elif isValidPartLine(line):
+            self.addPart(lineToPart(line))
 
     def initDraw(self):
 
@@ -373,8 +399,7 @@ class Instructions(QAbstractItemModel):
         # Calculate the width and height of each CSI in this instruction book
         self.initCSIDimensions()
 
-        # Layout each step on each page.  
-        # TODO: This should only happen if we're importing a new model.  Otherwise, layout should be pulled from load / save binary blob
+        # Layout each step on each page
         for page in self.pages:
             for step in page.steps:
                 step.initLayout()
@@ -418,11 +443,13 @@ class Instructions(QAbstractItemModel):
 
         # Append any newly calculated part dimensions to cache file
         # TODO: fix this
-#        print ""
-#        if lines:
-#            f = open(self.partDimensionsFilename, 'a')
-#            f.writelines(lines)
-#            f.close()
+        """
+        print ""
+        if lines:
+            f = open(self.partDimensionsFilename, 'a')
+            f.writelines(lines)
+            f.close()
+        """
 
     def initCSIDimensions(self):
         global GlobalGLContext
@@ -435,10 +462,12 @@ class Instructions(QAbstractItemModel):
         if csiList == []:
             return  # All CSIs initialized - nothing to do here
 
+        # Initialize each CSIs GL display list
         GlobalGLContext.makeCurrent()
         for csi in csiList:
             csi.createOGLDisplayList()
 
+        fullcsiList = list(csiList)  # Need this - csiList gets hosed in size loop
         csiList2 = []
         sizes = [512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
 
@@ -460,7 +489,7 @@ class Instructions(QAbstractItemModel):
                 csiList2 = []
 
         # Initialize each CSI's pixmap, for display in the gui
-        for csi in csiList:
+        for csi in fullcsiList:
             if len(csi.parts) == 0:
                 continue
             pBuffer = QGLPixelBuffer(csi.width, csi.height, QGLFormat(), GlobalGLContext)
@@ -488,17 +517,18 @@ class Page(QGraphicsRectItem):
 
         self.instructions = instructions
         self.steps = []
+        self.filename = ""  # Used on each Page 1 to determine what model / submodel is being built
 
         # Give this page a number
         if number == -1:
-            self.number = Page.NextNumber
+            self._number = Page.NextNumber
             Page.NextNumber += 1
         else:
-            self.number = number
+            self._number = number
             Page.NextNumber = number + 1
 
         # Setup this page's page number
-        self.numberItem = QGraphicsSimpleTextItem(str(self.number), self)
+        self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
         self.numberItem.setFont(QFont("Arial", 15))
         self.numberItem.dataText = "Page Number Label"
 
@@ -508,6 +538,15 @@ class Page(QGraphicsRectItem):
         self.numberItem.setPos(rect.topLeft())
         self.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable)
         self.numberItem.setFlags(AllFlags)
+
+    def _setNumber(self, number):
+        self._number = number
+        self.numberItem.setText("%d" % self._number)
+
+    def _getNumber(self):
+        return self._number
+
+    number = property(fget = _getNumber, fset = _setNumber)
 
     def parent(self):
         return self.instructions
@@ -523,10 +562,12 @@ class Page(QGraphicsRectItem):
         return len(self.steps) + 1 # + 1 for the page number label
 
     def row(self):
-        return self.number - 1
+        return self._number - 1
 
     def data(self, index):
-        return "Page %d" % self.number
+        if self.filename:
+            return "Page %d - %s" % (self._number, os.path.splitext(self.filename)[0])
+        return "Page %d" % self._number
 
     def getAllChildItems(self):
         items = [self]
@@ -568,11 +609,11 @@ class Page(QGraphicsRectItem):
                 if hasattr(item, "pngImage"):
                     painter.drawImage(item.scenePos(), item.pngImage)
                 else:
-                    print "Error: Trying to draw a pliItem that was not exported to png: step %d, item %s" % (step.number, item.filename)
+                    print "Error: Trying to draw a pliItem that was not exported to png: step %d, item %s" % (step._number, item.filename)
                 
         painter.end()
         
-        imgName = os.path.join(config.config['imgPath'], "Page_%d.png" % self.number)
+        imgName = os.path.join(config.config['imgPath'], "Page_%d.png" % self._number)
         image.save(imgName, None)
                 
     def paint(self, painter, option, widget = None):
@@ -585,11 +626,6 @@ class Page(QGraphicsRectItem):
         painter.setPen(QPen(Qt.black))
         painter.setBrush(QBrush(Qt.white))
         painter.drawRect(self.rect())
-
-        # Draw a (debug) rect around the page number label
-        #rect = self.numberItem.boundingRect()
-        #rect.translate(self.numberItem.pos())
-        #painter.drawRect(rect)
 
 class Step(QGraphicsRectItem):
     """ A single step in an instruction book.  Contains one optional PLI and exactly one CSI. """
@@ -610,14 +646,14 @@ class Step(QGraphicsRectItem):
 
         # Give this page a number
         if number == -1:
-            self.number = Step.NextNumber
+            self._number = Step.NextNumber
             Step.NextNumber += 1
         else:
-            self.number = number
+            self._number = number
             Step.NextNumber = number + 1
 
         # Initialize Step's number label (position set in initLayout)
-        self.numberItem = QGraphicsSimpleTextItem(str(self.number), self)
+        self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
         self.numberItem.setPos(0, 0)
         self.numberItem.setFont(QFont("Arial", 15))
         self.numberItem.setFlags(AllFlags)
@@ -627,6 +663,15 @@ class Step(QGraphicsRectItem):
         self.pli = PLI(self)
         self.csi = CSI(self, prevCSI)
 
+    def _setNumber(self, number):
+        self._number = number
+        self.numberItem.setText("%d" % self._number)
+
+    def _getNumber(self):
+        return self._number
+
+    number = property(fget = _getNumber, fset = _setNumber)
+    
     def parent(self):
         return self.parentItem()
 
@@ -647,7 +692,7 @@ class Step(QGraphicsRectItem):
         return page.steps.index(self) + 1  # + 1 for page number label
 
     def data(self, index):
-        return "Step %d" % self.number
+        return "Step %d" % self._number
 
     def addPart(self, part):
         self.csi.parts.append(part)
@@ -659,7 +704,7 @@ class Step(QGraphicsRectItem):
         
     def initLayout(self):
 
-        print "initializing step: %d" % self.number
+        print "initializing step: %d" % self._number
         self.pli.initLayout()
         self.csi.initLayout()
 
@@ -1189,22 +1234,20 @@ class PartOGL(object):
 class SubModel(PartOGL):
     """ A SubModel is just a PartOGL that also has steps. """
 
-    def __init__(self, instructions):
+    def __init__(self, instructions, filename):
         PartOGL.__init__(self)
         self.instructions = instructions
+        self.name = self.filename = filename
         self.pages = []
         self.currentStep = None
         self.currentCSI = None
         
     def loadFromLineArray(self, lineArray):
 
-        if isValidFileLine(lineArray[0]):
-            self.name = self.filename = lineToFilename(lineArray[0])
-            
-            for line in lineArray[1:]:
-                if isValidFileLine(line):
-                    return
-                self._loadOneLDrawLineCommand(line)
+        for line in lineArray[1:]:
+            if isValidFileLine(line):
+                return
+            self._loadOneLDrawLineCommand(line)
     
     def _loadOneLDrawLineCommand(self, line):
         if isValidStepLine(line):
@@ -1214,8 +1257,10 @@ class SubModel(PartOGL):
         else:
             PartOGL._loadOneLDrawLineCommand(self, line)
 
-    def addStep(self):        
+    def addStep(self):
         page = Page(self.instructions)
+        if not self.pages:
+            page.filename = self.filename
         self.pages.append(page)
         self.currentStep = Step(page, -1, self.currentCSI)
         self.currentCSI = self.currentStep.csi

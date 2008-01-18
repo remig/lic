@@ -46,6 +46,7 @@ Part:
 Page:
   QPointf pos
   QRectf rect
+  QString filename
   int32 number
   QPointf number.pos
   QFont number.font
