@@ -16,7 +16,9 @@ from LDrawFileFormat import *
 from LDrawColors import *
 
 UNINIT_OGL_DISPID = -1
-partDictionary = {}   # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
+partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
+submodelDictionary = {}  # {'filename': SubModel()}
+
 GlobalGLContext = None
 AllFlags = QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
 
@@ -271,7 +273,7 @@ class Instructions(QAbstractItemModel):
             return self.createIndex(0, 0, item)
 
     def clear(self):
-        global partDictionary
+        global partDictionary, submodelDictionary
         self.emit(SIGNAL("layoutAboutToBeChanged"))
         self.currentPage = self.currentStep = self.currentCSI = None
         self.filename = self.path = self.modelname = ""
@@ -280,6 +282,7 @@ class Instructions(QAbstractItemModel):
             del(item)
         self.pages = []
         partDictionary = {}
+        submodelDictionary = {}
         Page.NextNumber = 1
         Step.NextNumber = 1
         GlobalGLContext.makeCurrent()
@@ -328,25 +331,20 @@ class Instructions(QAbstractItemModel):
         self.modelname = os.path.splitext(self.filename)[0]
         self.importModel(filename)
         self.initDraw()  # generate all part GL display lists on the general glWidget
-        self.pages[-1].hide()
-        self.pages[0].show()
+        self.selectPage(1)
         self.emit(SIGNAL("layoutChanged()"))
 
     def importModel(self, filename):
         """ Reads in an LDraw model file and popluates this instruction book with the info. """
 
         ldrawFile = LDrawFile(filename)
-
-        self.submodels = []
         subModelList = ldrawFile.getSubModels()
+
         if subModelList:
             for submodelFilename, index in subModelList.items():
-                part = SubModel(self, submodelFilename)
                 lineArray = ldrawFile.fileArray[index[0]: index[1]]
-                part.loadFromLineArray(lineArray)
-                partDictionary[submodelFilename] = part
-                Page.NextNumber = Step.NextNumber = 1
-                self.submodels.append(part)
+                part = SubModel(self, submodelFilename, lineArray)
+                submodelDictionary[submodelFilename] = part
 
         # Loop over the specified LDraw file array, skipping the first line
         for line in ldrawFile.fileArray[1:]:
@@ -357,9 +355,14 @@ class Instructions(QAbstractItemModel):
 
             self._loadOneLDrawLineCommand(line)
             
-        # Loop over each submodel and insert their pages into the this instruction book
-        for submodel in self.submodels:
-            self.insertOneSubmodel(submodel)
+        # Loop over each submodel, initialize any that are used, remove any that aren't
+        for filename, submodel in submodelDictionary.items():
+            if submodel.used:
+                Page.NextNumber = Step.NextNumber = 1
+                submodel.loadFromLineArray()
+                self.insertOneSubmodel(submodel)
+            else:
+                submodelDictionary.pop(filename, None)
 
     def insertOneSubmodel(self, submodel):
         
@@ -376,10 +379,6 @@ class Instructions(QAbstractItemModel):
                             self.insertPage(submodelPage)
                         return
         
-        # If we're here, this submodel not used anywhere
-        for page in submodel.pages:
-            self.scene.removeItem(page)
-
     def _loadOneLDrawLineCommand(self, line):
 
         if isValidStepLine(line):
@@ -392,6 +391,9 @@ class Instructions(QAbstractItemModel):
         # First initialize all GL display lists
         for part in partDictionary.values():
             part.createOGLDisplayList()
+            
+        for submodel in submodelDictionary.values():
+            submodel.createOGLDisplayList()
 
         # Calculate the width and height of each partOGL in the part dictionary
         self.initPartDimensionsManually()
@@ -413,6 +415,8 @@ class Instructions(QAbstractItemModel):
         global GlobalGLContext
 
         partList = [part for part in partDictionary.values() if (not part.isPrimitive) and (part.width == part.height == -1)]
+        submodelList = [submodel for submodel in submodelDictionary.values() if submodel.used]
+        partList += submodelList
 
         if not partList:
             return    # If there's no parts to initialize, we're done here
@@ -707,7 +711,7 @@ class Step(QGraphicsRectItem):
         
     def initLayout(self):
 
-        print "initializing step: %d, part count: %d, pli count: %d" % (self._number, len(self.csi.parts), len(self.pli.pliItems))
+        print "initializing page: %d step: %d, part count: %d, pli count: %d" % (self.parentItem()._number, self._number, len(self.csi.parts), len(self.pli.pliItems))
         self.pli.initLayout()
         self.csi.initLayout()
 
@@ -1195,6 +1199,7 @@ class PartOGL(object):
         if self.isPrimitive:
             return True  # Primitive parts need not be sized
 
+        print "  - init size of %s" % self.filename
         params = GLHelpers.initImgSize(size, size, self.oglDispID, False, self.filename, None, pBuffer)
         if params is None:
             return False
@@ -1237,17 +1242,18 @@ class PartOGL(object):
 class SubModel(PartOGL):
     """ A SubModel is just a PartOGL that also has steps. """
 
-    def __init__(self, instructions, filename):
-        PartOGL.__init__(self)
+    def __init__(self, instructions, filename, lineArray):
+        PartOGL.__init__(self, filename)
         self.instructions = instructions
-        self.name = self.filename = filename
+        self.lineArray = lineArray
+        self.used = False
         self.pages = []
         self.currentStep = None
         self.currentCSI = None
         
-    def loadFromLineArray(self, lineArray):
+    def loadFromLineArray(self):
 
-        for line in lineArray[1:]:
+        for line in self.lineArray[1:]:
             if isValidFileLine(line):
                 return
             self._loadOneLDrawLineCommand(line)
@@ -1275,7 +1281,7 @@ class SubModel(PartOGL):
             self.addStep()
         self.currentStep.addPart(self.parts[-1])
 
-class Part:
+class Part(object):
     """
     Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough
     info to draw that abstract part in context of a model, ie color, positional 
@@ -1285,6 +1291,7 @@ class Part:
     """
 
     def __init__(self, filename, color = 16, matrix = None, invert = False, setPartOGL = True):
+        global partDictionary, submodelDictionary
 
         self.filename = filename
         self.color = color
@@ -1294,6 +1301,9 @@ class Part:
         if setPartOGL:
             if filename in partDictionary:
                 self.partOGL = partDictionary[filename]
+            elif filename in submodelDictionary:
+                self.partOGL = submodelDictionary[filename]
+                self.partOGL.used = True
             else:
                 self.partOGL = partDictionary[filename] = PartOGL(filename, loadFromFile = True)
             self.name = self.partOGL.name
@@ -1336,7 +1346,7 @@ class Part:
         line = createPartLine(self.color, self.matrix, self.filename)
         fh.write(line + '\n')
 
-class Primitive:
+class Primitive(object):
     """
     Not a primitive in the LDraw sense, just a single line/triangle/quad.
     Used mainly to construct an OGL display list for a set of points.
