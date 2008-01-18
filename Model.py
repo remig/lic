@@ -371,14 +371,14 @@ class Instructions(QAbstractItemModel):
             for step in page.steps:
                 for part in step.csi.parts:
                     if part.filename == submodel.filename:
-                        self.emit(SIGNAL("layoutAboutToBeChanged"))
-                        
                         for submodelPage in submodel.pages:
                             submodelPage.number = page.number
                             self.insertPage(submodelPage)
-                        
-                        self.emit(SIGNAL("layoutChanged()"))
                         return
+        
+        # If we're here, this submodel not used anywhere
+        for page in submodel.pages:
+            self.scene.removeItem(page)
 
     def _loadOneLDrawLineCommand(self, line):
 
@@ -489,10 +489,11 @@ class Instructions(QAbstractItemModel):
                 csiList2 = []
 
         # Initialize each CSI's pixmap, for display in the gui
+        format = QGLFormat()
         for csi in fullcsiList:
-            if len(csi.parts) == 0:
+            if csi.width < 1 or csi.height < 1:
                 continue
-            pBuffer = QGLPixelBuffer(csi.width, csi.height, QGLFormat(), GlobalGLContext)
+            pBuffer = QGLPixelBuffer(csi.width, csi.height, format, GlobalGLContext)
             pBuffer.makeCurrent()
             csi.initPixmap(pBuffer)
             
@@ -509,8 +510,9 @@ class Page(QGraphicsRectItem):
     margin = QPointF(15, 15)
 
     def __init__(self, instructions, number = -1):
-        QGraphicsRectItem.__init__(self, None, instructions.scene)
+        QGraphicsRectItem.__init__(self)
 
+        instructions.scene.addItem(self)
         # Position this rectangle inset from the containing scene
         self.setPos(0, 0)
         self.setRect(instructions.scene.sceneRect())
@@ -617,6 +619,7 @@ class Page(QGraphicsRectItem):
         image.save(imgName, None)
                 
     def paint(self, painter, option, widget = None):
+        print "painting page: %d" % self._number
         # Draw a slightly down-right translated black rectangle, for the page shadow effect
         painter.setPen(Qt.NoPen)
         painter.setBrush(QBrush(Qt.black))
@@ -704,7 +707,7 @@ class Step(QGraphicsRectItem):
         
     def initLayout(self):
 
-        print "initializing step: %d" % self._number
+        print "initializing step: %d, part count: %d, pli count: %d" % (self._number, len(self.csi.parts), len(self.pli.pliItems))
         self.pli.initLayout()
         self.csi.initLayout()
 
