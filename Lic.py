@@ -163,7 +163,7 @@ class LicWindow(QMainWindow):
         if not os.path.isdir(cachePath):
             os.mkdir(cachePath)
             
-        modelPath = os.path.join(cachePath, self.instructions.modelname)
+        modelPath = os.path.join(cachePath, os.path.basename(self.filename))
         if not os.path.isdir(modelPath):
             os.mkdir(modelPath)
         

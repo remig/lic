@@ -155,7 +155,7 @@ def __readPage(stream, instructions):
 
     stream >> pos >> rect >> filename
     number = stream.readInt32()
-    page = Page(instructions, number)
+    page = Page(instructions, instructions, number)
     page.setPos(pos)
     page.setRect(rect)
     page.filename = str(filename)
