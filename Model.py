@@ -15,6 +15,9 @@ import povray
 from LDrawFileFormat import *
 from LDrawColors import *
 
+MagicNumber = 0x14768126
+FileVersion = 1
+
 UNINIT_OGL_DISPID = -1
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 submodelDictionary = {}  # {'filename': Submodel()}

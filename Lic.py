@@ -8,7 +8,8 @@ from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
 
 from Model import *
-import LicBinaryFile
+import LicBinaryReader
+import LicBinaryWriter
 import config
 import l3p
 import povray
@@ -109,7 +110,7 @@ class LicWindow(QMainWindow):
         #self.modelName = "C:\\ldraw\\lic\\models\\pyramid_orig.dat"
 
         if self.__filename:
-            LicBinaryFile.loadLicFile(self.__filename, self.instructions)
+            LicBinaryReader.loadLicFile(self.__filename, self.instructions)
             self.filename = self.__filename
             
         if self.modelName:
@@ -302,7 +303,7 @@ class LicWindow(QMainWindow):
 
     def fileSave(self):
         try:
-            LicBinaryFile.saveLicFile(self.filename, self.instructions)
+            LicBinaryWriter.saveLicFile(self.filename, self.instructions)
             self.setWindowModified(False)
             self.statusBar().showMessage("Saved to: " + self.filename)
         except (IOError, OSError), e:
@@ -316,7 +317,7 @@ class LicWindow(QMainWindow):
         if filename and filename != self.filename:
             self.fileClose()
             try:
-                LicBinaryFile.loadLicFile(filename, self.instructions)
+                LicBinaryReader.loadLicFile(filename, self.instructions)
                 self.filename = filename
             except IOError, e:
                 QMessageBox.warning(self, "Lic - Open Error", "Failed to open %s: %s" % (filename, e))
