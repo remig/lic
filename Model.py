@@ -622,14 +622,13 @@ class PLIItem(QGraphicsRectItem):
         self.setPen(pen)
 
         # Initialize the quantity label (position set in initLayout)
-        self.numberItem = QGraphicsSimpleTextItem("x%d" % self._count, self)
+        self.numberItem = QGraphicsSimpleTextItem("%dx" % self._count, self)
         self.numberItem.setFont(QFont("Arial", 10))
-        self.numberItem.dataText = "Qty. Label (x%d)" % self._count
+        self.numberItem.dataText = "Qty. Label (%dx)" % self._count
 
         self.pixmapItem = QGraphicsPixmapItem(self)
         self.pixmapItem.dataText = "Image"
 
-        self.setPos(parent.margin)
         self.setFlags(AllFlags)
         self.numberItem.setFlags(AllFlags)
 
@@ -680,11 +679,12 @@ class PLIItem(QGraphicsRectItem):
         pixmapRect = self.pixmapItem.boundingRect().translated(self.pixmapItem.pos())
         numberRect = self.numberItem.boundingRect().translated(self.numberItem.pos())
         self.setRect(pixmapRect | numberRect)
+        self.translate(-self.rect().x(), -self.rect().y())
 
     def _setCount(self, count):
         self._count = count
-        self.numberItem.setText("x%d" % self._count)
-        self.numberItem.dataText = "Qty. Label (x%d)" % self._count
+        self.numberItem.setText("%dx" % self._count)
+        self.numberItem.dataText = "Qty. Label (%dx)" % self._count
 
     def _getCount(self):
         return self._count
