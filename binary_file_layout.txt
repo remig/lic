@@ -6,10 +6,21 @@ eof
 -----------------------
 
 Instructions:
+  QString imported filename
   int32 - length of part dictionary
   ... PartOGL 0..n ...
-  int32 - number of pages
+  int32 - length of submodel dictionary
+  ... Submodel 0..n ...
+  Submodel instructions.mainModel
+
+Submodel:
+  PartOGL self
+  int32 - length of pages
   ... Page 0..n ...
+  int32 - length of submodels
+  ... Submodel filename 0..n ...
+  int32 _row
+  QString parent (filename of model using this submodel, ie _parent.filename)
 
 PartOGL:
   QString filename
@@ -46,8 +57,8 @@ Part:
 Page:
   QPointf pos
   QRectf rect
-  QString filename
   int32 number
+  int32 _row
   QPointf number.pos
   QFont number.font
   int32 number of Steps
@@ -61,8 +72,6 @@ Step:
   QFont number.font
   CSI csi
   PLI pli
-  int32 number of parts
-  .. Part 0..n ...
 
 CSI:
   QPointf pos
@@ -70,6 +79,10 @@ CSI:
   int32 height
   QPointF center
   QPixmap pixmap
+  int32 prevPageNumber
+  int32 prevStepNumber
+  int32 number of parts
+  ... Part 0..n ...
 
 PLI:
   QPointf pos

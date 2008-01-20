@@ -17,7 +17,7 @@ from LDrawColors import *
 
 UNINIT_OGL_DISPID = -1
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
-submodelDictionary = {}  # {'filename': SubModel()}
+submodelDictionary = {}  # {'filename': Submodel()}
 currentModelFilename = ""
 
 GlobalGLContext = None
@@ -120,7 +120,7 @@ class LicTreeView(QTreeView):
         instructions.scene.clearSelection()
         
         # Find the selected item's parent page, then flip to that page
-        if isinstance(index.internalPointer(), SubModel):
+        if isinstance(index.internalPointer(), Submodel):
             instructions.mainModel.selectPage(index.internalPointer().pages[0].number)
         else:
             parent = QModelIndex(index)
@@ -227,10 +227,9 @@ class Instructions(QAbstractItemModel):
         self.emit(SIGNAL("layoutAboutToBeChanged"))
 
         # Remove everything from the graphics scene
-        for item in self.scene.items():
-            self.scene.removeItem(item)
-            del(item)
-            
+        if self.mainModel:
+            self.mainModel.deleteAllPages(self.scene)
+
         self.mainModel = None
         partDictionary = {}
         submodelDictionary = {}
@@ -243,7 +242,7 @@ class Instructions(QAbstractItemModel):
         global currentModelFilename        
         currentModelFilename = filename
         self.emit(SIGNAL("layoutAboutToBeChanged"))
-        self.mainModel = SubModel(self, self, filename)
+        self.mainModel = Submodel(self, self, filename)
         self.mainModel.importModel()
         self.initDraw()  # generate all part GL display lists on the general glWidget
         self.mainModel.selectPage(1)
@@ -364,6 +363,10 @@ class Instructions(QAbstractItemModel):
     def getPartDictionary(self):
         global partDictionary
         return partDictionary
+
+    def getSubmodelDictionary(self):
+        global submodelDictionary
+        return submodelDictionary
 
 class Page(QGraphicsRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
@@ -526,8 +529,8 @@ class Step(QGraphicsRectItem):
         self.numberItem.dataText = "Step Number Label"
         self.setFlags(AllFlags)
 
-        self.pli = PLI(self)
         self.csi = CSI(self, prevCSI)
+        self.pli = PLI(self)
 
     def _setNumber(self, number):
         self._number = number
@@ -887,15 +890,16 @@ class CSI(QGraphicsPixmapItem):
         if len(self.parts) == 0:
             return True  # A CSI with no parts is already initialized
 
-        rawFilename = os.path.basename(currentModelFilename)
-        filename = "%s_step_%d" % (rawFilename, self.parentItem().number)
+        rawFilename = os.path.splitext(os.path.basename(currentModelFilename))[0]
+        pageNumber, stepNumber = self.getPageStepNumberPair()
+        filename = "%s_page_%d_step_%d" % (rawFilename, pageNumber, stepNumber)
 
         params = GLHelpers.initImgSize(size, size, self.oglDispID, True, filename, None, pBuffer)
         if params is None:
             return False
 
         # TODO: update some kind of load status bar her - this function is *slow*
-        print "CSI %s step %d - size %d" % (filename, self.parentItem().number, size)
+        print "CSI %s page %d step %d - size %d" % (rawFilename, pageNumber, stepNumber, size)
         self.width, self.height, self.center, x, y = params  # x & y are just ignored placeholders
         return True
 
@@ -911,7 +915,7 @@ class CSI(QGraphicsPixmapItem):
         self.setPixmap(QPixmap.fromImage(image))
 
     def createPng(self):
-                
+
         csiName = "CSI_Page_%d_Step_%d.dat" % self.getPageStepNumberPair()
         datFile = os.path.join(config.config['datPath'], csiName)
         
@@ -933,18 +937,14 @@ class CSI(QGraphicsPixmapItem):
 
     def getPrevPageStepNumberPair(self):
         if self.prevCSI:
-            prevStep = self.prevCSI.parentItem()
-            prevStepNumber = prevStep.number
-            prevPageNumber = prevStep.parentItem().number
+            return self.prevCSI.getPageStepNumberPair()
         else:
-            prevPageNumber = prevStepNumber = 0
-        return (prevPageNumber, prevStepNumber)
+            return (0, 0)
     
     def getPageStepNumberPair(self):
-        pn, sn = self.getPrevPageStepNumberPair()
-        pn += 1
-        sn += 1
-        return (pn, sn)
+        step = self.parentItem()
+        page = step.parentItem()
+        return (page.number, step.number)
 
 class PartOGL(object):
     """
@@ -1099,10 +1099,10 @@ class PartOGL(object):
         GlobalGLContext.makeCurrent()
         return pixmap
 
-class SubModel(PartOGL):
-    """ A SubModel is just a PartOGL that also has pages & steps, and can be inserted into a tree. """
+class Submodel(PartOGL):
+    """ A Submodel is just a PartOGL that also has pages & steps, and can be inserted into a tree. """
 
-    def __init__(self, parent, instructions, filename, lineArray = None):
+    def __init__(self, parent = None, instructions = None, filename = "", lineArray = None):
         PartOGL.__init__(self, filename)
         self.instructions = instructions
         self.lineArray = lineArray
@@ -1147,13 +1147,13 @@ class SubModel(PartOGL):
 
         global submodelDictionary
         ldrawFile = LDrawFile(self.filename)
-        subModelList = ldrawFile.getSubModels()
+        submodelList = ldrawFile.getSubmodels()
 
         # Add any submodels found in this LDraw file to the submodel dictionary, unused and uninitialized
-        if subModelList:
-            for submodelFilename, index in subModelList.items():
+        if submodelList:
+            for submodelFilename, index in submodelList.items():
                 lineArray = ldrawFile.fileArray[index[0]: index[1]]
-                model = SubModel(self, self.instructions, submodelFilename, lineArray)
+                model = Submodel(self, self.instructions, submodelFilename, lineArray)
                 submodelDictionary[submodelFilename] = model
 
         # Load the contents of this specific LDraw file into this submodel
@@ -1195,6 +1195,23 @@ class SubModel(PartOGL):
         self.pages.append(page)
         return page
     
+    def deleteAllPages(self, scene):
+        for page in self.pages:
+            scene.removeItem(page)
+            del(page)
+        for submodel in self.submodels:
+            submodel.deleteAllPages(scene)
+
+    def getPage(self, pageNumber):
+        for page in self.pages:
+            if page.number == pageNumber:
+                return page
+        for submodel in self.submodels:
+            page = submodel.getPage(pageNumber)
+            if page:
+                return page
+        return None
+
     def selectPage(self, pageNumber):
         for page in self.pages:
             if page.number == pageNumber:
@@ -1255,11 +1272,10 @@ class Part(object):
         self.color = color
         self.matrix = matrix
         self.inverted = invert
+        self.filename = filename  # Needed for save / load
 
         if setPartOGL:
-            if filename in partDictionary:
-                self.partOGL = partDictionary[filename]
-            elif filename in submodelDictionary:
+            if filename in submodelDictionary:
                 self.partOGL = submodelDictionary[filename]
                 if not self.partOGL.used:
                     Step.NextNumber = 1
@@ -1267,12 +1283,14 @@ class Part(object):
                     self.partOGL.loadFromLineArray()
                     Step.NextNumber = lastStep
                     Page.NextNumber += 1
+            elif filename in partDictionary:
+                self.partOGL = partDictionary[filename]
             else:
                 self.partOGL = partDictionary[filename] = PartOGL(filename, loadFromFile = True)
             self.name = self.partOGL.name
             
     def isSubmodel(self):
-        return isinstance(self.partOGL, SubModel)
+        return isinstance(self.partOGL, Submodel)
 
     def callOGLDisplayList(self):
 

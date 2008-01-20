@@ -5,6 +5,7 @@ from Model import *
 MagicNumber = 0x14768126
 FileVersion = 1
 partDictionary = {}
+submodelDictionary = {}
 
 def loadLicFile(filename, instructions):
     global FileVersion, MagicNumber
@@ -24,8 +25,8 @@ def loadLicFile(filename, instructions):
     if fileVersion != FileVersion:
         raise IOError, "unrecognized .lic file version"
 
-    __readInstructions(stream, filename, instructions)
-    instructions.selectPage(1)
+    __readInstructions(stream, instructions)
+    instructions.mainModel.selectPage(1)
 
     if fh is not None:
         fh.close()
@@ -36,57 +37,66 @@ def saveLicFile(filename, instructions):
     fh = QFile(filename)
     if not fh.open(QIODevice.WriteOnly):
         raise IOError, unicode(fh.errorStriong())
+
     stream = QDataStream(fh)
     stream.setVersion(QDataStream.Qt_4_3)
     stream.writeInt32(MagicNumber)
     stream.writeInt16(FileVersion)
+
     __writeInstructions(stream, instructions)
 
     if fh is not None:
         fh.close()
 
-def __readInstructions(stream, filename, instructions):
-    global partDictionary
+def __readInstructions(stream, instructions):
+    global partDictionary, submodelDictionary
 
     instructions.emit(SIGNAL("layoutAboutToBeChanged"))
-    instructions.path = os.path.dirname(filename)
-    instructions.filename = os.path.basename(filename)
-    instructions.modelname = os.path.splitext(instructions.filename)[0]
-    
     partDictionary = instructions.getPartDictionary()
+    submodelDictionary = instructions.getSubmodelDictionary()
     
+    filename = QString()
+    stream >> filename
+    instructions.filename = str(filename)
+
     partCount = stream.readInt32()
     for i in range(0, partCount):
         part = __readPartOGL(stream)
         partDictionary[part.filename] = part
 
-    pageCount = stream.readInt32()
-    for i in range(0, pageCount):
-        page = __readPage(stream, instructions)
-        instructions.addPage(page)
+    partCount = stream.readInt32()
+    for i in range(0, partCount):
+        model = __readSubmodel(stream, instructions)
+        submodelDictionary[model.filename] = model
+
+    instructions.mainModel = __readSubmodel(stream, instructions)
     
-    __linkAllPrevCSIs(instructions)
+    for csi in instructions.mainModel.getCSIList():
+        __linkPrevCSI(csi, instructions.mainModel)
+
+    for submodel in submodelDictionary.values():
+        if submodel._parent == "":
+            submodel._parent = instructions
+        elif submodel._parent == filename:
+            submodel._parent = instructions.mainModel
+        else:
+            submodel._parent = submodelDictionary[submodel._parent]
+
     instructions.emit(SIGNAL("layoutChanged()"))
 
-def __linkAllPrevCSIs(instructions):
-    
-    for page in instructions.pages:
-        for step in page.steps:
-            __linkPrevCSI(step.csi, instructions)
-
-def __linkPrevCSI(csi, instructions):
+def __linkPrevCSI(csi, mainModel):
 
     if not isinstance(csi.prevCSI, tuple) or len(csi.prevCSI) != 2:
-        print "Error linking prev CSIs - prevCSI isn't a tuple, it's a %s" % str(type(csi.prevCSI))
+        print "LOAD ERROR: linking prev CSIs - prevCSI isn't a tuple, it's a %s" % str(type(csi.prevCSI))
         return
     
     prevPageNumber, prevStepNumber = csi.prevCSI
     
     csi.prevCSI = None
     if prevPageNumber == 0 and prevStepNumber == 0:
-        return  # prevPageNumber == 0 means this is the first CSI; its previous is expected to be None
+        return  # This is the first CSI; its previous is expected to be None
         
-    prevPage = instructions.pages[prevPageNumber - 1]
+    prevPage = mainModel.getPage(prevPageNumber)
     prevStep = None
     for step in prevPage.steps:
         if step.number == prevStepNumber:
@@ -94,17 +104,17 @@ def __linkPrevCSI(csi, instructions):
             break
         
     if not prevStep:
-        print "Error linking prev CSI: could not find step %d on page %d" % (prevStepNumber, prevPageNumber)
+        print "LOAD ERROR: linking prev CSI: could not find step %d on page %d" % (prevStepNumber, prevPageNumber)
         return
 
     csi.prevCSI = step.csi
     
-def __readPartOGL(stream):
+def __readPartOGL(stream, createSubmodel = False):
     filename = QString()
     name = QString()
     stream >> filename >> name
 
-    part = PartOGL()
+    part = Submodel() if createSubmodel else PartOGL()
     part.filename = str(filename)
     part.name = str(name)
 
@@ -147,18 +157,18 @@ def __readPart(stream):
         matrix.append(stream.readFloat())
     return Part(str(filename), color, matrix, invert, False)
 
-def __readPage(stream, instructions):
+def __readPage(stream, parent, instructions):
     pos = QPointF()
     rect = QRectF()
     font = QFont()
-    filename = QString()
 
-    stream >> pos >> rect >> filename
+    stream >> pos >> rect
     number = stream.readInt32()
-    page = Page(instructions, instructions, number)
+    page = Page(parent, instructions, number)
     page.setPos(pos)
     page.setRect(rect)
-    page.filename = str(filename)
+
+    page._row = stream.readInt32()
 
     stream >> pos >> font
     page.numberItem.setPos(pos)
@@ -172,7 +182,6 @@ def __readPage(stream, instructions):
     return page
 
 def __readStep(stream, parentPage):
-    global partDictionary
     
     pos = QPointF()
     rect = QRectF()
@@ -210,10 +219,17 @@ def __readCSI(stream, step):
     prevStepNumber = stream.readInt32()    
     csi.prevCSI = (prevPageNumber, prevStepNumber)
     
+    global partDictionary, submodelDictionary
     partCount = stream.readInt32()
     for i in range(0, partCount):
         part = __readPart(stream)
-        part.partOGL = partDictionary[part.filename]
+        if part.filename in partDictionary:
+            part.partOGL = partDictionary[part.filename]
+        elif part.filename in submodelDictionary:
+            part.partOGL = submodelDictionary[part.filename]
+        else:
+            print "LOAD ERROR: could not find a partOGL for part: " + part.filename
+
         csi.parts.append(part)
     return csi
 
@@ -235,7 +251,6 @@ def __readPLI(stream, parentStep):
     return pli
 
 def __readPLIItem(stream, pli):
-    global partDictionary
     
     filename = QString()
     pos = QPointF()
@@ -246,10 +261,14 @@ def __readPLIItem(stream, pli):
     color = stream.readInt32()
     count = stream.readInt32()
 
+    global partDictionary, submodelDictionary
     if filename in partDictionary:
         partOGL = partDictionary[filename]
+    elif filename in submodelDictionary:
+        partOGL = submodelDictionary[filename]
     else:
         print "LOAD ERROR: Could not find part in part dict: " + filename
+
     pliItem = PLIItem(pli, partOGL, color)
     pliItem.count = count
     pliItem.setPos(pos)
@@ -266,17 +285,71 @@ def __readPLIItem(stream, pli):
     return pliItem
 
 def __writeInstructions(stream, instructions):
-    global partDictionary
+
+    stream << QString(instructions.mainModel.filename)
 
     partDictionary = instructions.getPartDictionary()
     stream.writeInt32(len(partDictionary))
     for partOGL in partDictionary.values():
         __writePartOGL(stream, partOGL)
 
-    stream.writeInt32(len(instructions.pages))
-    for page in instructions.pages:
+    submodelDictionary = instructions.getSubmodelDictionary()
+    stream.writeInt32(len(submodelDictionary))
+
+    # Need to write a submodel's submodels before the submodel,
+    # So mark all submodels as unwritten, then recursively write away
+    for submodel in submodelDictionary.values():
+        submodel.writtenToFile = False
+
+    for submodel in submodelDictionary.values():
+        if not submodel.writtenToFile:
+            __writeSubmodel(stream, submodel)
+            submodel.writtenToFile = True
+
+    __writeSubmodel(stream, instructions.mainModel)
+
+def __readSubmodel(stream, instructions):
+
+    submodel = __readPartOGL(stream, True)
+    submodel.instructions = instructions
+
+    pageCount = stream.readInt32()
+    for i in range(0, pageCount):
+        page = __readPage(stream, submodel, instructions)
+        submodel.pages.append(page)
+
+    filename = QString()
+    submodelCount = stream.readInt32()
+    for i in range(0, submodelCount):
+        stream >> filename
+        model = submodelDictionary[str(filename)]
+        submodel.submodels.append(model)
+
+    submodel._row = stream.readInt32()
+    stream >> filename
+    submodel._parent = str(filename)
+    return submodel
+
+def __writeSubmodel(stream, submodel):
+
+    for model in submodel.submodels:
+        if not model.writtenToFile:
+            __writeSubmodel(stream, model)
+            model.writtenToFile = True
+
+    __writePartOGL(stream, submodel)
+
+    stream.writeInt32(len(submodel.pages))
+    for page in submodel.pages:
         __writePage(stream, page)
-    instructions.dirty = False
+
+    stream.writeInt32(len(submodel.submodels))
+    for model in submodel.submodels:
+        stream << QString(model.filename)
+
+    stream.writeInt32(submodel._row)
+    name = submodel._parent.filename if hasattr(submodel._parent, 'filename') else ""
+    stream << QString(name)
 
 def __writePartOGL(stream, partOGL):
 
@@ -318,8 +391,9 @@ def __writePart(stream, part):
         stream.writeFloat(point)
         
 def __writePage(stream, page):    
-    stream << page.pos() << page.rect() << QString(page.filename)
+    stream << page.pos() << page.rect()
     stream.writeInt32(page.number)
+    stream.writeInt32(page._row)
     stream << page.numberItem.pos() << page.numberItem.font()
     
     stream.writeInt32(len(page.steps))

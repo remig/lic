@@ -127,22 +127,22 @@ class LDrawFile(object):
         
         self.name = ' '.join(self.fileArray[0][2:])
 
-    def getSubModels(self):
+    def getSubmodels(self):
         
         # Loop through the file array searching for sub model FILE declarations
-        subModels = []  # subModels[0] = (filename, start line number)
+        submodels = []  # submodels[0] = (filename, start line number)
         for i, l in enumerate(self.fileArray[1:]):
             if isValidFileLine(l):
-                subModels.append((l[3], i+1))  # + 1 because we start at line 1 not 0
+                submodels.append((l[3], i+1))  # + 1 because we start at line 1 not 0
         
-        if len(subModels) < 1:
-            return  # No subModels in file - we're done
+        if len(submodels) < 1:
+            return  # No submodels in file - we're done
         
-        # Fixup subModel array by calculating the ending line number from the file
-        for i in range(0, len(subModels)-1):
-            subModels[i] = (subModels[i][0], [subModels[i][1], subModels[i+1][1]])
+        # Fixup submodel array by calculating the ending line number from the file
+        for i in range(0, len(submodels)-1):
+            submodels[i] = (submodels[i][0], [submodels[i][1], submodels[i+1][1]])
         
-        # Last subModel is special case: its ending line is end of file array
-        subModels[-1] = (subModels[-1][0], [subModels[-1][1], len(self.fileArray)])
+        # Last submodel is special case: its ending line is end of file array
+        submodels[-1] = (submodels[-1][0], [submodels[-1][1], len(self.fileArray)])
         
-        return dict(subModels)  # {filename: (start, stop)}
+        return dict(submodels)  # {filename: (start, stop)}
