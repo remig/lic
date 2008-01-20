@@ -100,6 +100,22 @@ class LicTreeView(QTreeView):
         QTreeView.__init__(self, parent)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.connect(self, SIGNAL("clicked(QModelIndex)"), self.clicked)
+
+    def keyReleaseEvent(self, event):
+        key = event.key()
+        moved = False
+        if key == Qt.Key_Left:
+            moved = True
+        elif key == Qt.Key_Right:
+            moved = True
+        elif key == Qt.Key_Up:
+            moved = True
+        elif key == Qt.Key_Down:
+            moved = True
+
+        if moved:
+            QTreeView.keyReleaseEvent(self, event)
+            self.clicked(self.currentIndex())
         
     def updateSelection(self):
         model = self.model()
@@ -109,7 +125,9 @@ class LicTreeView(QTreeView):
         for item in model.scene.selectedItems():
             index = model.graphicsItemToModelIndex(item)
             if index:
+                self.setCurrentIndex(index)
                 selection.select(index, QItemSelectionModel.Select)
+                self.scrollTo(index)
 
     def clicked(self, index = None):
         if not index:
@@ -125,6 +143,7 @@ class LicTreeView(QTreeView):
         # Find the selected item's parent page, then flip to that page
         if isinstance(index.internalPointer(), Submodel):
             instructions.mainModel.selectPage(index.internalPointer().pages[0].number)
+            self.scrollTo(index.child(0, 0))
         else:
             parent = QModelIndex(index)
             while not isinstance(parent.internalPointer(), Page):
@@ -488,7 +507,7 @@ class Page(QGraphicsRectItem):
         image.save(imgName, None)
                 
     def paint(self, painter, option, widget = None):
-        print "painting page: %d" % self._number
+
         # Draw a slightly down-right translated black rectangle, for the page shadow effect
         painter.setPen(Qt.NoPen)
         painter.setBrush(QBrush(Qt.black))
