@@ -926,10 +926,17 @@ class CSI(QGraphicsPixmapItem):
         glEndList()
 
     def initLayout(self):
+
         step = self.parentItem()
-        x = (step.parentItem().rect().width() / 2.0) - (self.width / 2.0)
-        pliBottom = step.pli.rect().bottom() + step.pli.pos().y()
-        y = pliBottom + ((step.parentItem().rect().height() - pliBottom) / 2.0) - (self.height / 2.0)
+        pageRect = step.parentItem().rect()
+        pliHeight = step.pli.rect().height()
+
+        x = (pageRect.width() / 2.0) - (self.width / 2.0)
+
+        stepHeight = pageRect.bottom() - step.pos().y()
+        y = ((stepHeight - pliHeight) / 2.0) - (self.height / 2.0) + pliHeight        
+        y = max(y, pliHeight + Page.margin.y())
+
         self.setPos(x, y)
 
     def initSize(self, size, pBuffer):
