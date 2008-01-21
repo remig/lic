@@ -566,7 +566,7 @@ class Page(QGraphicsRectItem):
                     print "Error: Trying to draw a pliItem that was not exported to png: step %d, item %s" % (step._number, item.partOGL.filename)
 
         if self.submodelItem:
-            painter.drawImage(self.submodelItem.pos(), self._parent.pngImage)
+            painter.drawImage(self.submodelItem.pos() + PLI.margin, self._parent.pngImage)
 
         painter.end()
         
@@ -607,6 +607,9 @@ class Step(QGraphicsRectItem):
             self._number = number
             Step.NextNumber = number + 1
 
+        self.csi = CSI(self, prevCSI)
+        self.pli = PLI(self)
+
         # Initialize Step's number label (position set in initLayout)
         self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
         self.numberItem.setPos(0, 0)
@@ -614,9 +617,6 @@ class Step(QGraphicsRectItem):
         self.numberItem.setFlags(AllFlags)
         self.numberItem.dataText = "Step Number Label"
         self.setFlags(AllFlags)
-
-        self.csi = CSI(self, prevCSI)
-        self.pli = PLI(self)
 
     def _setNumber(self, number):
         self._number = number
@@ -750,10 +750,15 @@ class PLIItem(QGraphicsRectItem):
         return self._count
 
     count = property(fget = _getCount, fset = _setCount)
-    
+
     def createPng(self):
-        
-        fn = self.partOGL.filename
+
+        part = self.partOGL
+        if part.isSubmodel:
+            self.pngImage = part.pngImage
+            return
+
+        fn = part.filename
         datFile = os.path.join(config.LDrawPath, 'PARTS', fn)
         if not os.path.isfile(datFile):
             datFile = os.path.join(config.LDrawPath, 'P', fn)
@@ -766,8 +771,8 @@ class PLIItem(QGraphicsRectItem):
                         return
 
         povFile = l3p.createPovFromDat(datFile, self.color)
-        self.pngFile = povray.createPngFromPov(povFile, self.partOGL.width, self.partOGL.height, self.partOGL.center, True)
-        self.pngImage = QImage(self.pngFile)
+        pngFile = povray.createPngFromPov(povFile, part.width, part.height, part.center, True)
+        self.pngImage = QImage(pngFile)
 
 class PLI(QGraphicsRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
@@ -1011,8 +1016,8 @@ class CSI(QGraphicsPixmapItem):
             fh.close()
             
         povFile = l3p.createPovFromDat(datFile)
-        self.pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, False)
-        self.pngImage = QImage(self.pngFile)
+        pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, False)
+        self.pngImage = QImage(pngFile)
         
     def exportToLDrawFile(self, fh):
         if self.prevCSI:
@@ -1050,6 +1055,7 @@ class PartOGL(object):
         self.primitives = []
         self.oglDispID = UNINIT_OGL_DISPID
         self.isPrimitive = False  # primitive here means any file in 'P'
+        self.isSubmodel = False
 
         self.width = self.height = -1
         self.leftInset = self.bottomInset = -1
@@ -1142,15 +1148,14 @@ class PartOGL(object):
         """
 
         # TODO: If a part is rendered at a size > 256, draw it smaller in the PLI - this sounds like a great way to know when to shrink a PLI image...
-        # TODO: Check how many pieces would be rendered successfully at 128 - if significant, test adding that to size list, see if it speeds part generation up
         if self.isPrimitive:
             return True  # Primitive parts need not be sized
 
-        params = GLHelpers.initImgSize(size, size, self.oglDispID, False, self.filename, None, pBuffer)
+        params = GLHelpers.initImgSize(size, size, self.oglDispID, self.isSubmodel, self.filename, None, pBuffer)
         if params is None:
             return False
 
-        # TODO: update some kind of load status bar here - this function is *slow*
+        # TODO: update some kind of load status bar here - this method is *slow*
         print "%s - size: %d" % (self.filename, size)
 
         self.width, self.height, self.center, self.leftInset, self.bottomInset = params
@@ -1167,7 +1172,10 @@ class PartOGL(object):
 
         GLHelpers.initFreshContext()
         GLHelpers.adjustGLViewport(0, 0, self.width, self.height)
-        GLHelpers.rotateToPLIView(self.center.x(), self.center.y(), 0.0)
+        if self.isSubmodel:
+            GLHelpers.rotateToDefaultView(self.center.x(), self.center.y(), 0.0)
+        else:
+            GLHelpers.rotateToPLIView(self.center.x(), self.center.y(), 0.0)
 
         if color is not None:
             color = convertToRGBA(color)
@@ -1201,6 +1209,7 @@ class Submodel(PartOGL):
         self.currentCSI = None
         self._row = 0
         self._parent = parent
+        self.isSubmodel = True
         
     def setSelected(self, selected):
         self.pages[0].setSelected(selected)
@@ -1360,17 +1369,13 @@ class Submodel(PartOGL):
 
         if not os.path.isfile(datFile):
             fh = open(datFile, 'w')
-            self.exportToLDrawFile(fh)
+            for part in self.parts:
+                part.exportToLDrawFile(fh)
             fh.close()
-            
+
         povFile = l3p.createPovFromDat(datFile)
-        self.pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, False)
-        self.pngImage = QImage(self.pngFile)
-        
-    def exportToLDrawFile(self, fh):
-            
-        for part in self.parts:
-            part.exportToLDrawFile(fh)
+        pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, False)
+        self.pngImage = QImage(pngFile)
 
 class Part(object):
     """
