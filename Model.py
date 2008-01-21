@@ -395,6 +395,15 @@ class Instructions(QAbstractItemModel):
             csi.initPixmap(pBuffer)
             
         GlobalGLContext.makeCurrent()
+        
+    def exportImages(self):
+
+        global submodelDictionary
+        for model in submodelDictionary.values():
+            model.createPng()
+        self.mainModel.createPng()
+
+        self.mainModel.exportImages()
 
     def getPartDictionary(self):
         global partDictionary
@@ -546,7 +555,7 @@ class Page(QGraphicsRectItem):
 
         for step in self.steps:
             if hasattr(step.csi, "pngImage"):
-                painter.drawImage(step.csi.pos(), step.csi.pngImage)
+                painter.drawImage(step.csi.scenePos(), step.csi.pngImage)
             else:
                 print "Error: Trying to draw a csi that was not exported to png: page %d step %d" % step.csi.getPageStepNumberPair()
                 
@@ -555,7 +564,10 @@ class Page(QGraphicsRectItem):
                     painter.drawImage(item.scenePos(), item.pngImage)
                 else:
                     print "Error: Trying to draw a pliItem that was not exported to png: step %d, item %s" % (step._number, item.partOGL.filename)
-                
+
+        if self.submodelItem:
+            painter.drawImage(self.submodelItem.pos(), self._parent.pngImage)
+
         painter.end()
         
         imgName = os.path.join(config.config['imgPath'], "Page_%d.png" % self._number)
@@ -748,8 +760,10 @@ class PLIItem(QGraphicsRectItem):
             if not os.path.isfile(datFile):
                 datFile = os.path.join(config.LDrawPath, 'MODELS', fn)
                 if not os.path.isfile(datFile):
-                    print "Error: could not find dat file for part %s" % fn
-                    return
+                    datFile = os.path.join(config.config['datPath'], fn)
+                    if not os.path.isfile(datFile):
+                        print " *** Error: could not find dat file for part %s" % fn
+                        return
 
         povFile = l3p.createPovFromDat(datFile, self.color)
         self.pngFile = povray.createPngFromPov(povFile, self.partOGL.width, self.partOGL.height, self.partOGL.center, True)
@@ -1332,6 +1346,31 @@ class Submodel(PartOGL):
 
         for submodel in self.submodels:
             submodel.initLayout()
+
+    def exportImages(self):
+        for page in self.pages:
+            page.renderFinalImage()
+
+        for submodel in self.submodels:
+            submodel.exportImages()
+
+    def createPng(self):
+
+        datFile = os.path.join(config.config['datPath'], self.filename)
+
+        if not os.path.isfile(datFile):
+            fh = open(datFile, 'w')
+            self.exportToLDrawFile(fh)
+            fh.close()
+            
+        povFile = l3p.createPovFromDat(datFile)
+        self.pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, False)
+        self.pngImage = QImage(self.pngFile)
+        
+    def exportToLDrawFile(self, fh):
+            
+        for part in self.parts:
+            part.exportToLDrawFile(fh)
 
 class Part(object):
     """

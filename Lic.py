@@ -324,10 +324,7 @@ class LicWindow(QMainWindow):
                 self.fileClose()
 
     def exportImages(self):
-        
-        for page in self.instructions.pages:
-            page.renderFinalImage()
-            
+        self.instructions.exportImages()
         print "\nExport complete"
     
 if __name__ == '__main__':
