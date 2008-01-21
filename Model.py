@@ -400,7 +400,8 @@ class Instructions(QAbstractItemModel):
 
         global submodelDictionary
         for model in submodelDictionary.values():
-            model.createPng()
+            if model.used:
+                model.createPng()
         self.mainModel.createPng()
 
         self.mainModel.exportImages()
@@ -1393,6 +1394,7 @@ class Part(object):
         self.matrix = matrix
         self.inverted = invert
         self.filename = filename  # Needed for save / load
+        self.partOGL = None
 
         if setPartOGL:
             if filename in submodelDictionary:

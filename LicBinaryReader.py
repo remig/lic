@@ -37,10 +37,17 @@ def __readInstructions(stream, instructions):
     stream >> filename
     instructions.filename = str(filename)
 
+    # Read in the entire partOGL dictionary
     partCount = stream.readInt32()
     for i in range(0, partCount):
         part = __readPartOGL(stream)
         partDictionary[part.filename] = part
+
+    # Each partOGL can contain several parts, but those parts do
+    # not have valid sub-partOGLs.  Create those now.
+    for partOGL in partDictionary.values():
+        for part in partOGL.parts:
+            part.partOGL = partDictionary[part.filename]
 
     partCount = stream.readInt32()
     for i in range(0, partCount):
@@ -48,7 +55,12 @@ def __readInstructions(stream, instructions):
         submodelDictionary[model.filename] = model
 
     instructions.mainModel = __readSubmodel(stream, instructions)
-    
+
+    for model in submodelDictionary.values():
+        __linkModelPartNames(model)
+
+    __linkModelPartNames(instructions.mainModel)
+
     for csi in instructions.mainModel.getCSIList():
         __linkPrevCSI(csi, instructions.mainModel)
 
@@ -61,6 +73,22 @@ def __readInstructions(stream, instructions):
             submodel._parent = submodelDictionary[submodel._parent]
 
     instructions.emit(SIGNAL("layoutChanged()"))
+
+def __linkModelPartNames(model):
+
+    global partDictionary, submodelDictionary
+
+    for m in model.submodels:
+        __linkModelPartNames(m)
+
+    for part in model.parts:
+        if part.filename in partDictionary:
+            part.partOGL = partDictionary[part.filename]
+        elif part.filename in submodelDictionary:
+            part.partOGL = submodelDictionary[part.filename]
+            part.partOGL.used = True
+        else:
+            print "LOAD ERROR: could not find a partOGL for part: " + part.filename
 
 def __readSubmodel(stream, instructions):
 
@@ -77,6 +105,7 @@ def __readSubmodel(stream, instructions):
     for i in range(0, submodelCount):
         stream >> filename
         model = submodelDictionary[str(filename)]
+        model.used = True
         submodel.submodels.append(model)
 
     submodel._row = stream.readInt32()
@@ -108,7 +137,6 @@ def __readPartOGL(stream, createSubmodel = False):
     partCount = stream.readInt32()
     for i in range(0, partCount):
         p = __readPart(stream)
-        p.partOGL = part
         part.parts.append(p)
     return part
 
@@ -202,11 +230,11 @@ def __readCSI(stream, step):
     pixmap = QPixmap()
     stream >> pixmap
     csi.setPixmap(pixmap)
-    
+
     prevPageNumber = stream.readInt32()
     prevStepNumber = stream.readInt32()    
     csi.prevCSI = (prevPageNumber, prevStepNumber)
-    
+
     global partDictionary, submodelDictionary
     partCount = stream.readInt32()
     for i in range(0, partCount):
@@ -215,6 +243,7 @@ def __readCSI(stream, step):
             part.partOGL = partDictionary[part.filename]
         elif part.filename in submodelDictionary:
             part.partOGL = submodelDictionary[part.filename]
+            part.partOGL.used = True
         else:
             print "LOAD ERROR: could not find a partOGL for part: " + part.filename
 
