@@ -286,29 +286,37 @@ class Instructions(QAbstractItemModel):
         self.emit(SIGNAL("layoutAboutToBeChanged"))
         self.mainModel = Submodel(self, self, filename)
         self.mainModel.importModel()
-        self.initDraw()  # generate all part GL display lists on the general glWidget
+
+        self.initGLDisplayLists()  # generate all part GL display lists on the general glWidget
+        self.initPartDimensions()  # Calculate width and height of each partOGL in the part dictionary
+        self.initCSIDimensions()   # Calculate width and height of each CSI in this instruction book
+        self.initCSIPixmaps()       # Generate a pixmap for each CSI
+
         self.mainModel.initLayout()
         self.mainModel.selectPage(1)
         self.emit(SIGNAL("layoutChanged()"))
 
-    def initDraw(self):
-
-        # First initialize all GL display lists
+    def initGLDisplayLists(self):
+        global GlobalGLContext
+        GlobalGLContext.makeCurrent()
+        
+        # First initialize all partOGL display lists
         for part in partDictionary.values():
             part.createOGLDisplayList()
             
+        # Initialize all submodel display lists
         for submodel in submodelDictionary.values():
             submodel.createOGLDisplayList()
             
+        # Initialize the main model display list (TODO: consider just storing this in submodelDictionary?)
         self.mainModel.createOGLDisplayList()
 
-        # Calculate the width and height of each partOGL in the part dictionary
-        self.initPartDimensionsManually()
+        # Initialize all CSI display lists
+        csiList = self.mainModel.getCSIList()
+        for csi in csiList:
+            csi.createOGLDisplayList()
 
-        # Calculate the width and height of each CSI in this instruction book
-        self.initCSIDimensions()
-
-    def initPartDimensionsManually(self):
+    def initPartDimensions(self):
         """
         Calculates each uninitialized part's display width and height.
         Creates GL buffer to render a temp copy of each part, then uses those raw pixels to determine size.
@@ -360,20 +368,14 @@ class Instructions(QAbstractItemModel):
 
     def initCSIDimensions(self):
         global GlobalGLContext
+        GlobalGLContext.makeCurrent()
 
         csiList = self.mainModel.getCSIList()
-
-        if csiList == []:
+        if not csiList:
             return  # All CSIs initialized - nothing to do here
 
-        # Initialize each CSIs GL display list
-        GlobalGLContext.makeCurrent()
-        for csi in csiList:
-            csi.createOGLDisplayList()
-
-        fullcsiList = list(csiList)  # Need this - csiList gets hosed in size loop
         csiList2 = []
-        sizes = [512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
+        sizes = [512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels or steps
 
         for size in sizes:
 
@@ -392,9 +394,16 @@ class Instructions(QAbstractItemModel):
                 csiList = csiList2  # Some images rendered out of frame - loop and try bigger frame
                 csiList2 = []
 
-        # Initialize each CSI's pixmap, for display in the gui
+        GlobalGLContext.makeCurrent()
+        
+    def initCSIPixmaps(self):
+        global GlobalGLContext
+        GlobalGLContext.makeCurrent()
+        
+        csiList = self.mainModel.getCSIList()
         format = QGLFormat()
-        for csi in fullcsiList:
+        
+        for csi in csiList:
             if csi.width < 1 or csi.height < 1:
                 continue
             pBuffer = QGLPixelBuffer(csi.width, csi.height, format, GlobalGLContext)
@@ -444,6 +453,16 @@ class Instructions(QAbstractItemModel):
             self.mainModel.selectPage(self.mainModel.pages[-1]._number)
             self.mainModel.currentPage.setSelected(True)
 
+    def enlargePixmaps(self):
+        GLHelpers.SCALE_WINDOW += 0.5
+        print "enlarging to: %f"  % GLHelpers.SCALE_WINDOW
+        self.initCSIPixmaps()
+    
+    def shrinkPixmaps(self):
+        GLHelpers.SCALE_WINDOW -= 0.5
+        print "shrinnking to: %f"  % GLHelpers.SCALE_WINDOW
+        self.initCSIPixmaps()
+       
 class Page(QGraphicsRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
 
@@ -711,16 +730,16 @@ class PLIItem(QGraphicsRectItem):
         pen = self.pen()
         pen.setStyle(Qt.NoPen)
         self.setPen(pen)
+        self.setFlags(AllFlags)
+
+        # Stores a pixmap of the actual part
+        self.pixmapItem = QGraphicsPixmapItem(self)
+        self.pixmapItem.dataText = "Image"
 
         # Initialize the quantity label (position set in initLayout)
         self.numberItem = QGraphicsSimpleTextItem("%dx" % self._count, self)
         self.numberItem.setFont(QFont("Arial", 10))
         self.numberItem.dataText = "Qty. Label (%dx)" % self._count
-
-        self.pixmapItem = QGraphicsPixmapItem(self)
-        self.pixmapItem.dataText = "Image"
-
-        self.setFlags(AllFlags)
         self.numberItem.setFlags(AllFlags)
 
     def parent(self):
@@ -745,8 +764,15 @@ class PLIItem(QGraphicsRectItem):
         self.setRect(self.childrenBoundingRect())
         self.parentItem().resetRect()
         
+    def initPixmap(self):
+        pixmap = self.partOGL.getPixmap(self.color)
+        if pixmap:
+            self.pixmapItem.setPixmap(pixmap)
+
     def initLayout(self):
 
+        self.initPixmap()
+        
         part = self.partOGL
         lblHeight = self.numberItem.boundingRect().height() / 2.0
 
@@ -759,28 +785,11 @@ class PLIItem(QGraphicsRectItem):
 
         self.numberItem.setPos(dx, part.height - lblHeight)
 
-        pixmap = part.getPixmap(self.color)
-        if pixmap:
-            self.pixmapItem.setPixmap(pixmap)
-
-        # Place qty label above the item image
-        self.numberItem.setZValue(self.pixmapItem.zValue() + 1)
-
         # Set this item to the union of its image and qty label rects
         pixmapRect = self.pixmapItem.boundingRect().translated(self.pixmapItem.pos())
         numberRect = self.numberItem.boundingRect().translated(self.numberItem.pos())
         self.setRect(pixmapRect | numberRect)
         self.translate(-self.rect().x(), -self.rect().y())
-
-    def _setCount(self, count):
-        self._count = count
-        self.numberItem.setText("%dx" % self._count)
-        self.numberItem.dataText = "Qty. Label (%dx)" % self._count
-
-    def _getCount(self):
-        return self._count
-
-    count = property(fget = _getCount, fset = _setCount)
 
     def createPng(self):
 
@@ -804,6 +813,16 @@ class PLIItem(QGraphicsRectItem):
         povFile = l3p.createPovFromDat(datFile, self.color)
         pngFile = povray.createPngFromPov(povFile, part.width, part.height, part.center, True)
         self.pngImage = QImage(pngFile)
+
+    def _setCount(self, count):
+        self._count = count
+        self.numberItem.setText("%dx" % self._count)
+        self.numberItem.dataText = "Qty. Label (%dx)" % self._count
+
+    def _getCount(self):
+        return self._count
+
+    count = property(fget = _getCount, fset = _setCount)
 
 class PLI(QGraphicsRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """

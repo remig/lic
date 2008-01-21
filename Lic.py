@@ -139,7 +139,14 @@ class LicWindow(QMainWindow):
             statusBar.showMessage("Model: " + self.modelName)
            
     def keyReleaseEvent(self, event):
-        print "x"
+        key = event.key()
+        
+        if key == Qt.Key_Plus:
+            self.instructions.enlargePixmaps()
+        elif key == Qt.Key_Minus:
+            self.instructions.shrinkPixmaps()
+        else:
+            event.ignore()
     
     def _setWindowModified(self, bool):
         # This is tied to the undo stack's cleanChanged signal.  Problem with that signal 

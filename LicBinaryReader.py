@@ -72,6 +72,7 @@ def __readInstructions(stream, instructions):
         else:
             submodel._parent = submodelDictionary[submodel._parent]
 
+    instructions.initGLDisplayLists()
     instructions.emit(SIGNAL("layoutChanged()"))
 
 def __linkModelPartNames(model):
