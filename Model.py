@@ -131,6 +131,13 @@ class LicTreeView(QTreeView):
             moved = True
         elif key == Qt.Key_Down:
             moved = True
+        elif key == Qt.Key_PageUp:
+            moved = True
+        elif key == Qt.Key_PageDown:
+            moved = True
+        else:
+            event.ignore()
+            return
 
         if moved:
             QTreeView.keyReleaseEvent(self, event)
@@ -413,6 +420,29 @@ class Instructions(QAbstractItemModel):
     def getSubmodelDictionary(self):
         global submodelDictionary
         return submodelDictionary
+    
+    def pageUp(self):
+        if self.mainModel:
+            self.mainModel.selectPage(self.mainModel.currentPage._number - 1)
+            self.mainModel.currentPage.setSelected(True)
+
+    def pageDown(self):
+        if self.mainModel:
+            m = self.mainModel
+            lastPage = m.pages[-1]._number
+            nextPage = min(m.currentPage._number + 1, lastPage)
+            m.selectPage(nextPage)
+            m.currentPage.setSelected(True)
+
+    def selectFirstPage(self):
+        if self.mainModel:
+            self.mainModel.selectPage(0)
+            self.mainModel.currentPage.setSelected(True)
+
+    def selectLastPage(self):
+        if self.mainModel:
+            self.mainModel.selectPage(self.mainModel.pages[-1]._number)
+            self.mainModel.currentPage.setSelected(True)
 
 class Page(QGraphicsRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
@@ -1208,6 +1238,7 @@ class Submodel(PartOGL):
         self.submodels = []
         self.currentStep = None
         self.currentCSI = None
+        self.currentPage = None
         self._row = 0
         self._parent = parent
         self.isSubmodel = True
@@ -1310,15 +1341,23 @@ class Submodel(PartOGL):
         return None
 
     def selectPage(self, pageNumber):
+
+        pageNumber = max(pageNumber, 1)
+        newPage = self.currentPage = None
+        
         for page in self.pages:
-            if page.number == pageNumber:
+            if page._number == pageNumber:
                 page.show()
                 self.currentPage = page
             else:
                 page.hide()
-                
+
         for submodel in self.submodels:
-            submodel.selectPage(pageNumber)
+            newPage = submodel.selectPage(pageNumber)
+            if newPage:
+                self.currentPage = newPage
+            
+        return self.currentPage
 
     def addPart(self, p, line):
         lastStep = self.pages[-1].steps[-1].number if self.pages and self.pages[-1].steps else None

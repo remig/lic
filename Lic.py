@@ -37,37 +37,53 @@ class InstructionViewWidget(QGraphicsView):
         self.setBackgroundBrush(QBrush(Qt.gray))
 
     def keyReleaseEvent(self, event):
-        
+
         key = event.key()
         offset = 1
         x = y = 0
-        moved = False
-        
+
         if event.modifiers() & Qt.ShiftModifier:
             offset = 20 if event.modifiers() & Qt.ControlModifier else 5
-    
+
+        if key == Qt.Key_PageUp:
+            self.emit(SIGNAL("pageUp"))
+            return
+        if key == Qt.Key_PageDown:
+            self.emit(SIGNAL("pageDown"))
+            return
+        if key == Qt.Key_Home:
+            self.emit(SIGNAL("home"))
+            return
+        if key == Qt.Key_End:
+            self.emit(SIGNAL("end"))
+            return
+
+        if key == Qt.Key_Left:
+            x = -offset
+        elif key == Qt.Key_Right:
+            x = offset
+        elif key == Qt.Key_Up:
+            y = -offset
+        elif key == Qt.Key_Down:
+            y = offset
+        else:
+            # We do not handle this key stroke here - ignore and return
+            event.ignore()
+            return
+
+        movedItems = []
         for item in self.scene().selectedItems():
             if isinstance(item, Page):
-                continue
-            if key == Qt.Key_Left:
-                x = -offset
-                moved = True
-            elif key == Qt.Key_Right:
-                x = offset
-                moved = True
-            elif key == Qt.Key_Up:
-                y = -offset
-                moved = True
-            elif key == Qt.Key_Down:
-                y = offset
-                moved = True
-            if moved:
-                item.oldPos = item.pos()
-                item.moveBy(x, y)
-                if hasattr(item.parentItem(), "resetRect"):
-                    item.parentItem().resetRect()
-        if moved:
-            self.emit(SIGNAL("itemsMoved"), self.scene().selectedItems())
+                continue  # Pages cannot be moved
+
+            item.oldPos = item.pos()
+            item.moveBy(x, y)
+            if hasattr(item.parentItem(), "resetRect"):
+                item.parentItem().resetRect()
+            movedItems.append(item)
+
+        if movedItems:
+            self.emit(SIGNAL("itemsMoved"), movedItems)
             
 class LicWindow(QMainWindow):
 
@@ -102,6 +118,11 @@ class LicWindow(QMainWindow):
         self.treeView.setSelectionModel(self.selectionModel)
         self.treeView.connect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateSelection)
 
+        self.connect(self.graphicsView, SIGNAL("pageUp"), self.instructions.pageUp)
+        self.connect(self.graphicsView, SIGNAL("pageDown"), self.instructions.pageDown)
+        self.connect(self.graphicsView, SIGNAL("home"), self.instructions.selectFirstPage)
+        self.connect(self.graphicsView, SIGNAL("end"), self.instructions.selectLastPage)
+        
         self.filename = ""   # This will trigger the __setFilename method below
 
         # temp debug code from here to the end 
@@ -116,7 +137,10 @@ class LicWindow(QMainWindow):
         if self.modelName:
             self.loadModel(self.modelName)
             statusBar.showMessage("Model: " + self.modelName)
-            
+           
+    def keyReleaseEvent(self, event):
+        print "x"
+    
     def _setWindowModified(self, bool):
         # This is tied to the undo stack's cleanChanged signal.  Problem with that signal 
         # is it sends the *opposite* bool to what we need to pass to setWindowModified,
