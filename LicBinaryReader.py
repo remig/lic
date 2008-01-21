@@ -148,6 +148,19 @@ def __readPage(stream, parent, instructions):
     stream >> pos >> font
     page.numberItem.setPos(pos)
     page.numberItem.setFont(font)
+    
+    hasSubmodelItem = stream.readBool()
+    if hasSubmodelItem:
+        pen = QPen()
+        pixmap = QPixmap()
+        stream >> pos >> rect >> pen
+        stream >> pixmap
+        
+        page.addSubmodelImage(parent)
+        page.submodelItem.setPos(pos)
+        page.submodelItem.setRect(rect)
+        page.submodelItem.setPen(pen)
+        page.submodelItem.children()[0].setPixmap(pixmap)
 
     stepCount = stream.readInt32()
     step = None

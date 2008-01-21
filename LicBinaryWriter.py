@@ -109,6 +109,14 @@ def __writePage(stream, page):
     stream.writeInt32(page._row)
     stream << page.numberItem.pos() << page.numberItem.font()
     
+    if page.submodelItem:
+        stream.writeBool(True)
+        item = page.submodelItem
+        stream << item.pos() << item.rect() << item.pen() 
+        stream << item.children()[0].pixmap()
+    else:
+        stream.writeBool(False)
+        
     stream.writeInt32(len(page.steps))
     for step in page.steps:
         __writeStep(stream, step)

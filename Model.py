@@ -25,6 +25,7 @@ currentModelFilename = ""
 
 GlobalGLContext = None
 AllFlags = QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
+NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
 
 def genericMousePressEvent(className):
     def _tmp(self, event):
@@ -49,13 +50,31 @@ def genericItemParent(self):
 def genericItemData(self, index):
     return self.dataText
 
+def genericRow(self):
+    if hasattr(self, '_row'):
+        return self._row
+    return 0
+
+QGraphicsRectItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
+QGraphicsRectItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
+
+QGraphicsRectItem.parent = genericItemParent
+QGraphicsRectItem.data = genericItemData
+QGraphicsRectItem.row = genericRow
+
 QGraphicsSimpleTextItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
 QGraphicsSimpleTextItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
 QGraphicsSimpleTextItem.parent = genericItemParent
 QGraphicsSimpleTextItem.data = genericItemData
+QGraphicsSimpleTextItem.row = genericRow
+
+QGraphicsPixmapItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
+QGraphicsPixmapItem.mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsItem)
+
 QGraphicsPixmapItem.parent = genericItemParent
 QGraphicsPixmapItem.data = genericItemData
+QGraphicsPixmapItem.row = genericRow
 
 def printRect(rect, text = ""):
     print text + ", l: %f, r: %f, t: %f, b: %f" % (rect.left(), rect.right(), rect.top(), rect.bottom())
@@ -123,7 +142,7 @@ class LicTreeView(QTreeView):
         selection.clear()
         
         for item in model.scene.selectedItems():
-            index = model.graphicsItemToModelIndex(item)
+            index = model.createIndex(item.row(), 0, item)
             if index:
                 self.setCurrentIndex(index)
                 selection.select(index, QItemSelectionModel.Select)
@@ -202,8 +221,8 @@ class Instructions(QAbstractItemModel):
 
     def flags(self, index):
         if index.isValid():
-            return (Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-        return (Qt.ItemIsEnabled)
+            return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+        return Qt.ItemIsEnabled
 
     def index(self, row, column, parent):
         if row < 0 or column < 0:
@@ -237,12 +256,6 @@ class Instructions(QAbstractItemModel):
 
     def headerData(self, section, orientation, role = Qt.DisplayRole):
         return QVariant("Instruction Book")
-    
-    def graphicsItemToModelIndex(self, item):
-        if hasattr(item, "row"):
-            return self.createIndex(item.row(), 0, item)
-        else:
-            return self.createIndex(0, 0, item)
 
     def clear(self):
         global partDictionary, submodelDictionary, currentModelFilename
@@ -267,6 +280,7 @@ class Instructions(QAbstractItemModel):
         self.mainModel = Submodel(self, self, filename)
         self.mainModel.importModel()
         self.initDraw()  # generate all part GL display lists on the general glWidget
+        self.mainModel.initLayout()
         self.mainModel.selectPage(1)
         self.emit(SIGNAL("layoutChanged()"))
 
@@ -278,15 +292,14 @@ class Instructions(QAbstractItemModel):
             
         for submodel in submodelDictionary.values():
             submodel.createOGLDisplayList()
+            
+        self.mainModel.createOGLDisplayList()
 
         # Calculate the width and height of each partOGL in the part dictionary
         self.initPartDimensionsManually()
 
         # Calculate the width and height of each CSI in this instruction book
         self.initCSIDimensions()
-
-        # Layout each step on each page
-        self.mainModel.initLayout()
 
     def initPartDimensionsManually(self):
         """
@@ -299,6 +312,7 @@ class Instructions(QAbstractItemModel):
         partList = [part for part in partDictionary.values() if (not part.isPrimitive) and (part.width == part.height == -1)]
         submodelList = [submodel for submodel in submodelDictionary.values() if submodel.used]
         partList += submodelList
+        partList.append(self.mainModel)
 
         if not partList:
             return    # If there's no parts to initialize, we're done here
@@ -421,11 +435,13 @@ class Page(QGraphicsRectItem):
         self.numberItem.setFont(QFont("Arial", 15))
         self.numberItem.dataText = "Page Number Label"
 
+        self.submodelItem = None
+        
         # Position page number in bottom right page corner
         rect = self.numberItem.boundingRect()
         rect.moveBottomRight(self.rect().bottomRight() - Page.margin)
         self.numberItem.setPos(rect.topLeft())
-        self.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable)
+        self.setFlags(NoMoveFlags)
         self.numberItem.setFlags(AllFlags)
 
     def _setNumber(self, number):
@@ -441,14 +457,19 @@ class Page(QGraphicsRectItem):
         return self._parent
 
     def child(self, row):
-        if row < 0 or row > len(self.steps):
+        if row < 0 or row > len(self.steps) + 2:
             return None
         if row == 0:
             return self.numberItem
+        if self.submodelItem:
+            if row == 1:
+                return self.submodelItem
+            return self.steps[row - 2]
         return self.steps[row - 1]
 
     def rowCount(self):
-        return len(self.steps) + 1 # + 1 for the page number label
+        offset = 2 if self.submodelItem else 1
+        return len(self.steps) + offset
 
     def setRow(self, row):
         self._row = row
@@ -456,13 +477,19 @@ class Page(QGraphicsRectItem):
     def row(self):
         return self._row
 
+    def getChildRow(self, child):
+        index = self.steps.index(child)
+        return index + 2 if self.submodelItem else index + 1
+    
     def data(self, index):
         return "Page %d" % self._number
 
     def getAllChildItems(self):
         items = [self]
         items.append(self.numberItem)
-        
+        if self.submodelItem:
+            items.append(self.submodelItem)
+
         for step in self.steps:
             items.append(step)
             items.append(step.numberItem)
@@ -470,20 +497,48 @@ class Page(QGraphicsRectItem):
             for pliItem in step.pli.pliItems:
                 items.append(pliItem)
                 items.append(pliItem.numberItem)
-                
+
         return items
-    
-    def renderFinalImage(self):
+
+    def addSubmodelImage(self, submodel):
+
+        pixmap = submodel.getPixmap()
+        if not pixmap:
+            print "Error: could not create a pixmap for page %d's submodel image" % self._number
+            return
+
+        self.submodelItem = QGraphicsRectItem(self)
+        self.submodelItem.dataText = "Submodel Preview"
+        self.submodelItem.setPos(Page.margin)
+        self.submodelItem.setFlags(AllFlags)
+        self.submodelItem._row = 1
         
+        pixmapItem = QGraphicsPixmapItem(self.submodelItem)
+        pixmapItem.setPixmap(pixmap)
+        pixmapItem.setPos(PLI.margin)
+        
+        self.submodelItem.setRect(0, 0, pixmap.width() + PLI.margin.x() * 2, pixmap.height() + PLI.margin.y() * 2)
+
+    def initLayout(self):
+
+        if self.submodelItem:
+            for step in self.steps:
+                step.moveBy(0, self.submodelItem.rect().height() + Page.margin.y())
+
+        for step in self.steps:
+            step.initLayout()
+
+    def renderFinalImage(self):
+
         for step in self.steps:
             step.csi.createPng()
             for item in step.pli.pliItems:
                 item.createPng()
-                
+
         image = QImage(self.rect().width(), self.rect().height(), QImage.Format_ARGB32)
         painter = QPainter()
         painter.begin(image)
-        
+
         items = self.getAllChildItems()
         options = QStyleOptionGraphicsItem()
         optionList = [options] * len(items)
@@ -522,8 +577,6 @@ class Step(QGraphicsRectItem):
     """ A single step in an instruction book.  Contains one optional PLI and exactly one CSI. """
 
     NextNumber = 1
-    mousePressEvent = genericMousePressEvent(QGraphicsRectItem)
-    mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsRectItem)
 
     def __init__(self, parentPage, number = -1, prevCSI = None):
         QGraphicsRectItem.__init__(self, parentPage)
@@ -532,8 +585,7 @@ class Step(QGraphicsRectItem):
         pen.setStyle(Qt.NoPen)
         self.setPen(pen)
 
-        self.page = parentPage  # TODO: remove this and use parentItem()
-        self.setPos(parentPage.rect().topLeft() + parentPage.margin)
+        self.setPos(Page.margin)
 
         # Give this page a number
         if number == -1:
@@ -579,8 +631,7 @@ class Step(QGraphicsRectItem):
         return 3
 
     def row(self):
-        page = self.parentItem()
-        return page.steps.index(self) + 1  # + 1 for page number label
+        return self.parentItem().getChildRow(self)
 
     def data(self, index):
         return "Step %d" % self._number
@@ -608,9 +659,6 @@ class Step(QGraphicsRectItem):
 class PLIItem(QGraphicsRectItem):
     """ Represents one part inside a PLI along with its quantity label. """
 
-    mousePressEvent = genericMousePressEvent(QGraphicsRectItem)
-    mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsRectItem)
-    
     def __init__(self, parent, partOGL, color):
         QGraphicsRectItem.__init__(self, parent)
 
@@ -711,8 +759,6 @@ class PLI(QGraphicsRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
 
     margin = QPointF(15, 15)
-    mousePressEvent = genericMousePressEvent(QGraphicsRectItem)
-    mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsRectItem)
 
     def __init__(self, parent):
         QGraphicsRectItem.__init__(self, parent)
@@ -831,9 +877,6 @@ class CSI(QGraphicsPixmapItem):
     Construction Step Image.  Includes border and positional info.
     """
 
-    mousePressEvent = genericMousePressEvent(QGraphicsPixmapItem)
-    mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsPixmapItem)
-
     def __init__(self, step, prevCSI = None):
         QGraphicsPixmapItem.__init__(self, step)
 
@@ -884,9 +927,9 @@ class CSI(QGraphicsPixmapItem):
 
     def initLayout(self):
         step = self.parentItem()
-        x = (step.page.rect().width() / 2.0) - (self.width / 2.0)
+        x = (step.parentItem().rect().width() / 2.0) - (self.width / 2.0)
         pliBottom = step.pli.rect().bottom() + step.pli.pos().y()
-        y = pliBottom + ((step.page.rect().height() - pliBottom) / 2.0) - (self.height / 2.0)
+        y = pliBottom + ((step.parentItem().rect().height() - pliBottom) / 2.0) - (self.height / 2.0)
         self.setPos(x, y)
 
     def initSize(self, size, pBuffer):
@@ -1092,7 +1135,7 @@ class PartOGL(object):
         self.width, self.height, self.center, self.leftInset, self.bottomInset = params
         return True
 
-    def getPixmap(self, color = 0):
+    def getPixmap(self, color = None):
         global GlobalGLContext
 
         if self.isPrimitive:
@@ -1105,11 +1148,12 @@ class PartOGL(object):
         GLHelpers.adjustGLViewport(0, 0, self.width, self.height)
         GLHelpers.rotateToPLIView(self.center.x(), self.center.y(), 0.0)
 
-        color = convertToRGBA(color)
-        if len(color) == 3:
-            glColor3fv(color)
-        elif len(color) == 4:
-            glColor4fv(color)
+        if color is not None:
+            color = convertToRGBA(color)
+            if len(color) == 3:
+                glColor3fv(color)
+            elif len(color) == 4:
+                glColor4fv(color)
 
         self.draw()
 
@@ -1272,9 +1316,12 @@ class Submodel(PartOGL):
         return csiList
 
     def initLayout(self):
+
+        if self.pages:
+            self.pages[0].addSubmodelImage(self)
+
         for page in self.pages:
-            for step in page.steps:
-                step.initLayout()
+            page.initLayout()
 
         for submodel in self.submodels:
             submodel.initLayout()
