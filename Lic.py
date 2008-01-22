@@ -13,6 +13,7 @@ import LicBinaryWriter
 import config
 import l3p
 import povray
+import LicDialogs
 
 try:
     from OpenGL.GL import *
@@ -179,6 +180,7 @@ class LicWindow(QMainWindow):
         self.fileCloseAction.setEnabled(enabled)
         self.fileSaveAction.setEnabled(enabled)
         self.fileSaveAsAction.setEnabled(enabled)
+        self.pageMenu.setEnabled(enabled)
         self.viewMenu.setEnabled(enabled)
         self.exportMenu.setEnabled(enabled)
 
@@ -260,11 +262,27 @@ class LicWindow(QMainWindow):
         
         self.viewMenu = menu.addMenu("&View")
         
+        self.pageMenu = menu.addMenu("&Page")
+
+        self.pageSize = self.createMenuAction("Page Size...", self.changePageSize, None, "Change the overall size of all Pages in this Instruction book")
+        self.pageMenu.addAction(self.pageSize)
+        
+        self.csipliSizeAction = self.createMenuAction("CSI | PLI Image Size...", self.changeCSIPLISize, None, "Change the relative size of all CSIs and PLIs throughout Instruction book")
+        self.pageMenu.addAction(self.csipliSizeAction)
+        
         self.exportMenu = menu.addMenu("E&xport")
         
         self.exportImagesAction = self.createMenuAction("Generate Final Images", self.exportImages, None, "Generate final, high res images of each page in this Instruction book")
         self.exportMenu.addAction(self.exportImagesAction)
 
+    def changePageSize(self):
+        pass
+    
+    def changeCSIPLISize(self):
+        dialog = LicDialogs.CSIPLIImageSizeDlg(self)
+        self.connect(dialog, SIGNAL("newCSIPLISize"), self.instructions.setCSIPLISize)
+        dialog.show()
+    
     def createMenuAction(self, text, slot = None, shortcut = None, tip = None, signal = "triggered()"):
         action = QAction(text, self)
         if shortcut is not None:
@@ -287,7 +305,8 @@ class LicWindow(QMainWindow):
     def fileClose(self):
         if not self.offerSave():
             return
-        self.instructions.clear()
+        if self.filename:
+            self.instructions.clear()
         self.filename = ""
 
     def offerSave(self):

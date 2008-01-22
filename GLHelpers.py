@@ -6,8 +6,6 @@ from OpenGL.GLU import *
 
 from PyQt4.QtCore import QPointF
 
-# Global constants
-SCALE_WINDOW = 1.0
 DEBUG = 0
 
 def initFreshContext():
@@ -55,11 +53,11 @@ def rotateView(x, y, z):
     glRotatef(y, 0.0, 1.0, 0.0)
     glRotatef(z, 0.0, 0.0, 1.0)
 
-def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0):
+def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0, scale = 1.0):
     # position (x,y,z), look at (x,y,z), up vector (x,y,z)
     gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
     glScalef(-1.0, 1.0, 1.0)
-    glScalef(SCALE_WINDOW, SCALE_WINDOW, SCALE_WINDOW)
+    glScalef(scale, scale, scale)
     
     # Rotate model into something approximating the generic ortho view
     glRotatef(20.0, 1.0, 0.0, 0.0)
@@ -68,10 +66,10 @@ def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0):
 def getDefaultCamera():
     return [('y', 45.0), ('x', 20)]
 
-def rotateToPLIView(x = 0.0, y = 0.0, z = 0.0):
+def rotateToPLIView(x = 0.0, y = 0.0, z = 0.0, scale = 1.0):
     # position (x,y,z), look at (x,y,z), up vector (x,y,z)
     gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
-    glScalef(SCALE_WINDOW, SCALE_WINDOW, SCALE_WINDOW)
+    glScalef(scale, scale, scale)
     
     # Rotate model into something approximating the ortho view as seen in Lego PLIs
     glRotatef(20.0, 1.0, 0.0, 0.0)

@@ -277,6 +277,7 @@ class Instructions(QAbstractItemModel):
         submodelDictionary = {}
         currentModelFilename = ""
         Page.NextNumber = Step.NextNumber = 1
+        CSI.scale = PLI.scale = 1.0
         GlobalGLContext.makeCurrent()
         self.emit(SIGNAL("layoutChanged()"))
 
@@ -406,7 +407,9 @@ class Instructions(QAbstractItemModel):
         for csi in csiList:
             if csi.width < 1 or csi.height < 1:
                 continue
-            pBuffer = QGLPixelBuffer(csi.width, csi.height, format, GlobalGLContext)
+            w = csi.width * CSI.scale
+            h = csi.height * CSI.scale
+            pBuffer = QGLPixelBuffer(w, h, format, GlobalGLContext)
             pBuffer.makeCurrent()
             csi.initPixmap(pBuffer)
             
@@ -453,14 +456,19 @@ class Instructions(QAbstractItemModel):
             self.mainModel.selectPage(self.mainModel.pages[-1]._number)
             self.mainModel.currentPage.setSelected(True)
 
+    def setCSIPLISize(self, newCSISize, newPLISize):
+        CSI.scale = newCSISize
+        PLI.scale = newPLISize
+        self.initCSIPixmaps()
+
     def enlargePixmaps(self):
-        GLHelpers.SCALE_WINDOW += 0.5
-        print "enlarging to: %f"  % GLHelpers.SCALE_WINDOW
+        CSI.scale += 0.5
+        print "enlarging to: %f"  % CSI.scale
         self.initCSIPixmaps()
     
     def shrinkPixmaps(self):
-        GLHelpers.SCALE_WINDOW -= 0.5
-        print "shrinnking to: %f"  % GLHelpers.SCALE_WINDOW
+        CSI.scale -= 0.5
+        print "shrinnking to: %f"  % CSI.scale
         self.initCSIPixmaps()
        
 class Page(QGraphicsRectItem):
@@ -827,6 +835,7 @@ class PLIItem(QGraphicsRectItem):
 class PLI(QGraphicsRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
 
+    scale = 1.0
     margin = QPointF(15, 15)
 
     def __init__(self, parent):
@@ -946,6 +955,8 @@ class CSI(QGraphicsPixmapItem):
     Construction Step Image.  Includes border and positional info.
     """
 
+    scale = 1.0
+
     def __init__(self, step, prevCSI = None):
         QGraphicsPixmapItem.__init__(self, step)
 
@@ -1000,10 +1011,12 @@ class CSI(QGraphicsPixmapItem):
         pageRect = step.parentItem().rect()
         pliHeight = step.pli.rect().height()
 
-        x = (pageRect.width() / 2.0) - (self.width / 2.0)
+        width = self.width * CSI.scale / 2.0
+        height = self.height * CSI.scale / 2.0
+        x = (pageRect.width() / 2.0) - width
 
         stepHeight = pageRect.bottom() - step.pos().y()
-        y = ((stepHeight - pliHeight) / 2.0) - (self.height / 2.0) + pliHeight        
+        y = ((stepHeight - pliHeight) / 2.0) - height + pliHeight        
         y = max(y, pliHeight + Page.margin.y())
 
         self.setPos(x, y)
@@ -1047,13 +1060,18 @@ class CSI(QGraphicsPixmapItem):
     def initPixmap(self, pBuffer):
 
         GLHelpers.initFreshContext()
-        GLHelpers.adjustGLViewport(0, 0, self.width, self.height)
-        GLHelpers.rotateToDefaultView(self.center.x(), self.center.y(), 0.0)
+        w = self.width * CSI.scale
+        h = self.height * CSI.scale
+        x = self.center.x() * CSI.scale
+        y = self.center.y() * CSI.scale
+        GLHelpers.adjustGLViewport(0, 0, w, h)
+        GLHelpers.rotateToDefaultView(x, y, 0.0, CSI.scale)
 
         glCallList(self.oglDispID)
 
         image = pBuffer.toImage()
         self.setPixmap(QPixmap.fromImage(image))
+        self.initLayout()
 
     def createPng(self):
 
@@ -1223,7 +1241,7 @@ class PartOGL(object):
         GLHelpers.initFreshContext()
         GLHelpers.adjustGLViewport(0, 0, self.width, self.height)
         if self.isSubmodel:
-            GLHelpers.rotateToDefaultView(self.center.x(), self.center.y(), 0.0)
+            GLHelpers.rotateToDefaultView(self.center.x(), self.center.y(), 0.0, PLI.scale)
         else:
             GLHelpers.rotateToPLIView(self.center.x(), self.center.y(), 0.0)
 
