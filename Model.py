@@ -11,9 +11,9 @@ from PyQt4.QtOpenGL import *
 import GLHelpers
 import l3p
 import povray
+import LDrawColors
 
 from LDrawFileFormat import *
-from LDrawColors import *
 
 MagicNumber = 0x14768126
 FileVersion = 1
@@ -809,7 +809,7 @@ class PLIItem(QGraphicsRectItem):
         return pli.pliItems.index(self)
 
     def data(self, index):
-        return "%s - %s" % (self.partOGL.name, getColorName(self.color))
+        return "%s - %s" % (self.partOGL.name, LDrawColors.getColorName(self.color))
 
     def resetRect(self):
         self.setRect(self.childrenBoundingRect())
@@ -1289,11 +1289,8 @@ class PartOGL(object):
             GLHelpers.rotateToPLIView(x, y, 0.0, PLI.scale)
 
         if color is not None:
-            color = convertToRGBA(color)
-            if len(color) == 3:
-                glColor3fv(color)
-            elif len(color) == 4:
-                glColor4fv(color)
+            color = LDrawColors.convertToRGBA(color)
+            glColor4fv(color)
 
         self.draw()
 
@@ -1546,14 +1543,11 @@ class Part(object):
     def callOGLDisplayList(self):
 
         # must be called inside a glNewList/EndList pair
-        color = convertToRGBA(self.color)
+        color = LDrawColors.convertToRGBA(self.color)
 
-        if color != CurrentColor:
+        if color != LDrawColors.CurrentColor:
             glPushAttrib(GL_CURRENT_BIT)
-            if len(color) == 3:
-                glColor3fv(color)
-            elif len(color) == 4:
-                glColor4fv(color)
+            glColor4fv(color)
 
         if self.inverted:
             glPushAttrib(GL_POLYGON_BIT)
@@ -1571,7 +1565,7 @@ class Part(object):
         if self.inverted:
             glPopAttrib()
 
-        if color != CurrentColor:
+        if color != LDrawColors.CurrentColor:
             glPopAttrib()
 
     def exportToLDrawFile(self, fh):
@@ -1613,14 +1607,11 @@ class Primitive(object):
     def callOGLDisplayList(self):
 
         # must be called inside a glNewList/EndList pair
-        color = convertToRGBA(self.color)
+        color = LDrawColors.convertToRGBA(self.color)
 
-        if color != CurrentColor:
+        if color != LDrawColors.CurrentColor:
             glPushAttrib(GL_CURRENT_BIT)
-            if len(color) == 3:
-                glColor3fv(color)
-            elif len(color) == 4:
-                glColor4fv(color)
+            glColor4fv(color)
 
         p = self.points
 
@@ -1655,5 +1646,5 @@ class Primitive(object):
                 glVertex3f( p[9], p[10], p[11] )
             glEnd()
 
-        if color != CurrentColor:
+        if color != LDrawColors.CurrentColor:
             glPopAttrib()
