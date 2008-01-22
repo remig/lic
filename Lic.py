@@ -276,7 +276,9 @@ class LicWindow(QMainWindow):
         self.exportMenu.addAction(self.exportImagesAction)
 
     def changePageSize(self):
-        pass
+        dialog = LicDialogs.PageSizeDlg(self)
+        if dialog.exec_():
+            pageSize = dialog.pageSize()
     
     def changeCSIPLISize(self):
         dialog = LicDialogs.CSIPLIImageSizeDlg(self)

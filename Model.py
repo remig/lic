@@ -767,8 +767,9 @@ class PLIItem(QGraphicsRectItem):
         QGraphicsRectItem.__init__(self, parent)
 
         self.partOGL = partOGL
+        self.parts = []
+
         self.color = color
-        self._count = 1
         pen = self.pen()
         pen.setStyle(Qt.NoPen)
         self.setPen(pen)
@@ -779,21 +780,29 @@ class PLIItem(QGraphicsRectItem):
         self.pixmapItem.dataText = "Image"
 
         # Initialize the quantity label (position set in initLayout)
-        self.numberItem = QGraphicsSimpleTextItem("%dx" % self._count, self)
+        self.numberItem = QGraphicsSimpleTextItem("0x", self)
         self.numberItem.setFont(QFont("Arial", 10))
-        self.numberItem.dataText = "Qty. Label (%dx)" % self._count
+        self.numberItem.dataText = "Qty. Label (0x)"
         self.numberItem.setFlags(AllFlags)
 
+    def addPart(self, part):
+        self.parts.append(part)
+        part._parent = self
+        self.numberItem.setText("%dx" % len(self.parts))
+        self.numberItem.dataText = "Qty. Label (%dx)" % len(self.parts)
+        
     def parent(self):
         return self.parentItem()
 
     def child(self, row):
-        if row == 0:
+        if row <= 0:
             return self.numberItem
-        return None
+        if row > len(self.parts):
+            return None
+        return self.parts[row - 1]
 
     def rowCount(self):
-        return 1
+        return 1 + len(self.parts)
 
     def row(self):
         pli = self.parentItem()
@@ -861,16 +870,6 @@ class PLIItem(QGraphicsRectItem):
         pngFile = povray.createPngFromPov(povFile, part.width, part.height, part.center, True)
         self.pngImage = QImage(pngFile)
 
-    def _setCount(self, count):
-        self._count = count
-        self.numberItem.setText("%dx" % self._count)
-        self.numberItem.dataText = "Qty. Label (%dx)" % self._count
-
-    def _getCount(self):
-        return self._count
-
-    count = property(fget = _getCount, fset = _setCount)
-
 class PLI(QGraphicsRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
 
@@ -912,16 +911,16 @@ class PLI(QGraphicsRectItem):
         
     def addPart(self, part):
 
-        found = False
         for item in self.pliItems:
             if item.color == part.color and item.partOGL.filename == part.partOGL.filename:
-                item.count += 1
-                found = True
-                break
-        if not found:
-            item = PLIItem(self, part.partOGL, part.color)
-            item.setParentItem(self)
-            self.pliItems.append(item)
+                item.addPart(part)
+                return
+
+        # If we're here, did not find an existing PLI, so create a new one
+        item = PLIItem(self, part.partOGL, part.color)
+        item.setParentItem(self)  # TODO: needed?
+        item.addPart(part)
+        self.pliItems.append(item)
         
     def initLayout(self):
         """
@@ -1515,6 +1514,7 @@ class Part(object):
         self.inverted = invert
         self.filename = filename  # Needed for save / load
         self.partOGL = None
+        self._parent = None # Needed because now Parts live in the tree (inside specific PLIItems)
 
         if setPartOGL:
             if filename in submodelDictionary:
@@ -1530,7 +1530,16 @@ class Part(object):
             else:
                 self.partOGL = partDictionary[filename] = PartOGL(filename, loadFromFile = True)
             self.name = self.partOGL.name
-            
+     
+    def parent(self):
+        return self._parent
+
+    def data(self, index):
+        return self.partOGL.filename
+
+    def setSelected(self, selected):
+        pass  # TODO: Draw selected parts in some visually interesting way
+
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
 
@@ -1564,9 +1573,6 @@ class Part(object):
 
         if color != CurrentColor:
             glPopAttrib()
-
-    def draw(self):
-        self.partOGL.draw()
 
     def exportToLDrawFile(self, fh):
         line = createPartLine(self.color, self.matrix, self.partOGL.filename)
