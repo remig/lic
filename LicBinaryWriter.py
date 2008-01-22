@@ -23,6 +23,9 @@ def __writeInstructions(stream, instructions):
 
     stream << QString(instructions.mainModel.filename)
 
+    stream.writeFloat(CSI.scale)
+    stream.writeFloat(PLI.scale)
+
     partDictionary = instructions.getPartDictionary()
     stream.writeInt32(len(partDictionary))
     for partOGL in partDictionary.values():
@@ -151,7 +154,7 @@ def __writePLI(stream, pli):
         __writePLIItem(stream, item)
 
 def __writePLIItem(stream, pliItem):
-    stream << QString(pliItem.partOGL.filename) << pliItem.pos() << pliItem.rect()
+    stream << QString(pliItem.partOGL.filename) << pliItem.pos() << pliItem.rect() << pliItem.transform()
     stream.writeInt32(pliItem.color)
     stream.writeInt32(pliItem.count)
     stream << pliItem.numberItem.pos() << pliItem.numberItem.font() << pliItem.pixmapItem.pixmap()

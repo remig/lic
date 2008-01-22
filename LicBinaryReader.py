@@ -37,6 +37,9 @@ def __readInstructions(stream, instructions):
     stream >> filename
     instructions.filename = str(filename)
 
+    CSI.scale = stream.readFloat()
+    PLI.scale = stream.readFloat()
+
     # Read in the entire partOGL dictionary
     partCount = stream.readInt32()
     for i in range(0, partCount):
@@ -185,7 +188,7 @@ def __readPage(stream, parent, instructions):
         stream >> pos >> rect >> pen
         stream >> pixmap
         
-        page.addSubmodelImage(parent)
+        page.addSubmodelImage()
         page.submodelItem.setPos(pos)
         page.submodelItem.setRect(rect)
         page.submodelItem.setPen(pen)
@@ -273,7 +276,9 @@ def __readPLIItem(stream, pli):
     filename = QString()
     pos = QPointF()
     rect = QRectF()
-    stream >> filename >> pos >> rect
+    transform = QTransform()
+
+    stream >> filename >> pos >> rect >> transform
     filename = str(filename)
 
     color = stream.readInt32()
@@ -300,6 +305,7 @@ def __readPLIItem(stream, pli):
     pliItem.numberItem.setFont(font)
     pliItem.pixmapItem.setPixmap(pixmap)
     pliItem.numberItem.setZValue(pliItem.pixmapItem.zValue() + 1)
+    pliItem.setTransform(transform)
     return pliItem
 
 def __linkPrevCSI(csi, mainModel):

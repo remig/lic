@@ -332,7 +332,6 @@ class LicWindow(QMainWindow):
         if filename:
             self.fileClose()
             self.loadModel(filename)
-            print "%s" % filename
             self.statusBar().showMessage("LDraw Model imported: " + filename)
 
     def loadModel(self, filename):
@@ -342,6 +341,7 @@ class LicWindow(QMainWindow):
         self.fileCloseAction.setEnabled(True)
         self.fileSaveAsAction.setEnabled(True)
         self.editMenu.setEnabled(True)
+        self.pageMenu.setEnabled(True)
         self.viewMenu.setEnabled(True)
         self.exportMenu.setEnabled(True)
 

@@ -415,6 +415,14 @@ class Instructions(QAbstractItemModel):
             
         GlobalGLContext.makeCurrent()
         
+    def initPLIPixmaps(self):
+        for page in self.mainModel.pages:
+            page.scaleImages()
+        
+        for submodel in submodelDictionary.values():
+            for page in submodel.pages:
+                page.scaleImages()
+    
     def exportImages(self):
 
         global submodelDictionary
@@ -457,20 +465,27 @@ class Instructions(QAbstractItemModel):
             self.mainModel.currentPage.setSelected(True)
 
     def setCSIPLISize(self, newCSISize, newPLISize):
-        CSI.scale = newCSISize
-        PLI.scale = newPLISize
-        self.initCSIPixmaps()
+
+        if newCSISize != CSI.scale:
+            CSI.scale = newCSISize
+            self.initCSIPixmaps()
+
+        if newPLISize != PLI.scale:
+            PLI.scale = newPLISize
+            self.initPLIPixmaps()
 
     def enlargePixmaps(self):
         CSI.scale += 0.5
-        print "enlarging to: %f"  % CSI.scale
+        PLI.scale += 0.5
         self.initCSIPixmaps()
+        self.initPLIPixmaps()
     
     def shrinkPixmaps(self):
         CSI.scale -= 0.5
-        print "shrinnking to: %f"  % CSI.scale
+        PLI.scale -= 0.5
         self.initCSIPixmaps()
-       
+        self.initPLIPixmaps()
+
 class Page(QGraphicsRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
 
@@ -567,9 +582,9 @@ class Page(QGraphicsRectItem):
 
         return items
 
-    def addSubmodelImage(self, submodel):
+    def addSubmodelImage(self):
 
-        pixmap = submodel.getPixmap()
+        pixmap = self._parent.getPixmap()
         if not pixmap:
             print "Error: could not create a pixmap for page %d's submodel image" % self._number
             return
@@ -580,10 +595,22 @@ class Page(QGraphicsRectItem):
         self.submodelItem.setFlags(AllFlags)
         self.submodelItem._row = 1
         
-        pixmapItem = QGraphicsPixmapItem(self.submodelItem)
-        pixmapItem.setPixmap(pixmap)
-        pixmapItem.setPos(PLI.margin)
+        self.pixmapItem = QGraphicsPixmapItem(self.submodelItem)
+        self.pixmapItem.setPixmap(pixmap)
+        self.pixmapItem.setPos(PLI.margin)
         
+        self.submodelItem.setRect(0, 0, pixmap.width() + PLI.margin.x() * 2, pixmap.height() + PLI.margin.y() * 2)
+        
+    def resetSubmodelImage(self):
+        
+        pixmap = self._parent.getPixmap()
+        if not pixmap:
+            print "Error: could not create a pixmap for page %d's submodel image" % self._number
+            return
+
+        self.pixmapItem.setPixmap(pixmap)
+        self.pixmapItem.setPos(PLI.margin)
+
         self.submodelItem.setRect(0, 0, pixmap.width() + PLI.margin.x() * 2, pixmap.height() + PLI.margin.y() * 2)
 
     def initLayout(self):
@@ -595,6 +622,13 @@ class Page(QGraphicsRectItem):
         for step in self.steps:
             step.initLayout()
 
+    def scaleImages(self):
+        for step in self.steps:
+            step.pli.initLayout()
+            
+        if self.submodelItem:
+            self.resetSubmodelImage()
+        
     def renderFinalImage(self):
 
         for step in self.steps:
@@ -776,22 +810,27 @@ class PLIItem(QGraphicsRectItem):
         pixmap = self.partOGL.getPixmap(self.color)
         if pixmap:
             self.pixmapItem.setPixmap(pixmap)
+            self.pixmapItem.setPos(0, 0)
 
     def initLayout(self):
 
+        self.resetTransform()
         self.initPixmap()
-        
         part = self.partOGL
         lblHeight = self.numberItem.boundingRect().height() / 2.0
 
+        li = part.leftInset * PLI.scale
+        bi = part.bottomInset * PLI.scale
+        h = part.height * PLI.scale
+        
         # Position quantity label based on part corner, empty corner triangle and label's size
         if part.leftInset == part.bottomInset == 0:
             dx = -3   # Bottom left triangle is full - shift just a little, for a touch more padding
         else:
-            slope = part.leftInset / float(part.bottomInset)
-            dx = ((part.leftInset - lblHeight) / slope) - 3  # 3 for a touch more padding
+            slope = li / float(bi)
+            dx = ((li - lblHeight) / slope) - 3  # 3 for a touch more padding
 
-        self.numberItem.setPos(dx, part.height - lblHeight)
+        self.numberItem.setPos(dx, h - lblHeight)
 
         # Set this item to the union of its image and qty label rects
         pixmapRect = self.pixmapItem.boundingRect().translated(self.pixmapItem.pos())
@@ -912,7 +951,7 @@ class PLI(QGraphicsRectItem):
 
         # Sort the list of parts in this PLI from widest to narrowest, with the tallest one first
         partList = self.pliItems
-        tallestPart = max(partList, key=itemHeight)
+        tallestPart = max(partList, key = itemHeight)
         partList.remove(tallestPart)
         partList.sort(compareLayoutItemWidths)
         partList.insert(0, tallestPart)
@@ -1235,15 +1274,20 @@ class PartOGL(object):
         if self.isPrimitive:
             return None  # Do not generate pixmaps for primitives
 
-        pBuffer = QGLPixelBuffer(self.width, self.height, QGLFormat(), GlobalGLContext)
+        w = self.width * PLI.scale
+        h = self.height * PLI.scale
+        x = self.center.x() * PLI.scale
+        y = self.center.y() * PLI.scale
+
+        pBuffer = QGLPixelBuffer(w, h, QGLFormat(), GlobalGLContext)
         pBuffer.makeCurrent()
 
         GLHelpers.initFreshContext()
-        GLHelpers.adjustGLViewport(0, 0, self.width, self.height)
+        GLHelpers.adjustGLViewport(0, 0, w, h)
         if self.isSubmodel:
-            GLHelpers.rotateToDefaultView(self.center.x(), self.center.y(), 0.0, PLI.scale)
+            GLHelpers.rotateToDefaultView(x, y, 0.0, PLI.scale)
         else:
-            GLHelpers.rotateToPLIView(self.center.x(), self.center.y(), 0.0)
+            GLHelpers.rotateToPLIView(x, y, 0.0, PLI.scale)
 
         if color is not None:
             color = convertToRGBA(color)
@@ -1425,7 +1469,7 @@ class Submodel(PartOGL):
     def initLayout(self):
 
         if self.pages:
-            self.pages[0].addSubmodelImage(self)
+            self.pages[0].addSubmodelImage()
 
         for page in self.pages:
             page.initLayout()

@@ -30,7 +30,7 @@ class CSIPLIImageSizeDlg(QDialog):
     def createSpinBox(self, label):
         spinBox = QDoubleSpinBox()
         label.setBuddy(spinBox)
-        spinBox.setRange(0, 1000)
+        spinBox.setRange(0.1, 1000)
         spinBox.setValue(100)
         spinBox.setSuffix(" %")
         return spinBox
