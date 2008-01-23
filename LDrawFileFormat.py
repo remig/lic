@@ -24,6 +24,9 @@ def OGLToLDMatrix(matrix):
     m = matrix
     return [m[12], m[13], m[14], m[0], m[4], m[8], m[1], m[5], m[9], m[2], m[6], m[10]]
 
+def OGLMatrixToXYZ(matrix):
+    return [matrix[12], matrix[13], matrix[14]]
+
 def isValidCommentLine(line):
     return (len(line) > 2) and (line[1] == Comment)
 

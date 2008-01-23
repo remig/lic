@@ -78,22 +78,6 @@ def __readInstructions(stream, instructions):
     instructions.initGLDisplayLists()
     instructions.emit(SIGNAL("layoutChanged()"))
 
-def __linkModelPartNames(model):
-
-    global partDictionary, submodelDictionary
-
-    for m in model.submodels:
-        __linkModelPartNames(m)
-
-    for part in model.parts:
-        if part.filename in partDictionary:
-            part.partOGL = partDictionary[part.filename]
-        elif part.filename in submodelDictionary:
-            part.partOGL = submodelDictionary[part.filename]
-            part.partOGL.used = True
-        else:
-            print "LOAD ERROR: could not find a partOGL for part: " + part.filename
-
 def __readSubmodel(stream, instructions):
 
     submodel = __readPartOGL(stream, True)
@@ -243,6 +227,7 @@ def __readCSI(stream, step):
     partCount = stream.readInt32()
     for i in range(0, partCount):
         part = __readPart(stream)
+        part._parentCSI = csi
         if part.filename in partDictionary:
             part.partOGL = partDictionary[part.filename]
         elif part.filename in submodelDictionary:
@@ -269,6 +254,20 @@ def __readPLI(stream, parentStep):
     for i in range(0, itemCount):
         pliItem = __readPLIItem(stream, pli)
         pli.pliItems.append(pliItem)
+
+    # Link all the parts in the associated CSI with the parts in each PLIItem
+    for part in parentStep.csi.parts:
+        for item in pli.pliItems:
+            if item.color == part.color and item.partOGL.filename == part.partOGL.filename:
+                item.addPart(part)
+
+    # Make sure we've added the right number of parts to the right spot
+    for item in pli.pliItems:
+        if item.__count == len(item.parts):
+            del(item.__count)
+        else:
+            print "LOAD ERROR: Have PLIItem with %d count, but %d parts" % (item.__count, len(item.parts))
+
     return pli
 
 def __readPLIItem(stream, pli):
@@ -293,7 +292,7 @@ def __readPLIItem(stream, pli):
         print "LOAD ERROR: Could not find part in part dict: " + filename
 
     pliItem = PLIItem(pli, partOGL, color)
-    pliItem.count = count
+    pliItem.__count = count
     pliItem.setPos(pos)
     pliItem.setRect(rect)
 
@@ -307,6 +306,22 @@ def __readPLIItem(stream, pli):
     pliItem.numberItem.setZValue(pliItem.pixmapItem.zValue() + 1)
     pliItem.setTransform(transform)
     return pliItem
+
+def __linkModelPartNames(model):
+
+    global partDictionary, submodelDictionary
+
+    for m in model.submodels:
+        __linkModelPartNames(m)
+
+    for part in model.parts:
+        if part.filename in partDictionary:
+            part.partOGL = partDictionary[part.filename]
+        elif part.filename in submodelDictionary:
+            part.partOGL = submodelDictionary[part.filename]
+            part.partOGL.used = True
+        else:
+            print "LOAD ERROR: could not find a partOGL for part: " + part.filename
 
 def __linkPrevCSI(csi, mainModel):
 

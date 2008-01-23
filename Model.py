@@ -1570,7 +1570,8 @@ class Part(object):
         return self._parentPLI.parts.index(self) + 1
     
     def data(self, index):
-        return self.partOGL.filename
+        x, y, z = OGLMatrixToXYZ(self.matrix)
+        return "%s  (%.2f, %.2f, %.2f)" % (self.partOGL.filename, x, y, z)
 
     def setSelected(self, selected):
         if self._selected != selected:
