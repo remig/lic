@@ -119,6 +119,7 @@ class LicTreeView(QTreeView):
         QTreeView.__init__(self, parent)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.connect(self, SIGNAL("clicked(QModelIndex)"), self.clicked)
+        self.selectedParts = []
 
     def keyReleaseEvent(self, event):
         key = event.key()
@@ -144,10 +145,19 @@ class LicTreeView(QTreeView):
             self.clicked(self.currentIndex())
         
     def updateSelection(self):
+        """ This is called whenever the graphics scene's selection changes """
+        
+        # Deselect everything in the tree
         model = self.model()
         selection = self.selectionModel()
         selection.clear()
+
+        # Deselect any currently selected parts
+        for part in self.selectedParts:
+            part.setSelected(False)
+        self.selectedParts = []
         
+        # Select everything in the tree that's currently selected in the graphics view
         for item in model.scene.selectedItems():
             index = model.createIndex(item.row(), 0, item)
             if index:
@@ -162,10 +172,15 @@ class LicTreeView(QTreeView):
         # Get a list of everything selected in the tree
         selList = self.selectionModel().selectedIndexes()
 
-        # Clear any existing selection
+        # Clear any existing selection from the graphics view
         instructions = self.model()
         instructions.scene.clearSelection()
-        
+
+        # Deselect any currently selected parts
+        for part in self.selectedParts:
+            part.setSelected(False)
+        self.selectedParts = []
+
         # Find the selected item's parent page, then flip to that page
         if isinstance(index.internalPointer(), Submodel):
             instructions.mainModel.selectPage(index.internalPointer().pages[0].number)
@@ -177,8 +192,12 @@ class LicTreeView(QTreeView):
             instructions.mainModel.selectPage(parent.internalPointer().number)
 
         # Finally, select the things we actually clicked on
-        for item in selList:
-            item.internalPointer().setSelected(True)
+        for index in selList:
+            item = index.internalPointer()
+            item.setSelected(True)
+            if isinstance(item, Part):
+                self.selectedParts.append(item)
+                self.selectionModel().select(index, QItemSelectionModel.Select)
 
 class Instructions(QAbstractItemModel):
 
@@ -407,9 +426,7 @@ class Instructions(QAbstractItemModel):
         for csi in csiList:
             if csi.width < 1 or csi.height < 1:
                 continue
-            w = csi.width * CSI.scale
-            h = csi.height * CSI.scale
-            pBuffer = QGLPixelBuffer(w, h, format, GlobalGLContext)
+            pBuffer = QGLPixelBuffer(csi.width * CSI.scale, csi.height * CSI.scale, format, GlobalGLContext)
             pBuffer.makeCurrent()
             csi.initPixmap(pBuffer)
             
@@ -741,7 +758,7 @@ class Step(QGraphicsRectItem):
         return "Step %d" % self._number
 
     def addPart(self, part):
-        self.csi.parts.append(part)
+        self.csi.addPart(part)
         if self.pli:
             self.pli.addPart(part)
 
@@ -787,7 +804,7 @@ class PLIItem(QGraphicsRectItem):
 
     def addPart(self, part):
         self.parts.append(part)
-        part._parent = self
+        part._parentPLI = self
         self.numberItem.setText("%dx" % len(self.parts))
         self.numberItem.dataText = "Qty. Label (%dx)" % len(self.parts)
         
@@ -1016,11 +1033,15 @@ class CSI(QGraphicsPixmapItem):
     def data(self, index = 0):
         return "CSI"
 
-    def callPreviousOGLDisplayLists(self):
+    def addPart(self, part):
+        part._parentCSI = self
+        self.parts.append(part)
+
+    def __callPreviousOGLDisplayLists(self):
 
         # Call all previous step's CSI display list
         if self.prevCSI:
-            self.prevCSI.callPreviousOGLDisplayLists()
+            self.prevCSI.__callPreviousOGLDisplayLists()
 
         # Now call this CSI's display list
         glCallList(self.partialGLDispID)
@@ -1031,6 +1052,7 @@ class CSI(QGraphicsPixmapItem):
         self.partialGLDispID = glGenLists(1)
         glNewList(self.partialGLDispID, GL_COMPILE)
 
+        # Draw all the parts in this CSI
         for part in self.parts:
             part.callOGLDisplayList()
 
@@ -1040,9 +1062,19 @@ class CSI(QGraphicsPixmapItem):
         # for a single display list giving a full model rendering up to this step.
         self.oglDispID = glGenLists(1)
         glNewList(self.oglDispID, GL_COMPILE)
-        self.callPreviousOGLDisplayLists()
+        self.__callPreviousOGLDisplayLists()
         glEndList()
 
+    def updatePixmap(self):
+        global GlobalGLContext
+        GlobalGLContext.makeCurrent()
+        
+        self.createOGLDisplayList()
+
+        pBuffer = QGLPixelBuffer(self.width * CSI.scale, self.height * CSI.scale, QGLFormat(), GlobalGLContext)
+        pBuffer.makeCurrent()
+        self.initPixmap(pBuffer)
+    
     def initLayout(self):
 
         step = self.parentItem()
@@ -1096,6 +1128,7 @@ class CSI(QGraphicsPixmapItem):
         return True
 
     def initPixmap(self, pBuffer):
+        """ Requires a current GL Context, either the global one or a local PixelBuffer """
 
         GLHelpers.initFreshContext()
         w = self.width * CSI.scale
@@ -1511,7 +1544,9 @@ class Part(object):
         self.inverted = invert
         self.filename = filename  # Needed for save / load
         self.partOGL = None
-        self._parent = None # Needed because now Parts live in the tree (inside specific PLIItems)
+        self._parentPLI = None # Needed because now Parts live in the tree (inside specific PLIItems)
+        self._parentCSI = None # Needed to be able to notify CSI to draw this part as selected
+        self._selected = False # Needed to track if this Part is selected or not
 
         if setPartOGL:
             if filename in submodelDictionary:
@@ -1529,13 +1564,18 @@ class Part(object):
             self.name = self.partOGL.name
      
     def parent(self):
-        return self._parent
+        return self._parentPLI
 
+    def row(self):
+        return self._parentPLI.parts.index(self) + 1
+    
     def data(self, index):
         return self.partOGL.filename
 
     def setSelected(self, selected):
-        pass  # TODO: Draw selected parts in some visually interesting way
+        if self._selected != selected:
+            self._selected = selected
+            self._parentCSI.updatePixmap()
 
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
@@ -1546,6 +1586,8 @@ class Part(object):
         color = LDrawColors.convertToRGBA(self.color)
 
         if color != LDrawColors.CurrentColor:
+            if self._selected:
+                color[3] = 0.5
             glPushAttrib(GL_CURRENT_BIT)
             glColor4fv(color)
 
