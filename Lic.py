@@ -86,6 +86,27 @@ class InstructionViewWidget(QGraphicsView):
         if movedItems:
             self.emit(SIGNAL("itemsMoved"), movedItems)
             
+    def contextMenuEvent(self, event):
+        menu = QMenu(self)
+        one = menu.addAction("&One")
+        two = menu.addAction("&Two")
+        tre = menu.addAction("T&hree")
+        menu.addSeparator()
+        
+        self.connect(one, SIGNAL("triggered()"), self.one)
+        self.connect(two, SIGNAL("triggered()"), self.two)
+        self.connect(tre, SIGNAL("triggered()"), self.three)
+        menu.exec_(event.globalPos())
+
+    def one(self):
+        print "one"
+    
+    def two(self):
+        print "two"
+    
+    def three(self):
+        print "three"
+
 class LicWindow(QMainWindow):
 
     def __init__(self, parent = None):
