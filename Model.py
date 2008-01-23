@@ -884,7 +884,7 @@ class PLIItem(QGraphicsRectItem):
                         return
 
         povFile = l3p.createPovFromDat(datFile, self.color)
-        pngFile = povray.createPngFromPov(povFile, part.width, part.height, part.center, True)
+        pngFile = povray.createPngFromPov(povFile, part.width, part.height, part.center, PLI.scale, isPLIItem = True)
         self.pngImage = QImage(pngFile)
 
 class PLI(QGraphicsRectItem):
@@ -1155,7 +1155,7 @@ class CSI(QGraphicsPixmapItem):
             fh.close()
             
         povFile = l3p.createPovFromDat(datFile)
-        pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, False)
+        pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, CSI.scale, isPLIItem = False)
         self.pngImage = QImage(pngFile)
         
     def exportToLDrawFile(self, fh):
@@ -1524,7 +1524,7 @@ class Submodel(PartOGL):
             fh.close()
 
         povFile = l3p.createPovFromDat(datFile)
-        pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, False)
+        pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, PLI.scale, isPLIItem = False)
         self.pngImage = QImage(pngFile)
 
 class Part(object):
