@@ -86,78 +86,21 @@ class InstructionViewWidget(QGraphicsView):
 
         if movedItems:
             self.emit(SIGNAL("itemsMoved"), movedItems)
-            
+
+    """
+    # Will need this for when right-clicking on a selected Part, since they're not GraphicsItems
     def contextMenuEvent(self, event):
 
         menu = None
         for item in self.scene().selectedItems():
-            if isinstance(item, Step):
-                print "Step %d" % item._number
-                menu = self.initStepContextMenu()
-            elif isinstance(item, Page):
-                menu = self.initPageContextMenu()
-                
-        if menu:
-            menu.exec_(event.globalPos())
-        else:
-            event.ignore()
-                
-    def initPageContextMenu(self):
-        
-        menu = QMenu(self)
-        delPage = menu.addAction("Delete this Page")
-        self.connect(delPage, SIGNAL("triggered()"), self.one)
-        return menu
-    
-    def initStepContextMenu(self):
-        
-        menu = QMenu(self)
-        prevPage = menu.addAction("Move Step to &Previous Page")
-        nextPage = menu.addAction("Move Step to &Next Page")
-        mergePrev = menu.addAction("Merge Step with Previous Step")
-        mergeNext = menu.addAction("Merge Step with Next Step")
-        
-        self.connect(prevPage, SIGNAL("triggered()"), self.moveToPrevPage)
-        self.connect(nextPage, SIGNAL("triggered()"), self.moveToNextPage)
-        self.connect(mergePrev, SIGNAL("triggered()"), self.mergeToPrevStep)
-        self.connect(mergeNext, SIGNAL("triggered()"), self.mergeToNextStep)
-        return menu
+            if hasattr(item, "initContextMenu"):
+                menu = item.initContextMenu(self)
+                menu.exec_(event.globalPos())
+                return
+            
+        event.ignore()
+    """
 
-    def moveToPrevPage(self, args = None):
-        for item in self.scene().selectedItems():
-            if isinstance(item, Step):
-                item.moveToPrevPage()
-                
-                """
-                page = item.parent()
-                print "Page #%d, row %d" % (page._number, page._row)
-                parent = page.parent()
-                prevPage = None
-                if page._row > 0:
-                    prevPage = parent.pages[page._row - 1]
-                if prevPage:
-                    print "Prev Page #%d, row %d" % (prevPage._number, prevPage._row)
-                else:
-                    print "No prev page"
-                    
-                """
-    
-    def moveToNextPage(self, args = None):
-        for item in self.scene().selectedItems():
-            if isinstance(item, Step):
-                print "Step %d" % item._number
-    
-    def mergeToPrevStep(self, args = None):
-        for item in self.scene().selectedItems():
-            if isinstance(item, Step):
-                print "Step %d" % item._number
-    
-    def mergeToNextStep(self, args = None):
-        for item in self.scene().selectedItems():
-            if isinstance(item, Step):
-                print "Step %d" % item._number
-    
-    
 class LicWindow(QMainWindow):
 
     def __init__(self, parent = None):

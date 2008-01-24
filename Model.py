@@ -517,11 +517,6 @@ class Page(QGraphicsRectItem):
         self.setFlags(NoMoveFlags)
         self.numberItem.setFlags(AllFlags)
 
-    def prevPage(self):
-        if self._row:
-            return self._parent.pages[self._row - 1]
-        return None
-    
     def _setNumber(self, number):
         self._number = number
         self.numberItem.setText("%d" % self._number)
@@ -582,6 +577,16 @@ class Page(QGraphicsRectItem):
 
         return items
 
+    def prevPage(self):
+        if self._row:
+            return self._parent.pages[self._row - 1]
+        return None
+
+    def nextPage(self):
+        if self._row == len(self._parent.pages) - 1:
+            return None
+        return self._parent.pages[self._row + 1]
+        
     def addSubmodelImage(self):
 
         pixmap = self._parent.getPixmap()
@@ -677,6 +682,15 @@ class Page(QGraphicsRectItem):
         painter.setBrush(QBrush(Qt.white))
         painter.drawRect(self.rect())
 
+    def contextMenuEvent(self, event):
+        
+        menu = QMenu(self.scene().views()[0])
+        delPage = menu.addAction("Delete this Page", self.one)
+        menu.exec_(event.screenPos())
+    
+    def one(self):
+        print "It's ALIVE"
+    
 class Step(QGraphicsRectItem):
     """ A single step in an instruction book.  Contains one optional PLI and exactly one CSI. """
 
@@ -760,19 +774,52 @@ class Step(QGraphicsRectItem):
 
         self.resetRect()
         
-    def moveToPrevPage(self):
-        
+    def contextMenuEvent(self, event):
+
+        menu = QMenu(self.scene().views()[0])
+        prevPage = menu.addAction("Move Step to &Previous Page", self.moveToPrevPage)
+        nextPage = menu.addAction("Move Step to &Next Page", self.moveToNextPage)
+        prevMerge = menu.addAction("Merge Step with Previous Step", self.mergeWithPrevStep)
+        nextMerge = menu.addAction("Merge Step with Next Step", self.mergeWithNextStep)
+
         page = self.parent()
-        prevPage = page.prevPage()
+        
+        if not page.prevPage():
+            prevPage.setEnabled(False)
+            prevMerge.setEnabled(False)
+
+        if not page.nextPage():
+            nextPage.setEnabled(False)
+            nextMerge.setEnabled(False)
+
+        menu.exec_(event.screenPos())
+
+    def moveToPrevPage(self):
+        self.moveToPage(self.parent().prevPage())
+        
+    def moveToNextPage(self):
+        self.moveToPage(self.parent().nextPage())
+    
+    def moveToPage(self, page):
         
         instructions = page.instructions
         instructions.emit(SIGNAL("layoutAboutToBeChanged"))
-        
-        prevPage.steps.append(self)
-        page.steps.remove(self)
-        self.setParentItem(prevPage)
+
+        # Remove this step from it's current page's step list
+        self.parent().steps.remove(self)
+
+        # Add this step to the new page's step list, and set its scene parent
+        page.steps.append(self)
+        page.steps.sort(key = lambda x: x._number)
+        self.setParentItem(page)
         
         instructions.emit(SIGNAL("layoutChanged()"))
+    
+    def mergeWithPrevStep(self):
+        print "Merging Step %d with previous Step" % self._number
+    
+    def mergeWithNextStep(self, args = None):
+        print "Merging Step %d with next Step" % self._number
 
 class PLIItem(QGraphicsRectItem):
     """ Represents one part inside a PLI along with its quantity label. """
@@ -1533,6 +1580,8 @@ class Part(object):
     in one LDraw FILE (5) command.
     """
 
+    # BIG TODO: Try and make this class a QGraphicsRectItem, so that it lives entirely in the Graphics Scene - makes selection trivial...
+    
     def __init__(self, filename, color = 16, matrix = None, invert = False, setPartOGL = True, lastStep = None):
         global partDictionary, submodelDictionary
 
