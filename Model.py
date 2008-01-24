@@ -490,6 +490,7 @@ class Page(QGraphicsRectItem):
         self.setPos(0, 0)
         self.setRect(instructions.scene.sceneRect())
 
+        self.instructions = instructions
         self._parent = parent
         self.steps = []
         self._row = 0
@@ -516,6 +517,11 @@ class Page(QGraphicsRectItem):
         self.setFlags(NoMoveFlags)
         self.numberItem.setFlags(AllFlags)
 
+    def prevPage(self):
+        if self._row:
+            return self._parent.pages[self._row - 1]
+        return None
+    
     def _setNumber(self, number):
         self._number = number
         self.numberItem.setText("%d" % self._number)
@@ -536,8 +542,12 @@ class Page(QGraphicsRectItem):
         if self.submodelItem:
             if row == 1:
                 return self.submodelItem
-            return self.steps[row - 2]
-        return self.steps[row - 1]
+            if self.steps:
+                return self.steps[row - 2]
+        if self.steps:
+            return self.steps[row - 1]
+        
+        return None
 
     def rowCount(self):
         offset = 2 if self.submodelItem else 1
@@ -749,6 +759,20 @@ class Step(QGraphicsRectItem):
         self.numberItem.moveBy(0, self.pli.rect().height() + Page.margin.y() + 0.5)
 
         self.resetRect()
+        
+    def moveToPrevPage(self):
+        
+        page = self.parent()
+        prevPage = page.prevPage()
+        
+        instructions = page.instructions
+        instructions.emit(SIGNAL("layoutAboutToBeChanged"))
+        
+        prevPage.steps.append(self)
+        page.steps.remove(self)
+        self.setParentItem(prevPage)
+        
+        instructions.emit(SIGNAL("layoutChanged()"))
 
 class PLIItem(QGraphicsRectItem):
     """ Represents one part inside a PLI along with its quantity label. """
