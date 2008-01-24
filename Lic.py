@@ -14,6 +14,7 @@ import config
 import l3p
 import povray
 import LicDialogs
+import LicUndoActions
 
 try:
     from OpenGL.GL import *
@@ -177,7 +178,7 @@ class LicWindow(QMainWindow):
         self.setWindowModified(not bool)
         
     def itemsMoved(self, itemList):
-        self.undoStack.push(MoveCommand(itemList))
+        self.undoStack.push(LicUndoActions.MoveCommand(itemList))
 
     def __getFilename(self):
         return self.__filename
@@ -303,9 +304,14 @@ class LicWindow(QMainWindow):
     
     def changeCSIPLISize(self):
         dialog = LicDialogs.CSIPLIImageSizeDlg(self)
-        self.connect(dialog, SIGNAL("newCSIPLISize"), self.instructions.setCSIPLISize)
+        self.connect(dialog, SIGNAL("newCSIPLISize"), self.setCSIPLISize)
         dialog.show()
-    
+
+    def setCSIPLISize(self, newCSISize, newPLISize):
+        sizes = self.instructions.setCSIPLISize(newCSISize, newPLISize)
+        if sizes:
+            self.undoStack.push(LicUndoActions.ResizeCSIPLICommand(self.instructions, sizes))
+
     def createMenuAction(self, text, slot = None, shortcut = None, tip = None, signal = "triggered()"):
         action = QAction(text, self)
         if shortcut is not None:

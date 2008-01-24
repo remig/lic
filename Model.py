@@ -79,40 +79,6 @@ QGraphicsPixmapItem.row = genericRow
 def printRect(rect, text = ""):
     print text + ", l: %f, r: %f, t: %f, b: %f" % (rect.left(), rect.right(), rect.top(), rect.bottom())
 
-class MoveCommand(QUndoCommand):
-
-    """
-    MoveCommand stores a list of parts moved together:
-    itemList[0] = (item, item.oldPos, item.newPos)
-    """
-    
-    def __init__(self, itemList):
-        QUndoCommand.__init__(self)
-        
-        self.itemList = []
-        for item in itemList:
-            self.itemList.append((item, item.oldPos, item.pos()))
-    
-    def id(self):
-        return 123
-    
-    def undo(self):
-        for i in self.itemList:
-            item, oldPos, newPos = i
-            item.setPos(oldPos)
-            if hasattr(item.parentItem(), "resetRect"):
-                item.parentItem().resetRect()
-    
-    def redo(self):
-        for i in self.itemList:
-            item, oldPos, newPos = i
-            item.setPos(newPos)
-            if hasattr(item.parentItem(), "resetRect"):
-                item.parentItem().resetRect()
-    
-#    def mergeWith(self, command):
-#        pass
-    
 class LicTreeView(QTreeView):
 
     def __init__(self, parent):
@@ -483,6 +449,9 @@ class Instructions(QAbstractItemModel):
 
     def setCSIPLISize(self, newCSISize, newPLISize):
 
+        oldCSISize = CSI.scale
+        oldPLISize = PLI.scale
+        
         if newCSISize != CSI.scale:
             CSI.scale = newCSISize
             self.initCSIPixmaps()
@@ -490,6 +459,10 @@ class Instructions(QAbstractItemModel):
         if newPLISize != PLI.scale:
             PLI.scale = newPLISize
             self.initPLIPixmaps()
+            
+        if newCSISize != oldCSISize or newPLISize != oldPLISize:
+            return ((oldCSISize, newCSISize), (oldPLISize, newPLISize))
+        return None
 
     def enlargePixmaps(self):
         CSI.scale += 0.5
