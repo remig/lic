@@ -1,11 +1,9 @@
-List of stuff todo before launching anything at all...
+Lic TODO:
 
 - Generate images at any arbitrary size
 - Need to give user a way to specify:
   - Instruction image size
   - Paths to required apps (LDraw, L3P, Pov-Ray)
-  - Model to be opened and work with  (Open menu)
-  - Save As menu
 
 - Use new style classes that inherit from 'object'
 - Change opengl import to from OpenGL import GL, then qualify all GL code with GL.
@@ -13,9 +11,24 @@ List of stuff todo before launching anything at all...
 - Surround 3rd party imports in try...catch blocks
 
 Eventually:
-- Implement at least one tree-based drag and drop feature
-- Fix part cache to be one global cache file, based on rendered image size, not model
+- Fix part cache to be one global cache file, based on default rendered image size, not model
   - Add parts to that one global cache, so cache can be shared by all renderings of that size
+  - Not a priority, since calculating part sizes is usually only a few seconds, at most
+
+TODO: Found a small bug where pages are responding to keystrokes.  Need to make sure that doesn't happen.
+
+TODO: Only create config paths when a file is about to be exported.  No sense creating them on model import!
+
+TODO: Still need to handle submodels that are not embedded in the main model file.
+
+TODO: Have a small problem where if you click on a submodel, it's node is expanded automatically and its first page is selected, which is fine.  But if you then use arrow keys to move up or left, selection is automatically forced back to the first page.  Kinda unnatural.  To fix, when a submodel is selected, do not automatically select the first page, select the submodel itself, and just draw its first page.
+
+TODO: Should have separate scale settings for submodel images?
+
+TODO: Need to try and reduce the amount of work done on each scale resize, since it can take several seconds to process a size change, even on really small models.  Could possibly provide a preview of one page, scale that, then apply those changes, once finalized by the user, to the full document...
+
+TODO: If it's gonna take a while to scale CSIs | PLIs, let the user know, by greying out the Scale CSI | PLI dialog buttons or a progress bar or something.
+
 
 Lic thoughts on default vs. local settings.
 
@@ -24,34 +37,3 @@ Lic thoughts on default vs. local settings.
 - Provide one 'default' instruction page, as a sample page, where the user can
 set all the defaults for the overall document.
 
-
-Lic thoughts on coordinate systems.
-
-Provide two ways to specify overall doc size
-- raw width / height in pixels, for web / raw images
-- physical page size in mm + DPI resolution, for printing
-
-0 LIC DOCSIZE IMAGE 800 600   # width height in pixels
-  or 
-0 LIC DOCSIZE PRINT 8.5 11 600  # width height DPI (in inches, mm whatever)
-
-If DOCSIZE PRINT is specified, calculate and use an internal pixel width & height
-
-All width / height / x / y measurements throughout the model file are then float values from 0..1,
-and are fractions of the overall width / height specified by DOCSIZE
-
-Only problem with this is if the *aspect ratio* changes, ie the ratio of DOCSIZE width / height.
-
-If the aspect ratio changes (by the user, using a valid Lic operation), recalculate every single height 
-and y value (or width and x) throughout the document.
-
-Preserving the displayed aspect ratio is more important than respecting user's doc size change, because
-otherwise they'll end up with skewed bricks and fonts and box borders and a mess.
-
-So, for example, if the width remains constant but the DOCSIZE height doubles, need to cut all internal 
-heights and y displacements in half.  This will add a bunch of empty white space at the bottom of the document.
-Could possibly re-center CSIs and page numbers based on new height... but don't want to change any CSI's actual height.
-
-To ensure the user doesn't change the aspect ratio outside Lic, maybe add another Lic command later on, like
-
-0 LIC ASPECT RATIO 2:1 # or something

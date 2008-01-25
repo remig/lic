@@ -620,10 +620,26 @@ class Page(QGraphicsRectItem):
 
     def initLayout(self):
 
-        if self.submodelItem:
-            for step in self.steps:
-                step.moveBy(0, self.submodelItem.rect().height() + Page.margin.y())
+        pageRect = self.rect()
+        mx = Page.margin.x()
+        my = Page.margin.y()
+        
+        pageRect.adjust(mx, my, -mx, -my)
+        pageRect.setTopLeft(Page.margin)
 
+        # Allocate space for the submodel image, if any
+        if self.submodelItem:
+            self.submodelItem.setPos(Page.margin)
+            self.submodelItem.rect.setTopLeft(Page.margin)            
+            pageRect.setTop(pageRect.top() + self.submodelItem.rect().height() + my)
+            
+        # Divide the remaining space into equal space for each step, depending on the number of steps.
+        stepCount = len(self.steps)
+        colCount = int(math.ceil(math.sqrt(stepCount)))
+        rowCount = stepCount / colCount  # This needs to be integer division
+        if stepCount % colCount:
+            rowCount += 1
+        
         for step in self.steps:
             step.initLayout()
 
@@ -781,6 +797,9 @@ class Step(QGraphicsRectItem):
         nextPage = menu.addAction("Move Step to &Next Page", self.moveToNextPage)
         prevMerge = menu.addAction("Merge Step with Previous Step", self.mergeWithPrevStep)
         nextMerge = menu.addAction("Merge Step with Next Step", self.mergeWithNextStep)
+        doLayout = menu.addAction("Re-layout affected Pages")
+        doLayout.setCheckable(True)
+        doLayout.setChecked(True)
 
         page = self.parent()
         
@@ -805,12 +824,14 @@ class Step(QGraphicsRectItem):
         instructions = page.instructions
         instructions.emit(SIGNAL("layoutAboutToBeChanged"))
 
-        # Remove this step from it's current page's step list
+        # Remove this step from its current page's step list
         self.parent().steps.remove(self)
-
+        self.parent().initLayout()
+        
         # Add this step to the new page's step list, and set its scene parent
         page.steps.append(self)
         page.steps.sort(key = lambda x: x._number)
+        page.initLayout()
         self.setParentItem(page)
         
         instructions.emit(SIGNAL("layoutChanged()"))
