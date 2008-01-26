@@ -14,6 +14,9 @@ def saveLicFile(filename, instructions):
     stream.writeInt32(MagicNumber)
     stream.writeInt16(FileVersion)
 
+    # Need to explicitly deselect parts so they refresh the CSI pixmap
+    instructions.clearSelectedParts()
+
     __writeInstructions(stream, instructions)
 
     if fh is not None:

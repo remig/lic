@@ -85,7 +85,6 @@ class LicTreeView(QTreeView):
         QTreeView.__init__(self, parent)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.connect(self, SIGNAL("clicked(QModelIndex)"), self.clicked)
-        self.selectedParts = []
 
     def keyReleaseEvent(self, event):
         key = event.key()
@@ -118,11 +117,6 @@ class LicTreeView(QTreeView):
         selection = self.selectionModel()
         selection.clear()
 
-        # Deselect any currently selected parts
-        for part in self.selectedParts:
-            part.setSelected(False)
-        self.selectedParts = []
-        
         # Select everything in the tree that's currently selected in the graphics view
         for item in model.scene.selectedItems():
             index = model.createIndex(item.row(), 0, item)
@@ -140,12 +134,8 @@ class LicTreeView(QTreeView):
 
         # Clear any existing selection from the graphics view
         instructions = self.model()
+        instructions.clearSelectedParts()
         instructions.scene.clearSelection()
-
-        # Deselect any currently selected parts
-        for part in self.selectedParts:
-            part.setSelected(False)
-        self.selectedParts = []
 
         # Find the selected item's parent page, then flip to that page
         if isinstance(index.internalPointer(), Submodel):
@@ -161,9 +151,6 @@ class LicTreeView(QTreeView):
         for index in selList:
             item = index.internalPointer()
             item.setSelected(True)
-            if isinstance(item, Part):
-                self.selectedParts.append(item)
-                self.selectionModel().select(index, QItemSelectionModel.Select)
 
 class Instructions(QAbstractItemModel):
 
@@ -265,6 +252,11 @@ class Instructions(QAbstractItemModel):
         CSI.scale = PLI.scale = 1.0
         GlobalGLContext.makeCurrent()
         self.emit(SIGNAL("layoutChanged()"))
+
+    def clearSelectedParts(self):
+        for item in self.scene.selectedItems():
+            if isinstance(item, Part):
+                item.setSelected(False)
 
     def loadModel(self, filename):
         global currentModelFilename        
@@ -870,6 +862,7 @@ class PLIItem(QGraphicsRectItem):
     def addPart(self, part):
         self.parts.append(part)
         part._parentPLI = self
+        part.setParentItem(self)
         self.numberItem.setText("%dx" % len(self.parts))
         self.numberItem.dataText = "Qty. Label (%dx)" % len(self.parts)
         
@@ -1592,7 +1585,7 @@ class Submodel(PartOGL):
         pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, PLI.scale, isPLIItem = False)
         self.pngImage = QImage(pngFile)
 
-class Part(object):
+class Part(QGraphicsRectItem):
     """
     Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough
     info to draw that abstract part in context of a model, ie color, positional 
@@ -1601,9 +1594,8 @@ class Part(object):
     in one LDraw FILE (5) command.
     """
 
-    # BIG TODO: Try and make this class a QGraphicsRectItem, so that it lives entirely in the Graphics Scene - makes selection trivial...
-    
     def __init__(self, filename, color = 16, matrix = None, invert = False, setPartOGL = True, lastStep = None):
+        QGraphicsRectItem.__init__(self)
         global partDictionary, submodelDictionary
 
         self.color = color
@@ -1613,7 +1605,7 @@ class Part(object):
         self.partOGL = None
         self._parentPLI = None # Needed because now Parts live in the tree (inside specific PLIItems)
         self._parentCSI = None # Needed to be able to notify CSI to draw this part as selected
-        self._selected = False # Needed to track if this Part is selected or not
+        self.setFlags(NoMoveFlags)
 
         if setPartOGL:
             if filename in submodelDictionary:
@@ -1638,11 +1630,11 @@ class Part(object):
     
     def data(self, index):
         x, y, z = OGLMatrixToXYZ(self.matrix)
-        return "%s  (%.2f, %.2f, %.2f)" % (self.partOGL.filename, x, y, z)
+        return "%s  (%.1f, %.1f, %.1f)" % (self.partOGL.filename, x, y, z)
 
     def setSelected(self, selected):
-        if self._selected != selected:
-            self._selected = selected
+        if self.isSelected() != selected:
+            QGraphicsRectItem.setSelected(self, selected)
             self._parentCSI.updatePixmap()
 
     def isSubmodel(self):
@@ -1654,7 +1646,7 @@ class Part(object):
         color = LDrawColors.convertToRGBA(self.color)
 
         if color != LDrawColors.CurrentColor:
-            if self._selected:
+            if self.isSelected():
                 color[3] = 0.5
             glPushAttrib(GL_CURRENT_BIT)
             glColor4fv(color)
