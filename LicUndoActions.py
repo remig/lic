@@ -8,8 +8,8 @@ class MoveCommand(QUndoCommand):
     """
 
     def __init__(self, itemList):
-        QUndoCommand.__init__(self)
-        
+        QUndoCommand.__init__(self, "Undo the last Page element movement")
+
         self.itemList = []
         for item in itemList:
             self.itemList.append((item, item.oldPos, item.pos()))
@@ -39,7 +39,7 @@ class ResizeCSIPLICommand(QUndoCommand):
     """
 
     def __init__(self, instructions, sizes):
-        QUndoCommand.__init__(self)
+        QUndoCommand.__init__(self, "Undo the last CSI | PLI image resize")
         
         self.instructions = instructions
         csiSizes, pliSizes = sizes

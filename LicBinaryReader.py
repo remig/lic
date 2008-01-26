@@ -182,7 +182,7 @@ def __readPage(stream, parent, instructions):
     step = None
     for i in range(0, stepCount):
         step = __readStep(stream, page)
-        page.steps.append(step)
+        page.addStep(step)
     return page
 
 def __readStep(stream, parentPage):

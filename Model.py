@@ -441,6 +441,7 @@ class Instructions(QAbstractItemModel):
 
     def setCSIPLISize(self, newCSISize, newPLISize):
 
+        print "Setting size to: %d, %d" % (newCSISize, newPLISize)
         oldCSISize = CSI.scale
         oldPLISize = PLI.scale
         
@@ -476,8 +477,8 @@ class Page(QGraphicsRectItem):
 
     def __init__(self, parent, instructions, number = -1):
         QGraphicsRectItem.__init__(self)
-
         instructions.scene.addItem(self)
+
         # Position this rectangle inset from the containing scene
         self.setPos(0, 0)
         self.setRect(instructions.scene.sceneRect())
@@ -486,6 +487,7 @@ class Page(QGraphicsRectItem):
         self._parent = parent
         self.steps = []
         self._row = 0
+        self.children = []
 
         # Give this page a number
         if number == -1:
@@ -499,6 +501,7 @@ class Page(QGraphicsRectItem):
         self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
         self.numberItem.setFont(QFont("Arial", 15))
         self.numberItem.dataText = "Page Number Label"
+        self.children.append(self.numberItem)
 
         self.submodelItem = None
         
@@ -522,23 +525,12 @@ class Page(QGraphicsRectItem):
         return self._parent
 
     def child(self, row):
-        if row < 0 or row > len(self.steps) + 2:
+        if row < 0 or row >= len(self.children):
             return None
-        if row == 0:
-            return self.numberItem
-        if self.submodelItem:
-            if row == 1:
-                return self.submodelItem
-            if self.steps:
-                return self.steps[row - 2]
-        if self.steps:
-            return self.steps[row - 1]
-        
-        return None
+        return self.children[row]
 
     def rowCount(self):
-        offset = 2 if self.submodelItem else 1
-        return len(self.steps) + offset
+        return len(self.children)
 
     def setRow(self, row):
         self._row = row
@@ -547,8 +539,7 @@ class Page(QGraphicsRectItem):
         return self._row
 
     def getChildRow(self, child):
-        index = self.steps.index(child)
-        return index + 2 if self.submodelItem else index + 1
+        return self.children.index(child)
     
     def data(self, index):
         return "Page %d" % self._number
@@ -579,6 +570,32 @@ class Page(QGraphicsRectItem):
             return None
         return self._parent.pages[self._row + 1]
         
+    def addStep(self, step, relayout = False):
+
+        self.steps.append(step)
+        self.steps.sort(key = lambda x: x._number)
+        step.setParentItem(self)
+
+        i = 0
+        for i, item in enumerate(self.children):
+            if isinstance(item, Step):
+                break
+        self.children.insert(i + 1, step)
+
+        if self.submodelItem:
+            self.submodelItem._row = len(self.children) - 1
+
+
+        for i, item in enumerate(self.children):
+            item.setZValue(len(self.children) - i)
+        
+        if relayout:
+            self.initLayout()
+
+    def removeStep(self, step):
+        self.steps.remove(step)
+        self.children.remove(step)
+
     def addSubmodelImage(self):
 
         pixmap = self._parent.getPixmap()
@@ -590,13 +607,14 @@ class Page(QGraphicsRectItem):
         self.submodelItem.dataText = "Submodel Preview"
         self.submodelItem.setPos(Page.margin)
         self.submodelItem.setFlags(AllFlags)
-        self.submodelItem._row = 1
         
         self.pixmapItem = QGraphicsPixmapItem(self.submodelItem)
         self.pixmapItem.setPixmap(pixmap)
         self.pixmapItem.setPos(PLI.margin)
         
         self.submodelItem.setRect(0, 0, pixmap.width() + PLI.margin.x() * 2, pixmap.height() + PLI.margin.y() * 2)
+        self.children.append(self.submodelItem)
+        self.submodelItem._row = len(self.children) - 1
         
     def resetSubmodelImage(self):
         
@@ -613,18 +631,19 @@ class Page(QGraphicsRectItem):
     def initLayout(self):
 
         pageRect = self.rect()
+
         mx = Page.margin.x()
         my = Page.margin.y()
         
-        pageRect.adjust(mx, my, -mx, -my)
-        pageRect.setTopLeft(Page.margin)
-
         # Allocate space for the submodel image, if any
         if self.submodelItem:
             self.submodelItem.setPos(Page.margin)
-            self.submodelItem.rect.setTopLeft(Page.margin)            
-            pageRect.setTop(pageRect.top() + self.submodelItem.rect().height() + my)
-            
+            self.submodelItem.rect().setTopLeft(Page.margin)
+            pageRect.setTop(self.submodelItem.rect().height() + my + my)
+
+        if len(self.steps) <= 0:
+            return  # No steps - nothing more to do here
+
         # Divide the remaining space into equal space for each step, depending on the number of steps.
         stepCount = len(self.steps)
         colCount = int(math.ceil(math.sqrt(stepCount)))
@@ -632,8 +651,22 @@ class Page(QGraphicsRectItem):
         if stepCount % colCount:
             rowCount += 1
         
-        for step in self.steps:
-            step.initLayout()
+        w = pageRect.width() / colCount
+        h = pageRect.height() / rowCount
+        x = pageRect.x()
+        y = pageRect.y() - h
+        
+        for i, step in enumerate(self.steps):
+            
+            if i % colCount:
+                x += w
+            else:
+                x = pageRect.x()
+                y += h
+
+            tmpRect = QRectF(x, y, w, h)
+            tmpRect.adjust(mx, my, -mx, -my)
+            step.initLayout(tmpRect)
 
     def scaleImages(self):
         for step in self.steps:
@@ -768,11 +801,16 @@ class Step(QGraphicsRectItem):
             self.pli.addPart(part)
 
     def resetRect(self):
-        self.setRect(self.childrenBoundingRect())
+        stepRect = self.rect()
+        childrenRect = self.childrenBoundingRect()
+        self.setRect(stepRect | childrenRect)
         
-    def initLayout(self):
+    def initLayout(self, destRect):
 
         print "Initializing page: %d step: %d" % (self.parentItem()._number, self._number)
+        self.setPos(destRect.topLeft())
+        self.setRect(0, 0, destRect.width(), destRect.height())
+        
         self.pli.initLayout()
         self.csi.initLayout()
 
@@ -780,8 +818,6 @@ class Step(QGraphicsRectItem):
         self.numberItem.setPos(0, 0)
         self.numberItem.moveBy(0, self.pli.rect().height() + Page.margin.y() + 0.5)
 
-        self.resetRect()
-        
     def contextMenuEvent(self, event):
 
         menu = QMenu(self.scene().views()[0])
@@ -811,22 +847,19 @@ class Step(QGraphicsRectItem):
     def moveToNextPage(self):
         self.moveToPage(self.parent().nextPage())
     
-    def moveToPage(self, page):
+    def moveToPage(self, page, relayout = True):
         
-        instructions = page.instructions
-        instructions.emit(SIGNAL("layoutAboutToBeChanged"))
+        page.instructions.emit(SIGNAL("layoutAboutToBeChanged"))
 
         # Remove this step from its current page's step list
-        self.parent().steps.remove(self)
-        self.parent().initLayout()
+        self.parent().removeStep(self)
+        if relayout:
+            self.parent().initLayout()
         
         # Add this step to the new page's step list, and set its scene parent
-        page.steps.append(self)
-        page.steps.sort(key = lambda x: x._number)
-        page.initLayout()
-        self.setParentItem(page)
+        page.addStep(self, relayout)
         
-        instructions.emit(SIGNAL("layoutChanged()"))
+        page.instructions.emit(SIGNAL("layoutChanged()"))
     
     def mergeWithPrevStep(self):
         print "Merging Step %d with previous Step" % self._number
@@ -1010,10 +1043,6 @@ class PLI(QGraphicsRectItem):
         for item in self.pliItems:
             item.initLayout()
 
-        # Return the height of the part in the specified layout item
-        def itemHeight(layoutItem):
-            return layoutItem.partOGL.height
-
         # Compare the width of layout Items 1 and 2
         def compareLayoutItemWidths(item1, item2):
             """ Returns 1 if part 2 is wider than part 1, 0 if equal, -1 if narrower. """
@@ -1025,22 +1054,21 @@ class PLI(QGraphicsRectItem):
 
         # Sort the list of parts in this PLI from widest to narrowest, with the tallest one first
         partList = self.pliItems
-        tallestPart = max(partList, key = itemHeight)
+        tallestPart = max(partList, key = lambda x: x.partOGL.height)
         partList.remove(tallestPart)
         partList.sort(compareLayoutItemWidths)
         partList.insert(0, tallestPart)
 
         # This rect will be enlarged as needed
-        b = self.rect()
-        b.setSize(QSizeF(-1, -1))
+        b = QRectF(0, 0, -1, -1)
 
-        overallX = xMargin = PLI.margin.x()
-        yMargin = PLI.margin.y()
+        overallX = maxX = xMargin = PLI.margin.x()
+        overallY = maxY = yMargin = PLI.margin.y()
 
         for i, item in enumerate(partList):
 
             # Move this PLIItem to its new position
-            item.setPos(overallX, yMargin)
+            item.setPos(overallX, overallY)
 
             # Check if the current PLI box is big enough to fit this part *below* the previous part,
             # without making the box any bigger.  If so, position part there instead.
@@ -1057,10 +1085,21 @@ class PLI(QGraphicsRectItem):
 
             # Increase overall x, box width and box height to make PLI box big enough for this part
             overallX += newWidth + xMargin
-            b.setWidth(round(overallX))
+            maxX = max(maxX, overallX)
 
-            newHeight = item.rect().height() + yMargin + yMargin
-            b.setHeight(round(max(b.height(), newHeight)))
+            # If this part pushes this PLI beyond the steps right edge, wrap to new line
+            if overallX > self.parentItem().rect().width():
+                overallX = xMargin
+                maxX -= newWidth + xMargin
+                overallY += b.height() - yMargin
+                maxY += overallY - yMargin
+                item.setPos(overallX, overallY)
+                overallX += newWidth + xMargin
+            
+            b.setWidth(maxX)
+
+            maxY = max(maxY, item.rect().height() + yMargin + yMargin)
+            b.setHeight(maxY)
             self.setRect(b)
 
 class CSI(QGraphicsPixmapItem):
@@ -1136,15 +1175,13 @@ class CSI(QGraphicsPixmapItem):
     def initLayout(self):
 
         step = self.parentItem()
-        pageRect = step.parentItem().rect()
         pliHeight = step.pli.rect().height()
 
         width = self.width * CSI.scale / 2.0
         height = self.height * CSI.scale / 2.0
-        x = (pageRect.width() / 2.0) - width
+        x = (step.rect().width() / 2.0) - width
 
-        stepHeight = pageRect.bottom() - step.pos().y()
-        y = ((stepHeight - pliHeight) / 2.0) - height + pliHeight        
+        y = ((step.rect().height() - pliHeight) / 2.0) - height + pliHeight        
         y = max(y, pliHeight + Page.margin.y())
 
         self.setPos(x, y)
@@ -1480,7 +1517,7 @@ class Submodel(PartOGL):
         page = self.addPage()
         self.currentStep = Step(page, -1, self.currentCSI)
         self.currentCSI = self.currentStep.csi
-        page.steps.append(self.currentStep)
+        page.addStep(self.currentStep)
         
     def addPage(self):
         page = Page(self, self.instructions)

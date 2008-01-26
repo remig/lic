@@ -88,6 +88,7 @@ class InstructionViewWidget(QGraphicsView):
             self.emit(SIGNAL("itemsMoved"), movedItems)
 
     # Will need this for when right-clicking on a selected Part, since they're not GraphicsItems
+    """
     def contextMenuEvent(self, event):
 
         menu = None
@@ -97,6 +98,7 @@ class InstructionViewWidget(QGraphicsView):
                 return
             
         event.ignore()
+    """
 
 class LicWindow(QMainWindow):
 
@@ -293,13 +295,13 @@ class LicWindow(QMainWindow):
             pageSize = dialog.pageSize()
     
     def changeCSIPLISize(self):
-        dialog = LicDialogs.CSIPLIImageSizeDlg(self)
+        dialog = LicDialogs.CSIPLIImageSizeDlg(self, CSI.scale, PLI.scale)
         self.connect(dialog, SIGNAL("newCSIPLISize"), self.setCSIPLISize)
         dialog.show()
 
     def setCSIPLISize(self, newCSISize, newPLISize):
-        sizes = self.instructions.setCSIPLISize(newCSISize, newPLISize)
-        if sizes:
+        if newCSISize != CSI.scale or newPLISize != PLI.scale:
+            sizes = ((CSI.scale, newCSISize), (PLI.scale, newPLISize))
             self.undoStack.push(LicUndoActions.ResizeCSIPLICommand(self.instructions, sizes))
 
     def createMenuAction(self, text, slot = None, shortcut = None, tip = None, signal = "triggered()"):

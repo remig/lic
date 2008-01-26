@@ -3,15 +3,15 @@ from PyQt4.QtGui import *
 
 class CSIPLIImageSizeDlg(QDialog):
 
-    def __init__(self, parent):
+    def __init__(self, parent, currentCSISize, currentPLISize):
         QDialog.__init__(self, parent)
         self.setAttribute(Qt.WA_DeleteOnClose)
 
         csiSizeLabel = QLabel("&CSI Size:")
-        self.csiSizeSpinBox = self.createSpinBox(csiSizeLabel)
+        self.csiSizeSpinBox = self.createSpinBox(csiSizeLabel, currentCSISize)
 
         pliSizeLabel = QLabel("&PLI Size:")
-        self.pliSizeSpinBox = self.createSpinBox(pliSizeLabel)
+        self.pliSizeSpinBox = self.createSpinBox(pliSizeLabel, currentPLISize)
 
         buttonBox = QDialogButtonBox(QDialogButtonBox.Apply | QDialogButtonBox.Close)
 
@@ -27,11 +27,11 @@ class CSIPLIImageSizeDlg(QDialog):
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
         self.setWindowTitle("Set CSI | PLI Image Size")
         
-    def createSpinBox(self, label):
+    def createSpinBox(self, label, value):
         spinBox = QDoubleSpinBox()
         label.setBuddy(spinBox)
         spinBox.setRange(0.1, 1000)
-        spinBox.setValue(100)
+        spinBox.setValue(value * 100)
         spinBox.setSuffix(" %")
         return spinBox
         
