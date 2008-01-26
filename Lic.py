@@ -87,19 +87,16 @@ class InstructionViewWidget(QGraphicsView):
         if movedItems:
             self.emit(SIGNAL("itemsMoved"), movedItems)
 
-    """
     # Will need this for when right-clicking on a selected Part, since they're not GraphicsItems
     def contextMenuEvent(self, event):
 
         menu = None
         for item in self.scene().selectedItems():
-            if hasattr(item, "initContextMenu"):
-                menu = item.initContextMenu(self)
-                menu.exec_(event.globalPos())
+            if isinstance(item, Part):
+                item.contextMenuEvent(event)
                 return
             
         event.ignore()
-    """
 
 class LicWindow(QMainWindow):
 

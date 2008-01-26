@@ -1674,6 +1674,15 @@ class Part(QGraphicsRectItem):
         line = createPartLine(self.color, self.matrix, self.partOGL.filename)
         fh.write(line + '\n')
 
+    def contextMenuEvent(self, event):
+
+        menu = QMenu(self.scene().views()[0])
+        prevPage = menu.addAction("Move Step to &Previous Page", self.displace)
+        menu.exec_(event.globalPos())
+        
+    def displace(self):
+        print "displacing"
+
 class Primitive(object):
     """
     Not a primitive in the LDraw sense, just a single line/triangle/quad.
