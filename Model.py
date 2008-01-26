@@ -53,6 +53,10 @@ def genericItemData(self, index):
 def genericRow(self):
     if hasattr(self, '_row'):
         return self._row
+    if hasattr(self, 'parentItem'):
+        parent = self.parentItem()
+        if hasattr(parent, 'getChildRow'):
+            return parent.getChildRow(self)
     return 0
 
 QGraphicsRectItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
@@ -488,6 +492,7 @@ class Page(QGraphicsRectItem):
         self.steps = []
         self._row = 0
         self.children = []
+        self.borders = []
 
         # Give this page a number
         if number == -1:
@@ -545,10 +550,8 @@ class Page(QGraphicsRectItem):
         return "Page %d" % self._number
 
     def getAllChildItems(self):
-        items = [self]
-        items.append(self.numberItem)
-        if self.submodelItem:
-            items.append(self.submodelItem)
+
+        items = [self, self.numberItem]
 
         for step in self.steps:
             items.append(step)
@@ -557,6 +560,12 @@ class Page(QGraphicsRectItem):
             for pliItem in step.pli.pliItems:
                 items.append(pliItem)
                 items.append(pliItem.numberItem)
+
+        for border in self.borders:
+            items.append(border)
+
+        if self.submodelItem:
+            items.append(self.submodelItem)
 
         return items
 
@@ -577,20 +586,40 @@ class Page(QGraphicsRectItem):
         step.setParentItem(self)
 
         i = 0
-        for i, item in enumerate(self.children):
+        for i in range(len(self.children) - 1, -1, -1):
+            item =self.children[i]
             if isinstance(item, Step):
-                break
-        self.children.insert(i + 1, step)
+                if item._number < step._number:
+                    break
+        self.addChild(i + 1, step)
 
-        if self.submodelItem:
-            self.submodelItem._row = len(self.children) - 1
-
-
-        for i, item in enumerate(self.children):
-            item.setZValue(len(self.children) - i)
-        
         if relayout:
             self.initLayout()
+
+    def addChild(self, index, child):
+
+        # Add the child to the child array
+        self.children.insert(index, child)
+
+        # Adjust the z-order of all children: first child has highest z value
+        for i, item in enumerate(self.children):
+            item.setZValue(len(self.children) - i)
+
+    def addStepSeparator(self, index):
+
+        border = QGraphicsRectItem(self)
+        border.setRect(QRectF(0, 0, 1, 1))
+        border.setFlags(AllFlags)
+        border.dataText = "Step Separator"
+        self.borders.append(border)
+        self.addChild(index, border)
+        return border
+    
+    def removeStepSeparator(self, sep):
+        self.children.remove(sep)
+        self.borders.remove(sep)
+        self.scene().removeItem(sep)
+        del sep
 
     def removeStep(self, step):
         self.steps.remove(step)
@@ -614,7 +643,6 @@ class Page(QGraphicsRectItem):
         
         self.submodelItem.setRect(0, 0, pixmap.width() + PLI.margin.x() * 2, pixmap.height() + PLI.margin.y() * 2)
         self.children.append(self.submodelItem)
-        self.submodelItem._row = len(self.children) - 1
         
     def resetSubmodelImage(self):
         
@@ -630,8 +658,14 @@ class Page(QGraphicsRectItem):
 
     def initLayout(self):
 
-        pageRect = self.rect()
+        print "Initializing page: %d" % self._number
 
+        # Remove any borders, since we'll re-add them in the appropriate place later
+        for border in list(self.borders):
+            self.removeStepSeparator(border)
+        self.boders = []
+
+        pageRect = self.rect()
         mx = Page.margin.x()
         my = Page.margin.y()
         
@@ -651,22 +685,30 @@ class Page(QGraphicsRectItem):
         if stepCount % colCount:
             rowCount += 1
         
-        w = pageRect.width() / colCount
-        h = pageRect.height() / rowCount
-        x = pageRect.x()
-        y = pageRect.y() - h
+        stepWidth = pageRect.width() / colCount
+        stepHeight = pageRect.height() / rowCount
+        x = pageRect.x() - stepWidth
+        y = pageRect.y()
         
         for i, step in enumerate(self.steps):
             
-            if i % colCount:
-                x += w
+            if i % rowCount:
+                y += stepHeight
             else:
-                x = pageRect.x()
-                y += h
+                y = pageRect.y()
+                x += stepWidth
 
-            tmpRect = QRectF(x, y, w, h)
+            tmpRect = QRectF(x, y, stepWidth, stepHeight)
             tmpRect.adjust(mx, my, -mx, -my)
             step.initLayout(tmpRect)
+
+        if len(self.steps) < 2:
+            return
+
+        for i in range(1, colCount):
+            sep = self.addStepSeparator(len(self.children))
+            sep.setPos(stepWidth * i, pageRect.top() + my)
+            sep.setRect(QRectF(0, 0, 1, pageRect.height() - my - my))
 
     def scaleImages(self):
         for step in self.steps:
@@ -807,7 +849,7 @@ class Step(QGraphicsRectItem):
         
     def initLayout(self, destRect):
 
-        print "Initializing page: %d step: %d" % (self.parentItem()._number, self._number)
+        print "   Initializing step: %d" % self._number
         self.setPos(destRect.topLeft())
         self.setRect(0, 0, destRect.width(), destRect.height())
         
