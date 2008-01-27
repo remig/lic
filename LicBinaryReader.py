@@ -152,6 +152,7 @@ def __readPage(stream, parent, instructions):
     pos = QPointF()
     rect = QRectF()
     font = QFont()
+    pen = QPen()
 
     stream >> pos >> rect
     number = stream.readInt32()
@@ -165,24 +166,37 @@ def __readPage(stream, parent, instructions):
     page.numberItem.setPos(pos)
     page.numberItem.setFont(font)
     
-    hasSubmodelItem = stream.readBool()
-    if hasSubmodelItem:
-        pen = QPen()
-        pixmap = QPixmap()
-        stream >> pos >> rect >> pen
-        stream >> pixmap
-        
-        page.addSubmodelImage()
-        page.submodelItem.setPos(pos)
-        page.submodelItem.setRect(rect)
-        page.submodelItem.setPen(pen)
-        page.submodelItem.children()[0].setPixmap(pixmap)
-
+    # Read in each step in this page
     stepCount = stream.readInt32()
     step = None
     for i in range(0, stepCount):
         step = __readStep(stream, page)
         page.addStep(step)
+
+    # Read in the optional submodel preview image
+    hasSubmodelItem = stream.readBool()
+    if hasSubmodelItem:
+        pixmap = QPixmap()
+        childRow = stream.readInt32()
+        stream >> pos >> rect >> pen
+        stream >> pixmap
+        
+        page.addSubmodelImage(childRow)
+        page.submodelItem.setPos(pos)
+        page.submodelItem.setRect(rect)
+        page.submodelItem.setPen(pen)
+        page.submodelItem.children()[0].setPixmap(pixmap)
+
+    # Read in any page separator lines
+    borderCount = stream.readInt32()
+    for i in range(0, borderCount):
+        childRow = stream.readInt32()
+        stream >> pos >> rect >> pen
+        border = page.addStepSeparator(childRow)
+        border.setPos(pos)
+        border.setRect(rect)
+        border.setPen(pen)
+
     return page
 
 def __readStep(stream, parentPage):

@@ -587,7 +587,7 @@ class Page(QGraphicsRectItem):
 
         i = 0
         for i in range(len(self.children) - 1, -1, -1):
-            item =self.children[i]
+            item = self.children[i]
             if isinstance(item, Step):
                 if item._number < step._number:
                     break
@@ -625,7 +625,7 @@ class Page(QGraphicsRectItem):
         self.steps.remove(step)
         self.children.remove(step)
 
-    def addSubmodelImage(self):
+    def addSubmodelImage(self, childRow = None):
 
         pixmap = self._parent.getPixmap()
         if not pixmap:
@@ -642,7 +642,11 @@ class Page(QGraphicsRectItem):
         self.pixmapItem.setPos(PLI.margin)
         
         self.submodelItem.setRect(0, 0, pixmap.width() + PLI.margin.x() * 2, pixmap.height() + PLI.margin.y() * 2)
-        self.children.append(self.submodelItem)
+
+        if childRow:
+            self.addChild(childRow, self.submodelItem)
+        else:
+            self.children.append(self.submodelItem)
         
     def resetSubmodelImage(self):
         
@@ -690,6 +694,7 @@ class Page(QGraphicsRectItem):
         x = pageRect.x() - stepWidth
         y = pageRect.y()
         
+        separatorIndices = []
         for i, step in enumerate(self.steps):
             
             if i % rowCount:
@@ -697,16 +702,20 @@ class Page(QGraphicsRectItem):
             else:
                 y = pageRect.y()
                 x += stepWidth
+                if i > 0:
+                    separatorIndices.append(step.row())
 
             tmpRect = QRectF(x, y, stepWidth, stepHeight)
             tmpRect.adjust(mx, my, -mx, -my)
             step.initLayout(tmpRect)
 
         if len(self.steps) < 2:
-            return
+            return  # if there's only one step, no step separators needed
 
+        # Add a step separator between each column of steps
         for i in range(1, colCount):
-            sep = self.addStepSeparator(len(self.children))
+            index = separatorIndices[i - 1]
+            sep = self.addStepSeparator(index)
             sep.setPos(stepWidth * i, pageRect.top() + my)
             sep.setRect(QRectF(0, 0, 1, pageRect.height() - my - my))
 

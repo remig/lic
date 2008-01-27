@@ -109,23 +109,32 @@ def __writePart(stream, part):
     for point in part.matrix:
         stream.writeFloat(point)
         
-def __writePage(stream, page):    
+def __writePage(stream, page):
     stream << page.pos() << page.rect()
     stream.writeInt32(page.number)
     stream.writeInt32(page._row)
     stream << page.numberItem.pos() << page.numberItem.font()
-    
+
+    # Write out each step in this page
+    stream.writeInt32(len(page.steps))
+    for step in page.steps:
+        __writeStep(stream, step)
+
+    # Write out the optional submodel preview image
     if page.submodelItem:
         stream.writeBool(True)
         item = page.submodelItem
+        stream.writeInt32(item.row())
         stream << item.pos() << item.rect() << item.pen() 
         stream << item.children()[0].pixmap()
     else:
         stream.writeBool(False)
-        
-    stream.writeInt32(len(page.steps))
-    for step in page.steps:
-        __writeStep(stream, step)
+
+    # Write out any page separator lines
+    stream.writeInt32(len(page.borders))
+    for border in page.borders:
+        stream.writeInt32(border.row())
+        stream << border.pos() << border.rect() << border.pen()
 
 def __writeStep(stream, step):
     stream << step.pos() << step.rect()
