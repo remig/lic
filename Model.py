@@ -781,7 +781,13 @@ class Page(QGraphicsRectItem):
         menu.exec_(event.screenPos())
     
     def one(self):
-        print "It's ALIVE"
+        if self.steps:
+            print "Cannot delete a Page containing Steps"
+            return
+
+        self.instructions.emit(SIGNAL("layoutAboutToBeChanged"))
+        self._parent.removePage(self)
+        self.instructions.emit(SIGNAL("layoutChanged()"))
     
 class Step(QGraphicsRectItem):
     """ A single step in an instruction book.  Contains one optional PLI and exactly one CSI. """
@@ -1579,6 +1585,19 @@ class Submodel(PartOGL):
         self.pages.append(page)
         return page
     
+    def removePage(self, page):
+
+        if page in self.pages:
+            page.scene().removeItem(page)
+            self.pages.remove(page)
+
+        for p in self.pages:
+            if p.number > page.number:
+                p.number -= 1
+
+        for submodel in self.submodels:
+            submodel.removePage(page)
+
     def deleteAllPages(self, scene):
         for page in self.pages:
             scene.removeItem(page)
@@ -1721,9 +1740,8 @@ class Part(QGraphicsRectItem):
         return "%s  (%.1f, %.1f, %.1f)" % (self.partOGL.filename, x, y, z)
 
     def setSelected(self, selected):
-        if self.isSelected() != selected:
-            QGraphicsRectItem.setSelected(self, selected)
-            self._parentCSI.updatePixmap()
+        QGraphicsRectItem.setSelected(self, selected)
+        self._parentCSI.updatePixmap()
 
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
@@ -1765,8 +1783,8 @@ class Part(QGraphicsRectItem):
     def contextMenuEvent(self, event):
 
         menu = QMenu(self.scene().views()[0])
-        prevPage = menu.addAction("Move Step to &Previous Page", self.displace)
-        menu.exec_(event.globalPos())
+        prevPage = menu.addAction("Displace Part", self.displace)
+        menu.exec_(event.screenPos())
         
     def displace(self):
         print "displacing"

@@ -29,7 +29,53 @@ except ImportError:
 __version__ = 0.1
 PageSize = QSize(800, 600)
 
-class InstructionViewWidget(QGraphicsView):
+class LicGraphicsScene(QGraphicsScene):
+
+    def __init__(self, parent):
+        QGraphicsScene.__init__(self, parent)
+    
+    def mouseReleaseEvent(self, event):
+
+        # Need to compare the selection list before and after selection, to deselect any selected parts
+        parts = []
+        for item in self.selectedItems():
+            if isinstance(item, Part):
+                parts.append(item)        
+
+        QGraphicsScene.mouseReleaseEvent(self, event)
+
+        selItems = self.selectedItems()
+        for part in parts:
+            if not part in selItems:
+                part.setSelected(False)
+
+    def mousePressEvent(self, event):
+        
+        # Need to compare the selection list before and after selection, to deselect any selected parts
+        parts = []
+        for item in self.selectedItems():
+            if isinstance(item, Part):
+                parts.append(item)
+        
+        QGraphicsScene.mousePressEvent(self, event)
+
+        selItems = self.selectedItems()
+        for part in parts:
+            if not part in selItems:
+                part.setSelected(False)
+            
+    def contextMenuEvent(self, event):
+
+        # Since Parts don't have meaningful rects, they can't be right-clicked on, so handle here
+        for item in self.selectedItems():
+            if isinstance(item, Part):
+                item.contextMenuEvent(event)
+                return
+
+        # We don't have a Part selected, so pass context click to selected item
+        QGraphicsScene.contextMenuEvent(self, event)
+
+class LicGraphicsView(QGraphicsView):
     def __init__(self, parent):
         QGLWidget.__init__(self,  parent)
 
@@ -87,19 +133,6 @@ class InstructionViewWidget(QGraphicsView):
         if movedItems:
             self.emit(SIGNAL("itemsMoved"), movedItems)
 
-    # Will need this for when right-clicking on a selected Part, since they're not GraphicsItems
-    """
-    def contextMenuEvent(self, event):
-
-        menu = None
-        for item in self.scene().selectedItems():
-            if isinstance(item, Part):
-                item.contextMenuEvent(event)
-                return
-            
-        event.ignore()
-    """
-
 class LicWindow(QMainWindow):
 
     def __init__(self, parent = None):
@@ -112,8 +145,8 @@ class LicWindow(QMainWindow):
         self.treeView = LicTreeView(self)
 
         statusBar = self.statusBar()
-        self.scene = QGraphicsScene(self)
-        self.graphicsView = InstructionViewWidget(self)
+        self.scene = LicGraphicsScene(self)
+        self.graphicsView = LicGraphicsView(self)
         self.graphicsView.setScene(self.scene)
         self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
         
