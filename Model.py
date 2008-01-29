@@ -30,18 +30,22 @@ NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
 def genericMousePressEvent(className):
     def _tmp(self, event):
         className.mousePressEvent(self, event)
-        self.oldPos = self.pos()
+        
+        for item in self.scene().selectedItems():
+            if isinstance(item, Page):
+                continue  # Pages cannot be moved
+
+            item.oldPos = item.pos()
+
     return _tmp
     
 def genericMouseReleaseEvent(className):
     
     def _tmp(self, event):        
         className.mouseReleaseEvent(self, event)
-        
-        if self.pos() != self.oldPos:
+        if hasattr(self, 'oldPos') and self.pos() != self.oldPos:
             self.scene().emit(SIGNAL("itemsMoved"), self.scene().selectedItems())
-            if hasattr(self.parentItem(), "resetRect"):
-                self.parentItem().resetRect()
+
     return _tmp
                 
 def genericItemParent(self):

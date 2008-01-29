@@ -126,8 +126,6 @@ class LicGraphicsView(QGraphicsView):
 
             item.oldPos = item.pos()
             item.moveBy(x, y)
-            if hasattr(item.parentItem(), "resetRect"):
-                item.parentItem().resetRect()
             movedItems.append(item)
 
         if movedItems:
