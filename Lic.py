@@ -392,15 +392,16 @@ class LicWindow(QMainWindow):
 
     def loadModel(self, filename):
         
-        startValue = 0
-        stopValue = 100
-
-        progress = QProgressDialog("Title", "Label Text", startValue, stopValue, self)
-        progress.setWindowModality(Qt.WindowModal)
-        
         loader = self.instructions.loadModel(filename)
+        startValue = 0
+        stopValue = loader.next()
+
+        progress = QProgressDialog("Label", "Button Text", startValue, stopValue, self)
+        progress.setWindowModality(Qt.WindowModal)
+        progress.setWindowTitle("Importing " + filename)
+        
         for step in loader:
-            progress.setValue(i)
+            progress.setValue(step)
             
             if progress.wasCanceled():
                 loader.close()

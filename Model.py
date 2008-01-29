@@ -41,7 +41,7 @@ def genericMousePressEvent(className):
     
 def genericMouseReleaseEvent(className):
     
-    def _tmp(self, event):        
+    def _tmp(self, event):
         className.mouseReleaseEvent(self, event)
         if hasattr(self, 'oldPos') and self.pos() != self.oldPos:
             self.scene().emit(SIGNAL("itemsMoved"), self.scene().selectedItems())
@@ -274,15 +274,31 @@ class Instructions(QAbstractItemModel):
         self.emit(SIGNAL("layoutAboutToBeChanged"))
         self.mainModel = Submodel(self, self, filename)
         self.mainModel.importModel()
+        
+        pageCount = self.mainModel.pageCount()
+        totalCount = (pageCount * 2) + 2
+        currentCount = 3
+        yield totalCount
 
         self.initGLDisplayLists()  # generate all part GL display lists on the general glWidget
+        yield 1
+        
+        # TODO: this method does take a bit of time; maybe yield every 50 parts or something
         self.initPartDimensions()  # Calculate width and height of each partOGL in the part dictionary
-        self.initCSIDimensions()   # Calculate width and height of each CSI in this instruction book
+        yield 2
+
+        for i in self.initCSIDimensions():   # Calculate width and height of each CSI in this instruction book
+            currentCount = i
+            yield i
+            
         self.initCSIPixmaps()       # Generate a pixmap for each CSI
 
-        self.mainModel.initLayout()
+        for i in self.mainModel.initLayout(currentCount):
+            yield i
+            
         self.mainModel.selectPage(1)
         self.emit(SIGNAL("layoutChanged()"))
+        yield totalCount
 
     def initGLDisplayLists(self):
         global GlobalGLContext
@@ -358,6 +374,7 @@ class Instructions(QAbstractItemModel):
         global GlobalGLContext
         GlobalGLContext.makeCurrent()
 
+        step = 3
         csiList = self.mainModel.getCSIList()
         if not csiList:
             return  # All CSIs initialized - nothing to do here
@@ -375,6 +392,9 @@ class Instructions(QAbstractItemModel):
             for csi in csiList:
                 if not csi.initSize(size, pBuffer):
                     csiList2.append(csi)
+                else:
+                    yield step
+                    step += 1
 
             if len(csiList2) < 1:
                 break  # All images initialized successfully
@@ -1666,16 +1686,18 @@ class Submodel(PartOGL):
 
         return csiList
 
-    def initLayout(self):
+    def initLayout(self, currentCount):
 
         if self.pages:
             self.pages[0].addSubmodelImage()
 
         for page in self.pages:
             page.initLayout()
+            currentCount += 1
+            yield currentCount
 
         for submodel in self.submodels:
-            submodel.initLayout()
+            submodel.initLayout(currentCount)
 
     def exportImages(self):
         for page in self.pages:
