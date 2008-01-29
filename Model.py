@@ -267,6 +267,8 @@ class Instructions(QAbstractItemModel):
                 item.setSelected(False)
 
     def loadModel(self, filename):
+        
+        # TODO: convert this to a generator, yielding one value on each load step
         global currentModelFilename        
         currentModelFilename = filename
         self.emit(SIGNAL("layoutAboutToBeChanged"))
@@ -1792,6 +1794,24 @@ class Part(QGraphicsRectItem):
         
     def displace(self):
         print "displacing"
+        self.setFocus()
+
+    def keyReleaseEvent(self, event):
+        key = event.key()
+        if key == Qt.Key_PageUp:
+            self.matrix[13] -= 20
+        elif key == Qt.Key_PageDown:
+            self.matrix[13] += 20
+        elif key == Qt.Key_Left:
+            self.matrix[14] -= 20
+        elif key == Qt.Key_Right:
+            self.matrix[14] += 20
+        elif key == Qt.Key_Up:
+            self.matrix[12] -= 20
+        elif key == Qt.Key_Down:
+            self.matrix[12] += 20
+            
+        self._parentCSI.updatePixmap()
 
 class Primitive(object):
     """

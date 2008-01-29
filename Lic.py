@@ -63,28 +63,13 @@ class LicGraphicsScene(QGraphicsScene):
         for part in parts:
             if not part in selItems:
                 part.setSelected(False)
-            
-    def contextMenuEvent(self, event):
-
-        # Since Parts don't have meaningful rects, they can't be right-clicked on, so handle here
-        for item in self.selectedItems():
-            if isinstance(item, Part):
-                item.contextMenuEvent(event)
-                return
-
-        # We don't have a Part selected, so pass context click to selected item
-        QGraphicsScene.contextMenuEvent(self, event)
-
-class LicGraphicsView(QGraphicsView):
-    def __init__(self, parent):
-        QGLWidget.__init__(self,  parent)
-
-        self.setDragMode(QGraphicsView.RubberBandDrag)
-        self.setRenderHint(QPainter.Antialiasing)
-        self.setRenderHint(QPainter.TextAntialiasing)
-        self.setBackgroundBrush(QBrush(Qt.gray))
 
     def keyReleaseEvent(self, event):
+
+        for item in self.selectedItems():
+            if isinstance(item, Part):
+                QGraphicsScene.keyReleaseEvent(self, event)
+                return
 
         key = event.key()
         offset = 1
@@ -115,12 +100,12 @@ class LicGraphicsView(QGraphicsView):
         elif key == Qt.Key_Down:
             y = offset
         else:
-            # We do not handle this key stroke here - ignore and return
-            event.ignore()
+            # We do not handle this key stroke here - pass it on and return
+            QGraphicsScene.keyReleaseEvent(self, event)
             return
 
         movedItems = []
-        for item in self.scene().selectedItems():
+        for item in self.selectedItems():
             if isinstance(item, Page):
                 continue  # Pages cannot be moved
 
@@ -130,6 +115,26 @@ class LicGraphicsView(QGraphicsView):
 
         if movedItems:
             self.emit(SIGNAL("itemsMoved"), movedItems)
+
+    def contextMenuEvent(self, event):
+
+        # Since Parts don't have meaningful rects, they can't be right-clicked on, so handle here
+        for item in self.selectedItems():
+            if isinstance(item, Part):
+                item.contextMenuEvent(event)
+                return
+
+        # We don't have a Part selected, so pass context click to selected item
+        QGraphicsScene.contextMenuEvent(self, event)
+
+class LicGraphicsView(QGraphicsView):
+    def __init__(self, parent):
+        QGLWidget.__init__(self,  parent)
+
+        self.setDragMode(QGraphicsView.RubberBandDrag)
+        self.setRenderHint(QPainter.Antialiasing)
+        self.setRenderHint(QPainter.TextAntialiasing)
+        self.setBackgroundBrush(QBrush(Qt.gray))
 
 class LicWindow(QMainWindow):
 
@@ -148,7 +153,6 @@ class LicWindow(QMainWindow):
         self.graphicsView.setScene(self.scene)
         self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
         
-        self.connect(self.graphicsView, SIGNAL("itemsMoved"), self.itemsMoved)
         self.connect(self.scene, SIGNAL("itemsMoved"), self.itemsMoved)
 
         self.mainSplitter = QSplitter(Qt.Horizontal)
@@ -164,10 +168,10 @@ class LicWindow(QMainWindow):
         self.treeView.setSelectionModel(self.selectionModel)
         self.treeView.connect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateSelection)
 
-        self.connect(self.graphicsView, SIGNAL("pageUp"), self.instructions.pageUp)
-        self.connect(self.graphicsView, SIGNAL("pageDown"), self.instructions.pageDown)
-        self.connect(self.graphicsView, SIGNAL("home"), self.instructions.selectFirstPage)
-        self.connect(self.graphicsView, SIGNAL("end"), self.instructions.selectLastPage)
+        self.connect(self.scene, SIGNAL("pageUp"), self.instructions.pageUp)
+        self.connect(self.scene, SIGNAL("pageDown"), self.instructions.pageDown)
+        self.connect(self.scene, SIGNAL("home"), self.instructions.selectFirstPage)
+        self.connect(self.scene, SIGNAL("end"), self.instructions.selectLastPage)
         
         self.filename = ""   # This will trigger the __setFilename method below
 
@@ -387,7 +391,22 @@ class LicWindow(QMainWindow):
             self.statusBar().showMessage("LDraw Model imported: " + filename)
 
     def loadModel(self, filename):
-        self.instructions.loadModel(filename)
+        
+        startValue = 0
+        stopValue = 100
+
+        progress = QProgressDialog("Title", "Label Text", startValue, stopValue, self)
+        progress.setWindowModality(Qt.WindowModal)
+        
+        loader = self.instructions.loadModel(filename)
+        for step in loader:
+            progress.setValue(i)
+            
+            if progress.wasCanceled():
+                loader.close()
+            
+        progress.setValue(stopValue)
+        
         config.config = self.initConfig()
         self.statusBar().showMessage("Instruction book loaded")
         self.fileCloseAction.setEnabled(True)
