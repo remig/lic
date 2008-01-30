@@ -18,6 +18,8 @@ from LDrawFileFormat import *
 MagicNumber = 0x14768126
 FileVersion = 1
 
+PageSize = QSize(800, 600)
+
 UNINIT_OGL_DISPID = -1
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 submodelDictionary = {}  # {'filename': Submodel()}
@@ -425,7 +427,8 @@ class Instructions(QAbstractItemModel):
             pBuffer = QGLPixelBuffer(csi.width * CSI.scale, csi.height * CSI.scale, format, GlobalGLContext)
             pBuffer.makeCurrent()
             csi.initPixmap(pBuffer)
-            
+            csi.initLayout()
+
         GlobalGLContext.makeCurrent()
         
     def initPLIPixmaps(self):
@@ -1259,13 +1262,50 @@ class CSI(QGraphicsPixmapItem):
     def updatePixmap(self):
         global GlobalGLContext
         GlobalGLContext.makeCurrent()
-        
+
         self.createOGLDisplayList()
 
         pBuffer = QGLPixelBuffer(self.width * CSI.scale, self.height * CSI.scale, QGLFormat(), GlobalGLContext)
         pBuffer.makeCurrent()
         self.initPixmap(pBuffer)
+        GlobalGLContext.makeCurrent()
     
+    def maximizePixmap(self):
+
+        oldWidth = self.width
+        oldHeight = self.height
+
+        dx = (PageSize.width() - oldWidth) / 2.0
+        dy = (PageSize.height() - oldHeight) / 2.0
+
+        self.width = PageSize.width()
+        self.height = PageSize.height()
+
+        # Generate new pixmap at new larger size
+        self.updatePixmap()
+
+        # Move pixmap to compensate for new sizem, so we don't actually move the CSI itself
+        self.translate(-dx, -dy)
+
+    def resetPixmap(self):
+        global GlobalGLContext
+        GlobalGLContext.makeCurrent()
+
+        sizes = [512, 1024, 2048]
+
+        for size in sizes:
+
+            # Create a new buffer tied to the existing GLWidget, to get access to its display lists
+            pBuffer = QGLPixelBuffer(size, size, QGLFormat(), GlobalGLContext)
+            pBuffer.makeCurrent()
+
+            if self.initSize(size, pBuffer):
+                break
+
+        self.resetTransform()
+        self.updatePixmap()
+        GlobalGLContext.makeCurrent()
+
     def initLayout(self):
 
         step = self.parentItem()
@@ -1330,7 +1370,6 @@ class CSI(QGraphicsPixmapItem):
 
         image = pBuffer.toImage()
         self.setPixmap(QPixmap.fromImage(image))
-        self.initLayout()
 
     def createPng(self):
 
@@ -1751,6 +1790,7 @@ class Part(QGraphicsRectItem):
         self.partOGL = None
         self._parentPLI = None # Needed because now Parts live in the tree (inside specific PLIItems)
         self._parentCSI = None # Needed to be able to notify CSI to draw this part as selected
+        self.displacing = False
         self.setFlags(NoMoveFlags)
 
         if setPartOGL:
@@ -1781,6 +1821,9 @@ class Part(QGraphicsRectItem):
     def setSelected(self, selected):
         QGraphicsRectItem.setSelected(self, selected)
         self._parentCSI.updatePixmap()
+        if self.displacing and not selected:
+            self._parentCSI.resetPixmap()
+            self.displacing = False
 
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
@@ -1826,8 +1869,9 @@ class Part(QGraphicsRectItem):
         menu.exec_(event.screenPos())
         
     def displace(self):
-        print "displacing"
+        self.displacing = True
         self.setFocus()
+        self._parentCSI.maximizePixmap()
 
     def keyReleaseEvent(self, event):
         key = event.key()
