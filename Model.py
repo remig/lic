@@ -395,10 +395,10 @@ class Instructions(QAbstractItemModel):
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
             pBuffer = QGLPixelBuffer(size, size, QGLFormat(), GlobalGLContext)
-            pBuffer.makeCurrent()
 
             # Render each CSI and calculate its size
             for csi in csiList:
+                pBuffer.makeCurrent()
                 result = csi.initSize(size, pBuffer)
                 if not result:
                         csiList2.append(csi)

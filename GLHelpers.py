@@ -165,7 +165,7 @@ def _checkPixelsRight(data, width, height, top, bottom, left):
 def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotStep = None, pBuffer = None):
     
     # Clear the drawing buffer with white
-    glClearColor(1.0, 1.0, 1.0, 0)
+    glClearColor(1.0, 1.0, 1.0, 1.0)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     
     # Draw the piece in black
@@ -197,7 +197,7 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotSt
     
 #    if filename:
 #        rawFilename = os.path.splitext(os.path.basename(filename))[0]
-#       img.save("C:\\LDraw\\tmp\\%s_%dx%d.png" % (rawFilename, w, h))
+#        img.save("C:\\LDraw\\tmp\\%s_%dx%d.png" % (rawFilename, w, h))
     
     data = img.load()
     top = _checkPixelsTop(data, w, h)
