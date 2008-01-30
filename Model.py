@@ -268,7 +268,6 @@ class Instructions(QAbstractItemModel):
 
     def loadModel(self, filename):
         
-        # TODO: convert this to a generator, yielding one value on each load step
         global currentModelFilename        
         currentModelFilename = filename
         self.emit(SIGNAL("layoutAboutToBeChanged"))
@@ -277,28 +276,28 @@ class Instructions(QAbstractItemModel):
         
         pageCount = self.mainModel.pageCount()
         totalCount = (pageCount * 2) + 2
-        currentCount = 3
-        yield totalCount
+        currentCount = 1
+        yield (totalCount, "Initializing GL display lists")
 
         self.initGLDisplayLists()  # generate all part GL display lists on the general glWidget
-        yield 1
+        yield (currentCount, "Initializing Part Dimensions")
         
-        # TODO: this method does take a bit of time; maybe yield every 50 parts or something
-        self.initPartDimensions()  # Calculate width and height of each partOGL in the part dictionary
-        yield 2
+        for step, label in self.initPartDimensions(currentCount):  # Calculate width and height of each partOGL in the part dictionary
+            currentCount = step
+            yield (step, label)
 
-        for i in self.initCSIDimensions():   # Calculate width and height of each CSI in this instruction book
-            currentCount = i
-            yield i
+        for step, label in self.initCSIDimensions(currentCount):   # Calculate width and height of each CSI in this instruction book
+            currentCount = step
+            yield (step, label)
             
         self.initCSIPixmaps()       # Generate a pixmap for each CSI
 
-        for i in self.mainModel.initLayout(currentCount):
-            yield i
+        for step, label in self.mainModel.initLayout(currentCount):
+            yield (step, label)
             
         self.mainModel.selectPage(1)
         self.emit(SIGNAL("layoutChanged()"))
-        yield totalCount
+        yield (totalCount, "Import Complete!")
 
     def initGLDisplayLists(self):
         global GlobalGLContext
@@ -320,7 +319,7 @@ class Instructions(QAbstractItemModel):
         for csi in csiList:
             csi.createOGLDisplayList()
 
-    def initPartDimensions(self):
+    def initPartDimensions(self, currentCount):
         """
         Calculates each uninitialized part's display width and height.
         Creates GL buffer to render a temp copy of each part, then uses those raw pixels to determine size.
@@ -340,6 +339,10 @@ class Instructions(QAbstractItemModel):
         lines = []
         sizes = [128, 256, 512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
 
+        partDivCount = 50
+        partCount = int(len(partList) / partDivCount)
+        currentPartCount = 0
+
         for size in sizes:
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
@@ -351,6 +354,11 @@ class Instructions(QAbstractItemModel):
 
                 if partOGL.initSize(size, pBuffer):  # Draw image and calculate its size:                    
                     lines.append(partOGL.dimensionsToString())
+                    currentPartCount += 1
+                    if not currentPartCount % partDivCount:
+                        currentPartCount = 0
+                        currentCount += 1
+                        yield (currentCount, "Initializing more Part Dimensions")
                 else:
                     partList2.append(partOGL)
 
@@ -370,11 +378,10 @@ class Instructions(QAbstractItemModel):
             f.close()
         """
 
-    def initCSIDimensions(self):
+    def initCSIDimensions(self, currentCount):
         global GlobalGLContext
         GlobalGLContext.makeCurrent()
 
-        step = 3
         csiList = self.mainModel.getCSIList()
         if not csiList:
             return  # All CSIs initialized - nothing to do here
@@ -390,11 +397,12 @@ class Instructions(QAbstractItemModel):
 
             # Render each CSI and calculate its size
             for csi in csiList:
-                if not csi.initSize(size, pBuffer):
-                    csiList2.append(csi)
+                result = csi.initSize(size, pBuffer)
+                if not result:
+                        csiList2.append(csi)
                 else:
-                    yield step
-                    step += 1
+                    currentCount += 1
+                    yield (currentCount, result)
 
             if len(csiList2) < 1:
                 break  # All images initialized successfully
@@ -688,7 +696,8 @@ class Page(QGraphicsRectItem):
 
     def initLayout(self):
 
-        print "Initializing page: %d" % self._number
+        label = "Initializing Page: %d" % self._number
+        print label
 
         # Remove any borders, since we'll re-add them in the appropriate place later
         for border in list(self.borders):
@@ -706,7 +715,7 @@ class Page(QGraphicsRectItem):
             pageRect.setTop(self.submodelItem.rect().height() + my + my)
 
         if len(self.steps) <= 0:
-            return  # No steps - nothing more to do here
+            return label # No steps - nothing more to do here
 
         # Divide the remaining space into equal space for each step, depending on the number of steps.
         stepCount = len(self.steps)
@@ -736,7 +745,7 @@ class Page(QGraphicsRectItem):
             step.initLayout(tmpRect)
 
         if len(self.steps) < 2:
-            return  # if there's only one step, no step separators needed
+            return label # if there's only one step, no step separators needed
 
         # Add a step separator between each column of steps
         for i in range(1, colCount):
@@ -744,6 +753,8 @@ class Page(QGraphicsRectItem):
             sep = self.addStepSeparator(index)
             sep.setPos(stepWidth * i, pageRect.top() + my)
             sep.setRect(QRectF(0, 0, 1, pageRect.height() - my - my))
+
+        return label
 
     def scaleImages(self):
         for step in self.steps:
@@ -1286,24 +1297,23 @@ class CSI(QGraphicsPixmapItem):
         global currentModelFilename
 
         if self.oglDispID == UNINIT_OGL_DISPID:
-            print "Trying to init a CSI size that has no display list"
-            return
+            print "ERROR: Trying to init a CSI size that has no display list"
+            return False
         
-        if len(self.parts) == 0:
-            return True  # A CSI with no parts is already initialized
-
         rawFilename = os.path.splitext(os.path.basename(currentModelFilename))[0]
         pageNumber, stepNumber = self.getPageStepNumberPair()
         filename = "%s_page_%d_step_%d" % (rawFilename, pageNumber, stepNumber)
+
+        result = "Initializing CSI Page %d Step %d" % (pageNumber, stepNumber)
+        if len(self.parts) == 0:
+            return result  # A CSI with no parts is already initialized
 
         params = GLHelpers.initImgSize(size, size, self.oglDispID, True, filename, None, pBuffer)
         if params is None:
             return False
 
-        # TODO: update some kind of load status bar her - this function is *slow*
-        print "CSI %s page %d step %d - size %d" % (rawFilename, pageNumber, stepNumber, size)
         self.width, self.height, self.center, x, y = params  # x & y are just ignored placeholders
-        return True
+        return result
 
     def initPixmap(self, pBuffer):
         """ Requires a current GL Context, either the global one or a local PixelBuffer """
@@ -1692,12 +1702,13 @@ class Submodel(PartOGL):
             self.pages[0].addSubmodelImage()
 
         for page in self.pages:
-            page.initLayout()
+            label = page.initLayout()
             currentCount += 1
-            yield currentCount
+            yield (currentCount, label)
 
         for submodel in self.submodels:
-            submodel.initLayout(currentCount)
+            for step, label in submodel.initLayout(currentCount):
+                yield (step, label)
 
     def exportImages(self):
         for page in self.pages:

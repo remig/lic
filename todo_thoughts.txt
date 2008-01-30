@@ -1,5 +1,20 @@
 Lic TODO:
 
+Thoughts on displacing parts:
+
+- For the problem where a part being moved falls out of the CSI bounds: as soon as we enter
+  'part displacement mode', enlarge and regenerate the CSI to as big as the page, behind
+  everything else.  That gives the part maximal room to be moved in.  As soon as we
+  exit 'part displacment mode', recalculate the size of the new CSI, and draw that.
+  
+  - This require better support for a real 'part displacement mode'
+  - Hopefully, regenerating the CSI at a big size like that is fast enough...
+
+- For context menus: could add a 'Reposition...' menu, which has options like 'Center
+  CSI Vertically in page', etc.  Or just use guides with snap-to?
+
+- Gods, so very much possibility, so very much still to do...
+
 - Generate images at any arbitrary size
 - Need to give user a way to specify:
   - Instruction image size
@@ -15,13 +30,13 @@ Eventually:
   - Add parts to that one global cache, so cache can be shared by all renderings of that size
   - Not a priority, since calculating part sizes is usually only a few seconds, at most
 
-TODO: Found a small bug where pages are responding to keystrokes.  Need to make sure that doesn't happen.
+TODO: Remove all the annoying as hell '?' from all the snall dialog title bars.
 
 TODO: Only create config paths when a file is about to be exported.  No sense creating them on model import!
 
 TODO: Still need to handle submodels that are not embedded in the main model file.
 
-TODO: Have a small problem where if you click on a submodel, it's node is expanded automatically and its first page is selected, which is fine.  But if you then use arrow keys to move up or left, selection is automatically forced back to the first page.  Kinda unnatural.  To fix, when a submodel is selected, do not automatically select the first page, select the submodel itself, and just draw its first page.
+TODO: Have a small problem where if you click on a submodel, its node is expanded automatically and its first page is selected, which is fine.  But if you then use arrow keys to move up or left, selection is automatically forced back to the first page.  Kinda unnatural.  To fix, when a submodel is selected, do not automatically select the first page, select the submodel itself, and just draw its first page.
 
 TODO: Should have separate scale settings for submodel images?
 

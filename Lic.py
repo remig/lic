@@ -361,8 +361,7 @@ class LicWindow(QMainWindow):
     def fileClose(self):
         if not self.offerSave():
             return
-        if self.filename:
-            self.instructions.clear()
+        self.instructions.clear()
         self.filename = ""
 
     def offerSave(self):
@@ -394,18 +393,21 @@ class LicWindow(QMainWindow):
         
         loader = self.instructions.loadModel(filename)
         startValue = 0
-        stopValue = loader.next()
+        stopValue, title = loader.next()
 
-        progress = QProgressDialog("Label", "Button Text", startValue, stopValue, self)
+        progress = QProgressDialog(title, "Cancel", startValue, stopValue, self)
         progress.setWindowModality(Qt.WindowModal)
-        progress.setWindowTitle("Importing " + filename)
+        progress.setWindowTitle("Importing " + os.path.splitext(os.path.basename(filename))[0])
         
-        for step in loader:
+        for step, label in loader:
             progress.setValue(step)
+            progress.setLabelText(label)
             
             if progress.wasCanceled():
                 loader.close()
-            
+                self.fileClose()
+                return
+
         progress.setValue(stopValue)
         
         config.config = self.initConfig()
