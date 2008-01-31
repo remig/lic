@@ -33,7 +33,7 @@ class LicGraphicsScene(QGraphicsScene):
 
     def __init__(self, parent):
         QGraphicsScene.__init__(self, parent)
-    
+
     def mouseReleaseEvent(self, event):
 
         # Need to compare the selection list before and after selection, to deselect any selected parts
@@ -63,6 +63,22 @@ class LicGraphicsScene(QGraphicsScene):
         for part in parts:
             if not part in selItems:
                 part.setSelected(False)
+
+    def contextMenuEvent(self, event):
+
+        # We can't use the default handler at all because it calls the
+        # menu that was *clicked on*, not the menu of the selected items
+        # TODO: need to handle this better: What if a page and a step are selected?
+        for item in self.selectedItems():
+            if isinstance(item, Part):
+                item.contextMenuEvent(event)
+                return
+            if isinstance(item, Step):
+                item.contextMenuEvent(event)
+                return
+            if isinstance(item, Page):
+                item.contextMenuEvent(event)
+                return
 
     def keyReleaseEvent(self, event):
 
@@ -115,17 +131,6 @@ class LicGraphicsScene(QGraphicsScene):
 
         if movedItems:
             self.emit(SIGNAL("itemsMoved"), movedItems)
-
-    def contextMenuEvent(self, event):
-
-        # Since Parts don't have meaningful rects, they can't be right-clicked on, so handle here
-        for item in self.selectedItems():
-            if isinstance(item, Part):
-                item.contextMenuEvent(event)
-                return
-
-        # We don't have a Part selected, so pass context click to selected item
-        QGraphicsScene.contextMenuEvent(self, event)
 
 class LicGraphicsView(QGraphicsView):
     def __init__(self, parent):

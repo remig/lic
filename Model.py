@@ -31,8 +31,10 @@ NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
 
 def genericMousePressEvent(className):
     def _tmp(self, event):
+
+        if event.button() == Qt.RightButton:
+            return
         className.mousePressEvent(self, event)
-        
         for item in self.scene().selectedItems():
             if isinstance(item, Page):
                 continue  # Pages cannot be moved
@@ -44,6 +46,9 @@ def genericMousePressEvent(className):
 def genericMouseReleaseEvent(className):
     
     def _tmp(self, event):
+
+        if event.button() == Qt.RightButton:
+            return
         className.mouseReleaseEvent(self, event)
         if hasattr(self, 'oldPos') and self.pos() != self.oldPos:
             self.scene().emit(SIGNAL("itemsMoved"), self.scene().selectedItems())
@@ -917,11 +922,18 @@ class Step(QGraphicsRectItem):
 
     def contextMenuEvent(self, event):
 
+        selectedSteps = []
+        for item in self.scene().selectedItems():
+            if isinstance(item, Step):
+                selectedSteps.append(item)
+
+        plural = 's' if len(selectedSteps) > 1 else ''
+        
         menu = QMenu(self.scene().views()[0])
-        prevPage = menu.addAction("Move Step to &Previous Page", self.moveToPrevPage)
-        nextPage = menu.addAction("Move Step to &Next Page", self.moveToNextPage)
-        prevMerge = menu.addAction("Merge Step with Previous Step", self.mergeWithPrevStep)
-        nextMerge = menu.addAction("Merge Step with Next Step", self.mergeWithNextStep)
+        prevPage = menu.addAction("Move Step%s to &Previous Page" % plural, self.moveToPrevPage)
+        nextPage = menu.addAction("Move Step%s to &Next Page" % plural, self.moveToNextPage)
+        prevMerge = menu.addAction("Merge Step%s with P&revious Step" % plural, self.mergeWithPrevStep)
+        nextMerge = menu.addAction("Merge Step%s with N&ext Step" % plural, self.mergeWithNextStep)
         doLayout = menu.addAction("Re-layout affected Pages")
         doLayout.setCheckable(True)
         doLayout.setChecked(True)
@@ -1865,7 +1877,7 @@ class Part(QGraphicsRectItem):
     def contextMenuEvent(self, event):
 
         menu = QMenu(self.scene().views()[0])
-        prevPage = menu.addAction("Displace Part", self.displace)
+        menu.addAction("Displace Part", self.displace)
         menu.exec_(event.screenPos())
         
     def displace(self):
