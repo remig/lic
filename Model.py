@@ -704,9 +704,6 @@ class Page(QGraphicsRectItem):
 
     def initLayout(self):
 
-        label = "Initializing Page: %d" % self._number
-        print label
-
         # Remove any borders, since we'll re-add them in the appropriate place later
         for border in list(self.borders):
             self.removeStepSeparator(border)
@@ -722,6 +719,7 @@ class Page(QGraphicsRectItem):
             self.submodelItem.rect().setTopLeft(Page.margin)
             pageRect.setTop(self.submodelItem.rect().height() + my + my)
 
+        label = "Initializing Page: %d" % self._number
         if len(self.steps) <= 0:
             return label # No steps - nothing more to do here
 
@@ -909,7 +907,6 @@ class Step(QGraphicsRectItem):
         
     def initLayout(self, destRect):
 
-        print "   Initializing step: %d" % self._number
         self.setPos(destRect.topLeft())
         self.setRect(0, 0, destRect.width(), destRect.height())
         
@@ -951,10 +948,17 @@ class Step(QGraphicsRectItem):
         menu.exec_(event.screenPos())
 
     def moveToPrevPage(self):
-        self.moveToPage(self.parent().prevPage())
+        stepSet = []
+        for step in self.scene().selectedItems():
+            if isinstance(step, Step):
+                stepSet.append((step, step.parent(), step.parent().prevPage()))
+        step.scene().emit(SIGNAL("moveStepToNewPage"), stepSet)
         
     def moveToNextPage(self):
-        self.moveToPage(self.parent().nextPage())
+        for step in self.scene().selectedItems():
+            if isinstance(step, Step):
+                stepSet.append((step, step.parent(), step.parent().nextPage()))
+        step.scene().emit(SIGNAL("moveStepToNewPage"), stepSet)
     
     def moveToPage(self, page, relayout = True):
         

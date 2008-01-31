@@ -159,6 +159,7 @@ class LicWindow(QMainWindow):
         self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
         
         self.connect(self.scene, SIGNAL("itemsMoved"), self.itemsMoved)
+        self.connect(self.scene, SIGNAL("moveStepToNewPage"), self.moveStepToNewPage)
 
         self.mainSplitter = QSplitter(Qt.Horizontal)
         self.mainSplitter.addWidget(self.treeView)
@@ -211,6 +212,9 @@ class LicWindow(QMainWindow):
         
     def itemsMoved(self, itemList):
         self.undoStack.push(LicUndoActions.MoveCommand(itemList))
+
+    def moveStepToNewPage(self, stepSet):
+        self.undoStack.push(LicUndoActions.MoveStepToPageCommand(stepSet))
 
     def __getFilename(self):
         return self.__filename

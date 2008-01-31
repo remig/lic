@@ -63,3 +63,26 @@ class ResizeCSIPLICommand(QUndoCommand):
         self.newCSISize = command.newCSISize
         self.newPLISize = command.newPLISize
         return True
+
+class MoveStepToPageCommand(QUndoCommand):
+
+    """
+    stepSet stores a list of (step, oldPage, newPage) tuples:
+    stepSet = [(step1, oldPage1, newPage1), (step2, oldPage2, newPage2)]
+    """
+    
+    def __init__(self, stepSet):
+        QUndoCommand.__init__(self, "Undo the last Step-to-Page Move")
+        
+        self.stepSet = stepSet
+        
+    def id(self):
+        return 125
+    
+    def undo(self):
+        for step, oldPage, newPage in self.stepSet:
+            step.moveToPage(oldPage, relayout = True)
+    
+    def redo(self):
+        for step, oldPage, newPage in self.stepSet:
+            step.moveToPage(newPage, relayout = True)
