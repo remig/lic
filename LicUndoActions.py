@@ -31,6 +31,30 @@ class MoveCommand(QUndoCommand):
             if hasattr(item.parentItem(), "resetRect"):
                 item.parentItem().resetRect()
 
+class DisplacePartCommand(QUndoCommand):
+
+    """
+    DisplacePartCommand stores a list of parts moved together:
+    partList[0] = (part, oldDisplacement, newDisplacement)
+    """
+
+    def __init__(self, partList):
+        QUndoCommand.__init__(self, "Undo the last Part displacement")
+        self.partList = list(partList)
+
+    def id(self):
+        return 124
+
+    def undo(self):
+        for part, oldPos, newPos in self.partList:
+            part.displacement = list(oldPos)
+            part._parentCSI.updatePixmap()
+
+    def redo(self):
+        for part, oldPos, newPos in self.partList:
+            part.displacement = list(newPos)
+            part._parentCSI.updatePixmap()
+
 class ResizeCSIPLICommand(QUndoCommand):
 
     """
@@ -47,7 +71,7 @@ class ResizeCSIPLICommand(QUndoCommand):
         self.oldPLISize, self.newPLISize = pliSizes
         
     def id(self):
-        return 124
+        return 125
     
     def undo(self):
         self.instructions.setCSIPLISize(self.oldCSISize, self.oldPLISize)
@@ -77,7 +101,7 @@ class MoveStepToPageCommand(QUndoCommand):
         self.stepSet = stepSet
         
     def id(self):
-        return 125
+        return 126
     
     def undo(self):
         for step, oldPage, newPage in self.stepSet:

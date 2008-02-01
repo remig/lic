@@ -955,6 +955,7 @@ class Step(QGraphicsRectItem):
         step.scene().emit(SIGNAL("moveStepToNewPage"), stepSet)
         
     def moveToNextPage(self):
+        stepSet = []
         for step in self.scene().selectedItems():
             if isinstance(step, Step):
                 stepSet.append((step, step.parent(), step.parent().nextPage()))
@@ -1228,7 +1229,6 @@ class CSI(QGraphicsPixmapItem):
         self.center = QPointF()
         self.width = self.height = 0
         self.oglDispID = UNINIT_OGL_DISPID
-        self.partialGLDispID = UNINIT_OGL_DISPID
         self.setFlags(AllFlags)
         
         self.prevCSI = prevCSI
@@ -1247,32 +1247,23 @@ class CSI(QGraphicsPixmapItem):
         part._parentCSI = self
         self.parts.append(part)
 
-    def __callPreviousOGLDisplayLists(self):
+    def __callPreviousOGLDisplayLists(self, isCurrent = False):
 
         # Call all previous step's CSI display list
         if self.prevCSI:
-            self.prevCSI.__callPreviousOGLDisplayLists()
-
-        # Now call this CSI's display list
-        glCallList(self.partialGLDispID)
-
-    def createOGLDisplayList(self):
-
-        # Create a display list for just the parts in this CSI
-        self.partialGLDispID = glGenLists(1)
-        glNewList(self.partialGLDispID, GL_COMPILE)
+            self.prevCSI.__callPreviousOGLDisplayLists(False)
 
         # Draw all the parts in this CSI
         for part in self.parts:
-            part.callOGLDisplayList()
+            part.callOGLDisplayList(isCurrent)
 
-        glEndList()
+    def createOGLDisplayList(self):
 
         # Create a display list that includes all previous CSIs plus this one,
         # for a single display list giving a full model rendering up to this step.
         self.oglDispID = glGenLists(1)
         glNewList(self.oglDispID, GL_COMPILE)
-        self.__callPreviousOGLDisplayLists()
+        self.__callPreviousOGLDisplayLists(True)
         glEndList()
 
     def updatePixmap(self):
@@ -1320,6 +1311,7 @@ class CSI(QGraphicsPixmapItem):
 
         self.resetTransform()
         self.updatePixmap()
+        self.initLayout()
         GlobalGLContext.makeCurrent()
 
     def initLayout(self):
@@ -1801,12 +1793,13 @@ class Part(QGraphicsRectItem):
 
         self.color = color
         self.matrix = matrix
+        self.displacement = [0.0, 0.0, 0.0]
         self.inverted = invert
         self.filename = filename  # Needed for save / load
         self.partOGL = None
         self._parentPLI = None # Needed because now Parts live in the tree (inside specific PLIItems)
         self._parentCSI = None # Needed to be able to notify CSI to draw this part as selected
-        self.displacing = False
+        self._displacing = False
         self.setFlags(NoMoveFlags)
 
         if setPartOGL:
@@ -1837,14 +1830,14 @@ class Part(QGraphicsRectItem):
     def setSelected(self, selected):
         QGraphicsRectItem.setSelected(self, selected)
         self._parentCSI.updatePixmap()
-        if self.displacing and not selected:
+        if self._displacing and not selected:
             self._parentCSI.resetPixmap()
-            self.displacing = False
+            self._displacing = False
 
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
 
-    def callOGLDisplayList(self):
+    def callOGLDisplayList(self, useDisplacement = False):
 
         # must be called inside a glNewList/EndList pair
         color = LDrawColors.convertToRGBA(self.color)
@@ -1860,8 +1853,13 @@ class Part(QGraphicsRectItem):
             glFrontFace(GL_CW)
 
         if self.matrix:
+            matrix = list(self.matrix)
+            if useDisplacement:
+                matrix[12] += self.displacement[0]
+                matrix[13] += self.displacement[1]
+                matrix[14] += self.displacement[2]
             glPushMatrix()
-            glMultMatrixf(self.matrix)
+            glMultMatrixf(matrix)
 
         glCallList(self.partOGL.oglDispID)
 
@@ -1879,32 +1877,48 @@ class Part(QGraphicsRectItem):
         fh.write(line + '\n')
 
     def contextMenuEvent(self, event):
-
         menu = QMenu(self.scene().views()[0])
-        menu.addAction("Displace Part", self.displace)
+        menu.addAction("Displace Part", self.startDisplacement)
         menu.exec_(event.screenPos())
-        
-    def displace(self):
-        self.displacing = True
+
+    def startDisplacement(self):
+        self._displacing = True
         self.setFocus()
         self._parentCSI.maximizePixmap()
 
     def keyReleaseEvent(self, event):
+
         key = event.key()
-        if key == Qt.Key_PageUp:
-            self.matrix[13] -= 20
-        elif key == Qt.Key_PageDown:
-            self.matrix[13] += 20
-        elif key == Qt.Key_Left:
-            self.matrix[14] -= 20
-        elif key == Qt.Key_Right:
-            self.matrix[14] += 20
-        elif key == Qt.Key_Up:
-            self.matrix[12] -= 20
+        offset = 20
+        displacement = [0, 0, 0]
+
+        if key == Qt.Key_Up:
+            displacement[0] -= offset
         elif key == Qt.Key_Down:
-            self.matrix[12] += 20
-            
-        self._parentCSI.updatePixmap()
+            displacement[0] += offset
+        elif key == Qt.Key_PageUp:
+            displacement[1] -= offset
+        elif key == Qt.Key_PageDown:
+            displacement[1] += offset
+        elif key == Qt.Key_Left:
+            displacement[2] -= offset
+        elif key == Qt.Key_Right:
+            displacement[2] += offset
+        else:
+            return  # Ignore any other key strokes here
+
+        partList = []
+        for item in self.scene().selectedItems():
+            if isinstance(item, Part):
+                oldPos = item.displacement
+                newPos = [0, 0, 0]
+                newPos[0] = oldPos[0] + displacement[0]
+                newPos[1] = oldPos[1] + displacement[1]
+                newPos[2] = oldPos[2] + displacement[2]
+                partList.append((item, oldPos, newPos))
+                
+        if partList:
+            self.scene().emit(SIGNAL("displacePart"), partList)
 
 class Primitive(object):
     """
