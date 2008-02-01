@@ -833,7 +833,7 @@ class Page(QGraphicsRectItem):
         self.instructions.emit(SIGNAL("layoutChanged()"))
     
 class Step(QGraphicsRectItem):
-    """ A single step in an instruction book.  Contains one optional PLI and exactly one CSI. """
+    """ A single step in an Instruction book.  Contains one optional PLI and exactly one CSI. """
 
     NextNumber = 1
 
@@ -1884,6 +1884,7 @@ class Part(QGraphicsRectItem):
     def startDisplacement(self):
         self._displacing = True
         self.setFocus()
+        self._parentCSI.addPart(Arrow())
         self._parentCSI.maximizePixmap()
 
     def keyReleaseEvent(self, event):
@@ -1919,6 +1920,34 @@ class Part(QGraphicsRectItem):
                 
         if partList:
             self.scene().emit(SIGNAL("displacePart"), partList)
+
+class Arrow(Part):
+
+    def __init__(self):
+        Part.__init__(self, "arrow", 4, None, False, False, None)
+        self.partOGL = PartOGL("arrow")
+        x = [0.0, 20.0, 25.0, 50.0]
+        y = [-5.0, -1.0, 0.0, 1.0, 5.0]
+
+        tip = [x[0], y[2], 0.0]
+        topEnd = [x[2], y[0], 0.0]
+        botEnd = [x[2], y[4], 0.0]
+        joint = [x[1], y[2], 0.0]
+        
+        tl = [x[1], y[1], 0.0]
+        tr = [x[3], y[1], 0.0]
+        br = [x[3], y[3], 0.0]
+        bl = [x[1], y[3], 0.0]
+        
+        tip1 = Primitive(4, tip + topEnd + joint, GL_TRIANGLES, invert = False)
+        tip2 = Primitive(4, tip + joint + botEnd, GL_TRIANGLES, invert = False)
+        base = Primitive(4, tl + tr + br + bl, GL_QUADS, invert = False)
+
+        self.partOGL.primitives.append(tip1)
+        self.partOGL.primitives.append(tip2)
+        self.partOGL.primitives.append(base)
+        
+        self.partOGL.createOGLDisplayList()
 
 class Primitive(object):
     """
