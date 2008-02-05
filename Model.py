@@ -1569,6 +1569,48 @@ class PartOGL(object):
         pixmap = QPixmap.fromImage(image)
         GlobalGLContext.makeCurrent()
         return pixmap
+    
+    def getBoundingBox(self):
+        
+        box = None
+        if self.primitives:
+            box = self.primitives[0].getBoundingBox()
+        elif self.parts:
+            box = self.parts[0].partOGL.getBoundingBox()
+
+        if box is None:
+            return None  # No parts or primitives in this part (only edges? why's this still around?)
+        
+        for primitive in self.primitives:
+            p = primitive.getBoundingBox()
+            if p:
+                box.growByBoudingBox(primitive.getBoundingBox())
+            
+        for part in self.parts:
+            p = part.partOGL.getBoundingBox()
+            if p:
+                box.growByBoudingBox(p)
+
+        return box
+    
+class BoundingBox(object):
+    
+    def __init__(self, x = 0.0, y = 0.0, z = 0.0):
+        self.x1 = self.x2 = x
+        self.y1 = self.y2 = y
+        self.z1 = self.z2 = z
+
+    def growByPoints(self, x, y, z):
+        self.x1 = min(x, self.x1)
+        self.x2 = max(x, self.x2)
+        self.y1 = min(y, self.y1)
+        self.y2 = max(y, self.y2)
+        self.z1 = min(z, self.z1)
+        self.z2 = max(z, self.z2)
+        
+    def growByBoudingBox(self, box):
+        self.growByPoints(box.x1, box.y1, box.z1)
+        self.growByPoints(box.x2, box.y2, box.z2)
 
 class Submodel(PartOGL):
     """ A Submodel is just a PartOGL that also has pages & steps, and can be inserted into a tree. """
@@ -1793,7 +1835,7 @@ class Part(QGraphicsRectItem):
 
         self.color = color
         self.matrix = matrix
-        self.displacement = [0.0, 0.0, 0.0]
+        self.displacement = []
         self.inverted = invert
         self.filename = filename  # Needed for save / load
         self.partOGL = None
@@ -1854,12 +1896,40 @@ class Part(QGraphicsRectItem):
 
         if self.matrix:
             matrix = list(self.matrix)
-            if useDisplacement:
+            if useDisplacement and self.displacement:
                 matrix[12] += self.displacement[0]
                 matrix[13] += self.displacement[1]
                 matrix[14] += self.displacement[2]
             glPushMatrix()
             glMultMatrixf(matrix)
+
+        if self.isSelected():
+            
+            b = self.partOGL.getBoundingBox()
+            glBegin(GL_LINE_LOOP)
+            glVertex3f(b.x1, b.y1, b.z1)
+            glVertex3f(b.x2, b.y1, b.z1)
+            glVertex3f(b.x2, b.y2, b.z1)
+            glVertex3f(b.x1, b.y2, b.z1)
+            glEnd()
+
+            glBegin(GL_LINE_LOOP)
+            glVertex3f(b.x1, b.y1, b.z2)
+            glVertex3f(b.x2, b.y1, b.z2)
+            glVertex3f(b.x2, b.y2, b.z2)
+            glVertex3f(b.x1, b.y2, b.z2)
+            glEnd()
+
+            glBegin(GL_LINES)
+            glVertex3f(b.x1, b.y1, b.z1)
+            glVertex3f(b.x1, b.y1, b.z2)
+            glVertex3f(b.x1, b.y2, b.z1)
+            glVertex3f(b.x1, b.y2, b.z2)
+            glVertex3f(b.x2, b.y1, b.z1)
+            glVertex3f(b.x2, b.y1, b.z2)
+            glVertex3f(b.x2, b.y2, b.z1)
+            glVertex3f(b.x2, b.y2, b.z2)
+            glEnd()
 
         glCallList(self.partOGL.oglDispID)
 
@@ -1879,39 +1949,57 @@ class Part(QGraphicsRectItem):
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Displace Part", self.startDisplacement)
+        
+        if not self._displacing and not self.displacement:
+            arrowMenu = menu.addMenu("Displace With Arrow")
+            arrowMenu.addAction("Move Up", lambda: self.displaceWithArrow(Qt.Key_PageUp))
+            arrowMenu.addAction("Move Down", lambda: self.displaceWithArrow(Qt.Key_PageDown))
+            arrowMenu.addAction("Move Forward", lambda: self.displaceWithArrow(Qt.Key_Down))
+            arrowMenu.addAction("Move Back", lambda: self.displaceWithArrow(Qt.Key_Up))
+            arrowMenu.addAction("Move Left", lambda: self.displaceWithArrow(Qt.Key_Left))
+            arrowMenu.addAction("Move Right", lambda: self.displaceWithArrow(Qt.Key_Right))
+
         menu.exec_(event.screenPos())
 
     def startDisplacement(self):
         self._displacing = True
         self.setFocus()
-        self._parentCSI.addPart(Arrow())
         self._parentCSI.maximizePixmap()
 
-    def keyReleaseEvent(self, event):
+    def displaceWithArrow(self, direction):
+        box = self.partOGL.getBoundingBox()
+        arrow = Arrow(direction)
+        arrow.matrix = list(self.matrix)
+        self._parentCSI.addPart(arrow)
+        self.startDisplacement()
+        self.displace(direction)
 
-        key = event.key()
+    def keyReleaseEvent(self, event):
+        self.displace(event.key())
+
+    def displace(self, direction):
         offset = 20
         displacement = [0, 0, 0]
 
-        if key == Qt.Key_Up:
+        if direction == Qt.Key_Up:
             displacement[0] -= offset
-        elif key == Qt.Key_Down:
+        elif direction == Qt.Key_Down:
             displacement[0] += offset
-        elif key == Qt.Key_PageUp:
+        elif direction == Qt.Key_PageUp:
             displacement[1] -= offset
-        elif key == Qt.Key_PageDown:
+        elif direction == Qt.Key_PageDown:
             displacement[1] += offset
-        elif key == Qt.Key_Left:
+        elif direction == Qt.Key_Left:
             displacement[2] -= offset
-        elif key == Qt.Key_Right:
+        elif direction == Qt.Key_Right:
             displacement[2] += offset
         else:
-            return  # Ignore any other key strokes here
+            return  # Ignore any other directions here
 
         partList = []
         for item in self.scene().selectedItems():
             if isinstance(item, Part):
-                oldPos = item.displacement
+                oldPos = item.displacement if item.displacement else [0.0, 0.0, 0.0]
                 newPos = [0, 0, 0]
                 newPos[0] = oldPos[0] + displacement[0]
                 newPos[1] = oldPos[1] + displacement[1]
@@ -1923,13 +2011,13 @@ class Part(QGraphicsRectItem):
 
 class Arrow(Part):
 
-    def __init__(self):
+    def __init__(self, direction):
         Part.__init__(self, "arrow", 4, None, False, False, None)
         self.partOGL = PartOGL("arrow")
         x = [0.0, 20.0, 25.0, 50.0]
         y = [-5.0, -1.0, 0.0, 1.0, 5.0]
 
-        tip = [x[0], y[2], 0.0]
+        self.tip = [x[0], y[2], 0.0]
         topEnd = [x[2], y[0], 0.0]
         botEnd = [x[2], y[4], 0.0]
         joint = [x[1], y[2], 0.0]
@@ -1939,15 +2027,61 @@ class Arrow(Part):
         br = [x[3], y[3], 0.0]
         bl = [x[1], y[3], 0.0]
         
-        tip1 = Primitive(4, tip + topEnd + joint, GL_TRIANGLES, invert = False)
-        tip2 = Primitive(4, tip + joint + botEnd, GL_TRIANGLES, invert = False)
+        tip1 = Primitive(4, self.tip + topEnd + joint, GL_TRIANGLES, invert = False)
+        tip2 = Primitive(4, self.tip + joint + botEnd, GL_TRIANGLES, invert = False)
         base = Primitive(4, tl + tr + br + bl, GL_QUADS, invert = False)
 
         self.partOGL.primitives.append(tip1)
         self.partOGL.primitives.append(tip2)
         self.partOGL.primitives.append(base)
+   
+        self.rotation = []
+        self.setDirection(direction)
+        self.partOGL.createOGLDisplayList()        
+
+    def setDirection(self, direction):
         
-        self.partOGL.createOGLDisplayList()
+        if direction == Qt.Key_Up:
+            self.rotation = [0.0, 1.0, 0.0]
+        elif direction == Qt.Key_Down:
+            self.rotation = [0.0, -1.0, 0.0]
+        elif direction == Qt.Key_PageUp:
+            self.rotation = [0.0, 0.0, -1.0]
+        elif direction == Qt.Key_PageDown:
+            self.rotation = [0.0, 0.0, 1.0]
+        elif direction == Qt.Key_Left:
+            self.rotation = [1.0, 0.0, 0.0]
+        elif direction == Qt.Key_Right:
+            self.rotation = [-1.0, 0.0, 0.0]
+    
+    def callOGLDisplayList(self, useDisplacement = False):
+
+        # must be called inside a glNewList/EndList pair
+        color = LDrawColors.convertToRGBA(self.color)
+
+        if color != LDrawColors.CurrentColor:
+            glPushAttrib(GL_CURRENT_BIT)
+            glColor4fv(color)
+
+        if self.matrix:
+            matrix = list(self.matrix)
+            if useDisplacement and self.displacement:
+                matrix[12] += self.displacement[0]
+                matrix[13] += self.displacement[1]
+                matrix[14] += self.displacement[2]
+            glPushMatrix()
+            glMultMatrixf(matrix)
+            #glRotatef(45.0, 0.0, -1.0, 0.0)
+            if self.rotation:
+                glRotatef(90.0, *self.rotation)
+
+        glCallList(self.partOGL.oglDispID)
+
+        if self.matrix:
+            glPopMatrix()
+
+        if color != LDrawColors.CurrentColor:
+            glPopAttrib()
 
 class Primitive(object):
     """
@@ -1960,6 +2094,15 @@ class Primitive(object):
         self.type = type
         self.points = points
         self.inverted = invert
+
+    def getBoundingBox(self):
+        p = self.points
+        box = BoundingBox(p[0], p[1], p[2])
+        box.growByPoints(p[3], p[4], p[5])
+        box.growByPoints(p[6], p[7], p[8])
+        if self.type == GL_QUADS:
+            box.growByPoints(p[9], p[10], p[11])
+        return box
 
     # TODO: using numpy for all this would probably work a lot better
     def addNormal(self, p1, p2, p3):
@@ -1999,13 +2142,13 @@ class Primitive(object):
             #glVertex3f(p[3] + normal[0], p[4] + normal[1], p[5] + normal[2])
             #glEnd()
 
-            glBegin( self.type )
+            glBegin(self.type)
             glNormal3fv(normal)
             if self.type == GL_QUADS:
-                glVertex3f( p[9], p[10], p[11] )
-            glVertex3f( p[6], p[7], p[8] )
-            glVertex3f( p[3], p[4], p[5] )
-            glVertex3f( p[0], p[1], p[2] )
+                glVertex3f(p[9], p[10], p[11])
+            glVertex3f(p[6], p[7], p[8])
+            glVertex3f(p[3], p[4], p[5])
+            glVertex3f(p[0], p[1], p[2])
             glEnd()
         else:
             normal = self.addNormal(p[0:3], p[3:6], p[6:9])
@@ -2014,13 +2157,13 @@ class Primitive(object):
             #glVertex3f(p[3] + normal[0], p[4] + normal[1], p[5] + normal[2])
             #glEnd()
 
-            glBegin( self.type )
+            glBegin(self.type)
             glNormal3fv(normal)
-            glVertex3f( p[0], p[1], p[2] )
-            glVertex3f( p[3], p[4], p[5] )
-            glVertex3f( p[6], p[7], p[8] )
+            glVertex3f(p[0], p[1], p[2])
+            glVertex3f(p[3], p[4], p[5])
+            glVertex3f(p[6], p[7], p[8])
             if self.type == GL_QUADS:
-                glVertex3f( p[9], p[10], p[11] )
+                glVertex3f(p[9], p[10], p[11])
             glEnd()
 
         if color != LDrawColors.CurrentColor:
