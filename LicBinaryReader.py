@@ -29,7 +29,7 @@ def loadLicFile(filename, instructions):
 def __readInstructions(stream, instructions):
     global partDictionary, submodelDictionary
 
-    instructions.emit(SIGNAL("layoutAboutToBeChanged"))
+    instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
     partDictionary = instructions.getPartDictionary()
     submodelDictionary = instructions.getSubmodelDictionary()
     

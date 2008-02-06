@@ -253,7 +253,7 @@ class Instructions(QAbstractItemModel):
 
     def clear(self):
         global partDictionary, submodelDictionary, currentModelFilename
-        self.emit(SIGNAL("layoutAboutToBeChanged"))
+        self.emit(SIGNAL("layoutAboutToBeChanged()"))
 
         # Remove everything from the graphics scene
         if self.mainModel:
@@ -277,7 +277,7 @@ class Instructions(QAbstractItemModel):
         
         global currentModelFilename        
         currentModelFilename = filename
-        self.emit(SIGNAL("layoutAboutToBeChanged"))
+        self.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.mainModel = Submodel(self, self, filename)
         self.mainModel.importModel()
         
@@ -531,10 +531,10 @@ class Page(QGraphicsRectItem):
 
         self.instructions = instructions
         self._parent = parent
-        self.steps = []
         self._row = 0
-        self.children = []
+        self.steps = []
         self.borders = []
+        self.children = []
 
         # Give this page a number
         if number == -1:
@@ -828,10 +828,22 @@ class Page(QGraphicsRectItem):
             print "Cannot delete a Page containing Steps"
             return
 
-        self.instructions.emit(SIGNAL("layoutAboutToBeChanged"))
+        self.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
         self._parent.removePage(self)
         self.instructions.emit(SIGNAL("layoutChanged()"))
-    
+
+class Callout(QGraphicsRectItem):
+
+    margin = QPointF(15, 15)
+
+    def __init__(self, parent, instructions, number = -1):
+        QGraphicsRectItem.__init__(self)
+
+        self.steps = []
+        
+    def row(self):
+        return self.parentItem().getChildRow(self)
+
 class Step(QGraphicsRectItem):
     """ A single step in an Instruction book.  Contains one optional PLI and exactly one CSI. """
 
@@ -856,6 +868,7 @@ class Step(QGraphicsRectItem):
 
         self.csi = CSI(self, prevCSI)
         self.pli = PLI(self)
+        self.callout = None
 
         # Initialize Step's number label (position set in initLayout)
         self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
@@ -963,7 +976,7 @@ class Step(QGraphicsRectItem):
     
     def moveToPage(self, page, relayout = True):
         
-        page.instructions.emit(SIGNAL("layoutAboutToBeChanged"))
+        page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
 
         # Remove this step from its current page's step list
         self.parent().removeStep(self)
@@ -1012,7 +1025,21 @@ class PLIItem(QGraphicsRectItem):
         part.setParentItem(self)
         self.numberItem.setText("%dx" % len(self.parts))
         self.numberItem.dataText = "Qty. Label (%dx)" % len(self.parts)
-        
+
+    def removePart(self, part):
+        self.parts.remove(part)
+        part._parentPLI = None
+
+        if self.parts:
+            # Still have other parts - reduce qty label
+            self.numberItem.setText("%dx" % len(self.parts))
+            self.numberItem.dataText = "Qty. Label (%dx)" % len(self.parts)
+        else:  
+            # PLIItem is now empty - kill it
+            self.scene().removeItem(self)
+            self.parentItem().pliItems.remove(self)
+            self.parentItem().initLayout()
+
     def parent(self):
         return self.parentItem()
 
@@ -1101,9 +1128,10 @@ class PLI(QGraphicsRectItem):
     def __init__(self, parent):
         QGraphicsRectItem.__init__(self, parent)
 
+        self.pliItems = []  # {(part filename, color): PLIItem instance}
+
         self.setPos(0, 0)
         self.setPen(QPen(Qt.black))
-        self.pliItems = []  # {(part filename, color): PLIItem instance}
         self.setFlags(AllFlags)
 
     def parent(self):
@@ -1246,6 +1274,10 @@ class CSI(QGraphicsPixmapItem):
     def addPart(self, part):
         part._parentCSI = self
         self.parts.append(part)
+
+    def removePart(self, part):
+        part._parentCSI = None
+        self.parts.remove(part)
 
     def __callPreviousOGLDisplayLists(self, isCurrent = False):
 
@@ -1947,11 +1979,28 @@ class Part(QGraphicsRectItem):
         fh.write(line + '\n')
 
     def contextMenuEvent(self, event):
+
+        selectedParts = []
+        for item in self.scene().selectedItems():
+            if isinstance(item, Part):
+                selectedParts.append(item)
+        
         menu = QMenu(self.scene().views()[0])
-        menu.addAction("Displace Part", self.startDisplacement)
+        
+        if self._parentCSI.prevCSI:
+            menu.addAction("Move Part to &Previous Step", self.moveToPrevStep)
+            
+        menu.addAction("Move Part to &Next Step", self.moveToNextStep)
+        menu.addSeparator()
+
+#        if selectedParts:
+#            menu.addAction("New Callout from Parts", None)
+#            menu.addSeparator()
+
+        menu.addAction("&Displace Part", self.startDisplacement)
         
         if not self._displacing and not self.displacement:
-            arrowMenu = menu.addMenu("Displace With Arrow")
+            arrowMenu = menu.addMenu("Displace With &Arrow")
             arrowMenu.addAction("Move Up", lambda: self.displaceWithArrow(Qt.Key_PageUp))
             arrowMenu.addAction("Move Down", lambda: self.displaceWithArrow(Qt.Key_PageDown))
             arrowMenu.addAction("Move Forward", lambda: self.displaceWithArrow(Qt.Key_Down))
@@ -1960,6 +2009,29 @@ class Part(QGraphicsRectItem):
             arrowMenu.addAction("Move Right", lambda: self.displaceWithArrow(Qt.Key_Right))
 
         menu.exec_(event.screenPos())
+
+    def moveToPrevStep(self):
+
+        prevCSI = self._parentCSI.prevCSI
+        if not prevCSI:
+            print "ERROR: Trying to move a part to the previous step that does not exist"
+            return
+
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+
+        self._parentPLI.removePart(self)  # Remove part from any PLIItem its in
+        self._parentCSI.removePart(self)  # Remove part from any CSI its in
+
+        # Retrieve the previous step and add this part to it
+        prevStep = prevCSI.parentItem()
+        prevStep.addPart(self)
+        prevStep.csi.resetPixmap()
+
+        self.scene().emit(SIGNAL("layoutChanged()"))
+
+    def moveToNextStep(self):        
+        # TODO: Need to get a next CSI pointer into CSI... prevCSI is so handy...
+        pass
 
     def startDisplacement(self):
         self._displacing = True

@@ -180,6 +180,11 @@ class LicWindow(QMainWindow):
         self.connect(self.scene, SIGNAL("home"), self.instructions.selectFirstPage)
         self.connect(self.scene, SIGNAL("end"), self.instructions.selectLastPage)
         
+        # Allow the graphics scene to emit the layoutAboutToBeChanged and layoutChanged 
+        # signals, for easy notification of layout changes everywhere
+        self.connect(self.scene, SIGNAL("layoutAboutToBeChanged()"), self.instructions, SIGNAL("layoutAboutToBeChanged()"))
+        self.connect(self.scene, SIGNAL("layoutChanged()"), self.instructions, SIGNAL("layoutChanged()"))
+            
         self.filename = ""   # This will trigger the __setFilename method below
 
         # temp debug code from here to the end 
