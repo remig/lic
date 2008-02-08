@@ -639,6 +639,19 @@ class Page(QGraphicsRectItem):
         if relayout:
             self.initLayout()
 
+    def deleteStep(self, step, relayout = False):
+
+        step.setSelected(False)
+        self.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.steps.remove(step)
+        self.children.remove(step)
+        self.scene().removeItem(step)
+
+        if relayout:
+            self.initLayout()
+
+        self.instructions.emit(SIGNAL("layoutChanged()"))
+
     def addChild(self, index, child):
 
         # Add the child to the child array
@@ -657,7 +670,7 @@ class Page(QGraphicsRectItem):
         self.borders.append(border)
         self.addChild(index, border)
         return border
-    
+
     def removeStepSeparator(self, sep):
         self.children.remove(sep)
         self.borders.remove(sep)
@@ -821,14 +834,15 @@ class Page(QGraphicsRectItem):
     def contextMenuEvent(self, event):
         
         menu = QMenu(self.scene().views()[0])
-        delPage = menu.addAction("Delete this Page", self.one)
+        delPage = menu.addAction("Delete this Page", self.removePage)
         menu.exec_(event.screenPos())
     
-    def one(self):
+    def removePage(self):
         if self.steps:
-            print "Cannot delete a Page containing Steps"
+            QMessageBox.warning(self.scene().views()[0], "Page Delete Error", "Cannot delete a Page that contains Steps.\nRemove or move Steps to a different page first.")
             return
 
+        self.scene().clearSelection()
         self.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
         self._parent.removePage(self)
         self.instructions.emit(SIGNAL("layoutChanged()"))
@@ -853,6 +867,11 @@ class Step(QGraphicsRectItem):
     def __init__(self, parentPage, number = -1, prevCSI = None):
         QGraphicsRectItem.__init__(self, parentPage)
 
+        self.csi = CSI(self, prevCSI)
+        self.pli = PLI(self)
+        self.callout = None
+        self.numberItem = None
+
         pen = self.pen()
         pen.setStyle(Qt.NoPen)
         self.setPen(pen)
@@ -866,10 +885,6 @@ class Step(QGraphicsRectItem):
         else:
             self._number = number
             Step.NextNumber = number + 1
-
-        self.csi = CSI(self, prevCSI)
-        self.pli = PLI(self)
-        self.callout = None
 
         # Initialize Step's number label (position set in initLayout)
         self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
@@ -951,6 +966,9 @@ class Step(QGraphicsRectItem):
 
         page = self.parentItem()
         
+        if len(self.csi.parts) == 0:
+            menu.addAction("&Delete this Step", lambda: page.deleteStep(self, True))
+
         if not page.prevPage():
             prevPage.setEnabled(False)
             prevMerge.setEnabled(False)
