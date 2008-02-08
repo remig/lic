@@ -127,7 +127,6 @@ class LicTreeView(QTreeView):
     def updateSelection(self):
         """ This is called whenever the graphics scene's selection changes """
         
-        print "  *** selection changed"
         # Deselect everything in the tree
         model = self.model()
         selection = self.selectionModel()
@@ -477,15 +476,16 @@ class Instructions(QAbstractItemModel):
             m.currentPage.setSelected(True)
 
     def selectFirstPage(self):
-        if self.mainModel:
-            self.mainModel.selectPage(0)
-            self.mainModel.currentPage.setSelected(True)
+        self.selectPage(0)
 
     def selectLastPage(self):
-        if self.mainModel:
-            self.mainModel.selectPage(self.mainModel.pages[-1]._number)
-            self.mainModel.currentPage.setSelected(True)
+        self.selectPage(self.mainModel.pages[-1]._number)
 
+    def selectPage(self, pageNumber):
+        if self.mainModel:
+            self.mainModel.selectPage(pageNumber)
+            self.mainModel.currentPage.setSelected(True)
+        
     def setCSIPLISize(self, newCSISize, newPLISize):
 
         print "Setting size to: %d, %d" % (newCSISize, newPLISize)
@@ -846,6 +846,7 @@ class Page(QGraphicsRectItem):
         self.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
         self._parent.removePage(self)
         self.instructions.emit(SIGNAL("layoutChanged()"))
+        self.instructions.selectPage(self._number - 1)
 
 class Callout(QGraphicsRectItem):
 
