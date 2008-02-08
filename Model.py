@@ -127,6 +127,7 @@ class LicTreeView(QTreeView):
     def updateSelection(self):
         """ This is called whenever the graphics scene's selection changes """
         
+        print "  *** selection changed"
         # Deselect everything in the tree
         model = self.model()
         selection = self.selectionModel()
@@ -177,10 +178,10 @@ class Instructions(QAbstractItemModel):
         self.partDimensionsFilename = "PartDimensions.cache"
 
         self.scene = scene
+        self.mainModel = None
+
         GlobalGLContext = glWidget
         GlobalGLContext.makeCurrent()
-        
-        self.mainModel = None
 
         if filename:
             self.loadModel(filename)
@@ -948,7 +949,7 @@ class Step(QGraphicsRectItem):
         doLayout.setCheckable(True)
         doLayout.setChecked(True)
 
-        page = self.parent()
+        page = self.parentItem()
         
         if not page.prevPage():
             prevPage.setEnabled(False)
@@ -964,14 +965,14 @@ class Step(QGraphicsRectItem):
         stepSet = []
         for step in self.scene().selectedItems():
             if isinstance(step, Step):
-                stepSet.append((step, step.parent(), step.parent().prevPage()))
+                stepSet.append((step, step.parentItem(), step.parentItem().prevPage()))
         step.scene().emit(SIGNAL("moveStepToNewPage"), stepSet)
         
     def moveToNextPage(self):
         stepSet = []
         for step in self.scene().selectedItems():
             if isinstance(step, Step):
-                stepSet.append((step, step.parent(), step.parent().nextPage()))
+                stepSet.append((step, step.parentItem(), step.parentItem().nextPage()))
         step.scene().emit(SIGNAL("moveStepToNewPage"), stepSet)
     
     def moveToPage(self, page, relayout = True):
@@ -979,9 +980,9 @@ class Step(QGraphicsRectItem):
         page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
 
         # Remove this step from its current page's step list
-        self.parent().removeStep(self)
+        self.parentItem().removeStep(self)
         if relayout:
-            self.parent().initLayout()
+            self.parentItem().initLayout()
         
         # Add this step to the new page's step list, and set its scene parent
         page.addStep(self, relayout)
@@ -1028,6 +1029,7 @@ class PLIItem(QGraphicsRectItem):
 
     def removePart(self, part):
         self.parts.remove(part)
+        self.scene().removeItem(part)
         part._parentPLI = None
 
         if self.parts:
@@ -1036,9 +1038,9 @@ class PLIItem(QGraphicsRectItem):
             self.numberItem.dataText = "Qty. Label (%dx)" % len(self.parts)
         else:  
             # PLIItem is now empty - kill it
-            self.scene().removeItem(self)
             self.parentItem().pliItems.remove(self)
             self.parentItem().initLayout()
+            self.scene().removeItem(self)
 
     def parent(self):
         return self.parentItem()
@@ -1168,7 +1170,6 @@ class PLI(QGraphicsRectItem):
 
         # If we're here, did not find an existing PLI, so create a new one
         item = PLIItem(self, part.partOGL, part.color)
-        item.setParentItem(self)  # TODO: needed?
         item.addPart(part)
         self.pliItems.append(item)
         
@@ -1251,7 +1252,7 @@ class CSI(QGraphicsPixmapItem):
 
     scale = 1.0
 
-    def __init__(self, step, prevCSI = None):
+    def __init__(self, step, prevCSI = None, nextCSI = None):
         QGraphicsPixmapItem.__init__(self, step)
 
         self.center = QPointF()
@@ -1260,6 +1261,7 @@ class CSI(QGraphicsPixmapItem):
         self.setFlags(AllFlags)
         
         self.prevCSI = prevCSI
+        self.nextCSI = nextCSI
         self.parts = []
 
     def parent(self):
@@ -1278,6 +1280,7 @@ class CSI(QGraphicsPixmapItem):
     def removePart(self, part):
         part._parentCSI = None
         self.parts.remove(part)
+        self.resetPixmap()
 
     def __callPreviousOGLDisplayLists(self, isCurrent = False):
 
@@ -1730,6 +1733,8 @@ class Submodel(PartOGL):
     def addStep(self):
         page = self.addPage()
         self.currentStep = Step(page, -1, self.currentCSI)
+        if self.currentCSI:
+            self.currentCSI.nextCSI = self.currentStep.csi
         self.currentCSI = self.currentStep.csi
         page.addStep(self.currentStep)
         
@@ -2017,21 +2022,32 @@ class Part(QGraphicsRectItem):
             print "ERROR: Trying to move a part to the previous step that does not exist"
             return
 
+        self.moveToStep(prevCSI.parentItem())
+
+    def moveToNextStep(self):
+
+        nextCSI = self._parentCSI.nextCSI
+        if not nextCSI:
+            print "ERROR: Trying to move a part to the next step that does not exist"
+            return
+
+        self.moveToStep(nextCSI.parentItem())
+
+    def moveToStep(self, step):
+        
+        self.setSelected(False)
+        self.scene().clearSelection()
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
 
         self._parentPLI.removePart(self)  # Remove part from any PLIItem its in
         self._parentCSI.removePart(self)  # Remove part from any CSI its in
 
-        # Retrieve the previous step and add this part to it
-        prevStep = prevCSI.parentItem()
-        prevStep.addPart(self)
-        prevStep.csi.resetPixmap()
+        # Add this part to the specified step, then reset CSI pixmap and PLI layout
+        step.addPart(self)
+        step.csi.resetPixmap()
+        step.pli.initLayout()
 
         self.scene().emit(SIGNAL("layoutChanged()"))
-
-    def moveToNextStep(self):        
-        # TODO: Need to get a next CSI pointer into CSI... prevCSI is so handy...
-        pass
 
     def startDisplacement(self):
         self._displacing = True
