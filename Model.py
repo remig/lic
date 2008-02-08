@@ -376,7 +376,7 @@ class Instructions(QAbstractItemModel):
                 partList2 = []
 
         # Append any newly calculated part dimensions to cache file
-        # TODO: fix this
+        # TODO: fix part cache file
         """
         print ""
         if lines:
@@ -968,7 +968,8 @@ class Step(QGraphicsRectItem):
         page = self.parentItem()
         
         if len(self.csi.parts) == 0:
-            menu.addAction("&Delete this Step", lambda: page.deleteStep(self, True))
+            action = lambda: self.scene().emit(SIGNAL("deleteStep"), self)
+            menu.addAction("&Delete this Step", action)
 
         if not page.prevPage():
             prevPage.setEnabled(False)
@@ -1583,9 +1584,6 @@ class PartOGL(object):
         if params is None:
             return False
 
-        # TODO: update some kind of load status bar here - this method is *slow*
-        print "%s - size: %d" % (self.filename, size)
-
         self.width, self.height, self.center, self.leftInset, self.bottomInset = params
         return True
 
@@ -1671,15 +1669,18 @@ class Submodel(PartOGL):
 
     def __init__(self, parent = None, instructions = None, filename = "", lineArray = None):
         PartOGL.__init__(self, filename)
+
         self.instructions = instructions
         self.lineArray = lineArray
         self.used = False
 
         self.pages = []
         self.submodels = []
+
         self.currentStep = None
         self.currentCSI = None
         self.currentPage = None
+
         self._row = 0
         self._parent = parent
         self.isSubmodel = True
@@ -1750,14 +1751,14 @@ class Submodel(PartOGL):
         return pageCount
 
     def addStep(self):
-        page = self.addPage()
+        page = self.addBlankPage()
         self.currentStep = Step(page, -1, self.currentCSI)
         if self.currentCSI:
             self.currentCSI.nextCSI = self.currentStep.csi
         self.currentCSI = self.currentStep.csi
         page.addStep(self.currentStep)
         
-    def addPage(self):
+    def addBlankPage(self):
         page = Page(self, self.instructions)
         if not self.pages and not self.submodels:
             page._row = 0
@@ -1765,6 +1766,9 @@ class Submodel(PartOGL):
             page._row = 1 + max(self.pages[-1]._row if self.pages else 0, self.submodels[-1]._row if self.submodels else 0)
         self.pages.append(page)
         return page
+    
+    def addPage(self, page):
+        pass
     
     def removePage(self, page):
 

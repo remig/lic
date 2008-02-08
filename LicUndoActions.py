@@ -1,4 +1,11 @@
 from PyQt4.QtGui import QUndoCommand
+from PyQt4.QtCore import SIGNAL
+
+NextCommandID = 122
+def getNewCommandID():
+    global NextCommandID
+    NextCommandID += 1
+    return NextCommandID
 
 QUndoCommand.id = lambda self: self._id
 
@@ -9,7 +16,7 @@ class MoveCommand(QUndoCommand):
     itemList[0] = (item, item.oldPos, item.newPos)
     """
 
-    _id = 123
+    _id = getNewCommandID()
     
     def __init__(self, itemList):
         QUndoCommand.__init__(self, "Undo the last Page element movement")
@@ -37,7 +44,7 @@ class DisplacePartCommand(QUndoCommand):
     partList[0] = (part, oldDisplacement, newDisplacement)
     """
 
-    _id = MoveCommand._id + 1
+    _id = getNewCommandID()
 
     def __init__(self, partList):
         QUndoCommand.__init__(self, "Undo the last Part displacement")
@@ -60,7 +67,7 @@ class ResizeCSIPLICommand(QUndoCommand):
     sizes = ((oldCSISize, newCSISize), (oldPLISize, newPLISize))
     """
 
-    _id = DisplacePartCommand._id + 1
+    _id = getNewCommandID()
 
     def __init__(self, instructions, sizes):
         QUndoCommand.__init__(self, "Undo the last CSI | PLI image resize")
@@ -92,7 +99,7 @@ class MoveStepToPageCommand(QUndoCommand):
     stepSet = [(step1, oldPage1, newPage1), (step2, oldPage2, newPage2)]
     """
 
-    _id = ResizeCSIPLICommand._id + 1
+    _id = getNewCommandID()
 
     def __init__(self, stepSet):
         QUndoCommand.__init__(self, "Undo the last Step-to-Page Move")
@@ -105,3 +112,46 @@ class MoveStepToPageCommand(QUndoCommand):
     def redo(self):
         for step, oldPage, newPage in self.stepSet:
             step.moveToPage(newPage, relayout = True)
+
+class DeleteStepCommand(QUndoCommand):
+
+    """
+    DeleteStepCommand stores a step that was deleted and the page it was on
+    """
+
+    _id = getNewCommandID()
+
+    def __init__(self, step):
+        QUndoCommand.__init__(self, "Undo the last Step deletion")
+        self.step = step
+        self.page = step.parentItem()
+
+    def undo(self):
+        # Need to emit layout change here because addStep doesn't - TODO: make this consistent with deleteStep
+        self.page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.page.addStep(self.step, True)
+        self.page.instructions.emit(SIGNAL("layoutChanged()"))
+
+    def redo(self):
+        self.page.deleteStep(self.step, True)
+
+class DeletePageCommand(QUndoCommand):
+
+    """
+    DeletePageCommand stores a page that was deleted
+    """
+
+    _id = getNewCommandID()
+
+    def __init__(self, page):
+        QUndoCommand.__init__(self, "Undo the last Page deletion")
+        self.page = page
+
+    def undo(self):
+        # Need to emit layout change here because addStep doesn't - TODO: make this consistent with deleteStep
+        self.page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.page.addStep(self.step, True)
+        self.page.instructions.emit(SIGNAL("layoutChanged()"))
+
+    def redo(self):
+        self.page.deleteStep(self.step, True)

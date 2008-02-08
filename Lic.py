@@ -160,6 +160,7 @@ class LicWindow(QMainWindow):
         
         self.connect(self.scene, SIGNAL("itemsMoved"), self.itemsMoved)
         self.connect(self.scene, SIGNAL("moveStepToNewPage"), self.moveStepToNewPage)
+        self.connect(self.scene, SIGNAL("deleteStep"), self.deleteStep)
         self.connect(self.scene, SIGNAL("displacePart"), self.displacePart)
 
         self.mainSplitter = QSplitter(Qt.Horizontal)
@@ -221,6 +222,9 @@ class LicWindow(QMainWindow):
 
     def moveStepToNewPage(self, stepSet):
         self.undoStack.push(LicUndoActions.MoveStepToPageCommand(stepSet))
+
+    def deleteStep(self, step):
+        self.undoStack.push(LicUndoActions.DeleteStepCommand(step))
 
     def displacePart(self, partList):
         self.undoStack.push(LicUndoActions.DisplacePartCommand(partList))
