@@ -1214,12 +1214,13 @@ class PLI(QGraphicsRectItem):
         for item in self.pliItems:
             item.initLayout()
 
-        # Sort the list of parts in this PLI from widest to narrowest, with the tallest one first
-        partList = self.pliItems
+        # Sort list of parts to lay out by width (narrowest first), then remove tallest part, to be added first
+        partList = list(self.pliItems)
+#        partList.sort(lambda x, y: cmp(x.partOGL.width, y.partOGL.width))
+        partList.sort(lambda x, y: cmp(x.rect().width(), y.rect().width()))
         tallestPart = max(partList, key = lambda x: x.partOGL.height)
         partList.remove(tallestPart)
-        partList.sort(lambda x, y: cmp(y.partOGL.width, x.partOGL.width))
-        partList.insert(0, tallestPart)
+        partList.append(tallestPart)
 
         # This rect will be enlarged as needed
         pliBox = QRectF(0, 0, -1, -1)
@@ -1227,23 +1228,36 @@ class PLI(QGraphicsRectItem):
         overallX = maxX = xMargin = PLI.margin.x()
         overallY = maxY = yMargin = PLI.margin.y()
 
-        for i, item in enumerate(partList):
-
-            # Move this PLIItem to its new position
-            item.setPos(overallX, overallY)
-
-            # Check if the current PLI box is big enough to fit this part *below* the previous part,
-            # without making the box any bigger.  If so, position part there instead.
-            newWidth = item.rect().width()
-            if i > 0:
-                prevItem = partList[i-1]
+        prevItem = None
+        remainingHeight = 0.0
+        
+        while partList:
+            
+            item = None
+            
+            if prevItem:
                 remainingHeight = pliBox.height() - prevItem.pos().y() - prevItem.rect().height() - yMargin - yMargin 
-                if item.rect().height() < remainingHeight:
-                    overallX = prevItem.pos().x()
-                    newWidth = prevItem.rect().width()
-                    x = overallX + (newWidth - item.rect().width())
-                    y = prevItem.pos().y() + prevItem.rect().height() + yMargin
-                    item.setPos(x, y)
+                
+            # Check if we can fit any parts under the last part without extending the PLI box vertically
+            if remainingHeight > 0:
+                for pliItem in partList:
+                    if pliItem.rect().height() < remainingHeight:
+                        item = pliItem
+                        break
+
+            # Found an item that fits below the previous - put it there
+            if item:
+                partList.remove(pliItem)
+                overallX = prevItem.pos().x()
+                newWidth = prevItem.rect().width()
+                y = prevItem.pos().y() + prevItem.rect().height() + yMargin
+                item.setPos(overallX, y)
+            
+            # Use last item in list (widest)
+            if not item:
+                item = partList.pop()
+                item.setPos(overallX, overallY)
+                newWidth = item.rect().width()
 
             # Increase overall x, to make PLI box big enough for this part
             overallX += newWidth + xMargin
@@ -1260,6 +1274,7 @@ class PLI(QGraphicsRectItem):
             pliBox.setWidth(maxX)
             pliBox.setHeight(maxY)
             self.setRect(pliBox)
+            prevItem = item
 
 class CSI(QGraphicsPixmapItem):
     """
