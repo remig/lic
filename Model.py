@@ -1141,6 +1141,13 @@ class PLIItem(QGraphicsRectItem):
         pngFile = povray.createPngFromPov(povFile, part.width, part.height, part.center, PLI.scale, isPLIItem = True)
         self.pngImage = QImage(pngFile)
 
+"""        
+    def paint(self, painter, option, widget = None):
+        rect = self.boundingRect()
+        painter.drawRect(rect)
+        QGraphicsRectItem.paint(self, painter, option, widget)
+"""
+
 class PLI(QGraphicsRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
 
@@ -1183,19 +1190,20 @@ class PLI(QGraphicsRectItem):
         
     def addPart(self, part):
 
-        for item in self.pliItems:
-            if item.color == part.color and item.partOGL.filename == part.partOGL.filename:
-                item.addPart(part)
+        for pliItem in self.pliItems:
+            if pliItem.color == part.color and pliItem.partOGL.filename == part.partOGL.filename:
+                pliItem.addPart(part)
                 return
 
         # If we're here, did not find an existing PLI, so create a new one
-        item = PLIItem(self, part.partOGL, part.color)
-        item.addPart(part)
-        self.pliItems.append(item)
+        pliItem = PLIItem(self, part.partOGL, part.color)
+        pliItem.addPart(part)
+        self.pliItems.append(pliItem)
         
     def initLayout(self):
         """
         Allocate space for all parts in this PLI, and choose a decent layout.
+        This is the initial algorithm used to layout a PLI.
         """
 
         # If this PLI is empty, nothing to do here
@@ -1223,7 +1231,7 @@ class PLI(QGraphicsRectItem):
         partList.insert(0, tallestPart)
 
         # This rect will be enlarged as needed
-        b = QRectF(0, 0, -1, -1)
+        pliBox = QRectF(0, 0, -1, -1)
 
         overallX = maxX = xMargin = PLI.margin.x()
         overallY = maxY = yMargin = PLI.margin.y()
@@ -1238,32 +1246,29 @@ class PLI(QGraphicsRectItem):
             newWidth = item.rect().width()
             if i > 0:
                 prevItem = partList[i-1]
-                remainingHeight = b.height() - yMargin - yMargin - prevItem.rect().height()
+                remainingHeight = pliBox.height() - prevItem.pos().y() - prevItem.rect().height() - yMargin - yMargin 
                 if item.rect().height() < remainingHeight:
                     overallX = prevItem.pos().x()
                     newWidth = prevItem.rect().width()
                     x = overallX + (newWidth - item.rect().width())
-                    y = prevItem.pos().y() + PLI.margin.y() + item.rect().height()
+                    y = prevItem.pos().y() + prevItem.rect().height() + yMargin
                     item.setPos(x, y)
 
-            # Increase overall x, box width and box height to make PLI box big enough for this part
+            # Increase overall x, to make PLI box big enough for this part
             overallX += newWidth + xMargin
-            maxX = max(maxX, overallX)
-
-            # If this part pushes this PLI beyond the steps right edge, wrap to new line
+ 
+            # If this part pushes this PLI beyond the step's right edge, wrap to new line           
             if overallX > self.parentItem().rect().width():
                 overallX = xMargin
-                maxX -= newWidth + xMargin
-                overallY += b.height() - yMargin
-                maxY += overallY - yMargin
+                overallY = pliBox.height()
                 item.setPos(overallX, overallY)
                 overallX += newWidth + xMargin
             
-            b.setWidth(maxX)
-
-            maxY = max(maxY, item.rect().height() + yMargin + yMargin)
-            b.setHeight(maxY)
-            self.setRect(b)
+            maxX = max(maxX, overallX)
+            maxY = max(maxY, overallY + item.rect().height() + yMargin)
+            pliBox.setWidth(maxX)
+            pliBox.setHeight(maxY)
+            self.setRect(pliBox)
 
 class CSI(QGraphicsPixmapItem):
     """
@@ -1519,9 +1524,9 @@ class PartOGL(object):
         elif isValidQuadLine(line):
             self.addPrimitive(lineToQuad(line), GL_QUADS)
 
-    def addPart(self, p, line, lastStep = None):
+    def addPart(self, p, line, lastStepNumber = 1):
         try:
-            part = Part(p['filename'], p['color'], p['matrix'], lastStep = lastStep)
+            part = Part(p['filename'], p['color'], p['matrix'], lastStepNumber = lastStepNumber)
         except IOError:
             print "Could not find file: %s - Ignoring." % p['filename']
             return
@@ -1820,8 +1825,11 @@ class Submodel(PartOGL):
         return self.currentPage
 
     def addPart(self, p, line):
-        lastStep = self.pages[-1].steps[-1].number if self.pages and self.pages[-1].steps else None
-        part = PartOGL.addPart(self, p, line, lastStep)
+        lastStepNumber = self.pages[-1].steps[-1].number if self.pages and self.pages[-1].steps else 1
+        part = PartOGL.addPart(self, p, line, lastStepNumber)
+        if not part:
+            return  # Error loading part - part .dat file may not exist
+        
         if self.currentStep is None:
             self.addStep()
         self.currentStep.addPart(part)
@@ -1889,7 +1897,7 @@ class Part(QGraphicsRectItem):
     in one LDraw FILE (5) command.
     """
 
-    def __init__(self, filename, color = 16, matrix = None, invert = False, setPartOGL = True, lastStep = None):
+    def __init__(self, filename, color = 16, matrix = None, invert = False, setPartOGL = True, lastStepNumber = 1):
         QGraphicsRectItem.__init__(self)
         global partDictionary, submodelDictionary
 
@@ -1911,7 +1919,7 @@ class Part(QGraphicsRectItem):
                     Step.NextNumber = 1
                     Page.NextNumber -= 1
                     self.partOGL.loadFromLineArray()
-                    Step.NextNumber = lastStep
+                    Step.NextNumber = lastStepNumber
                     Page.NextNumber += 1
             elif filename in partDictionary:
                 self.partOGL = partDictionary[filename]

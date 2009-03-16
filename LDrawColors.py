@@ -37,19 +37,21 @@ colors = {
     32: [0.39, 0.37, 0.32, 0.90, 'Trans Gray'],
     33: [0.00, 0.13, 0.63, 0.90, 'Trans Blue'],
     34: [0.02, 0.39, 0.20, 0.90, 'Trans Green'],
-    
+    35: [0.00, 0.66, 0.66, 0.80, 'Trans Dark Cyan'],    
     36: [0.77, 0.00, 0.15, 0.90, 'Trans Red'],
     37: [0.39, 0.00, 0.38, 0.80, 'Trans Violet'],
-    
-    40: [0.39, 0.37, 0.32, 0.90, 'Trans Gray'],
+    38: [0.40, 0.20, 0.00, 0.80, 'Trans Brown'],
+    39: [0.59, 0.59, 0.59, 0.80, 'Trans Light Gray'],
+    40: [0.40, 0.40, 0.34, 0.80, 'Trans Dark Gray'],
     41: [0.68, 0.94, 0.93, 0.95, 'Trans Light Cyan'],       
-    42: [0.75, 1.00, 0.00, 0.90, 'Trans Flu Lime'],
-    
+    42: [0.75, 1.00, 0.00, 0.90, 'Trans Lime'],
+    43: [0.33, 0.66, 1.00, 0.80, 'Trans Cyan'],
+    44: [1.00, 0.33, 0.33, 0.80, 'Trans Light Red'],
     45: [0.87, 0.40, 0.58, 0.80, 'Trans Pink'],
     46: [0.79, 0.69, 0.00, 0.90, 'Trans Yellow'],
     47: [1.00, 1.00, 1.00, 0.90, 'Trans White'],
     
-    57: [0.98, 0.38, 0.00, 0.80, 'Trans Flu Orange'],
+    57: [0.98, 0.38, 0.00, 0.80, 'Trans Orange'],
     
     70: [0.41, 0.25, 0.15, 1.0, 'Reddish Brown'],
     71: [0.64, 0.64, 0.64, 1.0, 'Stone Gray'],
@@ -107,14 +109,19 @@ def convertToRGBA(LDrawColorCode):
         return CurrentColor
     if LDrawColorCode == ComplimentColor:
         return ComplimentColor
-    c  = colors[LDrawColorCode][0:-1]
-    return c
+    if LDrawColorCode not in colors:
+        print "Could not find LDraw Color: %d - Using Black." % LDrawColorCode
+        return colors[0][0:-1]
+    return colors[LDrawColorCode][0:-1]
     
 def getColorName(LDrawColorCode):
     if LDrawColorCode == CurrentColor:
         return CurrentColor
     if LDrawColorCode == ComplimentColor:
         return ComplimentColor
+    if LDrawColorCode not in colors:
+        print "Could not find LDraw Color: %d - Using Black." % LDrawColorCode
+        return colors[0][-1]
     return colors[LDrawColorCode][-1]
 
 def complimentColor(LDrawColorCode):
