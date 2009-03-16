@@ -1214,20 +1214,11 @@ class PLI(QGraphicsRectItem):
         for item in self.pliItems:
             item.initLayout()
 
-        # Compare the width of layout Items 1 and 2
-        def compareLayoutItemWidths(item1, item2):
-            """ Returns 1 if part 2 is wider than part 1, 0 if equal, -1 if narrower. """
-            if item1.partOGL.width < item2.partOGL.width:
-                return 1
-            if item1.partOGL.width == item2.partOGL.width:
-                return 0
-            return -1
-
         # Sort the list of parts in this PLI from widest to narrowest, with the tallest one first
         partList = self.pliItems
         tallestPart = max(partList, key = lambda x: x.partOGL.height)
         partList.remove(tallestPart)
-        partList.sort(compareLayoutItemWidths)
+        partList.sort(lambda x, y: cmp(y.partOGL.width, x.partOGL.width))
         partList.insert(0, tallestPart)
 
         # This rect will be enlarged as needed
@@ -1718,7 +1709,7 @@ class Submodel(PartOGL):
         return self.filename
 
     def importModel(self):
-        """ Reads in an LDraw model file and popluates this submodel with the info. """
+        """ Reads in an LDraw model file and populates this submodel with the info. """
 
         global submodelDictionary
         ldrawFile = LDrawFile(self.filename)
@@ -1825,13 +1816,16 @@ class Submodel(PartOGL):
         return self.currentPage
 
     def addPart(self, p, line):
+        
+        # First ensure we have a step in this submodel, so we can add the new part to it.
+        if self.currentStep is None:
+            self.addStep()
+            
         lastStepNumber = self.pages[-1].steps[-1].number if self.pages and self.pages[-1].steps else 1
         part = PartOGL.addPart(self, p, line, lastStepNumber)
         if not part:
             return  # Error loading part - part .dat file may not exist
         
-        if self.currentStep is None:
-            self.addStep()
         self.currentStep.addPart(part)
         if part.isSubmodel() and not part.partOGL.used:
             p = part.partOGL
