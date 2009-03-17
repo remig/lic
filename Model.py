@@ -838,35 +838,33 @@ class Page(QGraphicsRectItem):
     def contextMenuEvent(self, event):
         
         menu = QMenu(self.scene().views()[0])
-        delPage = menu.addAction("Delete this Page", self.removePage)
+        delPage = menu.addAction("Delete this Page", self.deletePage)
         addPageBefore = menu.addAction("Add blank Page before this Page", self.addPageBefore)
         addPageAfter = menu.addAction("Add blank Page after this page", self.addPageAfter)
         menu.exec_(event.screenPos())
     
-    def removePage(self):
+    def deletePage(self):
         if self.steps:
+            #Do not allow pages with steps to be deleted
             QMessageBox.warning(self.scene().views()[0], "Page Delete Error", "Cannot delete a Page that contains Steps.\nRemove or move Steps to a different page first.")
-            return
-
-        self.scene().clearSelection()
-        self.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
-        self._parent.removePage(self)
-        self.instructions.emit(SIGNAL("layoutChanged()"))
-        self.instructions.selectPage(self._number - 1)
+        else:
+            self.scene().emit(SIGNAL("deletePage"), self)
         
     def addPageBefore(self):
+
         self.scene().clearSelection()
-        self.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
-        self._parent.addBlankPageBeforePage(self)
-        self.instructions.emit(SIGNAL("layoutChanged()"))
-        self.instructions.selectPage(self._number - 1)
+        newPage = Page(self.parent(), self.instructions, self.number)
+        newPage._row = self._row
+        self.scene().emit(SIGNAL("addPage"), newPage)
+        self.instructions.selectPage(newPage.number)
     
     def addPageAfter(self):
+        
         self.scene().clearSelection()
-        self.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
-        self._parent.addBlankPageAfterPage(self)
-        self.instructions.emit(SIGNAL("layoutChanged()"))
-        self.instructions.selectPage(self._number + 1)
+        newPage = Page(self.parent(), self.instructions, self.number + 1)
+        newPage._row = self._row + 1
+        self.scene().emit(SIGNAL("addPage"), newPage)
+        self.instructions.selectPage(newPage.number)
 
 class Callout(QGraphicsRectItem):
 
@@ -1138,6 +1136,13 @@ class PLIItem(QGraphicsRectItem):
         self.setRect(pixmapRect | numberRect)
         self.translate(-self.rect().x(), -self.rect().y())
 
+    """        
+    def paint(self, painter, option, widget = None):
+        rect = self.boundingRect()
+        painter.drawRect(rect)
+        QGraphicsRectItem.paint(self, painter, option, widget)
+    """
+
     def createPng(self):
 
         part = self.partOGL
@@ -1160,13 +1165,6 @@ class PLIItem(QGraphicsRectItem):
         povFile = l3p.createPovFromDat(datFile, self.color)
         pngFile = povray.createPngFromPov(povFile, part.width, part.height, part.center, PLI.scale, isPLIItem = True)
         self.pngImage = QImage(pngFile)
-
-"""        
-    def paint(self, painter, option, widget = None):
-        rect = self.boundingRect()
-        painter.drawRect(rect)
-        QGraphicsRectItem.paint(self, painter, option, widget)
-"""
 
 class PLI(QGraphicsRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
@@ -1782,14 +1780,15 @@ class Submodel(PartOGL):
         return pageCount
 
     def addStep(self):
-        page = self.addBlankPage()
+        page = self.appendBlankPage()
         self.currentStep = Step(page, -1, self.currentCSI)
         if self.currentCSI:
             self.currentCSI.nextCSI = self.currentStep.csi
         self.currentCSI = self.currentStep.csi
         page.addStep(self.currentStep)
         
-    def addBlankPage(self):
+    def appendBlankPage(self):
+        
         page = Page(self, self.instructions)
         if not self.pages and not self.submodels:
             page._row = 0
@@ -1798,36 +1797,25 @@ class Submodel(PartOGL):
         self.pages.append(page)
         return page
     
-    def addBlankPageAfterPage(self, page):
+    def addPage(self, page):
         
-        for p in self.pages[page._row + 1 : ]:
-            p._row += 1
-    
-        self.instructions.updatePageNumbers(page.number + 1)
-
-        newPage = Page(self, self.instructions, page.number + 1)
-        newPage._row = page._row + 1
-        self.pages.insert(self.pages.index(page) + 1, newPage)
-        
-    def addBlankPageBeforePage(self, page):
-
         for p in self.pages[page._row : ]:
             p._row += 1
-    
-        self.instructions.updatePageNumbers(page.number)
+
+        page._parent = self
+        if page not in self.instructions.scene.items():
+            self.instructions.scene.addItem(page)
         
-        newPage = Page(self, self.instructions, page.number - 1)
-        newPage._row = page._row - 1
-        self.pages.insert(self.pages.index(page), newPage)
-    
-    def removePage(self, page):
+        self.instructions.updatePageNumbers(page.number)
+        self.pages.insert(page._row, page)
+
+    def deletePage(self, page):
 
         for p in self.pages[page._row + 1 : ]:
             p._row -= 1
 
         page.scene().removeItem(page)
         self.pages.remove(page)
-
         self.instructions.updatePageNumbers(page.number, -1)
         
     def updatePageNumbers(self, newNumber, increment = 1):
