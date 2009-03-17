@@ -486,9 +486,9 @@ class Instructions(QAbstractItemModel):
             self.mainModel.selectPage(pageNumber)
             self.mainModel.currentPage.setSelected(True)
         
-    def updatePageNumbers(self, newNumber):
+    def updatePageNumbers(self, newNumber, increment = 1):
         if self.mainModel:
-            self.mainModel.updatePageNumbers(newNumber)
+            self.mainModel.updatePageNumbers(newNumber, increment)
 
     def setCSIPLISize(self, newCSISize, newPLISize):
 
@@ -1820,6 +1820,16 @@ class Submodel(PartOGL):
         newPage._row = page._row - 1
         self.pages.insert(self.pages.index(page), newPage)
     
+    def removePage(self, page):
+
+        for p in self.pages[page._row + 1 : ]:
+            p._row -= 1
+
+        page.scene().removeItem(page)
+        self.pages.remove(page)
+
+        self.instructions.updatePageNumbers(page.number, -1)
+        
     def updatePageNumbers(self, newNumber, increment = 1):
         
         for p in self.pages:
@@ -1829,21 +1839,6 @@ class Submodel(PartOGL):
         for submodel in self.submodels:
             submodel.updatePageNumbers(newNumber, increment)
         
-    def removePage(self, page):
-        #TODO: This is broken for nested submodel (viper.lic)
-
-        if page in self.pages:
-            page.scene().removeItem(page)
-            self.pages.remove(page)
-
-        for p in self.pages:
-            if p.number > page.number:
-                p.number -= 1
-                p._row -= 1
-
-        for submodel in self.submodels:
-            submodel.removePage(page)
-
     def deleteAllPages(self, scene):
         for page in self.pages:
             scene.removeItem(page)
