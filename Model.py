@@ -486,6 +486,10 @@ class Instructions(QAbstractItemModel):
             self.mainModel.selectPage(pageNumber)
             self.mainModel.currentPage.setSelected(True)
         
+    def updatePageNumbers(self, newNumber):
+        if self.mainModel:
+            self.mainModel.updatePageNumbers(newNumber)
+
     def setCSIPLISize(self, newCSISize, newPLISize):
 
         print "Setting size to: %d, %d" % (newCSISize, newPLISize)
@@ -835,6 +839,8 @@ class Page(QGraphicsRectItem):
         
         menu = QMenu(self.scene().views()[0])
         delPage = menu.addAction("Delete this Page", self.removePage)
+        addPageBefore = menu.addAction("Add blank Page before this Page", self.addPageBefore)
+        addPageAfter = menu.addAction("Add blank Page after this page", self.addPageAfter)
         menu.exec_(event.screenPos())
     
     def removePage(self):
@@ -847,6 +853,20 @@ class Page(QGraphicsRectItem):
         self._parent.removePage(self)
         self.instructions.emit(SIGNAL("layoutChanged()"))
         self.instructions.selectPage(self._number - 1)
+        
+    def addPageBefore(self):
+        self.scene().clearSelection()
+        self.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        self._parent.addBlankPageBeforePage(self)
+        self.instructions.emit(SIGNAL("layoutChanged()"))
+        self.instructions.selectPage(self._number - 1)
+    
+    def addPageAfter(self):
+        self.scene().clearSelection()
+        self.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        self._parent.addBlankPageAfterPage(self)
+        self.instructions.emit(SIGNAL("layoutChanged()"))
+        self.instructions.selectPage(self._number + 1)
 
 class Callout(QGraphicsRectItem):
 
@@ -1778,10 +1798,39 @@ class Submodel(PartOGL):
         self.pages.append(page)
         return page
     
-    def addPage(self, page):
-        pass
+    def addBlankPageAfterPage(self, page):
+        
+        for p in self.pages[page._row + 1 : ]:
+            p._row += 1
     
+        self.instructions.updatePageNumbers(page.number + 1)
+
+        newPage = Page(self, self.instructions, page.number + 1)
+        newPage._row = page._row + 1
+        self.pages.insert(self.pages.index(page) + 1, newPage)
+        
+    def addBlankPageBeforePage(self, page):
+
+        for p in self.pages[page._row : ]:
+            p._row += 1
+    
+        self.instructions.updatePageNumbers(page.number)
+        
+        newPage = Page(self, self.instructions, page.number - 1)
+        newPage._row = page._row - 1
+        self.pages.insert(self.pages.index(page), newPage)
+    
+    def updatePageNumbers(self, newNumber, increment = 1):
+        
+        for p in self.pages:
+            if p.number >= newNumber:
+                p.number += increment
+                
+        for submodel in self.submodels:
+            submodel.updatePageNumbers(newNumber, increment)
+        
     def removePage(self, page):
+        #TODO: This is broken for nested submodel (viper.lic)
 
         if page in self.pages:
             page.scene().removeItem(page)
@@ -1790,6 +1839,7 @@ class Submodel(PartOGL):
         for p in self.pages:
             if p.number > page.number:
                 p.number -= 1
+                p._row -= 1
 
         for submodel in self.submodels:
             submodel.removePage(page)
@@ -2135,6 +2185,7 @@ class Part(QGraphicsRectItem):
                 partList.append((item, oldPos, newPos))
                 
         if partList:
+            # Emit displace part undo signal
             self.scene().emit(SIGNAL("displacePart"), partList)
 
 class Arrow(Part):

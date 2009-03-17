@@ -385,6 +385,7 @@ class LicWindow(QMainWindow):
             return
         self.instructions.clear()
         self.filename = ""
+        # TODO: Redraw background, to clear up any leftover drawing bits
 
     def offerSave(self):
         """ 
