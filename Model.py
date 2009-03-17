@@ -643,6 +643,30 @@ class Page(QGraphicsRectItem):
         if relayout:
             self.initLayout()
 
+    def addBlankStep(self):
+        
+        number = -1
+        if self.steps:
+            number = self.steps[-1].number + 1
+        else:
+            for p in self.parent().pages[self._row + 1 : ]:  # Look forward through pages
+                if p.steps and number < 0:
+                    number = p.steps[0].number
+            if number < 0:
+                for p in reversed(self.parent().pages[ : self._row]):  # Look back
+                    if p.steps and number < 0:
+                        number = p.steps[-1].number + 1
+        
+        if number < 0:
+            number = 1
+            
+        self.parent().updateStepNumbers(number)
+        
+        newStep = Step(self, number)
+        self.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.addStep(newStep, True)
+        self.instructions.emit(SIGNAL("layoutChanged()"))
+    
     def deleteStep(self, step, relayout = False):
 
         step.setSelected(False)
@@ -838,9 +862,11 @@ class Page(QGraphicsRectItem):
     def contextMenuEvent(self, event):
         
         menu = QMenu(self.scene().views()[0])
-        delPage = menu.addAction("Delete this Page", self.deletePage)
-        addPageBefore = menu.addAction("Add blank Page before this Page", self.addPageBefore)
-        addPageAfter = menu.addAction("Add blank Page after this page", self.addPageAfter)
+        delPage = menu.addAction("Delete Page", self.deletePage)
+        addPageBefore = menu.addAction("Add blank Page before", self.addPageBefore)
+        addPageAfter = menu.addAction("Add blank Page after", self.addPageAfter)
+        sep = menu.addSeparator()
+        addStep = menu.addAction("Add blank Step", self.addBlankStep)
         menu.exec_(event.screenPos())
     
     def deletePage(self):
@@ -1818,6 +1844,12 @@ class Submodel(PartOGL):
         self.pages.remove(page)
         self.instructions.updatePageNumbers(page.number, -1)
         
+    def updateStepNumbers(self, newNumber, increment = 1):
+        for p in self.pages:
+            for s in p.steps:
+                if s.number >= newNumber:
+                    s.number += increment
+
     def updatePageNumbers(self, newNumber, increment = 1):
         
         for p in self.pages:
