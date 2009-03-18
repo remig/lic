@@ -64,9 +64,6 @@ def __readInstructions(stream, instructions):
 
     __linkModelPartNames(instructions.mainModel)
 
-    for csi in instructions.mainModel.getCSIList():
-        __linkPrevCSI(csi, instructions.mainModel)
-
     for submodel in submodelDictionary.values():
         if submodel._parent == "":
             submodel._parent = instructions
@@ -207,13 +204,16 @@ def __readStep(stream, parentPage):
     stream >> pos >> rect
 
     number = stream.readInt32()
-    step = Step(parentPage, number, None)
+    step = Step(parentPage, number)
     step.setPos(pos)
     step.setRect(rect)
 
     stream >> pos >> font
     step.numberItem.setPos(pos)
     step.numberItem.setFont(font)
+    
+    step.maxRect = QRectF()
+    stream >> step.maxRect
 
     step.csi = __readCSI(stream, step)
     step.pli = __readPLI(stream, step)
@@ -232,10 +232,6 @@ def __readCSI(stream, step):
     pixmap = QPixmap()
     stream >> pixmap
     csi.setPixmap(pixmap)
-
-    prevPageNumber = stream.readInt32()
-    prevStepNumber = stream.readInt32()    
-    csi.prevCSI = (prevPageNumber, prevStepNumber)
 
     global partDictionary, submodelDictionary
     partCount = stream.readInt32()
@@ -336,28 +332,3 @@ def __linkModelPartNames(model):
             part.partOGL.used = True
         else:
             print "LOAD ERROR: could not find a partOGL for part: " + part.filename
-
-def __linkPrevCSI(csi, mainModel):
-
-    if not isinstance(csi.prevCSI, tuple) or len(csi.prevCSI) != 2:
-        print "LOAD ERROR: linking prev CSIs - prevCSI isn't a tuple, it's a %s" % str(type(csi.prevCSI))
-        return
-    
-    prevPageNumber, prevStepNumber = csi.prevCSI
-    
-    csi.prevCSI = None
-    if prevPageNumber == 0 and prevStepNumber == 0:
-        return  # This is the first CSI; its previous is expected to be None
-        
-    prevPage = mainModel.getPage(prevPageNumber)
-    prevStep = None
-    for step in prevPage.steps:
-        if step.number == prevStepNumber:
-            prevStep = step
-            break
-        
-    if not prevStep:
-        print "LOAD ERROR: linking prev CSI: could not find step %d on page %d" % (prevStepNumber, prevPageNumber)
-        return
-
-    csi.prevCSI = step.csi

@@ -92,6 +92,7 @@ Step:
   int32 number
   QPointf number.pos
   QFont number.font
+  QRectf maxRect
   CSI csi
   PLI pli
 
@@ -101,8 +102,6 @@ CSI:
   int32 height
   QPointF center
   QPixmap pixmap
-  int32 prevPageNumber
-  int32 prevStepNumber
   int32 number of parts
   ... Part 0..n ...
 

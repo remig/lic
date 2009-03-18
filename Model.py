@@ -904,13 +904,14 @@ class Step(QGraphicsRectItem):
 
     NextNumber = 1
 
-    def __init__(self, parentPage, number = -1, prevCSI = None):
+    def __init__(self, parentPage, number = -1):
         QGraphicsRectItem.__init__(self, parentPage)
 
-        self.csi = CSI(self, prevCSI)
+        self.csi = CSI(self)
         self.pli = PLI(self)
         self.callout = None
         self.numberItem = None
+        self.maxRect = None
 
         pen = self.pen()
         pen.setStyle(Qt.NoPen)
@@ -973,8 +974,19 @@ class Step(QGraphicsRectItem):
         stepRect = self.rect()
         childrenRect = self.childrenBoundingRect()
         self.setRect(stepRect | childrenRect)
+    
+    def getNextStep(self):
+        return self.parent().parent().getStep(self.number + 1)
+
+    def getPrevStep(self):
+        return self.parent().parent().getStep(self.number - 1)
         
-    def initLayout(self, destRect):
+    def initLayout(self, destRect = None):
+
+        if destRect:
+            self.maxRect = destRect
+        else:
+            destRect = self.maxRect
 
         self.setPos(destRect.topLeft())
         self.setRect(0, 0, destRect.width(), destRect.height())
@@ -1049,10 +1061,10 @@ class Step(QGraphicsRectItem):
         page.instructions.emit(SIGNAL("layoutChanged()"))
     
     def mergeWithPrevStep(self):
-        print "Merging Step %d with previous Step" % self._number
+        print "Merging Step %d with previous Step - NYI" % self._number
     
     def mergeWithNextStep(self, args = None):
-        print "Merging Step %d with next Step" % self._number
+        print "Merging Step %d with next Step - NYI" % self._number
 
 class PLIItem(QGraphicsRectItem):
     """ Represents one part inside a PLI along with its quantity label. """
@@ -1322,7 +1334,7 @@ class CSI(QGraphicsPixmapItem):
 
     scale = 1.0
 
-    def __init__(self, step, prevCSI = None, nextCSI = None):
+    def __init__(self, step):
         QGraphicsPixmapItem.__init__(self, step)
 
         self.center = QPointF()
@@ -1330,8 +1342,6 @@ class CSI(QGraphicsPixmapItem):
         self.oglDispID = UNINIT_OGL_DISPID
         self.setFlags(AllFlags)
         
-        self.prevCSI = prevCSI
-        self.nextCSI = nextCSI
         self.parts = []
 
     def parent(self):
@@ -1355,8 +1365,9 @@ class CSI(QGraphicsPixmapItem):
     def __callPreviousOGLDisplayLists(self, isCurrent = False):
 
         # Call all previous step's CSI display list
-        if self.prevCSI:
-            self.prevCSI.__callPreviousOGLDisplayLists(False)
+        prevStep = self.parent().getPrevStep()
+        if prevStep:
+            prevStep.csi.__callPreviousOGLDisplayLists(False)
 
         # Draw all the parts in this CSI
         for part in self.parts:
@@ -1375,7 +1386,7 @@ class CSI(QGraphicsPixmapItem):
         global GlobalGLContext
         GlobalGLContext.makeCurrent()
 
-        self.createOGLDisplayList()
+        self.createOGLDisplayList()  #TODO: Is this necessary??  Seems expensive and excessive
 
         pBuffer = QGLPixelBuffer(self.width * CSI.scale, self.height * CSI.scale, QGLFormat(), GlobalGLContext)
         pBuffer.makeCurrent()
@@ -1402,6 +1413,9 @@ class CSI(QGraphicsPixmapItem):
     def resetPixmap(self):
         global GlobalGLContext
         GlobalGLContext.makeCurrent()
+
+        if self.oglDispID == UNINIT_OGL_DISPID:
+            self.createOGLDisplayList()
 
         sizes = [512, 1024, 2048]
 
@@ -1499,18 +1513,13 @@ class CSI(QGraphicsPixmapItem):
         self.pngImage = QImage(pngFile)
         
     def exportToLDrawFile(self, fh):
-        if self.prevCSI:
-            self.prevCSI.exportToLDrawFile(fh)
+        prevStep = self.parent().getPrevStep()  #TODO: Need to test this new non prevCSI code
+        if prevStep:
+            prevStep.csi.exportToLDrawFile(fh)
             
         for part in self.parts:
             part.exportToLDrawFile(fh)
 
-    def getPrevPageStepNumberPair(self):
-        if self.prevCSI:
-            return self.prevCSI.getPageStepNumberPair()
-        else:
-            return (0, 0)
-    
     def getPageStepNumberPair(self):
         step = self.parentItem()
         page = step.parentItem()
@@ -1802,9 +1811,7 @@ class Submodel(PartOGL):
 
     def addStep(self):
         page = self.appendBlankPage()
-        self.currentStep = Step(page, -1, self.currentCSI)
-        if self.currentCSI:
-            self.currentCSI.nextCSI = self.currentStep.csi
+        self.currentStep = Step(page, -1)
         self.currentCSI = self.currentStep.csi
         page.addStep(self.currentStep)
         
@@ -1860,6 +1867,18 @@ class Submodel(PartOGL):
             del(page)
         for submodel in self.submodels:
             submodel.deleteAllPages(scene)
+
+    def getStep(self, stepNumber):
+        for page in self.pages:
+            for step in page.steps:
+                if step.number == stepNumber:
+                    return step
+                
+        for submodel in self.submodels:
+            step = submodel.getPrevStep(pageNumber)
+            if step:
+                return step
+        return None
 
     def getPage(self, pageNumber):
         for page in self.pages:
@@ -2092,10 +2111,12 @@ class Part(QGraphicsRectItem):
         
         menu = QMenu(self.scene().views()[0])
         
-        if self._parentCSI.prevCSI:
+        if self._parentCSI.parent().getPrevStep():
             menu.addAction("Move Part to &Previous Step", self.moveToPrevStep)
             
-        menu.addAction("Move Part to &Next Step", self.moveToNextStep)
+        if self._parentCSI.parent().getNextStep():
+            menu.addAction("Move Part to &Next Step", self.moveToNextStep)
+
         menu.addSeparator()
 
 #        if selectedParts:
@@ -2117,21 +2138,25 @@ class Part(QGraphicsRectItem):
 
     def moveToPrevStep(self):
 
-        prevCSI = self._parentCSI.prevCSI
-        if not prevCSI:
+        step = self._parentCSI.parent()
+        prevStep = step.getPrevStep()
+
+        if not prevStep:
             print "ERROR: Trying to move a part to the previous step that does not exist"
             return
 
-        self.moveToStep(prevCSI.parentItem())
+        self.moveToStep(prevStep)
 
     def moveToNextStep(self):
+        
+        step = self._parentCSI.parent()
+        nextStep = step.getNextStep()
 
-        nextCSI = self._parentCSI.nextCSI
-        if not nextCSI:
+        if not nextStep:
             print "ERROR: Trying to move a part to the next step that does not exist"
             return
 
-        self.moveToStep(nextCSI.parentItem())
+        self.moveToStep(nextStep)
 
     def moveToStep(self, step):
         
@@ -2139,13 +2164,13 @@ class Part(QGraphicsRectItem):
         self.scene().clearSelection()
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
 
-        self._parentPLI.removePart(self)  # Remove part from any PLIItem its in
-        self._parentCSI.removePart(self)  # Remove part from any CSI its in
+        self._parentPLI.removePart(self)
+        self._parentCSI.removePart(self)
 
-        # Add this part to the specified step, then reset CSI pixmap and PLI layout
         step.addPart(self)
         step.csi.resetPixmap()
         step.pli.initLayout()
+        step.initLayout()
 
         self.scene().emit(SIGNAL("layoutChanged()"))
 

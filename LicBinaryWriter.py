@@ -140,6 +140,7 @@ def __writeStep(stream, step):
     stream << step.pos() << step.rect()
     stream.writeInt32(step.number)
     stream << step.numberItem.pos() << step.numberItem.font()
+    stream << step.maxRect
 
     __writeCSI(stream, step.csi)
     __writePLI(stream, step.pli)
@@ -151,10 +152,6 @@ def __writeCSI(stream, csi):
     stream << csi.center
     stream << csi.pixmap()
     
-    prevPageNumber, prevStepNumber = csi.getPrevPageStepNumberPair()
-    stream.writeInt32(prevPageNumber)
-    stream.writeInt32(prevStepNumber)
-
     stream.writeInt32(len(csi.parts))
     for part in csi.parts:
         __writePart(stream, part)
