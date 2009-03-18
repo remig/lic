@@ -216,3 +216,22 @@ class DeletePageCommand(QUndoCommand):
         p.instructions.emit(SIGNAL("layoutChanged()"))
         p.instructions.selectPage(p.number - 1)
 
+class MovePartToStepCommand(QUndoCommand):
+
+    """
+    MovePartToStepCommand stores a part, step it was from and step it was moved to
+    (part, oldStep, newStep)
+    """
+
+    _id = getNewCommandID()
+
+    def __init__(self, partSet):
+        QUndoCommand.__init__(self, "Undo the last Part to Step movement")
+        self.part, self.oldStep, self.newStep = partSet
+
+    def undo(self):
+        self.part.moveToStep(self.oldStep)
+
+    def redo(self):
+        self.part.moveToStep(self.newStep)
+

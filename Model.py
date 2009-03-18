@@ -1370,22 +1370,29 @@ class CSI(QGraphicsPixmapItem):
 
         # Draw all the parts in this CSI
         for part in self.parts:
-            part.callOGLDisplayList(isCurrent)
+            part.callGLDisplayList(isCurrent)
 
     def createOGLDisplayList(self):
+        """
+        Create a display list that includes all previous CSIs plus this one,
+        for a single display list giving a full model rendering up to this step.
+        """
 
-        # Create a display list that includes all previous CSIs plus this one,
-        # for a single display list giving a full model rendering up to this step.
+        # If we've already created a list here, free it first
+        if self.oglDispID != UNINIT_GL_DISPID:
+            GL.glDeleteLists(self.oglDispID, 1)
+            
         self.oglDispID = GL.glGenLists(1)
         GL.glNewList(self.oglDispID, GL.GL_COMPILE)
         self.__callPreviousOGLDisplayLists(True)
         GL.glEndList()
 
-    def updatePixmap(self):
+    def updatePixmap(self, rebuildDisplayList = True):
         global GlobalGLContext
         GlobalGLContext.makeCurrent()
 
-        self.createOGLDisplayList()  #TODO: Is this necessary??  Seems expensive and excessive
+        if rebuildDisplayList or self.oglDispID == UNINIT_GL_DISPID:
+            self.createOGLDisplayList()
 
         pBuffer = QGLPixelBuffer(self.width * CSI.scale, self.height * CSI.scale, QGLFormat(), GlobalGLContext)
         pBuffer.makeCurrent()
@@ -1406,15 +1413,14 @@ class CSI(QGraphicsPixmapItem):
         # Generate new pixmap at new larger size
         self.updatePixmap()
 
-        # Move pixmap to compensate for new sizem, so we don't actually move the CSI itself
+        # Move pixmap to compensate for new size, so we don't actually move the CSI itself
         self.translate(-dx, -dy)
 
     def resetPixmap(self):
         global GlobalGLContext
         GlobalGLContext.makeCurrent()
 
-        if self.oglDispID == UNINIT_GL_DISPID:
-            self.createOGLDisplayList()
+        self.createOGLDisplayList()
 
         sizes = [512, 1024, 2048]
 
@@ -1428,7 +1434,7 @@ class CSI(QGraphicsPixmapItem):
                 break
 
         self.resetTransform()
-        self.updatePixmap()
+        self.updatePixmap(False)
         self.initLayout()
         GlobalGLContext.makeCurrent()
 
@@ -1478,7 +1484,7 @@ class CSI(QGraphicsPixmapItem):
         if params is None:
             return False
 
-        self.width, self.height, self.center, x, y = params  # x & y are just ignored placeholders
+        self.width, self.height, self.center, x, y = params  # x & y are just ignored place-holders
         return result
 
     def initPixmap(self, pBuffer):
@@ -1605,10 +1611,10 @@ class PartOGL(object):
         GL.glNewList(self.oglDispID, GL.GL_COMPILE)
 
         for part in self.parts:
-            part.callOGLDisplayList()
+            part.callGLDisplayList()
 
         for primitive in self.primitives:
-            primitive.callOGLDisplayList()
+            primitive.callGLDisplayList()
 
         GL.glEndList()
 
@@ -2034,7 +2040,7 @@ class Part(QGraphicsRectItem):
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
 
-    def callOGLDisplayList(self, useDisplacement = False):
+    def callGLDisplayList(self, useDisplacement = False):
 
         # must be called inside a glNewList/EndList pair
         color = LDrawColors.convertToRGBA(self.color)
@@ -2143,25 +2149,17 @@ class Part(QGraphicsRectItem):
 
         step = self._parentCSI.parent()
         prevStep = step.getPrevStep()
-
-        if not prevStep:
-            print "ERROR: Trying to move a part to the previous step that does not exist"
-            return
-
-        self.moveToStep(prevStep)
+        self.scene().emit(SIGNAL("movePartToStep"), (self, step, prevStep))
 
     def moveToNextStep(self):
         
         step = self._parentCSI.parent()
         nextStep = step.getNextStep()
-
-        if not nextStep:
-            print "ERROR: Trying to move a part to the next step that does not exist"
-            return
-
-        self.moveToStep(nextStep)
+        self.scene().emit(SIGNAL("movePartToStep"), (self, step, nextStep))
 
     def moveToStep(self, step):
+        
+        oldStep = self._parentCSI.parent()
         
         self.setSelected(False)
         self.scene().clearSelection()
@@ -2172,6 +2170,7 @@ class Part(QGraphicsRectItem):
 
         step.addPart(self)
         step.csi.resetPixmap()
+        oldStep.csi.resetPixmap()
         step.pli.initLayout()
         step.initLayout()
 
@@ -2271,7 +2270,7 @@ class Arrow(Part):
         elif direction == Qt.Key_Right:
             self.rotation = [-1.0, 0.0, 0.0]
     
-    def callOGLDisplayList(self, useDisplacement = False):
+    def callGLDisplayList(self, useDisplacement = False):
 
         # must be called inside a glNewList/EndList pair
         color = LDrawColors.convertToRGBA(self.color)
@@ -2341,7 +2340,7 @@ class Primitive(object):
             Az /= l
         return [Ax, Ay, Az]
 
-    def callOGLDisplayList(self):
+    def callGLDisplayList(self):
 
         # must be called inside a glNewList/EndList pair
         color = LDrawColors.convertToRGBA(self.color)
