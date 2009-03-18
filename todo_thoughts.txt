@@ -5,7 +5,7 @@ Thoughts on displacing parts:
 - For the problem where a part being moved falls out of the CSI bounds: as soon as we enter
   'part displacement mode', enlarge and regenerate the CSI to as big as the page, behind
   everything else.  That gives the part maximal room to be moved in.  As soon as we
-  exit 'part displacment mode', recalculate the size of the new CSI, and draw that.
+  exit 'part displacement mode', recalculate the size of the new CSI, and draw that.
   
   - This require better support for a real 'part displacement mode'
   - Hopefully, regenerating the CSI at a big size like that is fast enough...
@@ -13,16 +13,13 @@ Thoughts on displacing parts:
 - For context menus: could add a 'Reposition...' menu, which has options like 'Center
   CSI Vertically in page', etc.  Or just use guides with snap-to?
 
-- Gods, so very much possibility, so very much still to do...
+- Ye Gods, so very much possibility, so very much still to do...
 
 - Generate images at any arbitrary size
 - Need to give user a way to specify:
   - Instruction image size
   - Paths to required apps (LDraw, L3P, Pov-Ray)
 
-- Use new style classes that inherit from 'object'
-- Change opengl import to from OpenGL import GL, then qualify all GL code with GL.
-- Rename all opengl variables from ogl to just gl
 - Surround 3rd party imports in try...catch blocks
 
 Eventually:
@@ -30,7 +27,7 @@ Eventually:
   - Add parts to that one global cache, so cache can be shared by all renderings of that size
   - Not a priority, since calculating part sizes is usually only a few seconds, at most
 
-TODO: Remove all the annoying as hell '?' from all the snall dialog title bars.
+TODO: Remove all the annoying as hell '?' from all the small dialog title bars.
 
 TODO: Only create config paths when a file is about to be exported.  No sense creating them on model import!
 
@@ -52,3 +49,14 @@ Lic thoughts on default vs. local settings.
 - Provide one 'default' instruction page, as a sample page, where the user can
 set all the defaults for the overall document.
 
+- Model.py: 1737: maybe possibly do not pass comment / unrecognized lines to PartOGL._loadOneLDrawLineCommand
+
+- Inspect why viper.mpd page 1 & 2 take so long to import
+
+- Add status indicator to file->open operation
+
+- Add recently opened file list
+
+- step.setSelected(True) selects step in graphics view but not tree view (InsertStepCommand)
+
+- Should automate creating tiny undoStack.push functions for each undo / redo signal created in Lic.LicWindow

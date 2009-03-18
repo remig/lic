@@ -16,16 +16,6 @@ import povray
 import LicDialogs
 import LicUndoActions
 
-try:
-    from OpenGL.GL import *
-except ImportError:
-    app = QApplication(sys.argv)
-    QMessageBox.critical(None, "Lic 0.1",
-                         "PyOpenGL must be installed to run Lic.",
-                         QMessageBox.Ok | QMessageBox.Default,
-                         QMessageBox.NoButton)
-    sys.exit(1)
-
 __version__ = 0.1
 PageSize = QSize(800, 600)
 

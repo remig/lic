@@ -129,7 +129,7 @@ def __readPrimitive(stream):
     invert = stream.readBool()
     color = stream.readInt32()
     type = stream.readInt16()
-    count = 9 if type == GL_TRIANGLES else 12
+    count = 9 if type == GL.GL_TRIANGLES else 12
     points = []
     for i in range(0, count):
         points.append(stream.readFloat())

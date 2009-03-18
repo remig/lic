@@ -1,3 +1,13 @@
+try:
+    from OpenGL.GL import *
+except ImportError:
+    app = QApplication(sys.argv)
+    QMessageBox.critical(None, "Lic 0.1",
+                         "PyOpenGL must be installed to run Lic.",
+                         QMessageBox.Ok | QMessageBox.Default,
+                         QMessageBox.NoButton)
+    sys.exit(1)
+
 def position(self):
     point = self.mapFromGlobal(QCursor.pos())
     if not self.view.geometry().contains(point):

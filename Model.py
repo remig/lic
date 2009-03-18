@@ -1,8 +1,7 @@
 import math   # for sqrt
 import os     # for output path creation
 
-from OpenGL.GL import *
-from OpenGL.GLU import *
+from OpenGL import GL
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -20,7 +19,7 @@ FileVersion = 1
 
 PageSize = QSize(800, 600)
 
-UNINIT_OGL_DISPID = -1
+UNINIT_GL_DISPID = -1
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 submodelDictionary = {}  # {'filename': Submodel()}
 currentModelFilename = ""
@@ -1339,7 +1338,7 @@ class CSI(QGraphicsPixmapItem):
 
         self.center = QPointF()
         self.width = self.height = 0
-        self.oglDispID = UNINIT_OGL_DISPID
+        self.oglDispID = UNINIT_GL_DISPID
         self.setFlags(AllFlags)
         
         self.parts = []
@@ -1377,10 +1376,10 @@ class CSI(QGraphicsPixmapItem):
 
         # Create a display list that includes all previous CSIs plus this one,
         # for a single display list giving a full model rendering up to this step.
-        self.oglDispID = glGenLists(1)
-        glNewList(self.oglDispID, GL_COMPILE)
+        self.oglDispID = GL.glGenLists(1)
+        GL.glNewList(self.oglDispID, GL.GL_COMPILE)
         self.__callPreviousOGLDisplayLists(True)
-        glEndList()
+        GL.glEndList()
 
     def updatePixmap(self):
         global GlobalGLContext
@@ -1414,7 +1413,7 @@ class CSI(QGraphicsPixmapItem):
         global GlobalGLContext
         GlobalGLContext.makeCurrent()
 
-        if self.oglDispID == UNINIT_OGL_DISPID:
+        if self.oglDispID == UNINIT_GL_DISPID:
             self.createOGLDisplayList()
 
         sizes = [512, 1024, 2048]
@@ -1463,7 +1462,7 @@ class CSI(QGraphicsPixmapItem):
         """
         global currentModelFilename
 
-        if self.oglDispID == UNINIT_OGL_DISPID:
+        if self.oglDispID == UNINIT_GL_DISPID:
             print "ERROR: Trying to init a CSI size that has no display list"
             return False
         
@@ -1493,7 +1492,7 @@ class CSI(QGraphicsPixmapItem):
         GLHelpers.adjustGLViewport(0, 0, w, h)
         GLHelpers.rotateToDefaultView(x, y, 0.0, CSI.scale)
 
-        glCallList(self.oglDispID)
+        GL.glCallList(self.oglDispID)
 
         image = pBuffer.toImage()
         self.setPixmap(QPixmap.fromImage(image))
@@ -1537,11 +1536,11 @@ class PartOGL(object):
     def __init__(self, filename = None, loadFromFile = False):
 
         self.name = self.filename = filename
-        self.inverted = False  # TODO: Fix this! inverted = GL_CW
+        self.inverted = False  # TODO: Fix this! inverted = GL.GL_CW
         self.invertNext = False
         self.parts = []
         self.primitives = []
-        self.oglDispID = UNINIT_OGL_DISPID
+        self.oglDispID = UNINIT_GL_DISPID
         self.isPrimitive = False  # primitive here means any file in 'P'
         self.isSubmodel = False
 
@@ -1573,10 +1572,10 @@ class PartOGL(object):
             self.addPart(lineToPart(line), line)
 
         elif isValidTriangleLine(line):
-            self.addPrimitive(lineToTriangle(line), GL_TRIANGLES)
+            self.addPrimitive(lineToTriangle(line), GL.GL_TRIANGLES)
 
         elif isValidQuadLine(line):
-            self.addPrimitive(lineToQuad(line), GL_QUADS)
+            self.addPrimitive(lineToQuad(line), GL.GL_QUADS)
 
     def addPart(self, p, line, lastStepNumber = 1):
         try:
@@ -1594,16 +1593,16 @@ class PartOGL(object):
 
     def createOGLDisplayList(self):
         """ Initialize this part's display list.  Expensive call, but called only once. """
-        if self.oglDispID != UNINIT_OGL_DISPID:
+        if self.oglDispID != UNINIT_GL_DISPID:
             return
 
         # Ensure any parts in this part have been initialized
         for part in self.parts:
-            if part.partOGL.oglDispID == UNINIT_OGL_DISPID:
+            if part.partOGL.oglDispID == UNINIT_GL_DISPID:
                 part.partOGL.createOGLDisplayList()
 
-        self.oglDispID = glGenLists(1)
-        glNewList(self.oglDispID, GL_COMPILE)
+        self.oglDispID = GL.glGenLists(1)
+        GL.glNewList(self.oglDispID, GL.GL_COMPILE)
 
         for part in self.parts:
             part.callOGLDisplayList()
@@ -1611,10 +1610,10 @@ class PartOGL(object):
         for primitive in self.primitives:
             primitive.callOGLDisplayList()
 
-        glEndList()
+        GL.glEndList()
 
     def draw(self):
-        glCallList(self.oglDispID)
+        GL.glCallList(self.oglDispID)
 
     def dimensionsToString(self):
         if self.isPrimitive:
@@ -1669,7 +1668,7 @@ class PartOGL(object):
 
         if color is not None:
             color = LDrawColors.convertToRGBA(color)
-            glColor4fv(color)
+            GL.glColor4fv(color)
 
         self.draw()
 
@@ -2043,12 +2042,12 @@ class Part(QGraphicsRectItem):
         if color != LDrawColors.CurrentColor:
             if self.isSelected():
                 color[3] = 0.5
-            glPushAttrib(GL_CURRENT_BIT)
-            glColor4fv(color)
+            GL.glPushAttrib(GL.GL_CURRENT_BIT)
+            GL.glColor4fv(color)
 
         if self.inverted:
-            glPushAttrib(GL_POLYGON_BIT)
-            glFrontFace(GL_CW)
+            GL.glPushAttrib(GL.GL_POLYGON_BIT)
+            GL.glFrontFace(GL.GL_CW)
 
         if self.matrix:
             matrix = list(self.matrix)
@@ -2056,47 +2055,47 @@ class Part(QGraphicsRectItem):
                 matrix[12] += self.displacement[0]
                 matrix[13] += self.displacement[1]
                 matrix[14] += self.displacement[2]
-            glPushMatrix()
-            glMultMatrixf(matrix)
+            GL.glPushMatrix()
+            GL.glMultMatrixf(matrix)
 
         if self.isSelected():
             
             b = self.partOGL.getBoundingBox()
-            glBegin(GL_LINE_LOOP)
-            glVertex3f(b.x1, b.y1, b.z1)
-            glVertex3f(b.x2, b.y1, b.z1)
-            glVertex3f(b.x2, b.y2, b.z1)
-            glVertex3f(b.x1, b.y2, b.z1)
-            glEnd()
+            GL.glBegin(GL.GL_LINE_LOOP)
+            GL.glVertex3f(b.x1, b.y1, b.z1)
+            GL.glVertex3f(b.x2, b.y1, b.z1)
+            GL.glVertex3f(b.x2, b.y2, b.z1)
+            GL.glVertex3f(b.x1, b.y2, b.z1)
+            GL.glEnd()
 
-            glBegin(GL_LINE_LOOP)
-            glVertex3f(b.x1, b.y1, b.z2)
-            glVertex3f(b.x2, b.y1, b.z2)
-            glVertex3f(b.x2, b.y2, b.z2)
-            glVertex3f(b.x1, b.y2, b.z2)
-            glEnd()
+            GL.glBegin(GL.GL_LINE_LOOP)
+            GL.glVertex3f(b.x1, b.y1, b.z2)
+            GL.glVertex3f(b.x2, b.y1, b.z2)
+            GL.glVertex3f(b.x2, b.y2, b.z2)
+            GL.glVertex3f(b.x1, b.y2, b.z2)
+            GL.glEnd()
 
-            glBegin(GL_LINES)
-            glVertex3f(b.x1, b.y1, b.z1)
-            glVertex3f(b.x1, b.y1, b.z2)
-            glVertex3f(b.x1, b.y2, b.z1)
-            glVertex3f(b.x1, b.y2, b.z2)
-            glVertex3f(b.x2, b.y1, b.z1)
-            glVertex3f(b.x2, b.y1, b.z2)
-            glVertex3f(b.x2, b.y2, b.z1)
-            glVertex3f(b.x2, b.y2, b.z2)
-            glEnd()
+            GL.glBegin(GL.GL_LINES)
+            GL.glVertex3f(b.x1, b.y1, b.z1)
+            GL.glVertex3f(b.x1, b.y1, b.z2)
+            GL.glVertex3f(b.x1, b.y2, b.z1)
+            GL.glVertex3f(b.x1, b.y2, b.z2)
+            GL.glVertex3f(b.x2, b.y1, b.z1)
+            GL.glVertex3f(b.x2, b.y1, b.z2)
+            GL.glVertex3f(b.x2, b.y2, b.z1)
+            GL.glVertex3f(b.x2, b.y2, b.z2)
+            GL.glEnd()
 
-        glCallList(self.partOGL.oglDispID)
+        GL.glCallList(self.partOGL.oglDispID)
 
         if self.matrix:
-            glPopMatrix()
+            GL.glPopMatrix()
 
         if self.inverted:
-            glPopAttrib()
+            GL.glPopAttrib()
 
         if color != LDrawColors.CurrentColor:
-            glPopAttrib()
+            GL.glPopAttrib()
 
     def exportToLDrawFile(self, fh):
         line = createPartLine(self.color, self.matrix, self.partOGL.filename)
@@ -2111,13 +2110,17 @@ class Part(QGraphicsRectItem):
         
         menu = QMenu(self.scene().views()[0])
         
+        needSeparator = False
         if self._parentCSI.parent().getPrevStep():
-            menu.addAction("Move Part to &Previous Step", self.moveToPrevStep)
+            menu.addAction("Move to &Previous Step", self.moveToPrevStep)
+            needSeparator = True
             
         if self._parentCSI.parent().getNextStep():
-            menu.addAction("Move Part to &Next Step", self.moveToNextStep)
+            menu.addAction("Move to &Next Step", self.moveToNextStep)
+            needSeparator = True
 
-        menu.addSeparator()
+        if needSeparator:
+            menu.addSeparator()
 
 #        if selectedParts:
 #            menu.addAction("New Callout from Parts", None)
@@ -2241,9 +2244,9 @@ class Arrow(Part):
         br = [x[3], y[3], 0.0]
         bl = [x[1], y[3], 0.0]
         
-        tip1 = Primitive(4, self.tip + topEnd + joint, GL_TRIANGLES, invert = False)
-        tip2 = Primitive(4, self.tip + joint + botEnd, GL_TRIANGLES, invert = False)
-        base = Primitive(4, tl + tr + br + bl, GL_QUADS, invert = False)
+        tip1 = Primitive(4, self.tip + topEnd + joint, GL.GL_TRIANGLES, invert = False)
+        tip2 = Primitive(4, self.tip + joint + botEnd, GL.GL_TRIANGLES, invert = False)
+        base = Primitive(4, tl + tr + br + bl, GL.GL_QUADS, invert = False)
 
         self.partOGL.primitives.append(tip1)
         self.partOGL.primitives.append(tip2)
@@ -2274,8 +2277,8 @@ class Arrow(Part):
         color = LDrawColors.convertToRGBA(self.color)
 
         if color != LDrawColors.CurrentColor:
-            glPushAttrib(GL_CURRENT_BIT)
-            glColor4fv(color)
+            GL.glPushAttrib(GL.GL_CURRENT_BIT)
+            GL.glColor4fv(color)
 
         if self.matrix:
             matrix = list(self.matrix)
@@ -2283,19 +2286,19 @@ class Arrow(Part):
                 matrix[12] += self.displacement[0]
                 matrix[13] += self.displacement[1]
                 matrix[14] += self.displacement[2]
-            glPushMatrix()
-            glMultMatrixf(matrix)
-            #glRotatef(45.0, 0.0, -1.0, 0.0)
+            GL.glPushMatrix()
+            GL.glMultMatrixf(matrix)
+            #GL.glRotatef(45.0, 0.0, -1.0, 0.0)
             if self.rotation:
-                glRotatef(90.0, *self.rotation)
+                GL.glRotatef(90.0, *self.rotation)
 
-        glCallList(self.partOGL.oglDispID)
+        GL.glCallList(self.partOGL.oglDispID)
 
         if self.matrix:
-            glPopMatrix()
+            GL.glPopMatrix()
 
         if color != LDrawColors.CurrentColor:
-            glPopAttrib()
+            GL.glPopAttrib()
 
 class Primitive(object):
     """
@@ -2314,7 +2317,7 @@ class Primitive(object):
         box = BoundingBox(p[0], p[1], p[2])
         box.growByPoints(p[3], p[4], p[5])
         box.growByPoints(p[6], p[7], p[8])
-        if self.type == GL_QUADS:
+        if self.type == GL.GL_QUADS:
             box.growByPoints(p[9], p[10], p[11])
         return box
 
@@ -2344,41 +2347,41 @@ class Primitive(object):
         color = LDrawColors.convertToRGBA(self.color)
 
         if color != LDrawColors.CurrentColor:
-            glPushAttrib(GL_CURRENT_BIT)
-            glColor4fv(color)
+            GL.glPushAttrib(GL.GL_CURRENT_BIT)
+            GL.glColor4fv(color)
 
         p = self.points
 
         if self.inverted:
             normal = self.addNormal(p[6:9], p[3:6], p[0:3])
-            #glBegin( GL_LINES )
-            #glVertex3f(p[3], p[4], p[5])
-            #glVertex3f(p[3] + normal[0], p[4] + normal[1], p[5] + normal[2])
-            #glEnd()
+            #GL.glBegin( GL.GL_LINES )
+            #GL.glVertex3f(p[3], p[4], p[5])
+            #GL.glVertex3f(p[3] + normal[0], p[4] + normal[1], p[5] + normal[2])
+            #GL.glEnd()
 
-            glBegin(self.type)
-            glNormal3fv(normal)
-            if self.type == GL_QUADS:
-                glVertex3f(p[9], p[10], p[11])
-            glVertex3f(p[6], p[7], p[8])
-            glVertex3f(p[3], p[4], p[5])
-            glVertex3f(p[0], p[1], p[2])
-            glEnd()
+            GL.glBegin(self.type)
+            GL.glNormal3fv(normal)
+            if self.type == GL.GL_QUADS:
+                GL.glVertex3f(p[9], p[10], p[11])
+            GL.glVertex3f(p[6], p[7], p[8])
+            GL.glVertex3f(p[3], p[4], p[5])
+            GL.glVertex3f(p[0], p[1], p[2])
+            GL.glEnd()
         else:
             normal = self.addNormal(p[0:3], p[3:6], p[6:9])
-            #glBegin( GL_LINES )
-            #glVertex3f(p[3], p[4], p[5])
-            #glVertex3f(p[3] + normal[0], p[4] + normal[1], p[5] + normal[2])
-            #glEnd()
+            #GL.glBegin( GL.GL_LINES )
+            #GL.glVertex3f(p[3], p[4], p[5])
+            #GL.glVertex3f(p[3] + normal[0], p[4] + normal[1], p[5] + normal[2])
+            #GL.glEnd()
 
-            glBegin(self.type)
-            glNormal3fv(normal)
-            glVertex3f(p[0], p[1], p[2])
-            glVertex3f(p[3], p[4], p[5])
-            glVertex3f(p[6], p[7], p[8])
-            if self.type == GL_QUADS:
-                glVertex3f(p[9], p[10], p[11])
-            glEnd()
+            GL.glBegin(self.type)
+            GL.glNormal3fv(normal)
+            GL.glVertex3f(p[0], p[1], p[2])
+            GL.glVertex3f(p[3], p[4], p[5])
+            GL.glVertex3f(p[6], p[7], p[8])
+            if self.type == GL.GL_QUADS:
+                GL.glVertex3f(p[9], p[10], p[11])
+            GL.glEnd()
 
         if color != LDrawColors.CurrentColor:
-            glPopAttrib()
+            GL.glPopAttrib()
