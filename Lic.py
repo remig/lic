@@ -160,6 +160,7 @@ class LicWindow(QMainWindow):
         
         self.connect(self.scene, SIGNAL("itemsMoved"), self.itemsMoved)
         self.connect(self.scene, SIGNAL("moveStepToNewPage"), self.moveStepToNewPage)
+        self.connect(self.scene, SIGNAL("insertStep"), self.insertStep)
         self.connect(self.scene, SIGNAL("deleteStep"), self.deleteStep)
         self.connect(self.scene, SIGNAL("addPage"), self.addPage)
         self.connect(self.scene, SIGNAL("deletePage"), self.deletePage)
@@ -224,6 +225,9 @@ class LicWindow(QMainWindow):
 
     def moveStepToNewPage(self, stepSet):
         self.undoStack.push(LicUndoActions.MoveStepToPageCommand(stepSet))
+
+    def insertStep(self, step):
+        self.undoStack.push(LicUndoActions.InsertStepCommand(step))
 
     def deleteStep(self, step):
         self.undoStack.push(LicUndoActions.DeleteStepCommand(step))

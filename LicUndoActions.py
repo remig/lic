@@ -113,6 +113,31 @@ class MoveStepToPageCommand(QUndoCommand):
         for step, oldPage, newPage in self.stepSet:
             step.moveToPage(newPage, relayout = True)
 
+class InsertStepCommand(QUndoCommand):
+
+    """
+    AddStepCommand stores a step that was added and the page it was added to
+    """
+
+    _id = getNewCommandID()
+
+    def __init__(self, step):
+        QUndoCommand.__init__(self, "Undo the last Step addition")
+        self.step = step
+        self.page = step.parentItem()
+
+    def undo(self):
+        self.step.setSelected(False)
+        self.page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.page.deleteStep(self.step)
+        self.page.instructions.emit(SIGNAL("layoutChanged()"))
+
+    def redo(self):
+        self.page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.page.insertStep(self.step)
+        self.page.instructions.emit(SIGNAL("layoutChanged()"))
+        self.step.setSelected(True)
+
 class DeleteStepCommand(QUndoCommand):
 
     """
@@ -127,13 +152,16 @@ class DeleteStepCommand(QUndoCommand):
         self.page = step.parentItem()
 
     def undo(self):
-        # Need to emit layout change here because addStep doesn't - TODO: make this consistent with deleteStep
         self.page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.page.addStep(self.step, True)
+        self.page.insertStep(self.step)
         self.page.instructions.emit(SIGNAL("layoutChanged()"))
+        self.step.setSelected(True)
 
     def redo(self):
-        self.page.deleteStep(self.step, True)
+        self.step.setSelected(False)
+        self.page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.page.deleteStep(self.step)
+        self.page.instructions.emit(SIGNAL("layoutChanged()"))
 
 class AddPageCommand(QUndoCommand):
 

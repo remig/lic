@@ -660,25 +660,20 @@ class Page(QGraphicsRectItem):
         if number < 0:
             number = 1
             
-        self.parent().updateStepNumbers(number)
-        
         newStep = Step(self, number)
-        self.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.addStep(newStep, True)
-        self.instructions.emit(SIGNAL("layoutChanged()"))
+        self.scene().emit(SIGNAL("insertStep"), newStep)
     
-    def deleteStep(self, step, relayout = False):
+    def insertStep(self, step):
+        self.parent().updateStepNumbers(step.number)
+        self.addStep(step, True)
 
-        step.setSelected(False)
-        self.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+    def deleteStep(self, step):
+
         self.steps.remove(step)
         self.children.remove(step)
         self.scene().removeItem(step)
-
-        if relayout:
-            self.initLayout()
-
-        self.instructions.emit(SIGNAL("layoutChanged()"))
+        self.parent().updateStepNumbers(step.number, -1)
+        self.initLayout()
 
     def addChild(self, index, child):
 
@@ -1013,7 +1008,7 @@ class Step(QGraphicsRectItem):
         
         if len(self.csi.parts) == 0:
             action = lambda: self.scene().emit(SIGNAL("deleteStep"), self)
-            menu.addAction("&Delete this Step", action)
+            menu.addAction("&Delete Step", action)
 
         if not page.prevPage():
             prevPage.setEnabled(False)
