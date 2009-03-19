@@ -2201,19 +2201,9 @@ class Part(QGraphicsRectItem):
         else:
             return  # Ignore any other directions here
 
-        partList = []
-        for item in self.scene().selectedItems():
-            if isinstance(item, Part):
-                oldPos = item.displacement if item.displacement else [0.0, 0.0, 0.0]
-                newPos = [0, 0, 0]
-                newPos[0] = oldPos[0] + displacement[0]
-                newPos[1] = oldPos[1] + displacement[1]
-                newPos[2] = oldPos[2] + displacement[2]
-                partList.append((item, oldPos, newPos))
-                
-        if partList:
-            # Emit displace part undo signal
-            self.scene().emit(SIGNAL("displacePart"), partList)
+        oldPos = self.displacement if self.displacement else [0.0, 0.0, 0.0]
+        newPos = [oldPos[0] + displacement[0], oldPos[1] + displacement[1], oldPos[2] + displacement[2]]
+        self.scene().emit(SIGNAL("displacePart"), (self, oldPos, newPos))
 
     def moveToPrevStep(self):
         step = self.parentCSI.parent()

@@ -40,25 +40,23 @@ class MoveCommand(QUndoCommand):
 class DisplacePartCommand(QUndoCommand):
 
     """
-    DisplacePartCommand stores a list of parts moved together:
-    partList[0] = (part, oldDisplacement, newDisplacement)
+    DisplacePartCommand stores a tuple of part and old & new displacement:
+    displaceCommand = (part, oldDisplacement, newDisplacement)
     """
 
     _id = getNewCommandID()
 
-    def __init__(self, partList):
+    def __init__(self, displaceCommand):
         QUndoCommand.__init__(self, "Part displacement")
-        self.partList = list(partList)
+        self.part, self.oldDisp, self.newDisp = displaceCommand
 
     def undo(self):
-        for part, oldPos, newPos in self.partList:
-            part.displacement = list(oldPos)
-            part.parentCSI.updatePixmap()
+        self.part.displacement = list(self.oldDisp)
+        self.part.parentCSI.updatePixmap()
 
     def redo(self):
-        for part, oldPos, newPos in self.partList:
-            part.displacement = list(newPos)
-            part.parentCSI.updatePixmap()
+        self.part.displacement = list(self.newDisp)
+        self.part.parentCSI.updatePixmap()
 
 class ResizeCSIPLICommand(QUndoCommand):
 

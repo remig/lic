@@ -8,6 +8,21 @@ except ImportError:
                          QMessageBox.NoButton)
     sys.exit(1)
 
+def displaceManySelectedParts():
+    partList = []
+    for item in self.scene().selectedItems():
+        if isinstance(item, Part):
+            oldPos = item.displacement if item.displacement else [0.0, 0.0, 0.0]
+            newPos = [0, 0, 0]
+            newPos[0] = oldPos[0] + displacement[0]
+            newPos[1] = oldPos[1] + displacement[1]
+            newPos[2] = oldPos[2] + displacement[2]
+            partList.append((item, oldPos, newPos))
+                
+    if partList:
+        # Emit displace part undo signal
+        self.scene().emit(SIGNAL("displacePart"), partList)
+
 def position(self):
     point = self.mapFromGlobal(QCursor.pos())
     if not self.view.geometry().contains(point):
