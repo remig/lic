@@ -258,6 +258,8 @@ class Instructions(QAbstractItemModel):
         if self.mainModel:
             self.mainModel.deleteAllPages(self.scene)
 
+        self.reset()
+        self.scene.clear()
         self.mainModel = None
         partDictionary = {}
         submodelDictionary = {}
@@ -1092,7 +1094,7 @@ class PLIItem(QGraphicsRectItem):
 
     def addPart(self, part):
         self.parts.append(part)
-        part._parentPLI = self
+        part.parentPLI = self
         part.setParentItem(self)
         self.numberItem.setText("%dx" % len(self.parts))
         self.numberItem.dataText = "Qty. Label (%dx)" % len(self.parts)
@@ -1100,7 +1102,7 @@ class PLIItem(QGraphicsRectItem):
     def removePart(self, part):
         self.parts.remove(part)
         self.scene().removeItem(part)
-        part._parentPLI = None
+        part.parentPLI = None
 
         if self.parts:
             # Still have other parts - reduce qty label
@@ -1353,11 +1355,11 @@ class CSI(QGraphicsPixmapItem):
         return "CSI"
 
     def addPart(self, part):
-        part._parentCSI = self
+        part.parentCSI = self
         self.parts.append(part)
 
     def removePart(self, part):
-        part._parentCSI = None
+        part.parentCSI = None
         self.parts.remove(part)
         self.resetPixmap()
 
@@ -2000,8 +2002,8 @@ class Part(QGraphicsRectItem):
         self.inverted = invert
         self.filename = filename  # Needed for save / load
         self.partOGL = None
-        self._parentPLI = None # Needed because now Parts live in the tree (inside specific PLIItems)
-        self._parentCSI = None # Needed to be able to notify CSI to draw this part as selected
+        self.parentPLI = None # Needed because now Parts live in the tree (inside specific PLIItems)
+        self.parentCSI = None # Needed to be able to notify CSI to draw this part as selected
         self._displacing = False
         self.setFlags(NoMoveFlags)
 
@@ -2021,10 +2023,10 @@ class Part(QGraphicsRectItem):
             self.name = self.partOGL.name
      
     def parent(self):
-        return self._parentPLI
+        return self.parentPLI
 
     def row(self):
-        return self._parentPLI.parts.index(self) + 1
+        return self.parentPLI.parts.index(self) + 1
     
     def data(self, index):
         x, y, z = OGLMatrixToXYZ(self.matrix)
@@ -2032,9 +2034,9 @@ class Part(QGraphicsRectItem):
 
     def setSelected(self, selected):
         QGraphicsRectItem.setSelected(self, selected)
-        self._parentCSI.updatePixmap()
+        self.parentCSI.updatePixmap()
         if self._displacing and not selected:
-            self._parentCSI.resetPixmap()
+            self.parentCSI.resetPixmap()
             self._displacing = False
 
     def isSubmodel(self):
@@ -2109,88 +2111,76 @@ class Part(QGraphicsRectItem):
 
     def contextMenuEvent(self, event):
 
-        selectedParts = []
-        for item in self.scene().selectedItems():
-            if isinstance(item, Part):
-                selectedParts.append(item)
-        
         menu = QMenu(self.scene().views()[0])
         
         needSeparator = False
-        if self._parentCSI.parent().getPrevStep():
+        if self.parentCSI.parent().getPrevStep():
             menu.addAction("Move to &Previous Step", self.moveToPrevStep)
             needSeparator = True
             
-        if self._parentCSI.parent().getNextStep():
+        if self.parentCSI.parent().getNextStep():
             menu.addAction("Move to &Next Step", self.moveToNextStep)
             needSeparator = True
 
         if needSeparator:
             menu.addSeparator()
 
+#        selectedParts = []
+#        for item in self.scene().selectedItems():
+#            if isinstance(item, Part):
+#                selectedParts.append(item)
 #        if selectedParts:
 #            menu.addAction("New Callout from Parts", None)
 #            menu.addSeparator()
 
-        menu.addAction("&Displace Part", self.startDisplacement)
-        
-        if not self._displacing and not self.displacement:
+        if self._displacing or self.displacement:
+            menu.addAction("&Increase displacement", self.increaseDisplacement)
+            menu.addAction("&Decrease displacement", self.decreaseDisplacement)
+        else:
             arrowMenu = menu.addMenu("Displace With &Arrow")
-            arrowMenu.addAction("Move Up", lambda: self.displaceWithArrow(Qt.Key_PageUp))
-            arrowMenu.addAction("Move Down", lambda: self.displaceWithArrow(Qt.Key_PageDown))
-            arrowMenu.addAction("Move Forward", lambda: self.displaceWithArrow(Qt.Key_Down))
-            arrowMenu.addAction("Move Back", lambda: self.displaceWithArrow(Qt.Key_Up))
-            arrowMenu.addAction("Move Left", lambda: self.displaceWithArrow(Qt.Key_Left))
-            arrowMenu.addAction("Move Right", lambda: self.displaceWithArrow(Qt.Key_Right))
+            arrowMenu.addAction("Move Up", lambda: self.startDisplacement(Qt.Key_PageUp))
+            arrowMenu.addAction("Move Down", lambda: self.startDisplacement(Qt.Key_PageDown))
+            arrowMenu.addAction("Move Forward", lambda: self.startDisplacement(Qt.Key_Down))
+            arrowMenu.addAction("Move Back", lambda: self.startDisplacement(Qt.Key_Up))
+            arrowMenu.addAction("Move Left", lambda: self.startDisplacement(Qt.Key_Left))
+            arrowMenu.addAction("Move Right", lambda: self.startDisplacement(Qt.Key_Right))
 
         menu.exec_(event.screenPos())
 
-    def moveToPrevStep(self):
-
-        step = self._parentCSI.parent()
-        prevStep = step.getPrevStep()
-        self.scene().emit(SIGNAL("movePartToStep"), (self, step, prevStep))
-
-    def moveToNextStep(self):
-        
-        step = self._parentCSI.parent()
-        nextStep = step.getNextStep()
-        self.scene().emit(SIGNAL("movePartToStep"), (self, step, nextStep))
-
-    def moveToStep(self, step):
-        
-        oldStep = self._parentCSI.parent()
-        
-        self.setSelected(False)
-        self.scene().clearSelection()
-        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-
-        self._parentPLI.removePart(self)
-        self._parentCSI.removePart(self)
-
-        step.addPart(self)
-        step.csi.resetPixmap()
-        oldStep.csi.resetPixmap()
-        step.pli.initLayout()
-        step.initLayout()
-
-        self.scene().emit(SIGNAL("layoutChanged()"))
-
-    def startDisplacement(self):
+    def startDisplacement(self, direction):
         self._displacing = True
-        self.setFocus()
-        self._parentCSI.maximizePixmap()
-
-    def displaceWithArrow(self, direction):
-        box = self.partOGL.getBoundingBox()
+        self._displacingDirection = direction
         arrow = Arrow(direction)
         arrow.matrix = list(self.matrix)
-        self._parentCSI.addPart(arrow)
-        self.startDisplacement()
+        self.parentCSI.addPart(arrow)
+        self.parentCSI.maximizePixmap()
+        self.setFocus()
         self.displace(direction)
 
+    def increaseDisplacement(self):
+        self.displace(self._displacingDirection)
+    
+    def decreaseDisplacement(self):
+        if self._displacingDirection == Qt.Key_Up:
+            return self.displace(Qt.Key_Down)
+        if self._displacingDirection == Qt.Key_Down:
+            return self.displace(Qt.Key_Up)
+        if self._displacingDirection == Qt.Key_PageUp:
+            return self.displace(Qt.Key_PageDown)
+        if self._displacingDirection == Qt.Key_PageDown:
+            return self.displace(Qt.Key_PageUp)
+        if self._displacingDirection == Qt.Key_Left:
+            return self.displace(Qt.Key_Right)
+        if self._displacingDirection == Qt.Key_Right:
+            return self.displace(Qt.Key_Left)
+        
     def keyReleaseEvent(self, event):
-        self.displace(event.key())
+        direction = event.key()
+        if direction == Qt.Key_Plus:
+            return self.increaseDisplacement()
+        if direction == Qt.Key_Minus:
+            return self.decreaseDisplacement()
+        self.displace(direction)
 
     def displace(self, direction):
         offset = 20
@@ -2224,6 +2214,34 @@ class Part(QGraphicsRectItem):
         if partList:
             # Emit displace part undo signal
             self.scene().emit(SIGNAL("displacePart"), partList)
+
+    def moveToPrevStep(self):
+        step = self.parentCSI.parent()
+        prevStep = step.getPrevStep()
+        self.scene().emit(SIGNAL("movePartToStep"), (self, step, prevStep))
+
+    def moveToNextStep(self):
+        step = self.parentCSI.parent()
+        nextStep = step.getNextStep()
+        self.scene().emit(SIGNAL("movePartToStep"), (self, step, nextStep))
+
+    def moveToStep(self, step):
+        
+        oldStep = self.parentCSI.parent()
+        
+        self.setSelected(False)
+        self.scene().clearSelection()
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+
+        self.parentPLI.removePart(self)
+        self.parentCSI.removePart(self)
+
+        step.addPart(self)
+        step.csi.resetPixmap()  #TODO: extend this to support move across several steps
+        oldStep.csi.resetPixmap()
+        step.pli.initLayout()
+        step.initLayout()
+        self.scene().emit(SIGNAL("layoutChanged()"))
 
 class Arrow(Part):
 

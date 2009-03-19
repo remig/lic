@@ -19,7 +19,7 @@ class MoveCommand(QUndoCommand):
     _id = getNewCommandID()
     
     def __init__(self, itemList):
-        QUndoCommand.__init__(self, "Undo the last Page element movement")
+        QUndoCommand.__init__(self, "move Page Object")
 
         self.itemList = []
         for item in itemList:
@@ -47,18 +47,18 @@ class DisplacePartCommand(QUndoCommand):
     _id = getNewCommandID()
 
     def __init__(self, partList):
-        QUndoCommand.__init__(self, "Undo the last Part displacement")
+        QUndoCommand.__init__(self, "Part displacement")
         self.partList = list(partList)
 
     def undo(self):
         for part, oldPos, newPos in self.partList:
             part.displacement = list(oldPos)
-            part._parentCSI.updatePixmap()
+            part.parentCSI.updatePixmap()
 
     def redo(self):
         for part, oldPos, newPos in self.partList:
             part.displacement = list(newPos)
-            part._parentCSI.updatePixmap()
+            part.parentCSI.updatePixmap()
 
 class ResizeCSIPLICommand(QUndoCommand):
 
@@ -70,7 +70,7 @@ class ResizeCSIPLICommand(QUndoCommand):
     _id = getNewCommandID()
 
     def __init__(self, instructions, sizes):
-        QUndoCommand.__init__(self, "Undo the last CSI | PLI image resize")
+        QUndoCommand.__init__(self, "CSI | PLI resize")
         
         self.instructions = instructions
         csiSizes, pliSizes = sizes
@@ -102,7 +102,7 @@ class MoveStepToPageCommand(QUndoCommand):
     _id = getNewCommandID()
 
     def __init__(self, stepSet):
-        QUndoCommand.__init__(self, "Undo the last Step-to-Page Move")
+        QUndoCommand.__init__(self, "move Step to Page")
         self.stepSet = stepSet
 
     def undo(self):
@@ -122,7 +122,7 @@ class InsertStepCommand(QUndoCommand):
     _id = getNewCommandID()
 
     def __init__(self, step):
-        QUndoCommand.__init__(self, "Undo the last Step addition")
+        QUndoCommand.__init__(self, "add Step")
         self.step = step
         self.page = step.parentItem()
 
@@ -147,7 +147,7 @@ class DeleteStepCommand(QUndoCommand):
     _id = getNewCommandID()
 
     def __init__(self, step):
-        QUndoCommand.__init__(self, "Undo the last Step deletion")
+        QUndoCommand.__init__(self, "delete Step")
         self.step = step
         self.page = step.parentItem()
 
@@ -172,7 +172,7 @@ class AddPageCommand(QUndoCommand):
     _id = getNewCommandID()
 
     def __init__(self, page):
-        QUndoCommand.__init__(self, "Undo the last Page addition")
+        QUndoCommand.__init__(self, "add Page")
         self.page = page
 
     def undo(self):
@@ -198,7 +198,7 @@ class DeletePageCommand(QUndoCommand):
     _id = getNewCommandID()
 
     def __init__(self, page):
-        QUndoCommand.__init__(self, "Undo the last Page deletion")
+        QUndoCommand.__init__(self, "delete Page")
         self.page = page
 
     def undo(self):
@@ -226,7 +226,7 @@ class MovePartToStepCommand(QUndoCommand):
     _id = getNewCommandID()
 
     def __init__(self, partSet):
-        QUndoCommand.__init__(self, "Undo the last Part to Step movement")
+        QUndoCommand.__init__(self, "move Part to Step")
         self.part, self.oldStep, self.newStep = partSet
 
     def undo(self):

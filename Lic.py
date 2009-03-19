@@ -150,14 +150,7 @@ class LicWindow(QMainWindow):
         self.graphicsView.setScene(self.scene)
         self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
         
-        self.connect(self.scene, SIGNAL("itemsMoved"), self.itemsMoved)
-        self.connect(self.scene, SIGNAL("moveStepToNewPage"), self.moveStepToNewPage)
-        self.connect(self.scene, SIGNAL("insertStep"), self.insertStep)
-        self.connect(self.scene, SIGNAL("deleteStep"), self.deleteStep)
-        self.connect(self.scene, SIGNAL("addPage"), self.addPage)
-        self.connect(self.scene, SIGNAL("deletePage"), self.deletePage)
-        self.connect(self.scene, SIGNAL("displacePart"), self.displacePart)
-        self.connect(self.scene, SIGNAL("movePartToStep"), self.movePartToStep)
+        self.createUndoSignals()
 
         self.mainSplitter = QSplitter(Qt.Horizontal)
         self.mainSplitter.addWidget(self.treeView)
@@ -219,29 +212,20 @@ class LicWindow(QMainWindow):
         # so can't just connect that signal straight to setWindowModified slot.
         self.setWindowModified(not bool)
         
-    def itemsMoved(self, itemList):
-        self.undoStack.push(LicUndoActions.MoveCommand(itemList))
+    def createUndoSignals(self):
 
-    def moveStepToNewPage(self, stepSet):
-        self.undoStack.push(LicUndoActions.MoveStepToPageCommand(stepSet))
+        u, l = self.undoStack, LicUndoActions
+        signals = [("itemsMoved", lambda x: u.push(l.MoveCommand(x))),
+                   ("moveStepToNewPage", lambda x: u.push(l.MoveStepToPageCommand(x))),
+                   ("insertStep", lambda x: u.push(l.InsertStepCommand(x))),
+                   ("deleteStep", lambda x: u.push(l.DeleteStepCommand(x))),
+                   ("addPage", lambda x: u.push(l.AddPageCommand(x))),
+                   ("deletePage", lambda x: u.push(l.DeletePageCommand(x))),
+                   ("displacePart", lambda x: u.push(l.DisplacePartCommand(x))),
+                   ("movePartToStep", lambda x: u.push(l.MovePartToStepCommand(x)))]
 
-    def insertStep(self, step):
-        self.undoStack.push(LicUndoActions.InsertStepCommand(step))
-
-    def deleteStep(self, step):
-        self.undoStack.push(LicUndoActions.DeleteStepCommand(step))
-
-    def addPage(self, page):
-        self.undoStack.push(LicUndoActions.AddPageCommand(page))
-
-    def deletePage(self, page):
-        self.undoStack.push(LicUndoActions.DeletePageCommand(page))
-
-    def displacePart(self, partList):
-        self.undoStack.push(LicUndoActions.DisplacePartCommand(partList))
-
-    def movePartToStep(self, partSet):
-        self.undoStack.push(LicUndoActions.MovePartToStepCommand(partSet))
+        for signal, command in signals:
+            self.connect(self.scene, SIGNAL(signal), command)
 
     def __getFilename(self):
         return self.__filename
@@ -323,9 +307,10 @@ class LicWindow(QMainWindow):
 
         self.fileMenuActions = (self.fileOpenAction, self.fileCloseAction, None, self.fileSaveAction, self.fileSaveAsAction, self.fileImportAction, None, self.fileExitAction)
         
-        # Edit Menu
+        # Edit Menu - undo / redo is generated dynamicall in updateEditMenu()
         self.editMenu = menu.addMenu("&Edit")
-        
+        self.connect(self.editMenu, SIGNAL("aboutToShow()"), self.updateEditMenu)
+
         self.undoAction = self.createMenuAction("&Undo", None, "Ctrl+Z", "Undo last action")
         self.undoAction.connect(self.undoAction, SIGNAL("triggered()"), self.undoStack, SLOT("undo()"))
         self.undoAction.setEnabled(False)
@@ -374,6 +359,10 @@ class LicWindow(QMainWindow):
             
         self.fileMenu.addSeparator()
         self.fileMenu.addAction(self.fileMenuActions[-1])
+
+    def updateEditMenu(self):
+        self.undoAction.setText("&Undo %s " % self.undoStack.undoText())
+        self.redoAction.setText("&Redo %s " % self.undoStack.redoText())
 
     def addRecentFile(self, filename):
         if not self.recentFiles.contains(filename):
@@ -512,6 +501,7 @@ class LicWindow(QMainWindow):
         try:
             LicBinaryWriter.saveLicFile(self.filename, self.instructions)
             self.setWindowModified(False)
+            self.addRecentFile(self.filename)
             self.statusBar().showMessage("Saved to: " + self.filename)
         except (IOError, OSError), e:
             QMessageBox.warning(self, "Lic - Save Error", "Failed to save %s: %s" % (self.filename, e))
