@@ -136,6 +136,8 @@ class LicWindow(QMainWindow):
     def __init__(self, parent = None):
         QMainWindow.__init__(self, parent)
         
+        self.initWindowSettings()
+        
         self.undoStack = QUndoStack()
         self.connect(self.undoStack, SIGNAL("cleanChanged(bool)"), self._setWindowModified)
         
@@ -194,7 +196,13 @@ class LicWindow(QMainWindow):
         if self.modelName:
             self.loadModel(self.modelName)
             statusBar.showMessage("Model: " + self.modelName)
-           
+
+    def initWindowSettings(self):
+        settings = QSettings()
+        self.recentFiles = settings.value("RecentFiles").toStringList()
+        self.restoreGeometry(settings.value("Geometry").toByteArray())
+        self.restoreState(settings.value("MainWindow/State").toByteArray())
+    
     def keyReleaseEvent(self, event):
         key = event.key()
         
@@ -296,61 +304,82 @@ class LicWindow(QMainWindow):
 
         return config
 
-        
     def initMenu(self):
+        
         menu = self.menuBar()
+        
+        # File Menu
         self.fileMenu = menu.addMenu("&File")
+        self.connect(self.fileMenu, SIGNAL("aboutToShow()"), self.updateFileMenu)
 
-        self.fileOpenAction = self.createMenuAction("&Open", self.fileOpen, QKeySequence.Open, "Open an existing Instruction book")
-        self.fileMenu.addAction(self.fileOpenAction)
-
+        self.fileOpenAction = self.createMenuAction("&Open...", self.fileOpen, QKeySequence.Open, "Open an existing Instruction book")
         self.fileCloseAction = self.createMenuAction("&Close", self.fileClose, QKeySequence.Close, "Close current Instruction book")
-        self.fileMenu.addAction(self.fileCloseAction)
-
-        self.fileMenu.addSeparator()
 
         self.fileSaveAction = self.createMenuAction("&Save", self.fileSave, QKeySequence.Save, "Save the Instruction book")
-        self.fileMenu.addAction(self.fileSaveAction)
-
         self.fileSaveAsAction = self.createMenuAction("Save &As...", self.fileSaveAs, None, "Save the Instruction book using a new filename")
-        self.fileMenu.addAction(self.fileSaveAsAction)
-
         self.fileImportAction = self.createMenuAction("&Import Model", self.fileImport, None, "Import an existing LDraw Model into a new Instruction book")
-        self.fileMenu.addAction(self.fileImportAction)
-
-        self.fileMenu.addSeparator()
 
         self.fileExitAction = self.createMenuAction("E&xit", SLOT("close()"), "Ctrl+Q", "Exit Lic")
-        self.fileMenu.addAction(self.fileExitAction)
 
+        self.fileMenuActions = (self.fileOpenAction, self.fileCloseAction, None, self.fileSaveAction, self.fileSaveAsAction, self.fileImportAction, None, self.fileExitAction)
+        
+        # Edit Menu
         self.editMenu = menu.addMenu("&Edit")
         
         self.undoAction = self.createMenuAction("&Undo", None, "Ctrl+Z", "Undo last action")
         self.undoAction.connect(self.undoAction, SIGNAL("triggered()"), self.undoStack, SLOT("undo()"))
         self.undoAction.setEnabled(False)
         self.connect(self.undoStack, SIGNAL("canUndoChanged(bool)"), self.undoAction, SLOT("setEnabled(bool)"))
-        self.editMenu.addAction(self.undoAction)
         
         self.redoAction = self.createMenuAction("&Redo", None, "Ctrl+Y", "Redo the last undone action")
         self.redoAction.connect(self.redoAction, SIGNAL("triggered()"), self.undoStack, SLOT("redo()"))
         self.redoAction.setEnabled(False)
         self.connect(self.undoStack, SIGNAL("canRedoChanged(bool)"), self.redoAction, SLOT("setEnabled(bool)"))
-        self.editMenu.addAction(self.redoAction)
         
+        editActions = (self.undoAction, self.redoAction)
+        self.addActions(self.editMenu, editActions)
+
+        # View Menu
         self.viewMenu = menu.addMenu("&View")
-        
+
+        # Page Menu
         self.pageMenu = menu.addMenu("&Page")
 
-        self.pageSize = self.createMenuAction("Page Size...", self.changePageSize, None, "Change the overall size of all Pages in this Instruction book")
-        self.pageMenu.addAction(self.pageSize)
-        
+        self.pageSizeAction = self.createMenuAction("Page Size...", self.changePageSize, None, "Change the overall size of all Pages in this Instruction book")       
         self.csipliSizeAction = self.createMenuAction("CSI | PLI Image Size...", self.changeCSIPLISize, None, "Change the relative size of all CSIs and PLIs throughout Instruction book")
-        self.pageMenu.addAction(self.csipliSizeAction)
+        self.addActions(self.pageMenu, (self.pageSizeAction, self.csipliSizeAction))
         
+        # Export Menu
         self.exportMenu = menu.addMenu("E&xport")
-        
         self.exportImagesAction = self.createMenuAction("Generate Final Images", self.exportImages, None, "Generate final, high res images of each page in this Instruction book")
         self.exportMenu.addAction(self.exportImagesAction)
+
+    def updateFileMenu(self):
+        self.fileMenu.clear()
+        self.addActions(self.fileMenu, self.fileMenuActions[:-1])  # Don't add last Exit yet
+        
+        recentFiles = []
+        for filename in self.recentFiles:
+            if filename != QString(self.filename):
+                recentFiles.append(filename)
+                
+        if recentFiles:
+            self.fileMenu.addSeparator()
+            
+            for i, filename in enumerate(recentFiles):
+                action = QAction("&%d %s" % (i+1, QFileInfo(filename).fileName()), self)
+                action.setData(QVariant(filename))
+                self.connect(action, SIGNAL("triggered()"), self.loadLicFile)
+                self.fileMenu.addAction(action)
+            
+        self.fileMenu.addSeparator()
+        self.fileMenu.addAction(self.fileMenuActions[-1])
+
+    def addRecentFile(self, filename):
+        if not self.recentFiles.contains(filename):
+            self.recentFiles.prepend(QString(filename))
+            while self.recentFiles.count() > 9:
+                self.recentFiles.takeLast()
 
     def changePageSize(self):
         dialog = LicDialogs.PageSizeDlg(self)
@@ -367,6 +396,13 @@ class LicWindow(QMainWindow):
             sizes = ((CSI.scale, newCSISize), (PLI.scale, newPLISize))
             self.undoStack.push(LicUndoActions.ResizeCSIPLICommand(self.instructions, sizes))
 
+    def addActions(self, target, actions):
+        for action in actions:
+            if action is None:
+                target.addSeparator()
+            else:
+                target.addAction(action)
+    
     def createMenuAction(self, text, slot = None, shortcut = None, tip = None, signal = "triggered()"):
         action = QAction(text, self)
         if shortcut is not None:
@@ -380,6 +416,12 @@ class LicWindow(QMainWindow):
 
     def closeEvent(self, event):
         if self.offerSave():
+            settings = QSettings()
+            recentFiles = QVariant(self.recentFiles) if self.recentFiles else QVariant()
+            settings.setValue("RecentFiles", recentFiles)
+            settings.setValue("Geometry", QVariant(self.saveGeometry()))
+            settings.setValue("MainWindow/State", QVariant(self.saveState()))
+            
             # Need to explicitly disconnect this signal, because the scene emits an updateSelection right before it's deleted
             self.disconnect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateSelection)
             event.accept()
@@ -418,6 +460,18 @@ class LicWindow(QMainWindow):
             self.loadModel(filename)
             self.statusBar().showMessage("LDraw Model imported: " + filename)
 
+    def loadLicFile(self, filename = None):
+        
+        if filename is None:
+            action = self.sender()
+            filename = unicode(action.data().toString())
+            if not self.offerSave():
+                return
+            
+        LicBinaryReader.loadLicFile(filename, self.instructions)
+        self.filename = filename
+        self.addRecentFile(filename)
+    
     def loadModel(self, filename):
         
         loader = self.instructions.loadModel(filename)
@@ -470,8 +524,7 @@ class LicWindow(QMainWindow):
         if filename and filename != self.filename:
             self.fileClose()
             try:
-                LicBinaryReader.loadLicFile(filename, self.instructions)
-                self.filename = filename
+                self.loadLicFile(filename)
             except IOError, e:
                 QMessageBox.warning(self, "Lic - Open Error", "Failed to open %s: %s" % (filename, e))
                 self.fileClose()
@@ -482,6 +535,9 @@ class LicWindow(QMainWindow):
     
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    app.setOrganizationName("BugEyedMonkeys Inc.")
+    app.setOrganizationDomain("bugeyedmonkeys.com")
+    app.setApplicationName("Lic")
     window = LicWindow()
     window.show()
     sys.exit(app.exec_())

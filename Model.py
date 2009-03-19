@@ -1880,7 +1880,7 @@ class Submodel(PartOGL):
                     return step
                 
         for submodel in self.submodels:
-            step = submodel.getPrevStep(pageNumber)
+            step = submodel.getStep(stepNumber)
             if step:
                 return step
         return None

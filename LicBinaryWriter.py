@@ -14,7 +14,7 @@ def saveLicFile(filename, instructions):
     stream.writeInt32(MagicNumber)
     stream.writeInt16(FileVersion)
 
-    # Need to explicitly deselect parts so they refresh the CSI pixmap
+    # Need to explicitly de-select parts so they refresh the CSI pixmap
     instructions.clearSelectedParts()
 
     __writeInstructions(stream, instructions)
@@ -93,9 +93,9 @@ def __writePrimitive(stream, primitive):
     stream.writeInt32(primitive.color)
     stream.writeInt16(primitive.type)
 
-    if primitive.type == GL_QUADS:
+    if primitive.type == GL.GL_QUADS:
         assert len(primitive.points) == 12
-    elif primitive.type == GL_TRIANGLES:
+    elif primitive.type == GL.GL_TRIANGLES:
         assert len(primitive.points) == 9
 
     for point in primitive.points:
