@@ -2151,7 +2151,7 @@ class Part(QGraphicsRectItem):
         self._displacing = True
         self._displacingDirection = direction
         arrow = Arrow(direction)
-        arrow.matrix = list(self.matrix)
+        arrow.setPosition(*OGLMatrixToXYZ(self.matrix))
         self.parentCSI.addPart(arrow)
         self.parentCSI.maximizePixmap()
         self.setFocus()
@@ -2248,6 +2248,9 @@ class Arrow(Part):
     def __init__(self, direction):
         Part.__init__(self, "arrow", 4, None, False, False, None)
         self.partOGL = PartOGL("arrow")
+        
+        self.matrix = IdentityMatrix()
+
         x = [0.0, 20.0, 25.0, 50.0]
         y = [-5.0, -1.0, 0.0, 1.0, 5.0]
 
@@ -2273,21 +2276,28 @@ class Arrow(Part):
         self.setDirection(direction)
         self.partOGL.createOGLDisplayList()        
 
+    def setPosition(self, x, y, z):
+        self.matrix[12] = x
+        self.matrix[13] = y
+        self.matrix[14] = z
+        
     def setDirection(self, direction):
         
-        if direction == Qt.Key_Up:
-            self.rotation = [0.0, 1.0, 0.0]
-        elif direction == Qt.Key_Down:
-            self.rotation = [0.0, -1.0, 0.0]
-        elif direction == Qt.Key_PageUp:
+        if direction == Qt.Key_PageUp:
             self.rotation = [0.0, 0.0, -1.0]
         elif direction == Qt.Key_PageDown:
             self.rotation = [0.0, 0.0, 1.0]
+
         elif direction == Qt.Key_Left:
-            self.rotation = [1.0, 0.0, 0.0]
+            self.rotation = [0.0, 1.0, 0.0]
         elif direction == Qt.Key_Right:
-            self.rotation = [-1.0, 0.0, 0.0]
-    
+            self.rotation = [0.0, -1.0, 0.0]
+
+        elif direction == Qt.Key_Up:
+            self.rotation = "flip"
+        elif direction == Qt.Key_Down:
+            self.rotation = None
+
     def callGLDisplayList(self, useDisplacement = False):
 
         # must be called inside a glNewList/EndList pair
@@ -2297,16 +2307,13 @@ class Arrow(Part):
             GL.glPushAttrib(GL.GL_CURRENT_BIT)
             GL.glColor4fv(color)
 
-        if self.matrix:
-            matrix = list(self.matrix)
-            if useDisplacement and self.displacement:
-                matrix[12] += self.displacement[0]
-                matrix[13] += self.displacement[1]
-                matrix[14] += self.displacement[2]
-            GL.glPushMatrix()
-            GL.glMultMatrixf(matrix)
-            #GL.glRotatef(45.0, 0.0, -1.0, 0.0)
-            if self.rotation:
+        matrix = list(self.matrix)
+        GL.glPushMatrix()
+        GL.glMultMatrixf(matrix)
+        if self.rotation:
+            if self.rotation == "flip":
+                GL.glRotatef(180.0, 0.0, 1.0, 0.0)                
+            else:
                 GL.glRotatef(90.0, *self.rotation)
 
         GL.glCallList(self.partOGL.oglDispID)

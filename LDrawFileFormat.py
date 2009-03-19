@@ -16,6 +16,12 @@ RotStepCommand = 'ROTSTEP'
 StepCommand = 'STEP'
 FileCommand = 'FILE'
 
+def IdentityMatrix():
+    return [1.0, 0.0, 0.0, 0.0,  
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0]
+    
 def LDToOGLMatrix(matrix):
     m = [float(x) for x in matrix]
     return [m[3], m[6], m[9], 0.0, m[4], m[7], m[10], 0.0, m[5], m[8], m[11], 0.0, m[0], m[1], m[2], 1.0]
