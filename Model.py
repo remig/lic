@@ -860,8 +860,8 @@ class Page(QGraphicsRectItem):
         
         menu = QMenu(self.scene().views()[0])
         delPage = menu.addAction("Delete Page", self.deletePage)
-        addPageBefore = menu.addAction("Add blank Page before", self.addPageBefore)
-        addPageAfter = menu.addAction("Add blank Page after", self.addPageAfter)
+        addPageBefore = menu.addAction("Prepend blank Page", self.addPageBefore)
+        addPageAfter = menu.addAction("Append blank Page", self.addPageAfter)
         sep = menu.addSeparator()
         addStep = menu.addAction("Add blank Step", self.addBlankStep)
         menu.exec_(event.screenPos())
@@ -1345,9 +1345,18 @@ class CSI(QGraphicsPixmapItem):
         self.setFlags(AllFlags)
         
         self.parts = []
+        self.arrows = []
 
     def parent(self):
         return self.parentItem()
+
+    def child(self, row):
+        if row < 0 or row >= len(self.arrows):
+            return None
+        return self.arrows[row] 
+
+    def rowCount(self):
+        return len(self.arrows)
 
     def row(self):
         return 1
@@ -1364,6 +1373,14 @@ class CSI(QGraphicsPixmapItem):
         self.parts.remove(part)
         self.resetPixmap()
 
+    def addArrow(self, arrow):
+        self.addPart(arrow)
+        self.arrows.append(arrow)
+        
+    def removeArrow(self, arrow):
+        self.parts.remove(arrow)
+        self.arrows.remove(arrow)
+    
     def __callPreviousOGLDisplayLists(self, isCurrent = False):
 
         # Call all previous step's CSI display list
@@ -2149,7 +2166,9 @@ class Part(QGraphicsRectItem):
         self.displacement = self.getDisplacementOffset(direction)
         self.arrow = Arrow(direction)
         self.arrow.setPosition(*OGLMatrixToXYZ(self.matrix))
-        self.parentCSI.addPart(self.arrow)
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.parentCSI.addArrow(self.arrow)
+        self.scene().emit(SIGNAL("layoutChanged()"))
         self.parentCSI.maximizePixmap()
         self.parentCSI.updatePixmap()
     
@@ -2157,7 +2176,9 @@ class Part(QGraphicsRectItem):
         self._displacing = False
         self._displacingDirection = None
         self.displacement = []
-        self.parentCSI.removePart(self.arrow)
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.parentCSI.removeArrow(self.arrow)
+        self.scene().emit(SIGNAL("layoutChanged()"))
         self.parentCSI.maximizePixmap()
         self.parentCSI.updatePixmap()
     
@@ -2262,7 +2283,17 @@ class Arrow(Part):
    
         self.rotation = []
         self.setDirection(direction)
-        self.partOGL.createOGLDisplayList()        
+        self.partOGL.createOGLDisplayList()
+
+    def parent(self):
+        return self.parentCSI
+
+    def row(self):
+        return self.parentCSI.arrows.index(self)
+    
+    def data(self, index):
+        x, y, z = OGLMatrixToXYZ(self.matrix)
+        return "%s  (%.1f, %.1f, %.1f)" % (self.partOGL.filename, x, y, z)
 
     def setPosition(self, x, y, z):
         self.matrix[12] = x
@@ -2292,6 +2323,8 @@ class Arrow(Part):
         color = LDrawColors.convertToRGBA(self.color)
 
         if color != LDrawColors.CurrentColor:
+            if self.isSelected():
+                color[3] = 0.5
             GL.glPushAttrib(GL.GL_CURRENT_BIT)
             GL.glColor4fv(color)
 
