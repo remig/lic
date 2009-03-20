@@ -11,6 +11,7 @@ import GLHelpers
 import l3p
 import povray
 import LDrawColors
+import Helpers
 
 from LDrawFileFormat import *
 
@@ -1403,17 +1404,11 @@ class CSI(QGraphicsPixmapItem):
     
     def maximizePixmap(self):
 
-        oldWidth = self.width
-        oldHeight = self.height
-
-        dx = (PageSize.width() - oldWidth) / 2.0
-        dy = (PageSize.height() - oldHeight) / 2.0
+        dx = (PageSize.width() - self.width) / 2.0
+        dy = (PageSize.height() - self.height) / 2.0
 
         self.width = PageSize.width()
         self.height = PageSize.height()
-
-        # Generate new pixmap at new larger size
-        self.updatePixmap()
 
         # Move pixmap to compensate for new size, so we don't actually move the CSI itself
         self.translate(-dx, -dy)
@@ -2005,6 +2000,7 @@ class Part(QGraphicsRectItem):
         self.parentPLI = None # Needed because now Parts live in the tree (inside specific PLIItems)
         self.parentCSI = None # Needed to be able to notify CSI to draw this part as selected
         self._displacing = False
+        self._displacingDirection = None
         self.setFlags(NoMoveFlags)
 
         if setPartOGL:
@@ -2138,41 +2134,38 @@ class Part(QGraphicsRectItem):
             menu.addAction("&Decrease displacement", self.decreaseDisplacement)
         else:
             arrowMenu = menu.addMenu("Displace With &Arrow")
-            arrowMenu.addAction("Move Up", lambda: self.startDisplacement(Qt.Key_PageUp))
-            arrowMenu.addAction("Move Down", lambda: self.startDisplacement(Qt.Key_PageDown))
-            arrowMenu.addAction("Move Forward", lambda: self.startDisplacement(Qt.Key_Down))
-            arrowMenu.addAction("Move Back", lambda: self.startDisplacement(Qt.Key_Up))
-            arrowMenu.addAction("Move Left", lambda: self.startDisplacement(Qt.Key_Left))
-            arrowMenu.addAction("Move Right", lambda: self.startDisplacement(Qt.Key_Right))
+            arrowMenu.addAction("Move Up", lambda: self.scene().emit(SIGNAL("beginDisplacement"), (self, Qt.Key_PageUp)))
+            arrowMenu.addAction("Move Down", lambda: self.scene().emit(SIGNAL("beginDisplacement"), (self, Qt.Key_PageDown)))
+            arrowMenu.addAction("Move Forward", lambda: self.scene().emit(SIGNAL("beginDisplacement"), (self, Qt.Key_Down)))
+            arrowMenu.addAction("Move Back", lambda: self.scene().emit(SIGNAL("beginDisplacement"), (self, Qt.Key_Up)))
+            arrowMenu.addAction("Move Left", lambda: self.scene().emit(SIGNAL("beginDisplacement"), (self, Qt.Key_Left)))
+            arrowMenu.addAction("Move Right", lambda: self.scene().emit(SIGNAL("beginDisplacement"), (self, Qt.Key_Right)))
 
         menu.exec_(event.screenPos())
 
     def startDisplacement(self, direction):
         self._displacing = True
         self._displacingDirection = direction
-        arrow = Arrow(direction)
-        arrow.setPosition(*OGLMatrixToXYZ(self.matrix))
-        self.parentCSI.addPart(arrow)
+        self.displacement = self.getDisplacementOffset(direction)
+        self.arrow = Arrow(direction)
+        self.arrow.setPosition(*OGLMatrixToXYZ(self.matrix))
+        self.parentCSI.addPart(self.arrow)
         self.parentCSI.maximizePixmap()
-        self.setFocus()
-        self.displace(direction)
-
+        self.parentCSI.updatePixmap()
+    
+    def stopDisplacement(self):
+        self._displacing = False
+        self._displacingDirection = None
+        self.displacement = []
+        self.parentCSI.removePart(self.arrow)
+        self.parentCSI.maximizePixmap()
+        self.parentCSI.updatePixmap()
+    
     def increaseDisplacement(self):
         self.displace(self._displacingDirection)
     
     def decreaseDisplacement(self):
-        if self._displacingDirection == Qt.Key_Up:
-            return self.displace(Qt.Key_Down)
-        if self._displacingDirection == Qt.Key_Down:
-            return self.displace(Qt.Key_Up)
-        if self._displacingDirection == Qt.Key_PageUp:
-            return self.displace(Qt.Key_PageDown)
-        if self._displacingDirection == Qt.Key_PageDown:
-            return self.displace(Qt.Key_PageUp)
-        if self._displacingDirection == Qt.Key_Left:
-            return self.displace(Qt.Key_Right)
-        if self._displacingDirection == Qt.Key_Right:
-            return self.displace(Qt.Key_Left)
+        self.displace(Helpers.getOppositeDirection(self._displacingDirection))
         
     def keyReleaseEvent(self, event):
         direction = event.key()
@@ -2182,9 +2175,9 @@ class Part(QGraphicsRectItem):
             return self.decreaseDisplacement()
         self.displace(direction)
 
-    def displace(self, direction):
+    def getDisplacementOffset(self, direction):
         offset = 20
-        displacement = [0, 0, 0]
+        displacement = [0.0, 0.0, 0.0]
 
         if direction == Qt.Key_Up:
             displacement[0] -= offset
@@ -2199,11 +2192,16 @@ class Part(QGraphicsRectItem):
         elif direction == Qt.Key_Right:
             displacement[2] += offset
         else:
-            return  # Ignore any other directions here
+            return None
 
-        oldPos = self.displacement if self.displacement else [0.0, 0.0, 0.0]
-        newPos = [oldPos[0] + displacement[0], oldPos[1] + displacement[1], oldPos[2] + displacement[2]]
-        self.scene().emit(SIGNAL("displacePart"), (self, oldPos, newPos))
+        return displacement
+        
+    def displace(self, direction):
+        displacement = self.getDisplacementOffset(direction)
+        if displacement:
+            oldPos = self.displacement if self.displacement else [0.0, 0.0, 0.0]
+            newPos = [oldPos[0] + displacement[0], oldPos[1] + displacement[1], oldPos[2] + displacement[2]]
+            self.scene().emit(SIGNAL("displacePart"), (self, oldPos, newPos))
 
     def moveToPrevStep(self):
         step = self.parentCSI.parent()

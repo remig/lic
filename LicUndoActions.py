@@ -58,6 +58,24 @@ class DisplacePartCommand(QUndoCommand):
         self.part.displacement = list(self.newDisp)
         self.part.parentCSI.updatePixmap()
 
+class BeginDisplacement(QUndoCommand):
+    
+    """
+    BeginDisplaceCommand stores a (part, direction) tuple to displace
+    """
+
+    _id = getNewCommandID()
+
+    def __init__(self, beginCommand):
+        QUndoCommand.__init__(self, "Begin Part displacement")
+        self.part, self.direction = beginCommand
+
+    def undo(self):
+        self.part.stopDisplacement()
+
+    def redo(self):
+        self.part.startDisplacement(self.direction)
+    
 class ResizeCSIPLICommand(QUndoCommand):
 
     """
