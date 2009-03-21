@@ -55,7 +55,15 @@ Part:
   float matrix[0] 
   ... 
   float matrix[15]
-
+  
+  bool useDisplacement # if displacement
+  
+  if useDisplacement:
+    float displacement[0] # x
+    float displacement[1] # y
+    float displacement[2] # z
+    int32 displaceDir
+  
 Page:
   QPointf pos
   QRectf rect

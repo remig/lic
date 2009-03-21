@@ -101,7 +101,9 @@ class LicTreeView(QTreeView):
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.connect(self, SIGNAL("clicked(QModelIndex)"), self.clicked)
 
+    """
     def keyReleaseEvent(self, event):
+        #TODO: This is totally broken, and doesn't make sense: arrow keys in tree should move selection.
         key = event.key()
         moved = False
         if key == Qt.Key_Left:
@@ -123,6 +125,7 @@ class LicTreeView(QTreeView):
         if moved:
             QTreeView.keyReleaseEvent(self, event)
             self.clicked(self.currentIndex())
+    """
         
     def updateSelection(self):
         """ This is called whenever the graphics scene's selection changes """
@@ -1599,7 +1602,7 @@ class PartOGL(object):
 
     def addPart(self, p, line, lastStepNumber = 1):
         try:
-            part = Part(p['filename'], p['color'], p['matrix'], lastStepNumber = lastStepNumber)
+            part = Part(p['filename'], p['color'], p['matrix'], False, True, lastStepNumber)
         except IOError:
             print "Could not find file: %s - Ignoring." % p['filename']
             return
@@ -2010,14 +2013,15 @@ class Part(QGraphicsRectItem):
 
         self.color = color
         self.matrix = matrix
-        self.displacement = []
         self.inverted = invert
         self.filename = filename  # Needed for save / load
         self.partOGL = None
         self.parentPLI = None # Needed because now Parts live in the tree (inside specific PLIItems)
         self.parentCSI = None # Needed to be able to notify CSI to draw this part as selected
-        self._displacing = False
-        self._displacingDirection = None
+
+        self.displacement = []
+        self.displaceDirection = None
+
         self.setFlags(NoMoveFlags)
 
         if setPartOGL:
@@ -2048,9 +2052,8 @@ class Part(QGraphicsRectItem):
     def setSelected(self, selected):
         QGraphicsRectItem.setSelected(self, selected)
         self.parentCSI.updatePixmap()
-        if self._displacing and not selected:
+        if not selected:
             self.parentCSI.resetPixmap()
-            self._displacing = False
 
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
@@ -2146,7 +2149,7 @@ class Part(QGraphicsRectItem):
 #            menu.addAction("New Callout from Parts", None)
 #            menu.addSeparator()
 
-        if self._displacing or self.displacement:
+        if self.displacement:
             menu.addAction("&Increase displacement", self.increaseDisplacement)
             menu.addAction("&Decrease displacement", self.decreaseDisplacement)
         else:
@@ -2161,8 +2164,7 @@ class Part(QGraphicsRectItem):
         menu.exec_(event.screenPos())
 
     def startDisplacement(self, direction):
-        self._displacing = True
-        self._displacingDirection = direction
+        self.displaceDirection = direction
         self.displacement = self.getDisplacementOffset(direction)
         self.arrow = Arrow(direction)
         self.arrow.setPosition(*OGLMatrixToXYZ(self.matrix))
@@ -2173,8 +2175,7 @@ class Part(QGraphicsRectItem):
         self.parentCSI.updatePixmap()
     
     def stopDisplacement(self):
-        self._displacing = False
-        self._displacingDirection = None
+        self.displaceDirection = None
         self.displacement = []
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         self.parentCSI.removeArrow(self.arrow)
@@ -2183,10 +2184,10 @@ class Part(QGraphicsRectItem):
         self.parentCSI.updatePixmap()
     
     def increaseDisplacement(self):
-        self.displace(self._displacingDirection)
+        self.displace(self.displaceDirection)
     
     def decreaseDisplacement(self):
-        self.displace(Helpers.getOppositeDirection(self._displacingDirection))
+        self.displace(Helpers.getOppositeDirection(self.displaceDirection))
         
     def keyReleaseEvent(self, event):
         direction = event.key()
@@ -2281,8 +2282,8 @@ class Arrow(Part):
         self.partOGL.primitives.append(tip2)
         self.partOGL.primitives.append(base)
    
-        self.rotation = []
-        self.setDirection(direction)
+        self.displacement = [0.0, 0.0, 0.0]
+        self.displaceDirection = direction
         self.partOGL.createOGLDisplayList()
 
     def parent(self):
@@ -2300,22 +2301,26 @@ class Arrow(Part):
         self.matrix[13] = y
         self.matrix[14] = z
         
-    def setDirection(self, direction):
+    def displace(self, direction):
+        return # Arrows cannot (yet) be moved
+    
+    def getRotation(self):
         
-        if direction == Qt.Key_PageUp:
-            self.rotation = [1.0, 0.0, -1.0]
-        elif direction == Qt.Key_PageDown:
-            self.rotation = [-1.0, 0.0, 1.0]
+        d = self.displaceDirection
+        if d == Qt.Key_PageUp:
+            return [1.0, 0.0, -1.0]
+        elif d == Qt.Key_PageDown:
+            return [-1.0, 0.0, 1.0]
 
-        elif direction == Qt.Key_Left:
-            self.rotation = [1.0, 1.0, 0.0]
-        elif direction == Qt.Key_Right:
-            self.rotation = [-1.0, -1.0, 0.0]
+        elif d == Qt.Key_Left:
+            return [1.0, 1.0, 0.0]
+        elif d == Qt.Key_Right:
+            return [-1.0, -1.0, 0.0]
 
-        elif direction == Qt.Key_Up:
-            self.rotation = [1.0, 1.0, 1.0]
-        elif direction == Qt.Key_Down:
-            self.rotation = [-1.0, 0.0, 0.0]
+        elif d == Qt.Key_Up:
+            return [1.0, 1.0, 1.0]
+        elif d == Qt.Key_Down:
+            return [-1.0, 0.0, 0.0]
 
     def callGLDisplayList(self, useDisplacement = False):
 
@@ -2332,7 +2337,7 @@ class Arrow(Part):
         GL.glPushMatrix()
         GL.glMultMatrixf(matrix)
         
-        r = self.rotation
+        r = self.getRotation()
         if r[1] and r[2]:
             GL.glRotatef(180.0, 0.0, 1.0, 0.0) # Back arrow rotated 180      
         elif r[1] or r[2]:

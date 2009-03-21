@@ -105,9 +105,17 @@ def __writePart(stream, part):
     stream << QString(part.partOGL.filename)
     stream.writeBool(part.inverted)
     stream.writeInt32(part.color)
-    assert len(part.matrix) == 16
     for point in part.matrix:
         stream.writeFloat(point)
+        
+    if part.displacement:
+        stream.writeBool(True)
+        stream.writeFloat(part.displacement[0])
+        stream.writeFloat(part.displacement[1])
+        stream.writeFloat(part.displacement[2])
+        stream.writeInt32(part.displaceDirection)
+    else:
+        stream.writeBool(False)
         
 def __writePage(stream, page):
     stream << page.pos() << page.rect()

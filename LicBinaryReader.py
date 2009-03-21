@@ -138,12 +138,32 @@ def __readPrimitive(stream):
 def __readPart(stream):
     filename = QString()
     stream >> filename
+    filename = str(filename)
+    
     invert = stream.readBool()
     color = stream.readInt32()
     matrix = []
+
     for i in range(0, 16):
         matrix.append(stream.readFloat())
-    return Part(str(filename), color, matrix, invert, False)
+    
+    useDisplacement = stream.readBool()
+    if useDisplacement:
+        displacement = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+        displaceDirection = stream.readInt32()
+        
+    if filename == 'arrow':
+        arrow = Arrow(displaceDirection)
+        arrow.matrix = matrix
+        return arrow
+    
+    part = Part(filename, color, matrix, invert, False)
+
+    if useDisplacement:
+        part.displacement = displacement
+        part.displaceDirection = displaceDirection
+
+    return part
 
 def __readPage(stream, parent, instructions):
     pos = QPointF()
@@ -243,10 +263,13 @@ def __readCSI(stream, step):
         elif part.filename in submodelDictionary:
             part.partOGL = submodelDictionary[part.filename]
             part.partOGL.used = True
-        else:
+        elif part.filename != 'arrow':
             print "LOAD ERROR: could not find a partOGL for part: " + part.filename
 
         csi.parts.append(part)
+        if part.filename == 'arrow':
+            csi.arrows.append(part)
+
     return csi
 
 def __readPLI(stream, parentStep):
