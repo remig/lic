@@ -1378,6 +1378,7 @@ class CSI(QGraphicsPixmapItem):
 
     def addArrow(self, arrow):
         self.addPart(arrow)
+        arrow.setParentItem(self)
         self.arrows.append(arrow)
         
     def removeArrow(self, arrow):
@@ -2083,32 +2084,7 @@ class Part(QGraphicsRectItem):
             GL.glMultMatrixf(matrix)
 
         if self.isSelected():
-            
-            b = self.partOGL.getBoundingBox()
-            GL.glBegin(GL.GL_LINE_LOOP)
-            GL.glVertex3f(b.x1, b.y1, b.z1)
-            GL.glVertex3f(b.x2, b.y1, b.z1)
-            GL.glVertex3f(b.x2, b.y2, b.z1)
-            GL.glVertex3f(b.x1, b.y2, b.z1)
-            GL.glEnd()
-
-            GL.glBegin(GL.GL_LINE_LOOP)
-            GL.glVertex3f(b.x1, b.y1, b.z2)
-            GL.glVertex3f(b.x2, b.y1, b.z2)
-            GL.glVertex3f(b.x2, b.y2, b.z2)
-            GL.glVertex3f(b.x1, b.y2, b.z2)
-            GL.glEnd()
-
-            GL.glBegin(GL.GL_LINES)
-            GL.glVertex3f(b.x1, b.y1, b.z1)
-            GL.glVertex3f(b.x1, b.y1, b.z2)
-            GL.glVertex3f(b.x1, b.y2, b.z1)
-            GL.glVertex3f(b.x1, b.y2, b.z2)
-            GL.glVertex3f(b.x2, b.y1, b.z1)
-            GL.glVertex3f(b.x2, b.y1, b.z2)
-            GL.glVertex3f(b.x2, b.y2, b.z1)
-            GL.glVertex3f(b.x2, b.y2, b.z2)
-            GL.glEnd()
+            self.drawGLBoundingBox()
 
         GL.glCallList(self.partOGL.oglDispID)
 
@@ -2120,6 +2096,33 @@ class Part(QGraphicsRectItem):
 
         if color != LDrawColors.CurrentColor:
             GL.glPopAttrib()
+
+    def drawGLBoundingBox(self):
+        b = self.partOGL.getBoundingBox()
+        GL.glBegin(GL.GL_LINE_LOOP)
+        GL.glVertex3f(b.x1, b.y1, b.z1)
+        GL.glVertex3f(b.x2, b.y1, b.z1)
+        GL.glVertex3f(b.x2, b.y2, b.z1)
+        GL.glVertex3f(b.x1, b.y2, b.z1)
+        GL.glEnd()
+
+        GL.glBegin(GL.GL_LINE_LOOP)
+        GL.glVertex3f(b.x1, b.y1, b.z2)
+        GL.glVertex3f(b.x2, b.y1, b.z2)
+        GL.glVertex3f(b.x2, b.y2, b.z2)
+        GL.glVertex3f(b.x1, b.y2, b.z2)
+        GL.glEnd()
+
+        GL.glBegin(GL.GL_LINES)
+        GL.glVertex3f(b.x1, b.y1, b.z1)
+        GL.glVertex3f(b.x1, b.y1, b.z2)
+        GL.glVertex3f(b.x1, b.y2, b.z1)
+        GL.glVertex3f(b.x1, b.y2, b.z2)
+        GL.glVertex3f(b.x2, b.y1, b.z1)
+        GL.glVertex3f(b.x2, b.y1, b.z2)
+        GL.glVertex3f(b.x2, b.y2, b.z1)
+        GL.glVertex3f(b.x2, b.y2, b.z2)
+        GL.glEnd()
 
     def exportToLDrawFile(self, fh):
         line = createPartLine(self.color, self.matrix, self.partOGL.filename)
@@ -2324,7 +2327,7 @@ class Arrow(Part):
 
     def callGLDisplayList(self, useDisplacement = False):
 
-        # must be called inside a glNewList/EndList pair
+        # Must be called inside a glNewList/EndList pair
         color = LDrawColors.convertToRGBA(self.color)
 
         if color != LDrawColors.CurrentColor:
@@ -2343,6 +2346,9 @@ class Arrow(Part):
         elif r[1] or r[2]:
             GL.glRotatef(90.0, 0.0, r[1], r[2]) # All but front & back
         GL.glRotatef(45.0, r[0], 0.0, 0.0)  # Rotate about x to face viewer
+
+        if self.isSelected():
+            self.drawGLBoundingBox()
 
         GL.glCallList(self.partOGL.oglDispID)
 

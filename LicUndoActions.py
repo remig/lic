@@ -53,12 +53,12 @@ class DisplacePartCommand(QUndoCommand):
     def undo(self):
         self.part.displacement = list(self.oldDisp)
         self.part.parentCSI.maximizePixmap()
-        self.part.parentCSI.updatePixmap()
+        self.part.parentCSI.resetPixmap()
 
     def redo(self):
         self.part.displacement = list(self.newDisp)
         self.part.parentCSI.maximizePixmap()
-        self.part.parentCSI.updatePixmap()
+        self.part.parentCSI.resetPixmap()
 
 class BeginDisplacement(QUndoCommand):
     

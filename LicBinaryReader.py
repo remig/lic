@@ -269,6 +269,7 @@ def __readCSI(stream, step):
         csi.parts.append(part)
         if part.filename == 'arrow':
             csi.arrows.append(part)
+            part.setParentItem(csi)
 
     return csi
 
