@@ -223,7 +223,8 @@ class LicWindow(QMainWindow):
                    ("deletePage", lambda x: u.push(l.DeletePageCommand(x))),
                    ("displacePart", lambda x: u.push(l.DisplacePartCommand(x))),
                    ("movePartToStep", lambda x: u.push(l.MovePartToStepCommand(x))),
-                   ("beginDisplacement", lambda x: u.push(l.BeginDisplacement(x)))]
+                   ("beginDisplacement", lambda x: u.push(l.BeginDisplacement(x))),
+                   ("adjustArrowLength", lambda x: u.push(l.AdjustArrowLength(x)))]
 
         for signal, command in signals:
             self.connect(self.scene, SIGNAL(signal), command)

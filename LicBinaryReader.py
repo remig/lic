@@ -155,6 +155,7 @@ def __readPart(stream):
     if filename == 'arrow':
         arrow = Arrow(displaceDirection)
         arrow.matrix = matrix
+        arrow.displacement = displacement
         return arrow
     
     part = Part(filename, color, matrix, invert, False)

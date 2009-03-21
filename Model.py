@@ -317,7 +317,8 @@ class Instructions(QAbstractItemModel):
         
         # First initialize all partOGL display lists
         for part in partDictionary.values():
-            part.createOGLDisplayList()
+            if part.oglDispID == UNINIT_GL_DISPID:
+                part.createOGLDisplayList()
             
         # Initialize all submodel display lists
         for submodel in submodelDictionary.values():
@@ -1378,11 +1379,13 @@ class CSI(QGraphicsPixmapItem):
 
     def addArrow(self, arrow):
         self.addPart(arrow)
-        arrow.setParentItem(self)
         self.arrows.append(arrow)
+        arrow.setParentItem(self)
         
     def removeArrow(self, arrow):
         self.parts.remove(arrow)
+        arrow.setParentItem(None)
+        self.scene().removeItem(arrow)
         self.arrows.remove(arrow)
     
     def __callPreviousOGLDisplayLists(self, isCurrent = False):
@@ -1616,9 +1619,10 @@ class PartOGL(object):
         self.primitives.append(primitive)
 
     def createOGLDisplayList(self):
-        """ Initialize this part's display list.  Expensive call, but called only once. """
+        """ Initialize this part's display list."""
+
         if self.oglDispID != UNINIT_GL_DISPID:
-            return
+            GL.glDeleteLists(self.oglDispID, 1)
 
         # Ensure any parts in this part have been initialized
         for part in self.parts:
@@ -2167,7 +2171,6 @@ class Part(QGraphicsRectItem):
     def startDisplacement(self, direction):
         self.displaceDirection = direction
         self.displacement = self.getDisplacementOffset(direction)
-        self.arrow = Arrow(direction)
         self.arrow.setPosition(*OGLMatrixToXYZ(self.matrix))
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         self.parentCSI.addArrow(self.arrow)
@@ -2302,9 +2305,6 @@ class Arrow(Part):
         self.matrix[13] = y
         self.matrix[14] = z
         
-    def displace(self, direction):
-        return # Arrows cannot (yet) be moved
-    
     def getRotation(self):
         
         d = self.displaceDirection
@@ -2335,6 +2335,10 @@ class Arrow(Part):
             GL.glColor4fv(color)
 
         matrix = list(self.matrix)
+        if useDisplacement and self.displacement:
+            matrix[12] += self.displacement[0]
+            matrix[13] += self.displacement[1]
+            matrix[14] += self.displacement[2]
         GL.glPushMatrix()
         GL.glMultMatrixf(matrix)
         
@@ -2356,6 +2360,25 @@ class Arrow(Part):
         if color != LDrawColors.CurrentColor:
             GL.glPopAttrib()
 
+    def contextMenuEvent(self, event):
+
+        menu = QMenu(self.scene().views()[0])
+        
+        menu.addAction("Move &Forward", self.decreaseDisplacement)
+        menu.addAction("Move &Back", self.increaseDisplacement)
+        menu.addAction("&Longer", lambda: self.scene().emit(SIGNAL("adjustArrowLength"), (self, 20)))
+        menu.addAction("&Shorter", lambda: self.scene().emit(SIGNAL("adjustArrowLength"), (self, -20)))
+
+        menu.exec_(event.screenPos())
+
+    def adjustLength(self, offset):
+        p = self.partOGL.primitives[-1]
+        p.points[3] = max(p.points[3] + offset, 0) 
+        p.points[6] = max(p.points[6] + offset, 0)
+        self.partOGL.createOGLDisplayList()
+        self.parentCSI.maximizePixmap()
+        self.parentCSI.resetPixmap()
+    
 class Primitive(object):
     """
     Not a primitive in the LDraw sense, just a single line/triangle/quad.

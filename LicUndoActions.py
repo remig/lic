@@ -1,5 +1,6 @@
 from PyQt4.QtGui import QUndoCommand
 from PyQt4.QtCore import SIGNAL
+from Model import Arrow
 
 NextCommandID = 122
 def getNewCommandID():
@@ -71,6 +72,7 @@ class BeginDisplacement(QUndoCommand):
     def __init__(self, beginCommand):
         QUndoCommand.__init__(self, "Begin Part displacement")
         self.part, self.direction = beginCommand
+        self.part.arrow = Arrow(self.direction)
 
     def undo(self):
         self.part.stopDisplacement()
@@ -253,3 +255,21 @@ class MovePartToStepCommand(QUndoCommand):
     def redo(self):
         self.part.moveToStep(self.newStep)
 
+class AdjustArrowLength(QUndoCommand):
+
+    """
+    AdjustArrowLength stores an arrow and offset to add / remove to length
+    (arrow, offset)
+    """
+
+    _id = getNewCommandID()
+
+    def __init__(self, arrowSet):
+        QUndoCommand.__init__(self, "arrow length change")
+        self.arrow, self.offset = arrowSet
+
+    def undo(self):
+        self.arrow.adjustLength(-self.offset)
+
+    def redo(self):
+        self.arrow.adjustLength(self.offset)
