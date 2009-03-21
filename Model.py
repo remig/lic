@@ -2053,8 +2053,6 @@ class Part(QGraphicsRectItem):
     def setSelected(self, selected):
         QGraphicsRectItem.setSelected(self, selected)
         self.parentCSI.updatePixmap()
-        if not selected:
-            self.parentCSI.resetPixmap()
 
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
