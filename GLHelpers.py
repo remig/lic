@@ -8,6 +8,18 @@ from PyQt4.QtCore import QPointF
 
 DEBUG = 0
 
+def drawCoordLines():
+    glBegin(GL_LINES)
+    glVertex3f(0.0, 0.0, 0.0)
+    glVertex3f(100.0, 0.0, 0.0)
+    
+    glVertex3f(0.0, 0.0, 0.0)
+    glVertex3f(0.0, 100.0, 0.0)
+    
+    glVertex3f(0.0, 0.0, 0.0)
+    glVertex3f(0.0, 0.0, 100.0)
+    glEnd()
+
 def initFreshContext():
     glEnable(GL_LIGHTING)
     glEnable(GL_LIGHT0)

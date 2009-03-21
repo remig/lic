@@ -2303,19 +2303,19 @@ class Arrow(Part):
     def setDirection(self, direction):
         
         if direction == Qt.Key_PageUp:
-            self.rotation = [0.0, 0.0, -1.0]
+            self.rotation = [1.0, 0.0, -1.0]
         elif direction == Qt.Key_PageDown:
-            self.rotation = [0.0, 0.0, 1.0]
+            self.rotation = [-1.0, 0.0, 1.0]
 
         elif direction == Qt.Key_Left:
-            self.rotation = [0.0, 1.0, 0.0]
+            self.rotation = [1.0, 1.0, 0.0]
         elif direction == Qt.Key_Right:
-            self.rotation = [0.0, -1.0, 0.0]
+            self.rotation = [-1.0, -1.0, 0.0]
 
         elif direction == Qt.Key_Up:
-            self.rotation = "flip"
+            self.rotation = [1.0, 1.0, 1.0]
         elif direction == Qt.Key_Down:
-            self.rotation = None
+            self.rotation = [-1.0, 0.0, 0.0]
 
     def callGLDisplayList(self, useDisplacement = False):
 
@@ -2331,11 +2331,13 @@ class Arrow(Part):
         matrix = list(self.matrix)
         GL.glPushMatrix()
         GL.glMultMatrixf(matrix)
-        if self.rotation:
-            if self.rotation == "flip":
-                GL.glRotatef(180.0, 0.0, 1.0, 0.0)                
-            else:
-                GL.glRotatef(90.0, *self.rotation)
+        
+        r = self.rotation
+        if r[1] and r[2]:
+            GL.glRotatef(180.0, 0.0, 1.0, 0.0) # Back arrow rotated 180      
+        elif r[1] or r[2]:
+            GL.glRotatef(90.0, 0.0, r[1], r[2]) # All but front & back
+        GL.glRotatef(45.0, r[0], 0.0, 0.0)  # Rotate about x to face viewer
 
         GL.glCallList(self.partOGL.oglDispID)
 
