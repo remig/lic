@@ -12,6 +12,7 @@ import l3p
 import povray
 import LDrawColors
 import Helpers
+import LicUndoActions
 
 from LDrawFileFormat import *
 
@@ -609,10 +610,11 @@ class Page(QGraphicsRectItem):
         for step in self.steps:
             items.append(step)
             items.append(step.numberItem)
-            items.append(step.pli)
-            for pliItem in step.pli.pliItems:
-                items.append(pliItem)
-                items.append(pliItem.numberItem)
+            if step.pli:
+                items.append(step.pli)
+                for pliItem in step.pli.pliItems:
+                    items.append(pliItem)
+                    items.append(pliItem.numberItem)
 
         for border in self.borders:
             items.append(border)
@@ -632,6 +634,9 @@ class Page(QGraphicsRectItem):
             return None
         return self._parent.pages[self._row + 1]
         
+    def getStep(self, number):
+        return self._parent.getStep(number)
+
     def addStep(self, step, relayout = False):
 
         self.steps.append(step)
@@ -807,7 +812,8 @@ class Page(QGraphicsRectItem):
 
     def scaleImages(self):
         for step in self.steps:
-            step.pli.initLayout()
+            if step.pli:
+                step.pli.initLayout()
             
         if self.submodelItem:
             self.resetSubmodelImage()
@@ -816,8 +822,9 @@ class Page(QGraphicsRectItem):
 
         for step in self.steps:
             step.csi.createPng()
-            for item in step.pli.pliItems:
-                item.createPng()
+            if step.pli:
+                for item in step.pli.pliItems:
+                    item.createPng()
 
         image = QImage(self.rect().width(), self.rect().height(), QImage.Format_ARGB32)
         painter = QPainter()
@@ -834,11 +841,12 @@ class Page(QGraphicsRectItem):
             else:
                 print "Error: Trying to draw a csi that was not exported to png: page %d step %d" % step.csi.getPageStepNumberPair()
                 
-            for item in step.pli.pliItems:
-                if hasattr(item, "pngImage"):
-                    painter.drawImage(item.scenePos(), item.pngImage)
-                else:
-                    print "Error: Trying to draw a pliItem that was not exported to png: step %d, item %s" % (step._number, item.partOGL.filename)
+            if step.pli:
+                for item in step.pli.pliItems:
+                    if hasattr(item, "pngImage"):
+                        painter.drawImage(item.scenePos(), item.pngImage)
+                    else:
+                        print "Error: Trying to draw a pliItem that was not exported to png: step %d, item %s" % (step._number, item.partOGL.filename)
 
         if self.submodelItem:
             painter.drawImage(self.submodelItem.pos() + PLI.margin, self._parent.pngImage)
@@ -863,11 +871,11 @@ class Page(QGraphicsRectItem):
     def contextMenuEvent(self, event):
         
         menu = QMenu(self.scene().views()[0])
-        delPage = menu.addAction("Delete Page", self.deletePage)
-        addPageBefore = menu.addAction("Prepend blank Page", self.addPageBefore)
-        addPageAfter = menu.addAction("Append blank Page", self.addPageAfter)
-        sep = menu.addSeparator()
-        addStep = menu.addAction("Add blank Step", self.addBlankStep)
+        menu.addAction("Delete Page", self.deletePage)
+        menu.addAction("Prepend blank Page", self.addPageBefore)
+        menu.addAction("Append blank Page", self.addPageAfter)
+        menu.addSeparator()
+        menu.addAction("Add blank Step", self.addBlankStep)
         menu.exec_(event.screenPos())
     
     def deletePage(self):
@@ -897,26 +905,65 @@ class Callout(QGraphicsRectItem):
 
     margin = QPointF(15, 15)
 
-    def __init__(self, parent, instructions, number = -1):
-        QGraphicsRectItem.__init__(self)
+    def __init__(self, parent):
+        QGraphicsRectItem.__init__(self, parent)
 
-        self.steps = []
+        self.steps = [Step(self, 1, True)]
+        self.number = 1
         
+        self.setPos(0, 0)
+        self.setRect(0, 0, 80, 80)
+        self.setPen(QPen(Qt.black))
+        self.setFlags(AllFlags)
+        
+    def parent(self):
+        return self.parentItem()
+
+    def child(self, row):
+        if row < 0 or row >= len(self.steps):
+            return None
+        return self.steps[row]
+
+    def rowCount(self):
+        return len(self.steps)
+
     def row(self):
         return self.parentItem().getChildRow(self)
+
+    def getChildRow(self, child):
+        if child in self.steps:
+            return self.steps.index(child)
+
+    def data(self, index):
+        return "Callout - %d steps" % len(self.steps)
+
+    def addPart(self, part):
+        self.steps[0].addPart(part)
+
+    def initSize(self):
+        for step in self.steps:
+            step.csi.resetPixmap()
+        
+    def getStep(self, number):
+        for step in self.steps:
+            if step.number == number:
+                return step
+        return None
 
 class Step(QGraphicsRectItem):
     """ A single step in an Instruction book.  Contains one optional PLI and exactly one CSI. """
 
     NextNumber = 1
 
-    def __init__(self, parentPage, number = -1):
+    def __init__(self, parentPage, number = -1, disablePLI = False):
         QGraphicsRectItem.__init__(self, parentPage)
 
-        self.csi = CSI(self)
-        self.pli = PLI(self)
-        self.callout = None
+        # Children
         self.numberItem = None
+        self.csi = CSI(self)
+        self.pli = None if disablePLI else PLI(self)
+        self.callouts = []
+        
         self.maxRect = None
 
         pen = self.pen()
@@ -949,7 +996,7 @@ class Step(QGraphicsRectItem):
         return self._number
 
     number = property(fget = _getNumber, fset = _setNumber)
-    
+
     def parent(self):
         return self.parentItem()
 
@@ -958,12 +1005,17 @@ class Step(QGraphicsRectItem):
             return self.numberItem
         if row == 1:
             return self.csi
-        if row == 2:
+        if row == 2 and self.pli:
             return self.pli
+
+        offset = row - (3 if self.pli else 2)
+        if offset < len(self.callouts):
+                return self.callouts[offset]
+
         return None
 
     def rowCount(self):
-        return 3
+        return len(self.callouts) + (3 if self.pli else 2)
 
     def row(self):
         return self.parentItem().getChildRow(self)
@@ -971,21 +1023,36 @@ class Step(QGraphicsRectItem):
     def data(self, index):
         return "Step %d" % self._number
 
+    def getChildRow(self, child):
+        if isinstance(child, QGraphicsSimpleTextItem):
+            return 0
+        if isinstance(child, CSI):
+            return 1
+        if isinstance(child, PLI):
+            return 2
+        if child in self.callouts:
+            return self.callouts.index(child) + (3 if self.pli else 2)
+        
     def addPart(self, part):
         self.csi.addPart(part)
         if self.pli:
             self.pli.addPart(part)
 
+    def addBlankCallout(self):
+        callout = Callout(self)
+        self.callouts.append(callout)
+        return callout
+
     def resetRect(self):
         stepRect = self.rect()
         childrenRect = self.childrenBoundingRect()
-        self.setRect(stepRect | childrenRect)
+        self.setRect(stepRect | childrenRect)  # TODO: This isn't right.
     
     def getNextStep(self):
-        return self.parent().parent().getStep(self.number + 1)
+        return self.parent().getStep(self.number + 1)
 
     def getPrevStep(self):
-        return self.parent().parent().getStep(self.number - 1)
+        return self.parent().getStep(self.number - 1)
         
     def initLayout(self, destRect = None):
 
@@ -997,12 +1064,13 @@ class Step(QGraphicsRectItem):
         self.setPos(destRect.topLeft())
         self.setRect(0, 0, destRect.width(), destRect.height())
         
-        self.pli.initLayout()
+        if self.pli:
+            self.pli.initLayout()
         self.csi.initLayout()
 
         # Position the Step number label beneath the PLI
         self.numberItem.setPos(0, 0)
-        self.numberItem.moveBy(0, self.pli.rect().height() + Page.margin.y() + 0.5)
+        self.numberItem.moveBy(0, self.pli.rect().height() if self.pli else 0.0 + Page.margin.y() + 0.5)
 
     def contextMenuEvent(self, event):
 
@@ -1025,8 +1093,7 @@ class Step(QGraphicsRectItem):
         page = self.parentItem()
         
         if len(self.csi.parts) == 0:
-            action = lambda: self.scene().emit(SIGNAL("deleteStep"), self)
-            menu.addAction("&Delete Step", action)
+            menu.addAction("&Delete Step", lambda: self.scene().emit(SIGNAL("deleteStep"), self))
 
         if not page.prevPage():
             prevPage.setEnabled(False)
@@ -1063,12 +1130,12 @@ class Step(QGraphicsRectItem):
         
         # Add this step to the new page's step list, and set its scene parent
         page.addStep(self, relayout)
-        
+
         page.instructions.emit(SIGNAL("layoutChanged()"))
-    
+
     def mergeWithPrevStep(self):
         print "Merging Step %d with previous Step - NYI" % self._number
-    
+
     def mergeWithNextStep(self, args = None):
         print "Merging Step %d with next Step - NYI" % self._number
 
@@ -1133,8 +1200,7 @@ class PLIItem(QGraphicsRectItem):
         return 1 + len(self.parts)
 
     def row(self):
-        pli = self.parentItem()
-        return pli.pliItems.index(self)
+        return self.parentItem().pliItems.index(self)
 
     def data(self, index):
         return "%s - %s" % (self.partOGL.name, LDrawColors.getColorName(self.color))
@@ -1225,6 +1291,7 @@ class PLI(QGraphicsRectItem):
 
     def child(self, row):
         if row < 0 or row >= len(self.pliItems):
+            print "ERROR: Looking up invalid row in PLI Tree"
             return None
         return self.pliItems[row] 
 
@@ -1462,7 +1529,7 @@ class CSI(QGraphicsPixmapItem):
     def initLayout(self):
 
         step = self.parentItem()
-        pliHeight = step.pli.rect().height()
+        pliHeight = step.pli.rect().height() if step.pli else 0.0
 
         width = self.width * CSI.scale / 2.0
         height = self.height * CSI.scale / 2.0
@@ -2058,6 +2125,9 @@ class Part(QGraphicsRectItem):
         QGraphicsRectItem.setSelected(self, selected)
         self.parentCSI.updatePixmap()
 
+    def getStep(self):
+        return self.parentCSI.parent()
+
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
 
@@ -2130,41 +2200,52 @@ class Part(QGraphicsRectItem):
         line = createPartLine(self.color, self.matrix, self.partOGL.filename)
         fh.write(line + '\n')
 
+    def createCallout(self):
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        step = self.getStep()
+        callout = step.addBlankCallout()
+
+        for item in self.scene().selectedItems():
+            if isinstance(item, Part):
+                callout.addPart(item)
+        self.scene().emit(SIGNAL("layoutChanged()"))
+        callout.initSize()
+        
     def contextMenuEvent(self, event):
+        """ 
+        This is called if any part is the target of a right click.  
+        self is guaranteed to be selected.  Other stuff may be selected too, so deal.
+        """
 
         menu = QMenu(self.scene().views()[0])
-        
+
+        menu.addAction("Create Callout from Parts", self.createCallout)
+        menu.addSeparator()
+
         needSeparator = False
-        if self.parentCSI.parent().getPrevStep():
+        if self.getStep().getPrevStep():
             menu.addAction("Move to &Previous Step", self.moveToPrevStep)
             needSeparator = True
             
-        if self.parentCSI.parent().getNextStep():
+        if self.getStep().getNextStep():
             menu.addAction("Move to &Next Step", self.moveToNextStep)
             needSeparator = True
 
         if needSeparator:
             menu.addSeparator()
 
-#        selectedParts = []
-#        for item in self.scene().selectedItems():
-#            if isinstance(item, Part):
-#                selectedParts.append(item)
-#        if selectedParts:
-#            menu.addAction("New Callout from Parts", None)
-#            menu.addSeparator()
-
         if self.displacement:
             menu.addAction("&Increase displacement", self.increaseDisplacement)
             menu.addAction("&Decrease displacement", self.decreaseDisplacement)
         else:
+            s = self.scene()
             arrowMenu = menu.addMenu("Displace With &Arrow")
-            arrowMenu.addAction("Move Up", lambda: self.scene().emit(SIGNAL("beginDisplacement"), (self, Qt.Key_PageUp)))
-            arrowMenu.addAction("Move Down", lambda: self.scene().emit(SIGNAL("beginDisplacement"), (self, Qt.Key_PageDown)))
-            arrowMenu.addAction("Move Forward", lambda: self.scene().emit(SIGNAL("beginDisplacement"), (self, Qt.Key_Down)))
-            arrowMenu.addAction("Move Back", lambda: self.scene().emit(SIGNAL("beginDisplacement"), (self, Qt.Key_Up)))
-            arrowMenu.addAction("Move Left", lambda: self.scene().emit(SIGNAL("beginDisplacement"), (self, Qt.Key_Left)))
-            arrowMenu.addAction("Move Right", lambda: self.scene().emit(SIGNAL("beginDisplacement"), (self, Qt.Key_Right)))
+            arrowMenu.addAction("Move Up", lambda: s.emit(SIGNAL("beginDisplacement"), (self, Qt.Key_PageUp, Arrow(Qt.Key_PageUp))))
+            arrowMenu.addAction("Move Down", lambda: s.emit(SIGNAL("beginDisplacement"), (self, Qt.Key_PageDown, Arrow(Qt.Key_PageDown))))
+            arrowMenu.addAction("Move Forward", lambda: s.emit(SIGNAL("beginDisplacement"), (self, Qt.Key_Down, Arrow(Qt.Key_Down))))
+            arrowMenu.addAction("Move Back", lambda: s.emit(SIGNAL("beginDisplacement"), (self, Qt.Key_Up, Arrow(Qt.Key_Up))))
+            arrowMenu.addAction("Move Left", lambda: s.emit(SIGNAL("beginDisplacement"), (self, Qt.Key_Left, Arrow(Qt.Key_Left))))
+            arrowMenu.addAction("Move Right", lambda: s.emit(SIGNAL("beginDisplacement"), (self, Qt.Key_Right, Arrow(Qt.Key_Right))))
 
         menu.exec_(event.screenPos())
 
@@ -2230,18 +2311,33 @@ class Part(QGraphicsRectItem):
             self.scene().emit(SIGNAL("displacePart"), (self, oldPos, newPos))
 
     def moveToPrevStep(self):
-        step = self.parentCSI.parent()
+
+        selectedParts = []
+        for item in self.scene().selectedItems():
+            if isinstance(item, Part):
+                selectedParts.append(item)
+        
+        if not selectedParts:
+            print "ERROR: Trying to move None parts to Previous Step!"
+            return
+
+        step = self.getStep()
         prevStep = step.getPrevStep()
-        self.scene().emit(SIGNAL("movePartToStep"), (self, step, prevStep))
+
+        stack = self.scene().undoStack
+        stack.beginMacro("Move Parts to new Step")
+        for part in selectedParts:
+            stack.push(LicUndoActions.MovePartToStepCommand((self, step, prevStep)))
+        stack.endMacro()
 
     def moveToNextStep(self):
-        step = self.parentCSI.parent()
+        step = self.getStep()
         nextStep = step.getNextStep()
         self.scene().emit(SIGNAL("movePartToStep"), (self, step, nextStep))
 
     def moveToStep(self, step):
         
-        oldStep = self.parentCSI.parent()
+        oldStep = self.getStep()
         
         self.setSelected(False)
         self.scene().clearSelection()
@@ -2253,7 +2349,8 @@ class Part(QGraphicsRectItem):
         step.addPart(self)
         step.csi.resetPixmap()  #TODO: extend this to support move across several steps
         oldStep.csi.resetPixmap()
-        step.pli.initLayout()
+        if step.pli:
+            step.pli.initLayout()
         step.initLayout()
         self.scene().emit(SIGNAL("layoutChanged()"))
 

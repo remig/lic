@@ -1,6 +1,5 @@
 from PyQt4.QtGui import QUndoCommand
 from PyQt4.QtCore import SIGNAL
-from Model import Arrow
 
 NextCommandID = 122
 def getNewCommandID():
@@ -64,15 +63,15 @@ class DisplacePartCommand(QUndoCommand):
 class BeginDisplacement(QUndoCommand):
     
     """
-    BeginDisplaceCommand stores a (part, direction) tuple to displace
+    BeginDisplaceCommand stores a (part, direction, arrow) tuple to displace
     """
 
     _id = getNewCommandID()
 
     def __init__(self, beginCommand):
         QUndoCommand.__init__(self, "Begin Part displacement")
-        self.part, self.direction = beginCommand
-        self.part.arrow = Arrow(self.direction)
+        self.part, self.direction, arrow = beginCommand
+        self.part.arrow = arrow
 
     def undo(self):
         self.part.stopDisplacement()

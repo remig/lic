@@ -30,7 +30,7 @@ class LicGraphicsScene(QGraphicsScene):
         parts = []
         for item in self.selectedItems():
             if isinstance(item, Part):
-                parts.append(item)        
+                parts.append(item)
 
         QGraphicsScene.mouseReleaseEvent(self, event)
 
@@ -146,8 +146,11 @@ class LicWindow(QMainWindow):
 
         statusBar = self.statusBar()
         self.scene = LicGraphicsScene(self)
+        self.scene.undoStack = self.undoStack  # Make undo stack easy to find for everything
+
         self.graphicsView = LicGraphicsView(self)
         self.graphicsView.setScene(self.scene)
+        #self.graphicsView.setViewport(self.glWidget)
         self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
         
         self.createUndoSignals()
@@ -367,7 +370,9 @@ class LicWindow(QMainWindow):
         self.redoAction.setText("&Redo %s " % self.undoStack.redoText())
 
     def addRecentFile(self, filename):
-        if not self.recentFiles.contains(filename):
+        if self.recentFiles.contains(filename):
+            self.recentFiles.move(self.recentFiles.indexOf(filename), 0)
+        else:
             self.recentFiles.prepend(QString(filename))
             while self.recentFiles.count() > 9:
                 self.recentFiles.takeLast()
