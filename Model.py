@@ -944,6 +944,9 @@ class Callout(QGraphicsRectItem):
         for step in self.steps:
             step.csi.resetPixmap()
         
+    def initLayout(self):
+        pass
+    
     def getStep(self, number):
         for step in self.steps:
             if step.number == number:
@@ -1044,9 +1047,8 @@ class Step(QGraphicsRectItem):
         return callout
 
     def resetRect(self):
-        stepRect = self.rect()
-        childrenRect = self.childrenBoundingRect()
-        self.setRect(stepRect | childrenRect)  # TODO: This isn't right.
+        r = QRectF(0.0, 0.0, self.maxRect.width(), self.maxRect.height())
+        self.setRect(r | self.childrenBoundingRect())
     
     def getNextStep(self):
         return self.parent().getStep(self.number + 1)
@@ -1070,7 +1072,8 @@ class Step(QGraphicsRectItem):
 
         # Position the Step number label beneath the PLI
         self.numberItem.setPos(0, 0)
-        self.numberItem.moveBy(0, self.pli.rect().height() if self.pli else 0.0 + Page.margin.y() + 0.5)
+        pliOffset = self.pli.rect().height() if self.pli else 0.0
+        self.numberItem.moveBy(0, pliOffset + Page.margin.y() + 0.5)
 
     def contextMenuEvent(self, event):
 
