@@ -217,28 +217,59 @@ def __readPage(stream, parent, instructions):
 
     return page
 
-def __readStep(stream, parentPage):
+def __readStep(stream, parent):
+    
+    stepNumber = stream.readInt32()
+    hasPLI = stream.readBool()
+    hasNumberItem = stream.readBool()
+    
+    step = Step(parent, stepNumber, hasPLI, hasNumberItem)
+
+    pos = QPointF()
+    rect = QRectF()
+    maxRect = QRectF()
+    
+    stream >> pos >> rect >> maxRect
+    step.setPos(pos)
+    step.setRect(rect)
+    step.maxRect = maxRect
+
+    step.csi = __readCSI(stream, step)
+    
+    if hasPLI:
+        step.pli = __readPLI(stream, step)
+    
+    if hasNumberItem:
+        font = QFont()
+        stream >> pos >> font
+        step.numberItem.setPos(pos)
+        step.numberItem.setFont(font)
+
+    calloutCount = stream.readInt32()
+    for i in range(0, calloutCount):
+        callout = __readCallout(stream, step)
+        step.callouts.append(callout)
+    
+    return step
+
+def __readCallout(stream, parent):
     
     pos = QPointF()
     rect = QRectF()
-    font = QFont()
-    stream >> pos >> rect
+    pen = QPen()
+    stream >> pos >> rect >> pen
 
-    number = stream.readInt32()
-    step = Step(parentPage, number)
-    step.setPos(pos)
-    step.setRect(rect)
+    callout = Callout(parent)
+    callout.setPos(pos)
+    callout.setPen(pen)
+    callout.setRect(rect)
 
-    stream >> pos >> font
-    step.numberItem.setPos(pos)
-    step.numberItem.setFont(font)
-    
-    step.maxRect = QRectF()
-    stream >> step.maxRect
+    stepCount = stream.readInt32()
+    for i in range(0, stepCount):
+        step = __readStep(stream, callout)
+        callout.steps.append(step)
 
-    step.csi = __readCSI(stream, step)
-    step.pli = __readPLI(stream, step)
-    return step
+    return callout
 
 def __readCSI(stream, step):
     csi = CSI(step)

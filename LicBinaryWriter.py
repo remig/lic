@@ -145,13 +145,31 @@ def __writePage(stream, page):
         stream << border.pos() << border.rect() << border.pen()
 
 def __writeStep(stream, step):
-    stream << step.pos() << step.rect()
+    
     stream.writeInt32(step.number)
-    stream << step.numberItem.pos() << step.numberItem.font()
-    stream << step.maxRect
-
+    stream.writeBool(True if step.pli else False)
+    stream.writeBool(True if step.numberItem else False)
+    
+    stream << step.pos() << step.rect() << step.maxRect
+    
     __writeCSI(stream, step.csi)
-    __writePLI(stream, step.pli)
+    
+    if step.pli:
+        __writePLI(stream, step.pli)
+
+    if step.numberItem:
+        stream << step.numberItem.pos() << step.numberItem.font()
+
+    stream.writeInt32(len(step.callouts))
+    for callout in step.callouts:
+        __writeCallout(stream, callout)
+
+def __writeCallout(stream, callout):
+    stream << callout.pos() << callout.rect() << callout.pen()
+
+    stream.writeInt32(len(callout.steps))
+    for step in callout.steps:
+        __writeStep(stream, step)
     
 def __writeCSI(stream, csi):
     stream << csi.pos()

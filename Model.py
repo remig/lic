@@ -907,7 +907,7 @@ class Callout(QGraphicsRectItem):
     def __init__(self, parent):
         QGraphicsRectItem.__init__(self, parent)
 
-        self.steps = [Step(self, 1, True, True)]
+        self.steps = []
         self.number = 1
         
         self.setPos(0, 0)
@@ -934,6 +934,11 @@ class Callout(QGraphicsRectItem):
 
     def data(self, index):
         return "Callout - %d steps" % len(self.steps)
+
+    def addBlankStep(self, relayout = False):
+        self.steps.append(Step(self, 1, False, False))
+        if relayout:
+            self.initLayout()
 
     def addPart(self, part):
         self.steps[0].addPart(part)
@@ -966,13 +971,13 @@ class Step(QGraphicsRectItem):
 
     NextNumber = 1
 
-    def __init__(self, parentPage, number = -1, disablePLI = False, disableNumber = False):
+    def __init__(self, parentPage, number = -1, hasPLI = True, hasNumberItem = True):
         QGraphicsRectItem.__init__(self, parentPage)
 
         # Children
         self.numberItem = None
         self.csi = CSI(self)
-        self.pli = None if disablePLI else PLI(self)
+        self.pli = PLI(self) if hasPLI else None
         self.callouts = []
         
         self.maxRect = None
@@ -991,7 +996,7 @@ class Step(QGraphicsRectItem):
             self._number = number
             Step.NextNumber = number + 1
 
-        if not disableNumber:
+        if hasNumberItem:
             # Initialize Step's number label (position set in initLayout)
             self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
             self.numberItem.setPos(0, 0)
@@ -1058,6 +1063,7 @@ class Step(QGraphicsRectItem):
 
     def addBlankCallout(self):
         callout = Callout(self)
+        callout.addBlankStep()
         self.callouts.append(callout)
         return callout
 
@@ -1090,6 +1096,7 @@ class Step(QGraphicsRectItem):
             self.csi.setPos(0.0, 0.0)
 
         self.resetRect()
+        self.maxRect = self.rect()
 
     def initLayout(self, destRect = None):
 
