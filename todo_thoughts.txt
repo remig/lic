@@ -15,6 +15,9 @@ Thoughts on displacing parts:
 
 - Ye Gods, so very much possibility, so very much still to do...
 
+- Look into GraphViz for some seriously heavy duty auto-layout options. GraphViz's plain-ext output
+  mode could work wonders, especially when creating an entire book from scratch.
+
 - Generate images at any arbitrary size
 - Need to give user a way to specify:
   - Instruction image size

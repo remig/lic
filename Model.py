@@ -439,7 +439,6 @@ class Instructions(QAbstractItemModel):
             pBuffer = QGLPixelBuffer(csi.width * CSI.scale, csi.height * CSI.scale, format, GlobalGLContext)
             pBuffer.makeCurrent()
             csi.initPixmap(pBuffer)
-            csi.initLayout()
 
         GlobalGLContext.makeCurrent()
         
@@ -908,11 +907,10 @@ class Callout(QGraphicsRectItem):
     def __init__(self, parent):
         QGraphicsRectItem.__init__(self, parent)
 
-        self.steps = [Step(self, 1, True)]
+        self.steps = [Step(self, 1, True, True)]
         self.number = 1
         
         self.setPos(0, 0)
-        self.setRect(0, 0, 80, 80)
         self.setPen(QPen(Qt.black))
         self.setFlags(AllFlags)
         
@@ -940,13 +938,23 @@ class Callout(QGraphicsRectItem):
     def addPart(self, part):
         self.steps[0].addPart(part)
 
-    def initSize(self):
-        for step in self.steps:
-            step.csi.resetPixmap()
+    def resetRect(self):
+        r = QRectF(0.0, 0.0, self.rect().width(), self.rect().height())
+        self.setRect(r | self.childrenBoundingRect())
         
     def initLayout(self):
-        pass
-    
+
+        for step in self.steps:
+            step.csi.resetPixmap(False)
+            step.initLayoutGrowing()
+
+        self.resetRect()
+        width = self.rect().width() + (Page.margin.x() * 2)
+        height = self.rect().height() + (Page.margin.y() * 2)
+        self.setRect(0.0, 0.0, width, height)
+        
+        self.parent().initLayout()
+
     def getStep(self, number):
         for step in self.steps:
             if step.number == number:
@@ -958,7 +966,7 @@ class Step(QGraphicsRectItem):
 
     NextNumber = 1
 
-    def __init__(self, parentPage, number = -1, disablePLI = False):
+    def __init__(self, parentPage, number = -1, disablePLI = False, disableNumber = False):
         QGraphicsRectItem.__init__(self, parentPage)
 
         # Children
@@ -983,17 +991,20 @@ class Step(QGraphicsRectItem):
             self._number = number
             Step.NextNumber = number + 1
 
-        # Initialize Step's number label (position set in initLayout)
-        self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
-        self.numberItem.setPos(0, 0)
-        self.numberItem.setFont(QFont("Arial", 15))
-        self.numberItem.setFlags(AllFlags)
-        self.numberItem.dataText = "Step Number Label"
+        if not disableNumber:
+            # Initialize Step's number label (position set in initLayout)
+            self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
+            self.numberItem.setPos(0, 0)
+            self.numberItem.setFont(QFont("Arial", 15))
+            self.numberItem.setFlags(AllFlags)
+            self.numberItem.dataText = "Step Number Label"
+
         self.setFlags(AllFlags)
 
     def _setNumber(self, number):
         self._number = number
-        self.numberItem.setText("%d" % self._number)
+        if self.numberItem:
+            self.numberItem.setText("%d" % self._number)
 
     def _getNumber(self):
         return self._number
@@ -1005,20 +1016,24 @@ class Step(QGraphicsRectItem):
 
     def child(self, row):
         if row == 0:
-            return self.numberItem
-        if row == 1:
             return self.csi
-        if row == 2 and self.pli:
-            return self.pli
+        if row == 1:
+            if self.pli:
+                return self.pli
+            if self.numberItem:
+                return self.numberItem
+        if row == 2:
+            if self.numberItem:
+                return self.numberItem
 
-        offset = row - (3 if self.pli else 2)
+        offset = row - 1 - (1 if self.pli else 0) - (1 if self.numberItem else 0)
         if offset < len(self.callouts):
                 return self.callouts[offset]
 
         return None
 
     def rowCount(self):
-        return len(self.callouts) + (3 if self.pli else 2)
+        return 1 + (1 if self.pli else 0) + (1 if self.numberItem else 0) + len(self.callouts)
 
     def row(self):
         return self.parentItem().getChildRow(self)
@@ -1027,14 +1042,14 @@ class Step(QGraphicsRectItem):
         return "Step %d" % self._number
 
     def getChildRow(self, child):
-        if isinstance(child, QGraphicsSimpleTextItem):
-            return 0
         if isinstance(child, CSI):
-            return 1
+            return 0
         if isinstance(child, PLI):
-            return 2
+            return 1
+        if isinstance(child, QGraphicsSimpleTextItem):
+            return 2 if self.pli else 1
         if child in self.callouts:
-            return self.callouts.index(child) + (3 if self.pli else 2)
+            return self.callouts.index(child) + 1 + (1 if self.pli else 0) + (1 if self.numberItem else 0)
         
     def addPart(self, part):
         self.csi.addPart(part)
@@ -1047,7 +1062,10 @@ class Step(QGraphicsRectItem):
         return callout
 
     def resetRect(self):
-        r = QRectF(0.0, 0.0, self.maxRect.width(), self.maxRect.height())
+        if self.maxRect:
+            r = QRectF(0.0, 0.0, self.maxRect.width(), self.maxRect.height())
+        else:
+            r = QRectF()
         self.setRect(r | self.childrenBoundingRect())
     
     def getNextStep(self):
@@ -1055,7 +1073,24 @@ class Step(QGraphicsRectItem):
 
     def getPrevStep(self):
         return self.parent().getStep(self.number - 1)
+
+    def initLayoutGrowing(self):
         
+        # Do not use on a step with PLI:
+        if self.pli:
+            return
+        
+        self.setPos(Page.margin.x(), Page.margin.y())
+        
+        # Position Step number label
+        if self.numberItem:
+            self.numberItem.setPos(0, 0)
+            self.csi.setPos(self.numberItem.boundingRect().width(), self.numberItem.boundingRect().height())
+        else:
+            self.csi.setPos(0.0, 0.0)
+
+        self.resetRect()
+
     def initLayout(self, destRect = None):
 
         if destRect:
@@ -1067,13 +1102,56 @@ class Step(QGraphicsRectItem):
         self.setRect(0, 0, destRect.width(), destRect.height())
         
         if self.pli:
-            self.pli.initLayout()
-        self.csi.initLayout()
+            self.pli.initLayout()  # Position PLI
 
-        # Position the Step number label beneath the PLI
-        self.numberItem.setPos(0, 0)
-        pliOffset = self.pli.rect().height() if self.pli else 0.0
-        self.numberItem.moveBy(0, pliOffset + Page.margin.y() + 0.5)
+        # Position Step number label beneath the PLI
+        if self.numberItem:
+            self.numberItem.setPos(0, 0)
+            pliOffset = self.pli.rect().height() if self.pli else 0.0
+            self.numberItem.moveBy(0, pliOffset + Page.margin.y() + 0.5)
+
+        self.positionInternalBits()
+
+    def positionInternalBits(self):
+
+        r = self.rect()
+        
+        if self.pli:
+            r.setTop(self.pli.rect().height())
+
+        csiWidth = self.csi.width * CSI.scale
+        csiHeight = self.csi.height * CSI.scale
+
+        if not self.callouts:
+            
+            x = (r.width() - csiWidth) / 2.0
+            y = (r.height() - csiHeight) / 2.0
+            self.csi.setPos(x, r.top() + y)
+            return
+
+        cr = self.callouts[0].rect()
+        remainingWidth = r.width() - cr.width() - csiWidth 
+        remainingHeight = r.height() - cr.height() - csiHeight
+        
+        placeRight = remainingWidth > remainingHeight
+        
+        if placeRight:
+            csiWidth += cr.width() + Page.margin.x()
+        else:
+            csiHeight += cr.height() + Page.margin.y()
+
+        x = (r.width() - csiWidth) / 2.0
+        y = (r.height() - csiHeight) / 2.0
+        self.csi.setPos(x, r.top() + y)
+        
+        if placeRight:
+            cx = x + csiWidth - cr.width()
+            cy = (r.height() - cr.height()) / 2.0
+        else:
+            cx = (r.width() - cr.width()) / 2.0
+            cy = y + csiHeight - cr.height()
+            
+        self.callouts[0].setPos(cx, r.top() + cy)
 
     def contextMenuEvent(self, event):
 
@@ -1302,7 +1380,7 @@ class PLI(QGraphicsRectItem):
         return len(self.pliItems)
 
     def row(self):
-        return 2
+        return 1
 
     def data(self, index):
         return "PLI"
@@ -1433,7 +1511,7 @@ class CSI(QGraphicsPixmapItem):
         return len(self.arrows)
 
     def row(self):
-        return 1
+        return 0
     
     def data(self, index = 0):
         return "CSI"
@@ -1507,7 +1585,7 @@ class CSI(QGraphicsPixmapItem):
         # Move pixmap to compensate for new size, so we don't actually move the CSI itself
         self.translate(-dx, -dy)
 
-    def resetPixmap(self):
+    def resetPixmap(self, reposition = True):
         global GlobalGLContext
         GlobalGLContext.makeCurrent()
 
@@ -1526,22 +1604,12 @@ class CSI(QGraphicsPixmapItem):
 
         self.resetTransform()
         self.updatePixmap(False)
-        self.initLayout()
+        if reposition:
+            self.parent().positionInternalBits()
         GlobalGLContext.makeCurrent()
 
     def initLayout(self):
-
-        step = self.parentItem()
-        pliHeight = step.pli.rect().height() if step.pli else 0.0
-
-        width = self.width * CSI.scale / 2.0
-        height = self.height * CSI.scale / 2.0
-        x = (step.rect().width() / 2.0) - width
-
-        y = ((step.rect().height() - pliHeight) / 2.0) - height + pliHeight        
-        y = max(y, pliHeight + Page.margin.y())
-
-        self.setPos(x, y)
+        print "DON'T GET HERE"
 
     def initSize(self, size, pBuffer):
         """
@@ -2211,8 +2279,8 @@ class Part(QGraphicsRectItem):
         for item in self.scene().selectedItems():
             if isinstance(item, Part):
                 callout.addPart(item)
+        callout.initLayout()
         self.scene().emit(SIGNAL("layoutChanged()"))
-        callout.initSize()
         
     def contextMenuEvent(self, event):
         """ 
