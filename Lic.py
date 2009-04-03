@@ -69,6 +69,9 @@ class LicGraphicsScene(QGraphicsScene):
             if isinstance(item, Page):
                 item.contextMenuEvent(event)
                 return
+            if isinstance(item, Callout):
+                item.contextMenuEvent(event)
+                return
 
     def keyReleaseEvent(self, event):
 
@@ -151,6 +154,7 @@ class LicWindow(QMainWindow):
         self.graphicsView = LicGraphicsView(self)
         self.graphicsView.setScene(self.scene)
         #self.graphicsView.setViewport(self.glWidget)
+        #self.graphicsView.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
         self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
         
         self.createUndoSignals()

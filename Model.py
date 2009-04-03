@@ -2,6 +2,7 @@ import math   # for sqrt
 import os     # for output path creation
 
 from OpenGL import GL
+from OpenGL import GLU
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -431,12 +432,11 @@ class Instructions(QAbstractItemModel):
         GlobalGLContext.makeCurrent()
         
         csiList = self.mainModel.getCSIList()
-        format = QGLFormat()
         
         for csi in csiList:
             if csi.width < 1 or csi.height < 1:
                 continue
-            pBuffer = QGLPixelBuffer(csi.width * CSI.scale, csi.height * CSI.scale, format, GlobalGLContext)
+            pBuffer = QGLPixelBuffer(csi.width * CSI.scale, csi.height * CSI.scale, QGLFormat(), GlobalGLContext)
             pBuffer.makeCurrent()
             csi.initPixmap(pBuffer)
 
@@ -933,32 +933,67 @@ class Callout(QGraphicsRectItem):
             return self.steps.index(child)
 
     def data(self, index):
-        return "Callout - %d steps" % len(self.steps)
+        return "Callout - %d step%s" % (len(self.steps), 's' if len(self.steps) > 1 else '')
 
     def addBlankStep(self, relayout = False):
-        self.steps.append(Step(self, 1, False, False))
-        if relayout:
-            self.initLayout()
+        lastNum = self.steps[-1].number + 1 if self.steps else 1
+        step = Step(self, lastNum, False, False)
+        self.scene().emit(SIGNAL("insertStep"), step)
+        
+    def insertStep(self, step):
+        self.steps.append(step)
+        step.setParentItem(self)
+        self.initLayout()
+
+    def deleteStep(self, step):
+        self.steps.remove(step)
+        self.scene().removeItem(step)
+        self.initLayout()
 
     def addPart(self, part):
         self.steps[0].addPart(part)
 
     def resetRect(self):
-        r = QRectF(0.0, 0.0, self.rect().width(), self.rect().height())
-        self.setRect(r | self.childrenBoundingRect())
+        b = self.childrenBoundingRect()
+        b.adjust(0.0, 0.0, Page.margin.x() * 2, Page.margin.y() * 2)
+        self.setRect(0.0, 0.0, b.width(), b.height())
         
     def initLayout(self):
 
+        if not self.steps:
+            self.setRect(0.0, 0.0, 1.0, 1.0)
+            return  # Nothing to layout here
+        
         for step in self.steps:
             step.csi.resetPixmap(False)
             step.initLayoutGrowing()
 
+        """
+        prevStep = None
+        currentX = currentY = 0.0
+        rowCount = int(math.ceil(math.sqrt(len(self.steps))))
+
+        for i, step in enumerate(self.steps):
+            if (i > 0) and (not i % rowCount):
+                currentX = prevStep.pos().x() + prevStep.rect().width()
+                currentY = 0.0
+              
+              
+            x = Page.margin.x() + currentX
+            y = Page.margin.y() + currentY
+            step.setPos(x, y)
+            currentY = max(currentY, (prevStep.pos().y() + prevStep.rect().height()) if prevStep else 0.0)
+            prevStep = step
+        """
+
+        self.steps[0].setPos(Page.margin.x(), Page.margin.y())
         self.resetRect()
-        width = self.rect().width() + (Page.margin.x() * 2)
-        height = self.rect().height() + (Page.margin.y() * 2)
-        self.setRect(0.0, 0.0, width, height)
-        
         self.parent().initLayout()
+
+    def contextMenuEvent(self, event):
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Add blank Step", self.addBlankStep)
+        menu.exec_(event.screenPos())
 
     def getStep(self, number):
         for step in self.steps:
@@ -1063,17 +1098,20 @@ class Step(QGraphicsRectItem):
 
     def addBlankCallout(self):
         callout = Callout(self)
-        callout.addBlankStep()
         self.callouts.append(callout)
+        callout.addBlankStep()
         return callout
 
     def resetRect(self):
         if self.maxRect:
-            r = QRectF(0.0, 0.0, self.maxRect.width(), self.maxRect.height())
+            r = QRectF(0.0, 0.0, max(1, self.maxRect.width()), max(1, self.maxRect.height()))
         else:
-            r = QRectF()
+            r = QRectF(0.0, 0.0, 1.0, 1.0)
         self.setRect(r | self.childrenBoundingRect())
-    
+
+        if hasattr(self.parentItem(), "resetRect"):
+            self.parentItem().resetRect()
+
     def getNextStep(self):
         return self.parent().getStep(self.number + 1)
 
@@ -1086,7 +1124,7 @@ class Step(QGraphicsRectItem):
         if self.pli:
             return
         
-        self.setPos(Page.margin.x(), Page.margin.y())
+        self.setPos(0.0, 0.0)
         
         # Position Step number label
         if self.numberItem:
@@ -1178,18 +1216,19 @@ class Step(QGraphicsRectItem):
         doLayout.setCheckable(True)
         doLayout.setChecked(True)
 
-        page = self.parentItem()
-        
         if len(self.csi.parts) == 0:
             menu.addAction("&Delete Step", lambda: self.scene().emit(SIGNAL("deleteStep"), self))
 
-        if not page.prevPage():
-            prevPage.setEnabled(False)
-            prevMerge.setEnabled(False)
+        parent = self.parentItem()
 
-        if not page.nextPage():
-            nextPage.setEnabled(False)
-            nextMerge.setEnabled(False)
+        if isinstance(parent, Page):
+            if not parent.prevPage():
+                prevPage.setEnabled(False)
+                prevMerge.setEnabled(False)
+    
+            if not parent.nextPage():
+                nextPage.setEnabled(False)
+                nextMerge.setEnabled(False)
 
         menu.exec_(event.screenPos())
 
@@ -1423,9 +1462,18 @@ class PLI(QGraphicsRectItem):
             return
 
         # Initialize each item in this PLI, so they have good rects and properly positioned quantity labels
-        for item in self.pliItems:
+        for i, item in enumerate(self.pliItems):
             item.initLayout()
-
+            #print "{node [width=%f, height=%f] n%d}" % (item.rect().width() / 100.0, item.rect().height() / 100.0, i)
+            
+        nodes = range(0, len(self.pliItems))
+        while nodes:
+            x = nodes.pop()
+            s = ""
+            for i in nodes:
+                s += "n%d--n%d;" % (x, i)
+            #print s 
+            
         # Sort list of parts to lay out by width (narrowest first), then remove tallest part, to be added first
         partList = list(self.pliItems)
 #        partList.sort(lambda x, y: cmp(x.partOGL.width, y.partOGL.width))
@@ -1560,7 +1608,7 @@ class CSI(QGraphicsPixmapItem):
         for a single display list giving a full model rendering up to this step.
         """
 
-        # If we've already created a list here, free it first
+        # If we've already created a list here; free it first
         if self.oglDispID != UNINIT_GL_DISPID:
             GL.glDeleteLists(self.oglDispID, 1)
             
@@ -1569,6 +1617,28 @@ class CSI(QGraphicsPixmapItem):
         self.__callPreviousOGLDisplayLists(True)
         GL.glEndList()
 
+    # TODO: If the pixmap & FBO solution gets too slow, try a pure GL solution (see project.py)
+    def calculateGLSize(self):
+        minX, minY = 150, 150
+        maxX, maxY = 0, 0
+        
+        for part in self.parts:
+            for v in part.vertexIterator():
+                res = GLU.gluProject(v[0], v[1], v[2])
+                maxX = max(res[0], maxX)
+                maxY = max(res[1], maxY)
+            
+                minX = min(res[0], minX)
+                minY = min(res[1], minY)
+                
+        print "x min: %f, max: %f" % (minX, maxX)
+        print "y min: %f, max: %f" % (minY, maxY)
+        
+        aX, aY, aZ = GLU.gluUnProject(minX, minY, 0.0)
+        bX, bY, bZ = GLU.gluUnProject(minX, maxY, 0.0)
+        cX, cY, cZ = GLU.gluUnProject(maxX, maxY, 0.0)
+        dX, dY, dZ = GLU.gluUnProject(maxX, minY, 0.0)
+    
     def updatePixmap(self, rebuildDisplayList = True):
         global GlobalGLContext
         GlobalGLContext.makeCurrent()
@@ -1594,10 +1664,12 @@ class CSI(QGraphicsPixmapItem):
 
     def resetPixmap(self, reposition = True):
         global GlobalGLContext
+        
+        if not self.parts:
+            return  # No parts = nothing to do here
+        
         GlobalGLContext.makeCurrent()
-
         self.createOGLDisplayList()
-
         sizes = [512, 1024, 2048]
 
         for size in sizes:
@@ -1614,9 +1686,6 @@ class CSI(QGraphicsPixmapItem):
         if reposition:
             self.parent().positionInternalBits()
         GlobalGLContext.makeCurrent()
-
-    def initLayout(self):
-        print "DON'T GET HERE"
 
     def initSize(self, size, pBuffer):
         """
@@ -1762,6 +1831,14 @@ class PartOGL(object):
     def addPrimitive(self, p, shape):
         primitive = Primitive(p['color'], p['points'], shape, self.inverted ^ self.invertNext)
         self.primitives.append(primitive)
+
+    def vertexIterator(self):
+        for primitive in self.primitives:
+            for vertex in primitive.vertexIterator():
+                yield vertex
+        for part in self.parts:
+            for vertex in part.vertexIterator():
+                yield vertex
 
     def createOGLDisplayList(self):
         """ Initialize this part's display list."""
@@ -2209,6 +2286,22 @@ class Part(QGraphicsRectItem):
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
 
+    def vertexIterator(self, useDisplacement = False):
+        if self.matrix:
+            matrix = list(self.matrix)
+            if useDisplacement and self.displacement:
+                matrix[12] += self.displacement[0]
+                matrix[13] += self.displacement[1]
+                matrix[14] += self.displacement[2]
+            GL.glPushMatrix()
+            GL.glMultMatrixf(matrix)
+            
+        for vertex in self.partOGL.vertexIterator():
+            yield vertex
+
+        if self.matrix:
+            GL.glPopMatrix()
+    
     def callGLDisplayList(self, useDisplacement = False):
 
         # must be called inside a glNewList/EndList pair
@@ -2335,7 +2428,7 @@ class Part(QGraphicsRectItem):
         self.parentCSI.addArrow(self.arrow)
         self.scene().emit(SIGNAL("layoutChanged()"))
         self.parentCSI.maximizePixmap()
-        self.parentCSI.updatePixmap()
+        self.parentCSI.resetPixmap()
     
     def stopDisplacement(self):
         self.displaceDirection = None
@@ -2344,7 +2437,7 @@ class Part(QGraphicsRectItem):
         self.parentCSI.removeArrow(self.arrow)
         self.scene().emit(SIGNAL("layoutChanged()"))
         self.parentCSI.maximizePixmap()
-        self.parentCSI.updatePixmap()
+        self.parentCSI.resetPixmap()
     
     def increaseDisplacement(self):
         self.displace(self.displaceDirection)
@@ -2574,6 +2667,14 @@ class Primitive(object):
         if self.type == GL.GL_QUADS:
             box.growByPoints(p[9], p[10], p[11])
         return box
+
+    def vertexIterator(self):
+        p = self.points
+        yield (p[0], p[1], p[2])
+        yield (p[3], p[4], p[5])
+        yield (p[6], p[7], p[8])
+        if self.type == GL.GL_QUADS:
+            yield (p[9], p[10], p[11])
 
     # TODO: using numpy for all this would probably work a lot better
     def addNormal(self, p1, p2, p3):
