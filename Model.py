@@ -914,9 +914,6 @@ class Callout(QGraphicsRectItem):
         self.setPen(QPen(Qt.black))
         self.setFlags(AllFlags)
         
-    def parent(self):
-        return self.parentItem()
-
     def child(self, row):
         if row < 0 or row >= len(self.steps):
             return None
@@ -924,9 +921,6 @@ class Callout(QGraphicsRectItem):
 
     def rowCount(self):
         return len(self.steps)
-
-    def row(self):
-        return self.parentItem().getChildRow(self)
 
     def getChildRow(self, child):
         if child in self.steps:
@@ -1051,9 +1045,6 @@ class Step(QGraphicsRectItem):
 
     number = property(fget = _getNumber, fset = _setNumber)
 
-    def parent(self):
-        return self.parentItem()
-
     def child(self, row):
         if row == 0:
             return self.csi
@@ -1074,9 +1065,6 @@ class Step(QGraphicsRectItem):
 
     def rowCount(self):
         return 1 + (1 if self.pli else 0) + (1 if self.numberItem else 0) + len(self.callouts)
-
-    def row(self):
-        return self.parentItem().getChildRow(self)
 
     def data(self, index):
         return "Step %d" % self._number
@@ -1273,9 +1261,9 @@ class PLIItem(QGraphicsRectItem):
         QGraphicsRectItem.__init__(self, parent)
 
         self.partOGL = partOGL
-        self.parts = []
-
+        self.quantity = 0
         self.color = color
+
         pen = self.pen()
         pen.setStyle(Qt.NoPen)
         self.setPen(pen)
@@ -1291,40 +1279,28 @@ class PLIItem(QGraphicsRectItem):
         self.numberItem.dataText = "Qty. Label (0x)"
         self.numberItem.setFlags(AllFlags)
 
-    def addPart(self, part):
-        self.parts.append(part)
-        part.parentPLI = self
-        part.setParentItem(self)
-        self.numberItem.setText("%dx" % len(self.parts))
-        self.numberItem.dataText = "Qty. Label (%dx)" % len(self.parts)
+    def addPart(self):
+        self.quantity += 1
+        self.numberItem.setText("%dx" % self.quantity)
+        self.numberItem.dataText = "Qty. Label (%dx)" % self.quantity
 
-    def removePart(self, part):
-        self.parts.remove(part)
-        self.scene().removeItem(part)
-        part.parentPLI = None
-
-        if self.parts:
+    def removePart(self):
+        self.quantity -= 1
+        if self.quantity > 0:
             # Still have other parts - reduce qty label
-            self.numberItem.setText("%dx" % len(self.parts))
-            self.numberItem.dataText = "Qty. Label (%dx)" % len(self.parts)
+            self.numberItem.setText("%dx" % self.quantity)
+            self.numberItem.dataText = "Qty. Label (%dx)" % self.quantity
         else:  
             # PLIItem is now empty - kill it
             self.parentItem().pliItems.remove(self)
             self.parentItem().initLayout()
             self.scene().removeItem(self)
 
-    def parent(self):
-        return self.parentItem()
-
     def child(self, row):
-        if row <= 0:
-            return self.numberItem
-        if row > len(self.parts):
-            return None
-        return self.parts[row - 1]
+        return self.numberItem if row == 0 else None
 
     def rowCount(self):
-        return 1 + len(self.parts)
+        return 1
 
     def row(self):
         return self.parentItem().pliItems.index(self)
@@ -1413,9 +1389,6 @@ class PLI(QGraphicsRectItem):
         self.setPen(QPen(Qt.black))
         self.setFlags(AllFlags)
 
-    def parent(self):
-        return self.parentItem()
-
     def child(self, row):
         if row < 0 or row >= len(self.pliItems):
             print "ERROR: Looking up invalid row in PLI Tree"
@@ -1448,7 +1421,7 @@ class PLI(QGraphicsRectItem):
 
         # If we're here, did not find an existing PLI, so create a new one
         pliItem = PLIItem(self, part.partOGL, part.color)
-        pliItem.addPart(part)
+        pliItem.addPart()
         self.pliItems.append(pliItem)
         
     def initLayout(self):
@@ -1554,16 +1527,13 @@ class CSI(QGraphicsPixmapItem):
         self.parts = []
         self.arrows = []
 
-    def parent(self):
-        return self.parentItem()
-
     def child(self, row):
-        if row < 0 or row >= len(self.arrows):
+        if row < 0 or row >= len(self.parts):
             return None
-        return self.arrows[row] 
+        return self.parts[row]
 
     def rowCount(self):
-        return len(self.arrows)
+        return len(self.parts)
 
     def row(self):
         return 0
@@ -1572,11 +1542,10 @@ class CSI(QGraphicsPixmapItem):
         return "CSI"
 
     def addPart(self, part):
-        part.parentCSI = self
+        part.setParentItem(self)
         self.parts.append(part)
 
     def removePart(self, part):
-        part.parentCSI = None
         self.parts.remove(part)
         self.resetPixmap()
 
@@ -2243,8 +2212,6 @@ class Part(QGraphicsRectItem):
         self.inverted = invert
         self.filename = filename  # Needed for save / load
         self.partOGL = None
-        self.parentPLI = None # Needed because now Parts live in the tree (inside specific PLIItems)
-        self.parentCSI = None # Needed to be able to notify CSI to draw this part as selected
 
         self.displacement = []
         self.displaceDirection = None
@@ -2264,24 +2231,21 @@ class Part(QGraphicsRectItem):
                 self.partOGL = partDictionary[filename]
             else:
                 self.partOGL = partDictionary[filename] = PartOGL(filename, loadFromFile = True)
-            self.name = self.partOGL.name
      
-    def parent(self):
-        return self.parentPLI
-
     def row(self):
-        return self.parentPLI.parts.index(self) + 1
+        return self.parent().parts.index(self)
     
     def data(self, index):
         x, y, z = OGLMatrixToXYZ(self.matrix)
-        return "%s  (%.1f, %.1f, %.1f)" % (self.partOGL.filename, x, y, z)
+        color = LDrawColors.getColorName(self.color)
+        return "%s - %s - (%.1f, %.1f, %.1f)" % (self.partOGL.name, color, x, y, z)
 
     def setSelected(self, selected):
         QGraphicsRectItem.setSelected(self, selected)
-        self.parentCSI.updatePixmap()
+        self.parent().updatePixmap()
 
     def getStep(self):
-        return self.parentCSI.parent()
+        return self.parent().parent()
 
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
@@ -2371,6 +2335,14 @@ class Part(QGraphicsRectItem):
         line = createPartLine(self.color, self.matrix, self.partOGL.filename)
         fh.write(line + '\n')
 
+    def duplicate(self):
+        p = Part(self.filename, self.color, self.matrix, self.inverted, False)
+        p.partOGL = self.partOGL
+        p.setParentItem(self.parent())
+        p.displacement = list(self.displacement)
+        p.displaceDirection = self.displaceDirection
+        return p
+
     def createCallout(self):
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         step = self.getStep()
@@ -2378,7 +2350,7 @@ class Part(QGraphicsRectItem):
 
         for item in self.scene().selectedItems():
             if isinstance(item, Part):
-                callout.addPart(item)
+                callout.addPart(item.duplicate())
         callout.initLayout()
         self.scene().emit(SIGNAL("layoutChanged()"))
         
@@ -2425,19 +2397,19 @@ class Part(QGraphicsRectItem):
         self.displacement = self.getDisplacementOffset(direction)
         self.arrow.setPosition(*OGLMatrixToXYZ(self.matrix))
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.parentCSI.addArrow(self.arrow)
+        self.parent().addArrow(self.arrow)
         self.scene().emit(SIGNAL("layoutChanged()"))
-        self.parentCSI.maximizePixmap()
-        self.parentCSI.resetPixmap()
+        self.parent().maximizePixmap()
+        self.parent().resetPixmap()
     
     def stopDisplacement(self):
         self.displaceDirection = None
         self.displacement = []
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.parentCSI.removeArrow(self.arrow)
+        self.parent().removeArrow(self.arrow)
         self.scene().emit(SIGNAL("layoutChanged()"))
-        self.parentCSI.maximizePixmap()
-        self.parentCSI.resetPixmap()
+        self.parent().maximizePixmap()
+        self.parent().resetPixmap()
     
     def increaseDisplacement(self):
         self.displace(self.displaceDirection)
@@ -2514,8 +2486,7 @@ class Part(QGraphicsRectItem):
         self.scene().clearSelection()
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
 
-        self.parentPLI.removePart(self)
-        self.parentCSI.removePart(self)
+        self.parent().removePart(self)
 
         step.addPart(self)
         step.csi.resetPixmap()  #TODO: extend this to support move across several steps
@@ -2558,11 +2529,8 @@ class Arrow(Part):
         self.displaceDirection = direction
         self.partOGL.createOGLDisplayList()
 
-    def parent(self):
-        return self.parentCSI
-
     def row(self):
-        return self.parentCSI.arrows.index(self)
+        return self.parent().parts.index(self)
     
     def data(self, index):
         x, y, z = OGLMatrixToXYZ(self.matrix)
@@ -2644,8 +2612,8 @@ class Arrow(Part):
         p.points[3] = max(p.points[3] + offset, 0) 
         p.points[6] = max(p.points[6] + offset, 0)
         self.partOGL.createOGLDisplayList()
-        self.parentCSI.maximizePixmap()
-        self.parentCSI.resetPixmap()
+        self.parent().maximizePixmap()
+        self.parent().resetPixmap()
     
 class Primitive(object):
     """

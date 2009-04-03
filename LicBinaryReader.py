@@ -289,7 +289,6 @@ def __readCSI(stream, step):
     partCount = stream.readInt32()
     for i in range(0, partCount):
         part = __readPart(stream)
-        part.parentCSI = csi
         if part.filename in partDictionary:
             part.partOGL = partDictionary[part.filename]
         elif part.filename in submodelDictionary:
@@ -298,10 +297,9 @@ def __readCSI(stream, step):
         elif part.filename != 'arrow':
             print "LOAD ERROR: could not find a partOGL for part: " + part.filename
 
-        csi.parts.append(part)
+        csi.addPart(part)
         if part.filename == 'arrow':
             csi.arrows.append(part)
-            part.setParentItem(csi)
 
     return csi
 

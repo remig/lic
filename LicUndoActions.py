@@ -52,13 +52,13 @@ class DisplacePartCommand(QUndoCommand):
 
     def undo(self):
         self.part.displacement = list(self.oldDisp)
-        self.part.parentCSI.maximizePixmap()
-        self.part.parentCSI.resetPixmap()
+        self.part.parent().maximizePixmap()
+        self.part.parent().resetPixmap()
 
     def redo(self):
         self.part.displacement = list(self.newDisp)
-        self.part.parentCSI.maximizePixmap()
-        self.part.parentCSI.resetPixmap()
+        self.part.parent().maximizePixmap()
+        self.part.parent().resetPixmap()
 
 class BeginDisplacement(QUndoCommand):
     
@@ -135,7 +135,7 @@ class MoveStepToPageCommand(QUndoCommand):
 class InsertStepCommand(QUndoCommand):
 
     """
-    AddStepCommand stores a step that was added and the page it was added to
+    AddStepCommand stores a step that was added and the page / callout it was added to
     """
 
     _id = getNewCommandID()
@@ -143,18 +143,18 @@ class InsertStepCommand(QUndoCommand):
     def __init__(self, step):
         QUndoCommand.__init__(self, "add Step")
         self.step = step
-        self.page = step.parentItem()
+        self.parent = step.parentItem()
 
     def undo(self):
         self.step.setSelected(False)
-        self.page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.page.deleteStep(self.step)
-        self.page.instructions.emit(SIGNAL("layoutChanged()"))
+        self.parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.parent.deleteStep(self.step)
+        self.parent.scene().emit(SIGNAL("layoutChanged()"))
 
     def redo(self):
-        self.page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.page.insertStep(self.step)
-        self.page.instructions.emit(SIGNAL("layoutChanged()"))
+        self.parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.parent.insertStep(self.step)
+        self.parent.scene().emit(SIGNAL("layoutChanged()"))
         self.step.setSelected(True)
 
 class DeleteStepCommand(QUndoCommand):
