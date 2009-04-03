@@ -319,19 +319,6 @@ def __readPLI(stream, parentStep):
         pliItem = __readPLIItem(stream, pli)
         pli.pliItems.append(pliItem)
 
-    # Link all the parts in the associated CSI with the parts in each PLIItem
-    for part in parentStep.csi.parts:
-        for item in pli.pliItems:
-            if item.color == part.color and item.partOGL.filename == part.partOGL.filename:
-                item.addPart(part)
-
-    # Make sure we've added the right number of parts to the right spot
-    for item in pli.pliItems:
-        if item.__count == len(item.parts):
-            del(item.__count)
-        else:
-            print "LOAD ERROR: Have PLIItem with %d count, but %d parts" % (item.__count, len(item.parts))
-
     return pli
 
 def __readPLIItem(stream, pli):
@@ -345,7 +332,7 @@ def __readPLIItem(stream, pli):
     filename = str(filename)
 
     color = stream.readInt32()
-    count = stream.readInt32()
+    quantity = stream.readInt32()
 
     global partDictionary, submodelDictionary
     if filename in partDictionary:
@@ -355,8 +342,7 @@ def __readPLIItem(stream, pli):
     else:
         print "LOAD ERROR: Could not find part in part dict: " + filename
 
-    pliItem = PLIItem(pli, partOGL, color)
-    pliItem.__count = count
+    pliItem = PLIItem(pli, partOGL, color, quantity)
     pliItem.setPos(pos)
     pliItem.setRect(rect)
 

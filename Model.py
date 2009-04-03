@@ -1257,7 +1257,7 @@ class Step(QGraphicsRectItem):
 class PLIItem(QGraphicsRectItem):
     """ Represents one part inside a PLI along with its quantity label. """
 
-    def __init__(self, parent, partOGL, color):
+    def __init__(self, parent, partOGL, color, quantity = 0):
         QGraphicsRectItem.__init__(self, parent)
 
         self.partOGL = partOGL
@@ -1276,13 +1276,16 @@ class PLIItem(QGraphicsRectItem):
         # Initialize the quantity label (position set in initLayout)
         self.numberItem = QGraphicsSimpleTextItem("0x", self)
         self.numberItem.setFont(QFont("Arial", 10))
-        self.numberItem.dataText = "Qty. Label (0x)"
-        self.numberItem.setFlags(AllFlags)
+        self.numberItem.setFlags(AllFlags)        
+        self.setQuantity(quantity)
 
-    def addPart(self):
-        self.quantity += 1
+    def setQuantity(self, quantity):
+        self.quantity = quantity
         self.numberItem.setText("%dx" % self.quantity)
         self.numberItem.dataText = "Qty. Label (%dx)" % self.quantity
+        
+    def addPart(self):
+        self.setQuantity(self.quantity + 1)
 
     def removePart(self):
         self.quantity -= 1
@@ -1385,6 +1388,9 @@ class PLI(QGraphicsRectItem):
 
         self.pliItems = []  # {(part filename, color): PLIItem instance}
 
+        self.dataText = "PLI"  # String displayed in Tree - reimplement data(self, index) to override
+        self._row = 1
+        
         self.setPos(0, 0)
         self.setPen(QPen(Qt.black))
         self.setFlags(AllFlags)
@@ -1397,12 +1403,6 @@ class PLI(QGraphicsRectItem):
 
     def rowCount(self):
         return len(self.pliItems)
-
-    def row(self):
-        return 1
-
-    def data(self, index):
-        return "PLI"
 
     def isEmpty(self):
         return True if len(self.pliItems) == 0 else False
@@ -1523,6 +1523,9 @@ class CSI(QGraphicsPixmapItem):
         self.width = self.height = 0
         self.oglDispID = UNINIT_GL_DISPID
         self.setFlags(AllFlags)
+
+        self.dataText = "CSI"  # String displayed in Tree - reimplement data(self, index) to override
+        self._row = 0
         
         self.parts = []
         self.arrows = []
@@ -1534,12 +1537,6 @@ class CSI(QGraphicsPixmapItem):
 
     def rowCount(self):
         return len(self.parts)
-
-    def row(self):
-        return 0
-    
-    def data(self, index = 0):
-        return "CSI"
 
     def addPart(self, part):
         part.setParentItem(self)

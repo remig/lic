@@ -142,7 +142,7 @@ PLIItem:
   QRectf rect
   QTransform transform
   int32 color
-  int32 count
+  int32 quantity
   QPointf numberItem.pos
   QFont numberItem.font
   QPixmap pixmapItem.pixmap

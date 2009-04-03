@@ -191,5 +191,5 @@ def __writePLI(stream, pli):
 def __writePLIItem(stream, pliItem):
     stream << QString(pliItem.partOGL.filename) << pliItem.pos() << pliItem.rect() << pliItem.transform()
     stream.writeInt32(pliItem.color)
-    stream.writeInt32(len(pliItem.parts))
+    stream.writeInt32(pliItem.quantity)
     stream << pliItem.numberItem.pos() << pliItem.numberItem.font() << pliItem.pixmapItem.pixmap()
