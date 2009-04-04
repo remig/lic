@@ -179,9 +179,10 @@ def __writeCSI(stream, csi):
     stream << csi.center
     stream << csi.pixmap()
     
-    stream.writeInt32(len(csi.parts))
-    for part in csi.parts:
-        __writePart(stream, part)
+    stream.writeInt32(csi.partCount())
+    for partItem in csi.parts:
+        for part in partItem.parts:
+            __writePart(stream, part)
 
 def __writePLI(stream, pli):
     stream << pli.pos() << pli.rect() << pli.pen()

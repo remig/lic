@@ -52,13 +52,13 @@ class DisplacePartCommand(QUndoCommand):
 
     def undo(self):
         self.part.displacement = list(self.oldDisp)
-        self.part.parent().maximizePixmap()
-        self.part.parent().resetPixmap()
+        self.part.csi().maximizePixmap()
+        self.part.csi().resetPixmap()
 
     def redo(self):
         self.part.displacement = list(self.newDisp)
-        self.part.parent().maximizePixmap()
-        self.part.parent().resetPixmap()
+        self.part.csi().maximizePixmap()
+        self.part.csi().resetPixmap()
 
 class BeginDisplacement(QUndoCommand):
     
@@ -195,18 +195,18 @@ class AddPageCommand(QUndoCommand):
         self.page = page
 
     def undo(self):
-        p = self.page
-        p.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
-        p.parent().deletePage(p)
-        p.instructions.emit(SIGNAL("layoutChanged()"))
-        p.instructions.selectPage(p.number - 1)
+        page = self.page
+        page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        page.parent().deletePage(page)
+        page.instructions.emit(SIGNAL("layoutChanged()"))
+        page.instructions.selectPage(page.number - 1)
 
     def redo(self):
-        p = self.page
-        p.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
-        p.parent().addPage(p)
-        p.instructions.emit(SIGNAL("layoutChanged()"))
-        p.instructions.selectPage(p.number)
+        page = self.page
+        page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        page.parent().addPage(page)
+        page.instructions.emit(SIGNAL("layoutChanged()"))
+        page.instructions.selectPage(page.number)
 
 class DeletePageCommand(QUndoCommand):
 
@@ -221,19 +221,19 @@ class DeletePageCommand(QUndoCommand):
         self.page = page
 
     def undo(self):
-        p = self.page
-        p.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
-        p.parent().addPage(p)
-        p.instructions.emit(SIGNAL("layoutChanged()"))
-        p.instructions.selectPage(p.number)
+        page = self.page
+        page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        page.parent().addPage(page)
+        page.instructions.emit(SIGNAL("layoutChanged()"))
+        page.instructions.selectPage(page.number)
 
     def redo(self):
-        p = self.page
-        p.scene().clearSelection()
-        p.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
-        p.parent().deletePage(p)
-        p.instructions.emit(SIGNAL("layoutChanged()"))
-        p.instructions.selectPage(p.number - 1)
+        page = self.page
+        page.scene().clearSelection()
+        page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        page.parent().deletePage(page)
+        page.instructions.emit(SIGNAL("layoutChanged()"))
+        page.instructions.selectPage(page.number - 1)
 
 class MovePartsToStepCommand(QUndoCommand):
 

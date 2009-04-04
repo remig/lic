@@ -295,7 +295,7 @@ class Instructions(QAbstractItemModel):
             for part in partList[:-1]:
                 part.setSelected(False, False)
             partList[-1].setSelected(False, True)
-        
+
     def loadModel(self, filename):
         
         global currentModelFilename        
@@ -675,13 +675,13 @@ class Page(QGraphicsRectItem):
         if self.steps:
             number = self.steps[-1].number + 1
         else:
-            for p in self.parent().pages[self._row + 1 : ]:  # Look forward through pages
-                if p.steps and number < 0:
-                    number = p.steps[0].number
+            for page in self.parent().pages[self._row + 1 : ]:  # Look forward through pages
+                if page.steps and number < 0:
+                    number = page.steps[0].number
             if number < 0:
-                for p in reversed(self.parent().pages[ : self._row]):  # Look back
-                    if p.steps and number < 0:
-                        number = p.steps[-1].number + 1
+                for page in reversed(self.parent().pages[ : self._row]):  # Look back
+                    if page.steps and number < 0:
+                        number = page.steps[-1].number + 1
         
         if number < 0:
             number = 1
@@ -1567,20 +1567,46 @@ class CSI(QGraphicsPixmapItem):
     def rowCount(self):
         return len(self.parts)
 
+    def partCount(self):
+        partCount = 0
+        for partItem in self.parts:
+            partCount += len(partItem.parts)
+        return partCount
+    
+    def updateCount(self):
+        self.dataText = "CSI - %d parts" % self.partCount()
+        
     def addPart(self, part):
-        part.setParentItem(self)
-        self.parts.append(part)
+        for p in self.parts:
+            if p.name == part.partOGL.name:
+                p.addPart(part)
+                return self.updateCount()
+            
+        p = PartTreeItem(self, part.partOGL.name)
+        p.addPart(part)
+        self.parts.append(p)
+        self.parts.sort(key = lambda partItem: partItem.name)
+        self.updateCount()
 
     def removePart(self, part):
-        self.parts.remove(part)
+        target = None
+        for p in self.parts:
+            if part in p.parts:
+                target = p
+        if target:
+            target.parts.remove(part)
+            if not target.parts:
+                self.parts.remove(target)
+                self.updateCount()
+        else:
+            print "ERROR: Trying to remove a part that can't be found"
 
     def addArrow(self, arrow):
         self.addPart(arrow)
         self.arrows.append(arrow)
-        arrow.setParentItem(self)
         
     def removeArrow(self, arrow):
-        self.parts.remove(arrow)
+        self.removePart(arrow)
         arrow.setParentItem(None)
         self.scene().removeItem(arrow)
         self.arrows.remove(arrow)
@@ -1593,8 +1619,9 @@ class CSI(QGraphicsPixmapItem):
             prevStep.csi.__callPreviousOGLDisplayLists(False)
 
         # Draw all the parts in this CSI
-        for part in self.parts:
-            part.callGLDisplayList(isCurrent)
+        for partItem in self.parts:
+            for part in partItem.parts:
+                part.callGLDisplayList(isCurrent)
 
     def createOGLDisplayList(self):
         """
@@ -1616,14 +1643,15 @@ class CSI(QGraphicsPixmapItem):
         minX, minY = 150, 150
         maxX, maxY = 0, 0
         
-        for part in self.parts:
-            for v in part.vertexIterator():
-                res = GLU.gluProject(v[0], v[1], v[2])
-                maxX = max(res[0], maxX)
-                maxY = max(res[1], maxY)
-            
-                minX = min(res[0], minX)
-                minY = min(res[1], minY)
+        for partItem in self.parts:
+            for part in partItem.parts:
+                for v in part.vertexIterator():
+                    res = GLU.gluProject(v[0], v[1], v[2])
+                    maxX = max(res[0], maxX)
+                    maxY = max(res[1], maxY)
+                
+                    minX = min(res[0], minX)
+                    minY = min(res[1], minY)
                 
         print "x min: %f, max: %f" % (minX, maxX)
         print "y min: %f, max: %f" % (minY, maxY)
@@ -1710,7 +1738,7 @@ class CSI(QGraphicsPixmapItem):
         filename = "%s_page_%d_step_%d" % (rawFilename, pageNumber, stepNumber)
 
         result = "Initializing CSI Page %d Step %d" % (pageNumber, stepNumber)
-        if len(self.parts) == 0:
+        if not self.parts:
             return result  # A CSI with no parts is already initialized
 
         params = GLHelpers.initImgSize(size, size, self.oglDispID, True, filename, None, pBuffer)
@@ -1755,8 +1783,9 @@ class CSI(QGraphicsPixmapItem):
         if prevStep:
             prevStep.csi.exportToLDrawFile(fh)
             
-        for part in self.parts:
-            part.exportToLDrawFile(fh)
+        for partItem in self.parts:
+            for part in partItem.parts:
+                part.exportToLDrawFile(fh)
 
     def getPageStepNumberPair(self):
         step = self.parentItem()
@@ -1954,7 +1983,14 @@ class PartOGL(object):
         # with nothing but (currently) useless edges - remove them?  Do something?
         self.__boundingBox = box
         return box
-    
+
+    def resetBoundingBox(self):
+        self.__boundingBox = None
+        for primitive in self.primitives:
+            primitive.resetBoundingBox()
+        for part in self.parts:
+            part.partOGL.resetBoundingBox()
+
 class BoundingBox(object):
     
     def __init__(self, x = 0.0, y = 0.0, z = 0.0):
@@ -2227,6 +2263,36 @@ class Submodel(PartOGL):
         pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, PLI.scale, isPLIItem = False)
         self.pngImage = QImage(pngFile)
 
+class PartTreeItem(QGraphicsRectItem):
+
+    def __init__(self, parent, name):
+        QGraphicsPixmapItem.__init__(self, parent)
+        self.name = name
+        self.parts = []
+        self.setFlags(AllFlags)
+        
+    def child(self, row):
+        if row < 0 or row >= len(self.parts):
+            return None
+        return self.parts[row]
+
+    def row(self):
+        return self.parent().parts.index(self)
+
+    def rowCount(self):
+        return len(self.parts)
+    
+    def data(self, index):
+        return "%s - x%d" % (self.name, len(self.parts))
+    
+    def addPart(self, part):
+        if part.partOGL.name != self.name:
+            print "ERROR: Trying to add a Part to PartTreeItem that doesn't match"
+            return
+        part.setParentItem(self)
+        self.parts.append(part)
+        self.parts.sort(key = lambda part: part.color)
+
 class Part(QGraphicsRectItem):
     """
     Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough
@@ -2264,22 +2330,25 @@ class Part(QGraphicsRectItem):
                 self.partOGL = partDictionary[filename]
             else:
                 self.partOGL = partDictionary[filename] = PartOGL(filename, loadFromFile = True)
-     
+
     def row(self):
         return self.parent().parts.index(self)
     
     def data(self, index):
         x, y, z = OGLMatrixToXYZ(self.matrix)
         color = LDrawColors.getColorName(self.color)
-        return "%s - %s - (%.1f, %.1f, %.1f)" % (self.partOGL.name, color, x, y, z)
+        return "%s - (%.1f, %.1f, %.1f)" % (color, x, y, z)
 
+    def csi(self):
+        return self.parent().parent()
+    
     def setSelected(self, selected, updatePixmap = True):
         QGraphicsRectItem.setSelected(self, selected)
         if updatePixmap:
-            self.parent().updatePixmap()
+            self.csi().updatePixmap()
 
     def getStep(self):
-        return self.parent().parent()
+        return self.csi().parent()
 
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
@@ -2446,19 +2515,19 @@ class Part(QGraphicsRectItem):
         self.displacement = self.getDisplacementOffset(direction)
         self.arrow.setPosition(*OGLMatrixToXYZ(self.matrix))
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.parent().addArrow(self.arrow)
+        self.csi().addArrow(self.arrow)
         self.scene().emit(SIGNAL("layoutChanged()"))
-        self.parent().maximizePixmap()
-        self.parent().resetPixmap()
+        self.csi().maximizePixmap()
+        self.csi().resetPixmap()
     
     def stopDisplacement(self):
         self.displaceDirection = None
         self.displacement = []
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.parent().removeArrow(self.arrow)
+        self.csi().removeArrow(self.arrow)
         self.scene().emit(SIGNAL("layoutChanged()"))
-        self.parent().maximizePixmap()
-        self.parent().resetPixmap()
+        self.csi().maximizePixmap()
+        self.csi().resetPixmap()
     
     def increaseDisplacement(self):
         self.displace(self.displaceDirection)
@@ -2549,9 +2618,6 @@ class Arrow(Part):
         self.displaceDirection = direction
         self.partOGL.createOGLDisplayList()
 
-    def row(self):
-        return self.parent().parts.index(self)
-    
     def data(self, index):
         x, y, z = OGLMatrixToXYZ(self.matrix)
         return "%s  (%.1f, %.1f, %.1f)" % (self.partOGL.filename, x, y, z)
@@ -2631,9 +2697,10 @@ class Arrow(Part):
         p = self.partOGL.primitives[-1]
         p.points[3] = max(p.points[3] + offset, 0) 
         p.points[6] = max(p.points[6] + offset, 0)
+        self.partOGL.resetBoundingBox()
         self.partOGL.createOGLDisplayList()
-        self.parent().maximizePixmap()
-        self.parent().resetPixmap()
+        self.csi().maximizePixmap()
+        self.csi().resetPixmap()
     
 class Primitive(object):
     """
@@ -2646,15 +2713,23 @@ class Primitive(object):
         self.type = type
         self.points = points
         self.inverted = invert
+        self.__boundingBox = None
 
     def getBoundingBox(self):
+        if self.__boundingBox:
+            return self.__boundingBox
+        
         p = self.points
         box = BoundingBox(p[0], p[1], p[2])
         box.growByPoints(p[3], p[4], p[5])
         box.growByPoints(p[6], p[7], p[8])
         if self.type == GL.GL_QUADS:
             box.growByPoints(p[9], p[10], p[11])
+        self.__boundingBox = box
         return box
+
+    def resetBoundingBox(self):
+        self.__boundingBox = None
 
     def vertexIterator(self):
         p = self.points
