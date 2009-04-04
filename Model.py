@@ -168,9 +168,20 @@ class LicTreeView(QTreeView):
             instructions.mainModel.selectPage(parent.internalPointer().number)
 
         # Finally, select the things we actually clicked on
+        partList = []
         for index in selList:
             item = index.internalPointer()
-            item.setSelected(True)
+            if isinstance(item, Part):
+                partList.append(item)
+            else:
+                item.setSelected(True)
+                
+        # Optimization: don't just select each parts, because selecting a part forces it's CSI to redraw.
+        # Instead, only redraw the CSI once, on the last part update
+        if partList:
+            for part in partList[:-1]:
+                part.setSelected(True, False)
+            partList[-1].setSelected(True, True)
 
 class Instructions(QAbstractItemModel):
 
@@ -276,10 +287,15 @@ class Instructions(QAbstractItemModel):
         self.emit(SIGNAL("layoutChanged()"))
 
     def clearSelectedParts(self):
+        partList = []
         for item in self.scene.selectedItems():
             if isinstance(item, Part):
-                item.setSelected(False)
-
+                partList.append(item)
+        if partList:
+            for part in partList[:-1]:
+                part.setSelected(False, False)
+            partList[-1].setSelected(False, True)
+        
     def loadModel(self, filename):
         
         global currentModelFilename        
@@ -2257,9 +2273,10 @@ class Part(QGraphicsRectItem):
         color = LDrawColors.getColorName(self.color)
         return "%s - %s - (%.1f, %.1f, %.1f)" % (self.partOGL.name, color, x, y, z)
 
-    def setSelected(self, selected):
+    def setSelected(self, selected, updatePixmap = True):
         QGraphicsRectItem.setSelected(self, selected)
-        self.parent().updatePixmap()
+        if updatePixmap:
+            self.parent().updatePixmap()
 
     def getStep(self):
         return self.parent().parent()
