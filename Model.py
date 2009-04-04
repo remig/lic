@@ -1331,7 +1331,8 @@ class PLIItem(QGraphicsRectItem):
     def initLayout(self):
 
         self.resetTransform()
-        self.initPixmap()
+        if not self.pixmapItem.boundingRect().width():
+            self.initPixmap()
         part = self.partOGL
         lblHeight = self.numberItem.boundingRect().height() / 2.0
 
@@ -1556,7 +1557,6 @@ class CSI(QGraphicsPixmapItem):
 
     def removePart(self, part):
         self.parts.remove(part)
-        self.resetPixmap()
 
     def addArrow(self, arrow):
         self.addPart(arrow)
@@ -1766,6 +1766,7 @@ class PartOGL(object):
         self.oglDispID = UNINIT_GL_DISPID
         self.isPrimitive = False  # primitive here means any file in 'P'
         self.isSubmodel = False
+        self.__boundingBox = None
 
         self.width = self.height = -1
         self.leftInset = self.bottomInset = -1
@@ -1913,6 +1914,8 @@ class PartOGL(object):
         return pixmap
     
     def getBoundingBox(self):
+        if self.__boundingBox:
+            return self.__boundingBox
         
         box = None
         for primitive in self.primitives:
@@ -1933,6 +1936,7 @@ class PartOGL(object):
 
         # TODO: There's a lot of completely empty partOGLs hanging around - parts
         # with nothing but (currently) useless edges - remove them?  Do something?
+        self.__boundingBox = box
         return box
     
 class BoundingBox(object):
@@ -2486,37 +2490,15 @@ class Part(QGraphicsRectItem):
 
     def moveToNextStep(self):
         self.moveToStep(self.getStep().getNextStep())
-
-    def moveToStep(self, step):
         
+    def moveToStep(self, destStep):
         selectedParts = []
         for item in self.scene().selectedItems():
             if isinstance(item, Part):
                 selectedParts.append(item)
 
-        stack = self.scene().undoStack
-        stack.beginMacro("Move Parts to Next Step")
-        for part in selectedParts:
-            stack.push(LicUndoActions.MovePartToStepCommand((part, part.getStep(), step)))
-        stack.endMacro()
+        self.scene().undoStack.push(LicUndoActions.MovePartsToStepCommand((selectedParts, self.getStep(), destStep)))
         
-    def moveToStepCommand(self, step):
-        
-        self.scene().clearSelection()
-        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-
-        self.getStep().removePart(self)
-        step.addPart(self) # TODO: extend this to support move across several steps
-        step.csi.resetPixmap()
-        self.scene().emit(SIGNAL("layoutChanged()"))
-
-        if step.pli:
-            step.pli.initLayout()
-        if isinstance(step.parent(), Callout):
-            step.parent().initLayout()
-        else:
-            step.initLayout()
-
 class Arrow(Part):
 
     def __init__(self, direction):

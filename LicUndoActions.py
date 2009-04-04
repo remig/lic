@@ -235,24 +235,39 @@ class DeletePageCommand(QUndoCommand):
         p.instructions.emit(SIGNAL("layoutChanged()"))
         p.instructions.selectPage(p.number - 1)
 
-class MovePartToStepCommand(QUndoCommand):
+class MovePartsToStepCommand(QUndoCommand):
 
     """
-    MovePartToStepCommand stores a part, step it was from and step it was moved to
-    (part, oldStep, newStep)
+    MovePartToStepCommand stores a part list, original step and step moved to
+    (partList, oldStep, newStep)
     """
 
     _id = getNewCommandID()
 
     def __init__(self, partSet):
         QUndoCommand.__init__(self, "move Part to Step")
-        self.part, self.oldStep, self.newStep = partSet
+        self.partList, self.oldStep, self.newStep = partSet
 
+    def moveFromStepToStep(self, oldStep, newStep):
+        oldStep.scene().clearSelection()
+        oldStep.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+
+        for part in self.partList:
+            oldStep.removePart(part)
+            newStep.addPart(part)
+
+        oldStep.scene().emit(SIGNAL("layoutChanged()"))
+
+        oldStep.csi.resetPixmap()
+        newStep.csi.resetPixmap()
+        oldStep.initLayout()
+        newStep.initLayout()
+    
     def undo(self):
-        self.part.moveToStepCommand(self.oldStep)
+        self.moveFromStepToStep(self.newStep, self.oldStep)
 
     def redo(self):
-        self.part.moveToStepCommand(self.newStep)
+        self.moveFromStepToStep(self.oldStep, self.newStep)
 
 class AdjustArrowLength(QUndoCommand):
 

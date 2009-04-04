@@ -228,7 +228,6 @@ class LicWindow(QMainWindow):
                    ("addPage", AddPageCommand),
                    ("deletePage", DeletePageCommand),
                    ("displacePart", DisplacePartCommand),
-                   ("movePartToStep", MovePartToStepCommand),
                    ("beginDisplacement", BeginDisplacement),
                    ("adjustArrowLength", AdjustArrowLength)]
 
