@@ -258,8 +258,10 @@ def __readCallout(stream, parent):
     rect = QRectF()
     pen = QPen()
     stream >> pos >> rect >> pen
+    
+    number = stream.readInt32()
 
-    callout = Callout(parent)
+    callout = Callout(parent, number)
     callout.setPos(pos)
     callout.setPen(pen)
     callout.setRect(rect)

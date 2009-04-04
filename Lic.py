@@ -14,7 +14,7 @@ import config
 import l3p
 import povray
 import LicDialogs
-import LicUndoActions
+from LicUndoActions import *
 
 __version__ = 0.1
 PageSize = QSize(800, 600)
@@ -221,20 +221,19 @@ class LicWindow(QMainWindow):
         
     def createUndoSignals(self):
 
-        u, l = self.undoStack, LicUndoActions
-        signals = [("itemsMoved", lambda x: u.push(l.MoveCommand(x))),
-                   ("moveStepToNewPage", lambda x: u.push(l.MoveStepToPageCommand(x))),
-                   ("insertStep", lambda x: u.push(l.InsertStepCommand(x))),
-                   ("deleteStep", lambda x: u.push(l.DeleteStepCommand(x))),
-                   ("addPage", lambda x: u.push(l.AddPageCommand(x))),
-                   ("deletePage", lambda x: u.push(l.DeletePageCommand(x))),
-                   ("displacePart", lambda x: u.push(l.DisplacePartCommand(x))),
-                   ("movePartToStep", lambda x: u.push(l.MovePartToStepCommand(x))),
-                   ("beginDisplacement", lambda x: u.push(l.BeginDisplacement(x))),
-                   ("adjustArrowLength", lambda x: u.push(l.AdjustArrowLength(x)))]
+        signals = [("itemsMoved", MoveCommand),
+                   ("moveStepToNewPage", MoveStepToPageCommand),
+                   ("insertStep", InsertStepCommand),
+                   ("deleteStep", DeleteStepCommand),
+                   ("addPage", AddPageCommand),
+                   ("deletePage", DeletePageCommand),
+                   ("displacePart", DisplacePartCommand),
+                   ("movePartToStep", MovePartToStepCommand),
+                   ("beginDisplacement", BeginDisplacement),
+                   ("adjustArrowLength", AdjustArrowLength)]
 
         for signal, command in signals:
-            self.connect(self.scene, SIGNAL(signal), command)
+            self.connect(self.scene, SIGNAL(signal), lambda x, c = command: self.undoStack.push(c(x)))
 
     def __getFilename(self):
         return self.__filename
@@ -394,7 +393,7 @@ class LicWindow(QMainWindow):
     def setCSIPLISize(self, newCSISize, newPLISize):
         if newCSISize != CSI.scale or newPLISize != PLI.scale:
             sizes = ((CSI.scale, newCSISize), (PLI.scale, newPLISize))
-            self.undoStack.push(LicUndoActions.ResizeCSIPLICommand(self.instructions, sizes))
+            self.undoStack.push(ResizeCSIPLICommand(self.instructions, sizes))
 
     def addActions(self, target, actions):
         for action in actions:

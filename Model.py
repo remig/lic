@@ -904,11 +904,11 @@ class Callout(QGraphicsRectItem):
 
     margin = QPointF(15, 15)
 
-    def __init__(self, parent):
+    def __init__(self, parent, number = 1):
         QGraphicsRectItem.__init__(self, parent)
 
         self.steps = []
-        self.number = 1
+        self.number = number
         
         self.setPos(0, 0)
         self.setPen(QPen(Qt.black))
@@ -927,7 +927,7 @@ class Callout(QGraphicsRectItem):
             return self.steps.index(child)
 
     def data(self, index):
-        return "Callout - %d step%s" % (len(self.steps), 's' if len(self.steps) > 1 else '')
+        return "Callout %d - %d step%s" % (self.number, len(self.steps), 's' if len(self.steps) > 1 else '')
 
     def addBlankStep(self, relayout = False):
         lastNum = self.steps[-1].number + 1 if self.steps else 1
@@ -946,6 +946,7 @@ class Callout(QGraphicsRectItem):
 
     def addPart(self, part):
         self.steps[0].addPart(part)
+        self.initLayout()
 
     def resetRect(self):
         b = self.childrenBoundingRect()
@@ -1085,7 +1086,8 @@ class Step(QGraphicsRectItem):
             self.pli.addPart(part)
 
     def addBlankCallout(self):
-        callout = Callout(self)
+        number = self.callouts[-1].number + 1 if self.callouts else 1
+        callout = Callout(self, number)
         self.callouts.append(callout)
         callout.addBlankStep()
         return callout
@@ -2351,23 +2353,38 @@ class Part(QGraphicsRectItem):
         callout.initLayout()
         self.scene().emit(SIGNAL("layoutChanged()"))
         
+    def moveToCallout(self, callout):
+        print callout.number
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        for item in self.scene().selectedItems():
+            if isinstance(item, Part):
+                callout.addPart(item.duplicate())
+        self.scene().emit(SIGNAL("layoutChanged()"))
+    
     def contextMenuEvent(self, event):
         """ 
         This is called if any part is the target of a right click.  
         self is guaranteed to be selected.  Other stuff may be selected too, so deal.
         """
 
+        step = self.getStep()
         menu = QMenu(self.scene().views()[0])
 
         menu.addAction("Create Callout from Parts", self.createCallout)
-        menu.addSeparator()
 
+        if step.callouts:
+            arrowMenu = menu.addMenu("Move Part to Callout")
+            for callout in step.callouts:
+                arrowMenu.addAction("Callout %d" % callout.number, lambda x = callout: self.moveToCallout(x))
+        
+        menu.addSeparator()
+        
         needSeparator = False
-        if self.getStep().getPrevStep():
+        if step.getPrevStep():
             menu.addAction("Move to &Previous Step", self.moveToPrevStep)
             needSeparator = True
             
-        if self.getStep().getNextStep():
+        if step.getNextStep():
             menu.addAction("Move to &Next Step", self.moveToNextStep)
             needSeparator = True
 
