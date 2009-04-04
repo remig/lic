@@ -249,10 +249,10 @@ class MovePartToStepCommand(QUndoCommand):
         self.part, self.oldStep, self.newStep = partSet
 
     def undo(self):
-        self.part.moveToStep(self.oldStep)
+        self.part.moveToStepCommand(self.oldStep)
 
     def redo(self):
-        self.part.moveToStep(self.newStep)
+        self.part.moveToStepCommand(self.newStep)
 
 class AdjustArrowLength(QUndoCommand):
 

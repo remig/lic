@@ -961,27 +961,26 @@ class Callout(QGraphicsRectItem):
         
         for step in self.steps:
             step.csi.resetPixmap(False)
+            step.setRect(0.0, 0.0, 1.0, 1.0)
+            step.maxRect = step.rect()
             step.initLayoutGrowing()
 
-        """
         prevStep = None
         currentX = currentY = 0.0
         rowCount = int(math.ceil(math.sqrt(len(self.steps))))
 
+        # TODO: Once all steps placed in grid, walk over grid and move each step to center of its cell
         for i, step in enumerate(self.steps):
             if (i > 0) and (not i % rowCount):
                 currentX = prevStep.pos().x() + prevStep.rect().width()
-                currentY = 0.0
-              
-              
+                currentY = maxWidth = 0.0
+
             x = Page.margin.x() + currentX
             y = Page.margin.y() + currentY
             step.setPos(x, y)
-            currentY = max(currentY, (prevStep.pos().y() + prevStep.rect().height()) if prevStep else 0.0)
+            currentY = max(currentY, step.pos().y() + step.rect().height())
             prevStep = step
-        """
 
-        self.steps[0].setPos(Page.margin.x(), Page.margin.y())
         self.resetRect()
         self.parent().initLayout()
 
@@ -1084,6 +1083,12 @@ class Step(QGraphicsRectItem):
         self.csi.addPart(part)
         if self.pli:
             self.pli.addPart(part)
+
+    def removePart(self, part):
+        self.csi.removePart(part)
+        if self.pli:
+            self.pli.removePart(part)
+        self.initLayout()
 
     def addBlankCallout(self):
         number = self.callouts[-1].number + 1 if self.callouts else 1
@@ -1418,14 +1423,19 @@ class PLI(QGraphicsRectItem):
 
         for pliItem in self.pliItems:
             if pliItem.color == part.color and pliItem.partOGL.filename == part.partOGL.filename:
-                pliItem.addPart(part)
-                return
+                return pliItem.addPart()
 
         # If we're here, did not find an existing PLI, so create a new one
         pliItem = PLIItem(self, part.partOGL, part.color)
         pliItem.addPart()
         self.pliItems.append(pliItem)
         
+    def removePart(self, part):
+        
+        for pliItem in self.pliItems:
+            if pliItem.color == part.color and pliItem.partOGL.filename == part.partOGL.filename:
+                return pliItem.removePart()
+
     def initLayout(self):
         """
         Allocate space for all parts in this PLI, and choose a decent layout.
@@ -1434,6 +1444,7 @@ class PLI(QGraphicsRectItem):
 
         # If this PLI is empty, nothing to do here
         if len(self.pliItems) < 1:
+            self.setRect(QRectF())
             return
 
         # Initialize each item in this PLI, so they have good rects and properly positioned quantity labels
@@ -1451,7 +1462,6 @@ class PLI(QGraphicsRectItem):
             
         # Sort list of parts to lay out by width (narrowest first), then remove tallest part, to be added first
         partList = list(self.pliItems)
-#        partList.sort(lambda x, y: cmp(x.partOGL.width, y.partOGL.width))
         partList.sort(lambda x, y: cmp(x.rect().width(), y.rect().width()))
         tallestPart = max(partList, key = lambda x: x.partOGL.height)
         partList.remove(tallestPart)
@@ -1634,7 +1644,11 @@ class CSI(QGraphicsPixmapItem):
         global GlobalGLContext
         
         if not self.parts:
-            return  # No parts = nothing to do here
+            self.center = QPointF()
+            self.width = self.height = 0
+            self.oglDispID = UNINIT_GL_DISPID
+            self.setPixmap(QPixmap())
+            return  # No parts = reset pixmap
         
         GlobalGLContext.makeCurrent()
         self.createOGLDisplayList()
@@ -1901,24 +1915,24 @@ class PartOGL(object):
     def getBoundingBox(self):
         
         box = None
-        if self.primitives:
-            box = self.primitives[0].getBoundingBox()
-        elif self.parts:
-            box = self.parts[0].partOGL.getBoundingBox()
-
-        if box is None:
-            return None  # No parts or primitives in this part (only edges? why's this still around?)
-        
         for primitive in self.primitives:
             p = primitive.getBoundingBox()
             if p:
-                box.growByBoudingBox(primitive.getBoundingBox())
+                if box:
+                    box.growByBoudingBox(p)
+                else:
+                    box = p
             
         for part in self.parts:
             p = part.partOGL.getBoundingBox()
             if p:
-                box.growByBoudingBox(p)
+                if box:
+                    box.growByBoudingBox(p)
+                else:
+                    box = p
 
+        # TODO: There's a lot of completely empty partOGLs hanging around - parts
+        # with nothing but (currently) useless edges - remove them?  Do something?
         return box
     
 class BoundingBox(object):
@@ -2468,47 +2482,40 @@ class Part(QGraphicsRectItem):
             self.scene().emit(SIGNAL("displacePart"), (self, oldPos, newPos))
 
     def moveToPrevStep(self):
+        self.moveToStep(self.getStep().getPrevStep())
 
+    def moveToNextStep(self):
+        self.moveToStep(self.getStep().getNextStep())
+
+    def moveToStep(self, step):
+        
         selectedParts = []
         for item in self.scene().selectedItems():
             if isinstance(item, Part):
                 selectedParts.append(item)
-        
-        if not selectedParts:
-            print "ERROR: Trying to move None parts to Previous Step!"
-            return
-
-        step = self.getStep()
-        prevStep = step.getPrevStep()
 
         stack = self.scene().undoStack
-        stack.beginMacro("Move Parts to new Step")
+        stack.beginMacro("Move Parts to Next Step")
         for part in selectedParts:
-            stack.push(LicUndoActions.MovePartToStepCommand((self, step, prevStep)))
+            stack.push(LicUndoActions.MovePartToStepCommand((part, part.getStep(), step)))
         stack.endMacro()
-
-    def moveToNextStep(self):
-        step = self.getStep()
-        nextStep = step.getNextStep()
-        self.scene().emit(SIGNAL("movePartToStep"), (self, step, nextStep))
-
-    def moveToStep(self, step):
         
-        oldStep = self.getStep()
+    def moveToStepCommand(self, step):
         
-        self.setSelected(False)
         self.scene().clearSelection()
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
 
-        self.parent().removePart(self)
+        self.getStep().removePart(self)
+        step.addPart(self) # TODO: extend this to support move across several steps
+        step.csi.resetPixmap()
+        self.scene().emit(SIGNAL("layoutChanged()"))
 
-        step.addPart(self)
-        step.csi.resetPixmap()  #TODO: extend this to support move across several steps
-        oldStep.csi.resetPixmap()
         if step.pli:
             step.pli.initLayout()
-        step.initLayout()
-        self.scene().emit(SIGNAL("layoutChanged()"))
+        if isinstance(step.parent(), Callout):
+            step.parent().initLayout()
+        else:
+            step.initLayout()
 
 class Arrow(Part):
 
