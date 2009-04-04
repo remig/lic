@@ -560,7 +560,7 @@ class Page(QGraphicsRectItem):
         self._parent = parent
         self._row = 0
         self.steps = []
-        self.borders = []
+        self.separators = []
         self.children = []
 
         # Give this page a number
@@ -631,8 +631,8 @@ class Page(QGraphicsRectItem):
                     items.append(pliItem)
                     items.append(pliItem.numberItem)
 
-        for border in self.borders:
-            items.append(border)
+        for separator in self.separators:
+            items.append(separator)
 
         if self.submodelItem:
             items.append(self.submodelItem)
@@ -716,16 +716,47 @@ class Page(QGraphicsRectItem):
         border.setRect(QRectF(0, 0, 1, 1))
         border.setFlags(AllFlags)
         border.dataText = "Step Separator"
-        self.borders.append(border)
+        self.separators.append(border)
         self.addChild(index, border)
         return border
 
-    def removeStepSeparator(self, sep):
-        self.children.remove(sep)
-        self.borders.remove(sep)
-        self.scene().removeItem(sep)
-        del sep
-
+    def addAllSeparators(self):
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        
+        stepCount = len(self.steps)
+        colCount = int(math.ceil(math.sqrt(stepCount)))
+        rowCount = stepCount / colCount  # This needs to be integer division
+        
+        if stepCount % colCount:
+            rowCount += 1
+            
+        separatorIndices = []
+        for i, step in enumerate(self.steps):
+            if (i > 0) and (not i % rowCount):
+                separatorIndices.append(step.row())
+        
+        my = Page.margin.y()
+        pageRect = self.rect()
+        if self.submodelItem:
+            pageRect.setTop(self.submodelItem.rect().height() + my + my)
+        stepWidth = pageRect.width() / colCount
+        
+        for i in range(1, colCount):
+            index = separatorIndices[i - 1]
+            sep = self.addStepSeparator(index)
+            sep.setPos(stepWidth * i, pageRect.top() + my)
+            sep.setRect(QRectF(0, 0, 1, pageRect.height() - my - my))
+            
+        self.scene().emit(SIGNAL("layoutChanged()"))
+    
+    def removeAllSeparators(self):
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        for separator in self.separators:
+            self.children.remove(separator)
+            self.scene().removeItem(separator)
+        del self.separators[:]
+        self.scene().emit(SIGNAL("layoutChanged()"))
+    
     def removeStep(self, step):
         self.steps.remove(step)
         self.children.remove(step)
@@ -767,10 +798,8 @@ class Page(QGraphicsRectItem):
 
     def initLayout(self):
 
-        # Remove any borders, since we'll re-add them in the appropriate place later
-        for border in list(self.borders):
-            self.removeStepSeparator(border)
-        self.boders = []
+        # Remove any separators, since we'll re-add them in the appropriate place later
+        self.removeAllSeparators()
 
         pageRect = self.rect()
         mx = Page.margin.x()
@@ -798,7 +827,6 @@ class Page(QGraphicsRectItem):
         x = pageRect.x() - stepWidth
         y = pageRect.y()
         
-        separatorIndices = []
         for i, step in enumerate(self.steps):
             
             if i % rowCount:
@@ -806,8 +834,6 @@ class Page(QGraphicsRectItem):
             else:
                 y = pageRect.y()
                 x += stepWidth
-                if i > 0:
-                    separatorIndices.append(step.row())
 
             tmpRect = QRectF(x, y, stepWidth, stepHeight)
             tmpRect.adjust(mx, my, -mx, -my)
@@ -817,12 +843,7 @@ class Page(QGraphicsRectItem):
             return label # if there's only one step, no step separators needed
 
         # Add a step separator between each column of steps
-        for i in range(1, colCount):
-            index = separatorIndices[i - 1]
-            sep = self.addStepSeparator(index)
-            sep.setPos(stepWidth * i, pageRect.top() + my)
-            sep.setRect(QRectF(0, 0, 1, pageRect.height() - my - my))
-
+        self.addAllSeparators()
         return label
 
     def scaleImages(self):
@@ -889,6 +910,11 @@ class Page(QGraphicsRectItem):
         menu.addAction("Delete Page", self.deletePage)
         menu.addAction("Prepend blank Page", self.addPageBefore)
         menu.addAction("Append blank Page", self.addPageAfter)
+        menu.addSeparator()
+        if self.separators:
+            menu.addAction("Remove Step Separators", self.removeAllSeparators)
+        else:
+            menu.addAction("Add Step Separators", self.addAllSeparators)
         menu.addSeparator()
         menu.addAction("Add blank Step", self.addBlankStep)
         menu.exec_(event.screenPos())

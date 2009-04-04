@@ -139,8 +139,8 @@ def __writePage(stream, page):
         stream.writeBool(False)
 
     # Write out any page separator lines
-    stream.writeInt32(len(page.borders))
-    for border in page.borders:
+    stream.writeInt32(len(page.separators))
+    for border in page.separators:
         stream.writeInt32(border.row())
         stream << border.pos() << border.rect() << border.pen()
 
