@@ -14,6 +14,7 @@ import povray
 import LDrawColors
 import Helpers
 import LicUndoActions
+import Layout
 
 from LDrawFileFormat import *
 
@@ -565,6 +566,7 @@ class Page(QGraphicsRectItem):
         self.separators = []
         self.children = []
         self.submodelItem = None
+        self.layout = Layout.GridLayout()
 
         # Setup this page's page number
         self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
@@ -804,30 +806,8 @@ class Page(QGraphicsRectItem):
         if len(self.steps) <= 0:
             return label # No steps - nothing more to do here
 
-        # Divide the remaining space into equal space for each step, depending on the number of steps.
-        stepCount = len(self.steps)
-        colCount = int(math.ceil(math.sqrt(stepCount)))
-        rowCount = stepCount / colCount  # This needs to be integer division
-        if stepCount % colCount:
-            rowCount += 1
+        self.layout.initLayoutFromRect(pageRect, self.steps)
         
-        stepWidth = pageRect.width() / colCount
-        stepHeight = pageRect.height() / rowCount
-        x = pageRect.x() - stepWidth
-        y = pageRect.y()
-        
-        for i, step in enumerate(self.steps):
-            
-            if i % rowCount:
-                y += stepHeight
-            else:
-                y = pageRect.y()
-                x += stepWidth
-
-            tmpRect = QRectF(x, y, stepWidth, stepHeight)
-            tmpRect.adjust(mx, my, -mx, -my)
-            step.initLayout(tmpRect)
-
         if len(self.steps) < 2:
             return label # if there's only one step, no step separators needed
 
@@ -936,6 +916,7 @@ class Callout(QGraphicsRectItem):
 
         self.steps = []
         self.number = number
+        self.layout = Layout.GridLayout()
         
         self.setPos(0, 0)
         self.setPen(QPen(Qt.black))
@@ -2091,7 +2072,7 @@ class Submodel(PartOGL):
         csi  = self.pages[0].steps[0].csi
         while csi.partCount() > PARTS_PER_STEP_MAX:
             
-            newPage = Page(self, self.instructions, self.pages[-1]._number + 1, self.pages[0]._row + 1)
+            newPage = Page(self, self.instructions, self.pages[-1]._number + 1, self.pages[-1]._row + 1)
             newPage.addBlankStep()
             self.addPage(newPage)
 
@@ -2475,7 +2456,6 @@ class Part(QGraphicsRectItem):
         self.scene().emit(SIGNAL("layoutChanged()"))
         
     def moveToCallout(self, callout):
-        print callout.number
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         for item in self.scene().selectedItems():
             if isinstance(item, Part):

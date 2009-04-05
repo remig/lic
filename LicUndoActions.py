@@ -128,11 +128,13 @@ class MoveStepToPageCommand(QUndoCommand):
         for step, oldPage, newPage in self.stepSet:
             step.moveToPage(oldPage)
             oldPage.initLayout()
+            newPage.initLayout()
 
     def redo(self):
         for step, oldPage, newPage in self.stepSet:
             step.moveToPage(newPage)
             newPage.initLayout()
+            oldPage.initLayout()
 
 class InsertStepCommand(QUndoCommand):
 
