@@ -281,7 +281,6 @@ class Instructions(QAbstractItemModel):
         partDictionary = {}
         submodelDictionary = {}
         currentModelFilename = ""
-        Page.NextNumber = Step.NextNumber = 1
         CSI.scale = PLI.scale = 1.0
         GlobalGLContext.makeCurrent()
         self.emit(SIGNAL("layoutChanged()"))
@@ -303,6 +302,9 @@ class Instructions(QAbstractItemModel):
         self.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.mainModel = Submodel(self, self, filename)
         self.mainModel.importModel()
+        
+        self.mainModel.syncPageNumbers()
+        self.mainModel.addInitialPagesAndSteps()
         
         pageCount = self.mainModel.pageCount()
         totalCount = (pageCount * 2) + 2
@@ -545,10 +547,9 @@ class Instructions(QAbstractItemModel):
 class Page(QGraphicsRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
 
-    NextNumber = 1
     margin = QPointF(15, 15)
 
-    def __init__(self, parent, instructions, number = -1):
+    def __init__(self, parent, instructions, number, row):
         QGraphicsRectItem.__init__(self)
         instructions.scene.addItem(self)
 
@@ -558,18 +559,12 @@ class Page(QGraphicsRectItem):
 
         self.instructions = instructions
         self._parent = parent
-        self._row = 0
+        self._number = number
+        self._row = row
         self.steps = []
         self.separators = []
         self.children = []
-
-        # Give this page a number
-        if number == -1:
-            self._number = Page.NextNumber
-            Page.NextNumber += 1
-        else:
-            self._number = number
-            Page.NextNumber = number + 1
+        self.submodelItem = None
 
         # Setup this page's page number
         self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
@@ -577,8 +572,6 @@ class Page(QGraphicsRectItem):
         self.numberItem.dataText = "Page Number Label"
         self.children.append(self.numberItem)
 
-        self.submodelItem = None
-        
         # Position page number in bottom right page corner
         rect = self.numberItem.boundingRect()
         rect.moveBottomRight(self.rect().bottomRight() - Page.margin)
@@ -666,10 +659,10 @@ class Page(QGraphicsRectItem):
                     break
         self.addChild(i + 1, step)
 
-        if relayout:
+        if relayout:  # TODO: remove this relayout arg
             self.initLayout()
 
-    def addBlankStep(self):
+    def addBlankStep(self, useSignal = True):
         
         number = -1
         if self.steps:
@@ -687,7 +680,10 @@ class Page(QGraphicsRectItem):
             number = 1
             
         newStep = Step(self, number)
-        self.scene().emit(SIGNAL("insertStep"), newStep)
+        if useSignal:
+            self.scene().emit(SIGNAL("insertStep"), newStep)
+        else:
+            self.insertStep(newStep)
     
     def insertStep(self, step):
         self.parent().updateStepNumbers(step.number)
@@ -907,7 +903,6 @@ class Page(QGraphicsRectItem):
     def contextMenuEvent(self, event):
         
         menu = QMenu(self.scene().views()[0])
-        menu.addAction("Delete Page", self.deletePage)
         menu.addAction("Prepend blank Page", self.addPageBefore)
         menu.addAction("Append blank Page", self.addPageAfter)
         menu.addSeparator()
@@ -915,8 +910,9 @@ class Page(QGraphicsRectItem):
             menu.addAction("Remove Step Separators", self.removeAllSeparators)
         else:
             menu.addAction("Add Step Separators", self.addAllSeparators)
-        menu.addSeparator()
         menu.addAction("Add blank Step", self.addBlankStep)
+        menu.addSeparator()
+        menu.addAction("Delete Page", self.deletePage)
         menu.exec_(event.screenPos())
     
     def deletePage(self):
@@ -927,18 +923,14 @@ class Page(QGraphicsRectItem):
             self.scene().emit(SIGNAL("deletePage"), self)
         
     def addPageBefore(self):
-
         self.scene().clearSelection()
-        newPage = Page(self.parent(), self.instructions, self.number)
-        newPage._row = self._row
+        newPage = Page(self.parent(), self.instructions, self.number, self._row)
         self.scene().emit(SIGNAL("addPage"), newPage)
         self.instructions.selectPage(newPage.number)
     
     def addPageAfter(self):
-        
         self.scene().clearSelection()
-        newPage = Page(self.parent(), self.instructions, self.number + 1)
-        newPage._row = self._row + 1
+        newPage = Page(self.parent(), self.instructions, self.number + 1, self._row + 1)
         self.scene().emit(SIGNAL("addPage"), newPage)
         self.instructions.selectPage(newPage.number)
 
@@ -1040,12 +1032,11 @@ class Callout(QGraphicsRectItem):
 class Step(QGraphicsRectItem):
     """ A single step in an Instruction book.  Contains one optional PLI and exactly one CSI. """
 
-    NextNumber = 1
-
-    def __init__(self, parentPage, number = -1, hasPLI = True, hasNumberItem = True):
+    def __init__(self, parentPage, number, hasPLI = True, hasNumberItem = True):
         QGraphicsRectItem.__init__(self, parentPage)
 
         # Children
+        self._number = number
         self.numberItem = None
         self.csi = CSI(self)
         self.pli = PLI(self) if hasPLI else None
@@ -1058,14 +1049,6 @@ class Step(QGraphicsRectItem):
         self.setPen(pen)
 
         self.setPos(Page.margin)
-
-        # Give this page a number
-        if number == -1:
-            self._number = Step.NextNumber
-            Step.NextNumber += 1
-        else:
-            self._number = number
-            Step.NextNumber = number + 1
 
         if hasNumberItem:
             # Initialize Step's number label (position set in initLayout)
@@ -1130,7 +1113,6 @@ class Step(QGraphicsRectItem):
         self.csi.removePart(part)
         if self.pli:
             self.pli.removePart(part)
-        self.initLayout()
 
     def addBlankCallout(self):
         number = self.callouts[-1].number + 1 if self.callouts else 1
@@ -1342,10 +1324,9 @@ class PLIItem(QGraphicsRectItem):
             # Still have other parts - reduce qty label
             self.numberItem.setText("%dx" % self.quantity)
             self.numberItem.dataText = "Qty. Label (%dx)" % self.quantity
-        else:  
+        else:
             # PLIItem is now empty - kill it
             self.parentItem().pliItems.remove(self)
-            self.parentItem().initLayout()
             self.scene().removeItem(self)
 
     def child(self, row):
@@ -1593,6 +1574,12 @@ class CSI(QGraphicsPixmapItem):
     def rowCount(self):
         return len(self.parts)
 
+    def getPartList(self):
+        partList = []
+        for partItem in self.parts:
+            partList += partItem.parts
+        return partList
+    
     def partCount(self):
         partCount = 0
         for partItem in self.parts:
@@ -1664,8 +1651,8 @@ class CSI(QGraphicsPixmapItem):
         self.__callPreviousOGLDisplayLists(True)
         GL.glEndList()
 
-    # TODO: If the pixmap & FBO solution gets too slow, try a pure GL solution (see project.py)
     def calculateGLSize(self):
+        # TODO: If the pixmap & FBO solution gets too slow, try a pure GL solution (see project.py)
         minX, minY = 150, 150
         maxX, maxY = 0, 0
         
@@ -1864,7 +1851,7 @@ class PartOGL(object):
     def _loadOneLDrawLineCommand(self, line):
 
         if isValidPartLine(line):
-            self.addPart(lineToPart(line), line)
+            self.addPartFromLine(lineToPart(line), line)
 
         elif isValidTriangleLine(line):
             self.addPrimitive(lineToTriangle(line), GL.GL_TRIANGLES)
@@ -1872,9 +1859,9 @@ class PartOGL(object):
         elif isValidQuadLine(line):
             self.addPrimitive(lineToQuad(line), GL.GL_QUADS)
 
-    def addPart(self, p, line, lastStepNumber = 1):
+    def addPartFromLine(self, p, line):
         try:
-            part = Part(p['filename'], p['color'], p['matrix'], False, True, lastStepNumber)
+            part = Part(p['filename'], p['color'], p['matrix'], False, True)
         except IOError:
             print "Could not find file: %s - Ignoring." % p['filename']
             return
@@ -2048,14 +2035,11 @@ class Submodel(PartOGL):
 
         self.pages = []
         self.submodels = []
-
-        self.currentStep = None
-        self.currentCSI = None
-        self.currentPage = None
-
+        
         self._row = 0
         self._parent = parent
         self.isSubmodel = True
+        self.currentPage = None # Track the currently selected page in this model
         
     def setSelected(self, selected):
         self.pages[0].setSelected(selected)
@@ -2106,36 +2090,62 @@ class Submodel(PartOGL):
         for line in self.lineArray[1:]:
             if isValidFileLine(line):
                 return
-            self._loadOneLDrawLineCommand(line)
+            if isValidPartLine(line):
+                self.addPartFromLine(lineToPart(line), line)
 
-    def _loadOneLDrawLineCommand(self, line):
-        if isValidStepLine(line):
-            self.addStep()
-        elif isValidPartLine(line):
-            self.addPart(lineToPart(line), line)
-        else:
-            PartOGL._loadOneLDrawLineCommand(self, line)
+    def addInitialPagesAndSteps(self):
 
+        # Add one step for every 5 parts, and one page per step
+        # At this point, if model had no steps (assumed for now), we have one page per submodel
+        PARTS_PER_STEP_MAX = 5
+        
+        for submodel in self.submodels:
+            submodel.addInitialPagesAndSteps()
+
+        csi  = self.pages[0].steps[0].csi
+        while csi.partCount() > PARTS_PER_STEP_MAX:
+            
+            newPage = Page(self, self.instructions, self.pages[-1]._number + 1, self.pages[0]._row + 1)
+            newPage.addBlankStep(False)
+            self.addPage(newPage)
+
+            for part in csi.getPartList()[PARTS_PER_STEP_MAX : ]:
+                part.getStep().removePart(part)
+                newPage.steps[-1].addPart(part)
+            csi = newPage.steps[-1].csi
+    
+    def syncPageNumbers(self, firstPageNumber = 1):
+
+        rowList = self.pages + self.submodels
+        rowList.sort(key = lambda x: x._row)
+
+        pageNumber = firstPageNumber
+        for row in rowList:
+            if isinstance(row, Page):
+                row.number = pageNumber
+                pageNumber += 1
+            elif isinstance(row, Submodel):
+                pageNumber = row.syncPageNumbers(pageNumber)
+
+        return pageNumber
+    
     def pageCount(self):
         pageCount = len(self.pages)
         for submodel in self.submodels:
             pageCount += submodel.pageCount()
         return pageCount
 
-    def addStep(self):
-        page = self.appendBlankPage()
-        self.currentStep = Step(page, -1)
-        self.currentCSI = self.currentStep.csi
-        page.addStep(self.currentStep)
-        
     def appendBlankPage(self):
-        
-        page = Page(self, self.instructions)
+
         if not self.pages and not self.submodels:
-            page._row = 0
+            row = 0
         else:
-            page._row = 1 + max(self.pages[-1]._row if self.pages else 0, self.submodels[-1]._row if self.submodels else 0)
-        self.pages.append(page)
+            row = 1 + max(self.pages[-1]._row if self.pages else 0, self.submodels[-1]._row if self.submodels else 0)
+            
+        page = Page(self, self.instructions, -1, row)
+        for p in self.pages[page._row : ]:
+            p._row += 1
+        self.pages.insert(page._row, page)
         return page
     
     def addPage(self, page):
@@ -2222,25 +2232,24 @@ class Submodel(PartOGL):
             
         return self.currentPage
 
-    def addPart(self, p, line):
+    def addPartFromLine(self, p, line):
         
         # First ensure we have a step in this submodel, so we can add the new part to it.
-        if self.currentStep is None:
-            self.addStep()
-            
-        lastStepNumber = self.pages[-1].steps[-1].number if self.pages and self.pages[-1].steps else 1
-        part = PartOGL.addPart(self, p, line, lastStepNumber)
+        if not self.pages:
+            newPage = self.appendBlankPage()
+            newPage.addBlankStep(False)
+
+        part = PartOGL.addPartFromLine(self, p, line)
         if not part:
             return  # Error loading part - part .dat file may not exist
         
-        self.currentStep.addPart(part)
+        self.pages[-1].steps[-1].addPart(part)
         if part.isSubmodel() and not part.partOGL.used:
             p = part.partOGL
             p._parent = self
             p._row = self.pages[-1]._row
             p.used = True
             self.pages[-1]._row += 1
-            self.pages[-1].number += p.pageCount()
             self.submodels.append(p)
 
     def getCSIList(self):
@@ -2328,7 +2337,7 @@ class Part(QGraphicsRectItem):
     in one LDraw FILE (5) command.
     """
 
-    def __init__(self, filename, color = 16, matrix = None, invert = False, setPartOGL = True, lastStepNumber = 1):
+    def __init__(self, filename, color = 16, matrix = None, invert = False, setPartOGL = True):
         QGraphicsRectItem.__init__(self)
         global partDictionary, submodelDictionary
 
@@ -2347,11 +2356,7 @@ class Part(QGraphicsRectItem):
             if filename in submodelDictionary:
                 self.partOGL = submodelDictionary[filename]
                 if not self.partOGL.used:
-                    Step.NextNumber = 1
-                    Page.NextNumber -= 1
                     self.partOGL.loadFromLineArray()
-                    Step.NextNumber = lastStepNumber
-                    Page.NextNumber += 1
             elif filename in partDictionary:
                 self.partOGL = partDictionary[filename]
             else:

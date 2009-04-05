@@ -174,11 +174,11 @@ def __readPage(stream, parent, instructions):
 
     stream >> pos >> rect
     number = stream.readInt32()
-    page = Page(parent, instructions, number)
+    row = stream.readInt32()
+
+    page = Page(parent, instructions, number, row)
     page.setPos(pos)
     page.setRect(rect)
-
-    page._row = stream.readInt32()
 
     stream >> pos >> font
     page.numberItem.setPos(pos)
