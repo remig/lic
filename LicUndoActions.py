@@ -126,11 +126,13 @@ class MoveStepToPageCommand(QUndoCommand):
 
     def undo(self):
         for step, oldPage, newPage in self.stepSet:
-            step.moveToPage(oldPage, relayout = True)
+            step.moveToPage(oldPage)
+            oldPage.initLayout()
 
     def redo(self):
         for step, oldPage, newPage in self.stepSet:
-            step.moveToPage(newPage, relayout = True)
+            step.moveToPage(newPage)
+            newPage.initLayout()
 
 class InsertStepCommand(QUndoCommand):
 
@@ -149,11 +151,13 @@ class InsertStepCommand(QUndoCommand):
         self.step.setSelected(False)
         self.parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         self.parent.deleteStep(self.step)
+        self.parent.initLayout()
         self.parent.scene().emit(SIGNAL("layoutChanged()"))
 
     def redo(self):
         self.parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         self.parent.insertStep(self.step)
+        self.parent.initLayout()
         self.parent.scene().emit(SIGNAL("layoutChanged()"))
         self.step.setSelected(True)
 

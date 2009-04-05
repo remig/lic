@@ -645,7 +645,7 @@ class Page(QGraphicsRectItem):
     def getStep(self, number):
         return self._parent.getStep(number)
 
-    def addStep(self, step, relayout = False):
+    def addStep(self, step):
 
         self.steps.append(step)
         self.steps.sort(key = lambda x: x._number)
@@ -659,10 +659,7 @@ class Page(QGraphicsRectItem):
                     break
         self.addChild(i + 1, step)
 
-        if relayout:  # TODO: remove this relayout arg
-            self.initLayout()
-
-    def addBlankStep(self, useSignal = True):
+    def addBlankStep(self):
         
         number = -1
         if self.steps:
@@ -679,15 +676,11 @@ class Page(QGraphicsRectItem):
         if number < 0:
             number = 1
             
-        newStep = Step(self, number)
-        if useSignal:
-            self.scene().emit(SIGNAL("insertStep"), newStep)
-        else:
-            self.insertStep(newStep)
+        self.insertStep(Step(self, number))
     
     def insertStep(self, step):
         self.parent().updateStepNumbers(step.number)
-        self.addStep(step, True)
+        self.addStep(step)
 
     def deleteStep(self, step):
 
@@ -963,7 +956,7 @@ class Callout(QGraphicsRectItem):
     def data(self, index):
         return "Callout %d - %d step%s" % (self.number, len(self.steps), 's' if len(self.steps) > 1 else '')
 
-    def addBlankStep(self, relayout = False):
+    def addBlankStep(self):
         lastNum = self.steps[-1].number + 1 if self.steps else 1
         step = Step(self, lastNum, False, False)
         self.scene().emit(SIGNAL("insertStep"), step)
@@ -971,12 +964,10 @@ class Callout(QGraphicsRectItem):
     def insertStep(self, step):
         self.steps.append(step)
         step.setParentItem(self)
-        self.initLayout()
 
     def deleteStep(self, step):
         self.steps.remove(step)
         self.scene().removeItem(step)
-        self.initLayout()
 
     def addPart(self, part):
         self.steps[0].addPart(part)
@@ -1265,17 +1256,12 @@ class Step(QGraphicsRectItem):
                 stepSet.append((step, step.parentItem(), step.parentItem().nextPage()))
         step.scene().emit(SIGNAL("moveStepToNewPage"), stepSet)
     
-    def moveToPage(self, page, relayout = True):
+    def moveToPage(self, page):
         
         page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
 
-        # Remove this step from its current page's step list
         self.parentItem().removeStep(self)
-        if relayout:
-            self.parentItem().initLayout()
-        
-        # Add this step to the new page's step list, and set its scene parent
-        page.addStep(self, relayout)
+        page.addStep(self)
 
         page.instructions.emit(SIGNAL("layoutChanged()"))
 
@@ -2106,7 +2092,7 @@ class Submodel(PartOGL):
         while csi.partCount() > PARTS_PER_STEP_MAX:
             
             newPage = Page(self, self.instructions, self.pages[-1]._number + 1, self.pages[0]._row + 1)
-            newPage.addBlankStep(False)
+            newPage.addBlankStep()
             self.addPage(newPage)
 
             for part in csi.getPartList()[PARTS_PER_STEP_MAX : ]:
@@ -2237,7 +2223,7 @@ class Submodel(PartOGL):
         # First ensure we have a step in this submodel, so we can add the new part to it.
         if not self.pages:
             newPage = self.appendBlankPage()
-            newPage.addBlankStep(False)
+            newPage.addBlankStep()
 
         part = PartOGL.addPartFromLine(self, p, line)
         if not part:
