@@ -566,7 +566,7 @@ class Page(QGraphicsRectItem):
         self.separators = []
         self.children = []
         self.submodelItem = None
-        self.layout = Layout.GridLayout()
+        self.layout = Layout.GridLayout(orientation = Layout.Horizontal)
 
         # Setup this page's page number
         self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
@@ -661,24 +661,23 @@ class Page(QGraphicsRectItem):
                     break
         self.addChild(i + 1, step)
 
-    def addBlankStep(self):
-        
-        number = -1
+    def getNextStepNumber(self):
+
         if self.steps:
-            number = self.steps[-1].number + 1
-        else:
-            for page in self._parent.pages[self._row + 1 : ]:  # Look forward through pages
-                if page.steps and number < 0:
-                    number = page.steps[0].number
-            if number < 0:
-                for page in reversed(self._parent.pages[ : self._row]):  # Look back
-                    if page.steps and number < 0:
-                        number = page.steps[-1].number + 1
+            return self.steps[-1].number + 1
         
-        if number < 0:
-            number = 1
-            
-        self.insertStep(Step(self, number))
+        for page in self._parent.pages[self._row + 1 : ]:  # Look forward through pages
+            if page.steps:
+                return page.steps[0].number
+
+        for page in reversed(self._parent.pages[ : self._row]):  # Look back
+            if page.steps:
+                return page.steps[-1].number + 1
+
+        return 1
+        
+    def addBlankStep(self):
+        self.insertStep(Step(self, self.getNextStepNumber()))
     
     def insertStep(self, step):
         self._parent.updateStepNumbers(step.number)
@@ -690,11 +689,9 @@ class Page(QGraphicsRectItem):
         self.children.remove(step)
         self.scene().removeItem(step)
         self._parent.updateStepNumbers(step.number, -1)
-        self.initLayout()
 
     def addChild(self, index, child):
 
-        # Add the child to the child array
         self.children.insert(index, child)
 
         # Adjust the z-order of all children: first child has highest z value
@@ -883,11 +880,15 @@ class Page(QGraphicsRectItem):
             menu.addAction("Remove Step Separators", self.removeAllSeparators)
         else:
             menu.addAction("Add Step Separators", self.addAllSeparators)
-        menu.addAction("Add blank Step", self.addBlankStep)
+        menu.addAction("Add blank Step", self.addBlankStepSignal)
         menu.addSeparator()
         menu.addAction("Delete Page", self.deletePage)
         menu.exec_(event.screenPos())
     
+    def addBlankStepSignal(self):
+        step = Step(self, self.getNextStepNumber())
+        self.scene().emit(SIGNAL("insertStep"), step)
+
     def deletePage(self):
         if self.steps:
             #Do not allow pages with steps to be deleted
@@ -1237,10 +1238,8 @@ class Step(QGraphicsRectItem):
     def moveToPage(self, page):
         
         page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
-
         self.parentItem().removeStep(self)
         page.addStep(self)
-
         page.instructions.emit(SIGNAL("layoutChanged()"))
 
     def mergeWithPrevStep(self):
