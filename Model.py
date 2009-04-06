@@ -2228,19 +2228,24 @@ class Submodel(PartOGL):
 
         return csiList
 
+    def getPageList(self):
+        pageList = list(self.pages)
+        for submodel in self.submodels:
+            pageList += submodel.getPageList()
+        return pageList
+        
     def initLayout(self, currentCount):
 
         if self.pages:
             self.pages[0].addSubmodelImage()
 
-        for page in self.pages:
+        pageList = self.getPageList()
+        pageList.sort(key = lambda x: x._number)
+        
+        for page in pageList:
             label = page.initLayout()
             currentCount += 1
             yield (currentCount, label)
-
-        for submodel in self.submodels:
-            for step, label in submodel.initLayout(currentCount):
-                yield (step, label)
 
     def exportImages(self):
         for page in self.pages:
