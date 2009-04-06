@@ -546,7 +546,7 @@ class Instructions(QAbstractItemModel):
         self.initPLIPixmaps()
 
 class Page(QGraphicsRectItem):
-    """ A single page in an instruction book.  Contains one or more Steps. """
+    """ A single page in an instruction book.  Contains one or more Steps. _parent is a Submodel. """
 
     margin = QPointF(15, 15)
 
@@ -667,11 +667,11 @@ class Page(QGraphicsRectItem):
         if self.steps:
             number = self.steps[-1].number + 1
         else:
-            for page in self.parent().pages[self._row + 1 : ]:  # Look forward through pages
+            for page in self._parent.pages[self._row + 1 : ]:  # Look forward through pages
                 if page.steps and number < 0:
                     number = page.steps[0].number
             if number < 0:
-                for page in reversed(self.parent().pages[ : self._row]):  # Look back
+                for page in reversed(self._parent.pages[ : self._row]):  # Look back
                     if page.steps and number < 0:
                         number = page.steps[-1].number + 1
         
@@ -681,7 +681,7 @@ class Page(QGraphicsRectItem):
         self.insertStep(Step(self, number))
     
     def insertStep(self, step):
-        self.parent().updateStepNumbers(step.number)
+        self._parent.updateStepNumbers(step.number)
         self.addStep(step)
 
     def deleteStep(self, step):
@@ -689,7 +689,7 @@ class Page(QGraphicsRectItem):
         self.steps.remove(step)
         self.children.remove(step)
         self.scene().removeItem(step)
-        self.parent().updateStepNumbers(step.number, -1)
+        self._parent.updateStepNumbers(step.number, -1)
         self.initLayout()
 
     def addChild(self, index, child):
@@ -897,13 +897,13 @@ class Page(QGraphicsRectItem):
         
     def addPageBefore(self):
         self.scene().clearSelection()
-        newPage = Page(self.parent(), self.instructions, self.number, self._row)
+        newPage = Page(self._parent, self.instructions, self.number, self._row)
         self.scene().emit(SIGNAL("addPage"), newPage)
         self.instructions.selectPage(newPage.number)
     
     def addPageAfter(self):
         self.scene().clearSelection()
-        newPage = Page(self.parent(), self.instructions, self.number + 1, self._row + 1)
+        newPage = Page(self._parent, self.instructions, self.number + 1, self._row + 1)
         self.scene().emit(SIGNAL("addPage"), newPage)
         self.instructions.selectPage(newPage.number)
 
@@ -911,7 +911,7 @@ class Callout(QGraphicsRectItem):
 
     margin = QPointF(15, 15)
 
-    def __init__(self, parent, number = 1, showStepNumbers = True):
+    def __init__(self, parent, number = 1, showStepNumbers = False):
         QGraphicsRectItem.__init__(self, parent)
 
         self.steps = []
@@ -940,6 +940,8 @@ class Callout(QGraphicsRectItem):
 
     def addBlankStep(self):
         lastNum = self.steps[-1].number + 1 if self.steps else 1
+        if lastNum > 1 and not self.showStepNumbers:
+            self.toggleStepNumbers()
         step = Step(self, lastNum, False, self.showStepNumbers)
         self.scene().emit(SIGNAL("insertStep"), step)
         
@@ -972,7 +974,7 @@ class Callout(QGraphicsRectItem):
         self.layout.initLayoutInsideOut(self.steps)
 
         self.resetRect()
-        self.parent().initLayout()
+        self.parentItem().initLayout()
 
     def toggleStepNumbers(self):
         for step in self.steps:
@@ -1090,10 +1092,10 @@ class Step(QGraphicsRectItem):
             self.parentItem().resetRect()
 
     def getNextStep(self):
-        return self.parent().getStep(self.number + 1)
+        return self.parentItem().getStep(self.number + 1)
 
     def getPrevStep(self):
-        return self.parent().getStep(self.number - 1)
+        return self.parentItem().getStep(self.number - 1)
 
     def toggleNumberItem(self):
         if self.numberItem:
@@ -1588,7 +1590,7 @@ class CSI(QGraphicsPixmapItem):
     def __callPreviousOGLDisplayLists(self, isCurrent = False):
 
         # Call all previous step's CSI display list
-        prevStep = self.parent().getPrevStep()
+        prevStep = self.parentItem().getPrevStep()
         if prevStep:
             prevStep.csi.__callPreviousOGLDisplayLists(False)
 
@@ -1688,7 +1690,7 @@ class CSI(QGraphicsPixmapItem):
         self.resetTransform()
         self.updatePixmap(False)
         if reposition:
-            self.parent().positionInternalBits()
+            self.parentItem().positionInternalBits()
         GlobalGLContext.makeCurrent()
 
     def initSize(self, size, pBuffer):
@@ -1757,7 +1759,7 @@ class CSI(QGraphicsPixmapItem):
         self.pngImage = QImage(pngFile)
         
     def exportToLDrawFile(self, fh):
-        prevStep = self.parent().getPrevStep()  #TODO: Need to test this new non prevCSI code
+        prevStep = self.parentItem().getPrevStep()  #TODO: Need to test this new non prevCSI code
         if prevStep:
             prevStep.csi.exportToLDrawFile(fh)
             
@@ -2282,7 +2284,7 @@ class PartTreeItem(QGraphicsRectItem):
         return self.parts[row]
 
     def row(self):
-        return self.parent().parts.index(self)
+        return self.parentItem().parts.index(self)
 
     def rowCount(self):
         return len(self.parts)
@@ -2333,7 +2335,7 @@ class Part(QGraphicsRectItem):
                 self.partOGL = partDictionary[filename] = PartOGL(filename, loadFromFile = True)
 
     def row(self):
-        return self.parent().parts.index(self)
+        return self.parentItem().parts.index(self)
     
     def data(self, index):
         x, y, z = OGLMatrixToXYZ(self.matrix)
@@ -2341,7 +2343,7 @@ class Part(QGraphicsRectItem):
         return "%s - (%.1f, %.1f, %.1f)" % (color, x, y, z)
 
     def csi(self):
-        return self.parent().parent()
+        return self.parentItem().parentItem()
     
     def setSelected(self, selected, updatePixmap = True):
         QGraphicsRectItem.setSelected(self, selected)
@@ -2349,7 +2351,7 @@ class Part(QGraphicsRectItem):
             self.csi().updatePixmap()
 
     def getStep(self):
-        return self.csi().parent()
+        return self.csi().parentItem()
 
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
@@ -2442,7 +2444,7 @@ class Part(QGraphicsRectItem):
     def duplicate(self):
         p = Part(self.filename, self.color, self.matrix, self.inverted, False)
         p.partOGL = self.partOGL
-        p.setParentItem(self.parent())
+        p.setParentItem(self.parentItem())
         p.displacement = list(self.displacement)
         p.displaceDirection = self.displaceDirection
         return p
