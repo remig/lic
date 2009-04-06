@@ -4,6 +4,9 @@ from PyQt4.QtCore import *
 Horizontal = 0
 Vertical = 1
     
+def maxSafe(s):
+    return max(s) if s else 0.0
+
 class GridLayout(QRectF):
     # Assumes any item added inside this class is the correct size
     # Stores a margin and row & column count, and provides layout algorithms given a list of stuff to layout
@@ -28,9 +31,9 @@ class GridLayout(QRectF):
             y += 1
             
         if self.orientation == Horizontal:
-            self.rowCount, self.colCount = x, y
-        else:
             self.rowCount, self.colCount = y, x
+        else:
+            self.rowCount, self.colCount = x, y
             
     def getActualRowColCount(self, memberList):
         if self.rowCount == -1 or self.colCount == -1:
@@ -52,18 +55,18 @@ class GridLayout(QRectF):
         # Build a table of each row's height and column's width
         for i in range(0, rows):
             if self.orientation == Horizontal:
-                maxSize = max([x.rect().width() for x in memberList[i::rows]])  # 0, 3, 6...
+                maxSize = maxSafe([x.rect().width() for x in memberList[i::rows]])  # 0, 3, 6...
                 colWidths.append(maxSize)
             else:
-                maxSize = max([x.rect().height() for x in memberList[i::rows]])
+                maxSize = maxSafe([x.rect().height() for x in memberList[i::rows]])
                 rowHeights.append(maxSize)
 
         for i in range(0, rows):
             if self.orientation == Horizontal:
-                maxSize = max([x.rect().height() for x in memberList[i * rows: (i * rows) + rows]])  # 0, 1, 2...
+                maxSize = maxSafe([x.rect().height() for x in memberList[i * rows: (i * rows) + rows]])  # 0, 1, 2...
                 rowHeights.append(maxSize)
             else:
-                maxSize = max([x.rect().width() for x in memberList[i * rows: (i * rows) + rows]])
+                maxSize = maxSafe([x.rect().width() for x in memberList[i * rows: (i * rows) + rows]])
                 colWidths.append(maxSize)
         
         # Position each member in the center of its cell

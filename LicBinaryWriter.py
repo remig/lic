@@ -168,6 +168,8 @@ def __writeCallout(stream, callout):
     stream << callout.pos() << callout.rect() << callout.pen()
 
     stream.writeInt32(callout.number)
+    stream.writeBool(callout.showStepNumbers)
+
     stream.writeInt32(len(callout.steps))
     for step in callout.steps:
         __writeStep(stream, step)

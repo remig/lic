@@ -260,8 +260,9 @@ def __readCallout(stream, parent):
     stream >> pos >> rect >> pen
     
     number = stream.readInt32()
+    showStepNumbers = stream.readBool()
 
-    callout = Callout(parent, number)
+    callout = Callout(parent, number, showStepNumbers)
     callout.setPos(pos)
     callout.setPen(pen)
     callout.setRect(rect)

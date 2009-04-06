@@ -91,7 +91,7 @@ SubmodelItem:
   int32 child row
   QPointf pos
   QRectf rect
-  Qpen pen
+  QPen pen
   QPixmap pixmap
 
 Step:
@@ -118,6 +118,7 @@ Callout:
   QPen pen
   
   int32 number
+  bool showStepNumbers
   
   int32 number of Steps
   ... Step 0..n ...

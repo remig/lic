@@ -911,11 +911,12 @@ class Callout(QGraphicsRectItem):
 
     margin = QPointF(15, 15)
 
-    def __init__(self, parent, number = 1):
+    def __init__(self, parent, number = 1, showStepNumbers = True):
         QGraphicsRectItem.__init__(self, parent)
 
         self.steps = []
         self.number = number
+        self.showStepNumbers = showStepNumbers
         self.layout = Layout.GridLayout()
         
         self.setPos(0, 0)
@@ -939,7 +940,7 @@ class Callout(QGraphicsRectItem):
 
     def addBlankStep(self):
         lastNum = self.steps[-1].number + 1 if self.steps else 1
-        step = Step(self, lastNum, False, False)
+        step = Step(self, lastNum, False, self.showStepNumbers)
         self.scene().emit(SIGNAL("insertStep"), step)
         
     def insertStep(self, step):
@@ -973,9 +974,16 @@ class Callout(QGraphicsRectItem):
         self.resetRect()
         self.parent().initLayout()
 
+    def toggleStepNumbers(self):
+        for step in self.steps:
+            step.toggleNumberItem()
+        self.showStepNumbers = not self.showStepNumbers
+        self.initLayout()
+    
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Add blank Step", self.addBlankStep)
+        menu.addAction("%s Step numbers" % ("Hide" if self.showStepNumbers else "Show"), self.toggleStepNumbers)
         menu.exec_(event.screenPos())
 
     def getStep(self, number):
@@ -1006,12 +1014,7 @@ class Step(QGraphicsRectItem):
         self.setPos(Page.margin)
 
         if hasNumberItem:
-            # Initialize Step's number label (position set in initLayout)
-            self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
-            self.numberItem.setPos(0, 0)
-            self.numberItem.setFont(QFont("Arial", 15))
-            self.numberItem.setFlags(AllFlags)
-            self.numberItem.dataText = "Step Number Label"
+            self.toggleNumberItem()
 
         self.setFlags(AllFlags)
 
@@ -1092,14 +1095,28 @@ class Step(QGraphicsRectItem):
     def getPrevStep(self):
         return self.parent().getStep(self.number - 1)
 
+    def toggleNumberItem(self):
+        if self.numberItem:
+            self.scene().removeItem(self.numberItem)
+            self.numberItem = None
+        else:
+            self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
+            self.numberItem.setPos(0, 0)
+            self.numberItem.setFont(QFont("Arial", 15))
+            self.numberItem.setFlags(AllFlags)
+            self.numberItem.dataText = "Step Number Label"
+        
     def initMinimumLayout(self):
-        
-        # Do not use on a step with PLI
-        # TODO: Add support for step numbers here
-        if self.pli or self.numberItem:
+
+        if self.pli: # Do not use on a step with PLI
             return
-        
-        self.csi.setPos(0.0, 0.0)
+
+        if self.numberItem:
+            self.numberItem.setPos(0.0, 0.0)
+            self.csi.setPos(self.numberItem.boundingRect().bottomRight())
+        else:
+            self.csi.setPos(0.0, 0.0)
+
         self.setPos(0.0, 0.0)
         self.maxRect = QRectF()
         self.resetRect()
@@ -1565,7 +1582,6 @@ class CSI(QGraphicsPixmapItem):
         
     def removeArrow(self, arrow):
         self.removePart(arrow)
-        arrow.setParentItem(None)
         self.scene().removeItem(arrow)
         self.arrows.remove(arrow)
     
@@ -1651,6 +1667,10 @@ class CSI(QGraphicsPixmapItem):
             self.oglDispID = UNINIT_GL_DISPID
             self.setPixmap(QPixmap())
             return  # No parts = reset pixmap
+        
+        # First, enlarge this CSI as much as possible, in case 
+        # recent changes pushed image out of existing bounds.
+        self.maximizePixmap()
         
         GlobalGLContext.makeCurrent()
         self.createOGLDisplayList()
@@ -2430,6 +2450,7 @@ class Part(QGraphicsRectItem):
         for item in self.scene().selectedItems():
             if isinstance(item, Part):
                 callout.addPart(item.duplicate())
+        callout.steps[0].csi.resetPixmap()
         callout.initLayout()
         self.scene().emit(SIGNAL("layoutChanged()"))
         
@@ -2438,6 +2459,7 @@ class Part(QGraphicsRectItem):
         for item in self.scene().selectedItems():
             if isinstance(item, Part):
                 callout.addPart(item.duplicate())
+        callout.steps[0].csi.resetPixmap()
         callout.initLayout()
         self.scene().emit(SIGNAL("layoutChanged()"))
     
@@ -2493,7 +2515,6 @@ class Part(QGraphicsRectItem):
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         self.csi().addArrow(self.arrow)
         self.scene().emit(SIGNAL("layoutChanged()"))
-        self.csi().maximizePixmap()
         self.csi().resetPixmap()
     
     def stopDisplacement(self):
@@ -2502,7 +2523,6 @@ class Part(QGraphicsRectItem):
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         self.csi().removeArrow(self.arrow)
         self.scene().emit(SIGNAL("layoutChanged()"))
-        self.csi().maximizePixmap()
         self.csi().resetPixmap()
     
     def increaseDisplacement(self):
@@ -2675,7 +2695,6 @@ class Arrow(Part):
         p.points[6] = max(p.points[6] + offset, 0)
         self.partOGL.resetBoundingBox()
         self.partOGL.createOGLDisplayList()
-        self.csi().maximizePixmap()
         self.csi().resetPixmap()
     
 class Primitive(object):
