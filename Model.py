@@ -806,7 +806,7 @@ class Page(QGraphicsRectItem):
         if len(self.steps) <= 0:
             return label # No steps - nothing more to do here
 
-        self.layout.initLayoutFromRect(pageRect, self.steps)
+        self.layout.initGridLayout(pageRect, self.steps)
         
         if len(self.steps) < 2:
             return label # if there's only one step, no step separators needed
