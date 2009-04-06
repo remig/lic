@@ -273,6 +273,35 @@ class MovePartsToStepCommand(QUndoCommand):
     def redo(self):
         self.moveFromStepToStep(self.oldStep, self.newStep)
 
+class AddPartsToCalloutCommand(QUndoCommand):
+
+    """
+    AddPartsToCalloutCommand stores a part list and destination callout
+    """
+
+    _id = getNewCommandID()
+
+    def __init__(self, partSet):
+        QUndoCommand.__init__(self, "add Part to Callout")
+        self.partList, self.callout = partSet
+
+    def doAction(self, redo):
+        self.callout.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        for part in self.partList:
+            if redo:
+                self.callout.addPart(part)
+            else:
+                self.callout.removePart(part)
+        self.callout.steps[-1].csi.resetPixmap()
+        self.callout.initLayout()
+        self.callout.scene().emit(SIGNAL("layoutChanged()"))
+        
+    def undo(self):
+        self.doAction(False)
+
+    def redo(self):
+        self.doAction(True)
+
 class AdjustArrowLength(QUndoCommand):
 
     """

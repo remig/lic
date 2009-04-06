@@ -939,12 +939,15 @@ class Callout(QGraphicsRectItem):
     def data(self, index):
         return "Callout %d - %d step%s" % (self.number, len(self.steps), 's' if len(self.steps) > 1 else '')
 
-    def addBlankStep(self):
+    def addBlankStep(self, useSignal = True):
         lastNum = self.steps[-1].number + 1 if self.steps else 1
         if lastNum > 1 and not self.showStepNumbers:
             self.toggleStepNumbers()
         step = Step(self, lastNum, False, self.showStepNumbers)
-        self.scene().emit(SIGNAL("insertStep"), step)
+        if useSignal:
+            self.scene().emit(SIGNAL("insertStep"), step)
+        else:
+            self.insertStep(step)
         
     def insertStep(self, step):
         self.steps.append(step)
@@ -955,8 +958,12 @@ class Callout(QGraphicsRectItem):
         self.scene().removeItem(step)
 
     def addPart(self, part):
-        self.steps[0].addPart(part)
+        self.steps[-1].addPart(part)
 
+    def removePart(self, part):
+        for step in self.steps:
+            step.removePart(part)
+        
     def resetRect(self):
         b = self.childrenBoundingRect()
         b.adjust(0.0, 0.0, Page.margin.x() * 2, Page.margin.y() * 2)
@@ -1079,7 +1086,7 @@ class Step(QGraphicsRectItem):
         number = self.callouts[-1].number + 1 if self.callouts else 1
         callout = Callout(self, number)
         self.callouts.append(callout)
-        callout.addBlankStep()
+        callout.addBlankStep(False)
         return callout
 
     def resetRect(self):
@@ -1572,8 +1579,6 @@ class CSI(QGraphicsPixmapItem):
             target.parts.remove(part)
             if not target.parts:
                 self.parts.remove(target)
-        else:
-            print "ERROR: Trying to remove a part that can't be found"
 
     def addArrow(self, arrow):
         self.addPart(arrow)
@@ -2461,15 +2466,6 @@ class Part(QGraphicsRectItem):
         callout.initLayout()
         self.scene().emit(SIGNAL("layoutChanged()"))
         
-    def moveToCallout(self, callout):
-        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        for item in self.scene().selectedItems():
-            if isinstance(item, Part):
-                callout.addPart(item.duplicate())
-        callout.steps[0].csi.resetPixmap()
-        callout.initLayout()
-        self.scene().emit(SIGNAL("layoutChanged()"))
-    
     def contextMenuEvent(self, event):
         """ 
         This is called if any part is the target of a right click.  
@@ -2515,6 +2511,14 @@ class Part(QGraphicsRectItem):
 
         menu.exec_(event.screenPos())
 
+    def moveToCallout(self, callout):
+        selectedParts = []
+        for item in self.scene().selectedItems():
+            if isinstance(item, Part):
+                selectedParts.append(item.duplicate())
+        action = LicUndoActions.AddPartsToCalloutCommand((selectedParts, callout))
+        self.scene().undoStack.push(action)
+    
     def startDisplacement(self, direction):
         self.displaceDirection = direction
         self.displacement = self.getDisplacementOffset(direction)
