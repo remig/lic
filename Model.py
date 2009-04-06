@@ -1550,20 +1550,19 @@ class CSI(QGraphicsPixmapItem):
             partCount += len(partItem.parts)
         return partCount
     
-    def updateCount(self):
-        self.dataText = "CSI - %d parts" % self.partCount()
-        
+    def data(self, index):
+        return "CSI - %d parts" % self.partCount()
+
     def addPart(self, part):
         for p in self.parts:
             if p.name == part.partOGL.name:
                 p.addPart(part)
-                return self.updateCount()
+                return
             
         p = PartTreeItem(self, part.partOGL.name)
         p.addPart(part)
         self.parts.append(p)
         self.parts.sort(key = lambda partItem: partItem.name)
-        self.updateCount()
 
     def removePart(self, part):
         target = None
@@ -1574,7 +1573,6 @@ class CSI(QGraphicsPixmapItem):
             target.parts.remove(part)
             if not target.parts:
                 self.parts.remove(target)
-                self.updateCount()
         else:
             print "ERROR: Trying to remove a part that can't be found"
 
@@ -1759,7 +1757,7 @@ class CSI(QGraphicsPixmapItem):
         self.pngImage = QImage(pngFile)
         
     def exportToLDrawFile(self, fh):
-        prevStep = self.parentItem().getPrevStep()  #TODO: Need to test this new non prevCSI code
+        prevStep = self.parentItem().getPrevStep()
         if prevStep:
             prevStep.csi.exportToLDrawFile(fh)
             
@@ -2076,7 +2074,10 @@ class Submodel(PartOGL):
             newPage.addBlankStep()
             self.addPage(newPage)
 
-            for part in csi.getPartList()[PARTS_PER_STEP_MAX : ]:
+            partList = csi.getPartList()
+            partList.sort(key = lambda x: x.getXYZSortOrder())
+            
+            for part in partList[PARTS_PER_STEP_MAX : ]:
                 part.getStep().removePart(part)
                 newPage.steps[-1].addPart(part)
             csi = newPage.steps[-1].csi
@@ -2293,12 +2294,8 @@ class PartTreeItem(QGraphicsRectItem):
         return "%s - x%d" % (self.name, len(self.parts))
     
     def addPart(self, part):
-        if part.partOGL.name != self.name:
-            print "ERROR: Trying to add a Part to PartTreeItem that doesn't match"
-            return
         part.setParentItem(self)
         self.parts.append(part)
-        self.parts.sort(key = lambda part: part.color)
 
 class Part(QGraphicsRectItem):
     """
@@ -2341,6 +2338,10 @@ class Part(QGraphicsRectItem):
         x, y, z = OGLMatrixToXYZ(self.matrix)
         color = LDrawColors.getColorName(self.color)
         return "%s - (%.1f, %.1f, %.1f)" % (color, x, y, z)
+
+    def getXYZSortOrder(self):
+        x, y, z = OGLMatrixToXYZ(self.matrix)
+        return (-y, -z, x)
 
     def csi(self):
         return self.parentItem().parentItem()
@@ -2591,7 +2592,7 @@ class Part(QGraphicsRectItem):
 class Arrow(Part):
 
     def __init__(self, direction):
-        Part.__init__(self, "arrow", 4, None, False, False, None)
+        Part.__init__(self, "arrow", 4, None, False, False)
         self.partOGL = PartOGL("arrow")
         
         self.matrix = IdentityMatrix()
