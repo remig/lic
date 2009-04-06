@@ -266,9 +266,9 @@ class MovePartsToStepCommand(QUndoCommand):
 
         oldStep.csi.resetPixmap()
         newStep.csi.resetPixmap()
-        oldStep.initLayout()
-        newStep.initLayout()
-    
+        oldStep.parent().initLayout()
+        newStep.parent().initLayout()
+            
     def undo(self):
         self.moveFromStepToStep(self.newStep, self.oldStep)
 

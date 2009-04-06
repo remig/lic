@@ -952,7 +952,6 @@ class Callout(QGraphicsRectItem):
 
     def addPart(self, part):
         self.steps[0].addPart(part)
-        self.initLayout()
 
     def resetRect(self):
         b = self.childrenBoundingRect()
@@ -966,26 +965,10 @@ class Callout(QGraphicsRectItem):
             return  # Nothing to layout here
         
         for step in self.steps:
-            step.csi.resetPixmap(False)
-            step.setRect(0.0, 0.0, 1.0, 1.0)
-            step.maxRect = step.rect()
-            step.initLayoutGrowing()
-
-        prevStep = None
-        currentX = currentY = 0.0
-        rowCount = int(math.ceil(math.sqrt(len(self.steps))))
-
-        # TODO: Once all steps placed in grid, walk over grid and move each step to center of its cell
-        for i, step in enumerate(self.steps):
-            if (i > 0) and (not i % rowCount):
-                currentX = prevStep.pos().x() + prevStep.rect().width()
-                currentY = maxWidth = 0.0
-
-            x = Page.margin.x() + currentX
-            y = Page.margin.y() + currentY
-            step.setPos(x, y)
-            currentY = max(currentY, step.pos().y() + step.rect().height())
-            prevStep = step
+            step.initMinimumLayout()
+            
+        self.layout.rowCount = self.layout.colCount = -1
+        self.layout.initLayoutInsideOut(self.steps)
 
         self.resetRect()
         self.parent().initLayout()
@@ -1109,21 +1092,16 @@ class Step(QGraphicsRectItem):
     def getPrevStep(self):
         return self.parent().getStep(self.number - 1)
 
-    def initLayoutGrowing(self):
+    def initMinimumLayout(self):
         
-        # Do not use on a step with PLI:
-        if self.pli:
+        # Do not use on a step with PLI
+        # TODO: Add support for step numbers here
+        if self.pli or self.numberItem:
             return
         
+        self.csi.setPos(0.0, 0.0)
         self.setPos(0.0, 0.0)
-        
-        # Position Step number label
-        if self.numberItem:
-            self.numberItem.setPos(0, 0)
-            self.csi.setPos(self.numberItem.boundingRect().width(), self.numberItem.boundingRect().height())
-        else:
-            self.csi.setPos(0.0, 0.0)
-
+        self.maxRect = QRectF()
         self.resetRect()
         self.maxRect = self.rect()
 
@@ -2460,6 +2438,7 @@ class Part(QGraphicsRectItem):
         for item in self.scene().selectedItems():
             if isinstance(item, Part):
                 callout.addPart(item.duplicate())
+        callout.initLayout()
         self.scene().emit(SIGNAL("layoutChanged()"))
     
     def contextMenuEvent(self, event):
