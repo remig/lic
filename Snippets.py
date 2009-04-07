@@ -19,10 +19,6 @@ def displaceManySelectedParts():
             newPos[2] = oldPos[2] + displacement[2]
             partList.append((item, oldPos, newPos))
                 
-    if partList:
-        # Emit displace part undo signal
-        self.scene().emit(SIGNAL("displacePart"), partList)
-
 def position(self):
     point = self.mapFromGlobal(QCursor.pos())
     if not self.view.geometry().contains(point):

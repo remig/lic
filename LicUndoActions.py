@@ -1,6 +1,8 @@
 from PyQt4.QtGui import QUndoCommand
 from PyQt4.QtCore import SIGNAL
 
+import Helpers
+
 NextCommandID = 122
 def getNewCommandID():
     global NextCommandID
@@ -46,9 +48,9 @@ class DisplacePartCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, displaceCommand):
+    def __init__(self, part, oldDisp, newDisp):
         QUndoCommand.__init__(self, "Part displacement")
-        self.part, self.oldDisp, self.newDisp = displaceCommand
+        self.part, self.oldDisp, self.newDisp = part, oldDisp, newDisp
 
     def undo(self):
         self.part.displacement = list(self.oldDisp)
@@ -70,13 +72,26 @@ class BeginDisplacement(QUndoCommand):
         QUndoCommand.__init__(self, "Begin Part displacement")
         self.part = part 
         self.direction = direction
-        self.part.arrow = arrow
+        self.arrow = arrow
 
     def undo(self):
-        self.part.stopDisplacement()
+        part = self.part
+        part.displaceDirection = None
+        part.displacement = []
+        part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        part.csi().removeArrow(self.arrow)
+        part.scene().emit(SIGNAL("layoutChanged()"))
+        part.csi().resetPixmap()
 
     def redo(self):
-        self.part.startDisplacement(self.direction)
+        part = self.part
+        part.displaceDirection = self.direction
+        part.displacement = Helpers.getDisplacementOffset(self.direction)
+        self.arrow.setPosition(*Helpers.GLMatrixToXYZ(part.matrix))
+        part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        part.csi().addArrow(self.arrow)
+        part.scene().emit(SIGNAL("layoutChanged()"))
+        part.csi().resetPixmap()
     
 class ResizeCSIPLICommand(QUndoCommand):
 

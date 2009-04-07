@@ -1093,7 +1093,7 @@ class Step(QGraphicsRectItem):
         if self.numberItem:
             self.numberItem.setPos(0, 0)
             pliOffset = self.pli.rect().height() if self.pli else 0.0
-            self.numberItem.moveBy(0, pliOffset + Page.margin.y() + 0.5)
+            self.numberItem.moveBy(0, pliOffset + Page.margin.y())
 
         self.positionInternalBits()
 
@@ -2271,6 +2271,9 @@ class Part(QGraphicsRectItem):
         self.displacement = []
         self.displaceDirection = None
 
+        #self.setPos(0.0, 0.0)
+        #self.setRect(0.0, 0.0, 30.0, 30.0)
+        #self.setPen(QPen(Qt.black))
         self.setFlags(NoMoveFlags)
 
         if setPartOGL:
@@ -2287,12 +2290,12 @@ class Part(QGraphicsRectItem):
         return self.parentItem().parts.index(self)
     
     def data(self, index):
-        x, y, z = OGLMatrixToXYZ(self.matrix)
+        x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
         color = LDrawColors.getColorName(self.color)
         return "%s - (%.1f, %.1f, %.1f)" % (color, x, y, z)
 
     def getXYZSortOrder(self):
-        x, y, z = OGLMatrixToXYZ(self.matrix)
+        x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
         return (-y, -z, x)
 
     def csi(self):
@@ -2433,8 +2436,8 @@ class Part(QGraphicsRectItem):
             menu.addSeparator()
 
         if self.displacement:
-            menu.addAction("&Increase displacement", self.increaseDisplacement)
-            menu.addAction("&Decrease displacement", self.decreaseDisplacement)
+            menu.addAction("&Increase displacement", lambda: self.displaceSignal(self.displaceDirection))
+            menu.addAction("&Decrease displacement", lambda: self.displaceSignal(Helpers.getOppositeDirection(self.displaceDirection)))
         else:
             s = self.scene().undoStack
             arrowMenu = menu.addMenu("Displace With &Arrow")
@@ -2462,64 +2465,20 @@ class Part(QGraphicsRectItem):
         action = AddPartsToCalloutCommand((selectedParts, callout))
         self.scene().undoStack.push(action)
     
-    def startDisplacement(self, direction):
-        self.displaceDirection = direction
-        self.displacement = self.getDisplacementOffset(direction)
-        self.arrow.setPosition(*OGLMatrixToXYZ(self.matrix))
-        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.csi().addArrow(self.arrow)
-        self.scene().emit(SIGNAL("layoutChanged()"))
-        self.csi().resetPixmap()
-    
-    def stopDisplacement(self):
-        self.displaceDirection = None
-        self.displacement = []
-        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.csi().removeArrow(self.arrow)
-        self.scene().emit(SIGNAL("layoutChanged()"))
-        self.csi().resetPixmap()
-    
-    def increaseDisplacement(self):
-        self.displace(self.displaceDirection)
-    
-    def decreaseDisplacement(self):
-        self.displace(Helpers.getOppositeDirection(self.displaceDirection))
-        
     def keyReleaseEvent(self, event):
         direction = event.key()
         if direction == Qt.Key_Plus:
-            return self.increaseDisplacement()
+            return self.displaceSignal(self.displaceDirection)
         if direction == Qt.Key_Minus:
-            return self.decreaseDisplacement()
-        self.displace(direction)
+            return self.displaceSignal(Helpers.getOppositeDirection(self.displaceDirection))
+        self.displaceSignal(direction)
 
-    def getDisplacementOffset(self, direction):
-        offset = 20
-        displacement = [0.0, 0.0, 0.0]
-
-        if direction == Qt.Key_Up:
-            displacement[0] -= offset
-        elif direction == Qt.Key_Down:
-            displacement[0] += offset
-        elif direction == Qt.Key_PageUp:
-            displacement[1] -= offset
-        elif direction == Qt.Key_PageDown:
-            displacement[1] += offset
-        elif direction == Qt.Key_Left:
-            displacement[2] -= offset
-        elif direction == Qt.Key_Right:
-            displacement[2] += offset
-        else:
-            return None
-
-        return displacement
-        
-    def displace(self, direction):
-        displacement = self.getDisplacementOffset(direction)
+    def displaceSignal(self, direction):
+        displacement = Helpers.getDisplacementOffset(direction)
         if displacement:
             oldPos = self.displacement if self.displacement else [0.0, 0.0, 0.0]
             newPos = [oldPos[0] + displacement[0], oldPos[1] + displacement[1], oldPos[2] + displacement[2]]
-            self.scene().emit(SIGNAL("displacePart"), (self, oldPos, newPos))
+            self.scene().undoStack.push(DisplacePartCommand(self, oldPos, newPos))
 
     def moveToPrevStep(self):
         self.moveToStep(self.getStep().getPrevStep())
@@ -2569,7 +2528,7 @@ class Arrow(Part):
         self.partOGL.createOGLDisplayList()
 
     def data(self, index):
-        x, y, z = OGLMatrixToXYZ(self.matrix)
+        x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
         return "%s  (%.1f, %.1f, %.1f)" % (self.partOGL.filename, x, y, z)
 
     def setPosition(self, x, y, z):

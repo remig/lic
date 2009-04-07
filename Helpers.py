@@ -8,6 +8,30 @@ def makeFunc(func, arg):
     def f(): func(arg)
     return f
 
+def GLMatrixToXYZ(matrix):
+    return [matrix[12], matrix[13], matrix[14]]
+
+def getDisplacementOffset(direction):
+    offset = 20
+    displacement = [0.0, 0.0, 0.0]
+
+    if direction == Qt.Key_Up:
+        displacement[0] -= offset
+    elif direction == Qt.Key_Down:
+        displacement[0] += offset
+    elif direction == Qt.Key_PageUp:
+        displacement[1] -= offset
+    elif direction == Qt.Key_PageDown:
+        displacement[1] += offset
+    elif direction == Qt.Key_Left:
+        displacement[2] -= offset
+    elif direction == Qt.Key_Right:
+        displacement[2] += offset
+    else:
+        return None
+
+    return displacement
+        
 def getOppositeDirection(direction):
     if direction == Qt.Key_Up:
         return Qt.Key_Down
