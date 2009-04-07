@@ -873,8 +873,8 @@ class Page(QGraphicsRectItem):
     def contextMenuEvent(self, event):
         
         menu = QMenu(self.scene().views()[0])
-        menu.addAction("Prepend blank Page", self.addPageBefore)
-        menu.addAction("Append blank Page", self.addPageAfter)
+        menu.addAction("Prepend blank Page", self.addPageBeforeSignal)
+        menu.addAction("Append blank Page", self.addPageAfterSignal)
         menu.addSeparator()
         if self.separators:
             menu.addAction("Remove Step Separators", self.removeAllSeparators)
@@ -882,31 +882,26 @@ class Page(QGraphicsRectItem):
             menu.addAction("Add Step Separators", self.addAllSeparators)
         menu.addAction("Add blank Step", self.addBlankStepSignal)
         menu.addSeparator()
-        menu.addAction("Delete Page", self.deletePage)
+        menu.addAction("Delete Page", self.deletePageSignal)
         menu.exec_(event.screenPos())
     
     def addBlankStepSignal(self):
         step = Step(self, self.getNextStepNumber())
         self.scene().undoStack.push(AddRemoveStepCommand(step, True))
 
-    def deletePage(self):
-        if self.steps:
-            #Do not allow pages with steps to be deleted
+    def deletePageSignal(self):
+        if self.steps: #Do not allow pages with steps to be deleted
             QMessageBox.warning(self.scene().views()[0], "Page Delete Error", "Cannot delete a Page that contains Steps.\nRemove or move Steps to a different page first.")
         else:
-            self.scene().emit(SIGNAL("deletePage"), self)
+            self.scene().undoStack.push(AddRemovePageCommand(self, False))
         
-    def addPageBefore(self):
-        self.scene().clearSelection()
+    def addPageBeforeSignal(self):
         newPage = Page(self._parent, self.instructions, self.number, self._row)
-        self.scene().emit(SIGNAL("addPage"), newPage)
-        self.instructions.selectPage(newPage.number)
+        self.scene().undoStack.push(AddRemovePageCommand(newPage, True))
     
-    def addPageAfter(self):
-        self.scene().clearSelection()
+    def addPageAfterSignal(self):
         newPage = Page(self._parent, self.instructions, self.number + 1, self._row + 1)
-        self.scene().emit(SIGNAL("addPage"), newPage)
-        self.instructions.selectPage(newPage.number)
+        self.scene().undoStack.push(AddRemovePageCommand(newPage, True))
 
 class Callout(QGraphicsRectItem):
 

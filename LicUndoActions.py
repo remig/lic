@@ -136,31 +136,28 @@ class MoveStepToPageCommand(QUndoCommand):
 
 class AddRemoveStepCommand(QUndoCommand):
 
-    """
-    AddRemoveStepCommand stores a step to add / delete and the page it was on
-    """
-
     _id = getNewCommandID()
 
-    def __init__(self, step, addStep = True):
+    def __init__(self, step, addStep):
         QUndoCommand.__init__(self, "%s Step" % ("add" if addStep else "delete"))
             
         self.step = step
         self.parent = step.parentItem()
         self.addStep = addStep
 
-    def doAction(self, redo = True):
+    def doAction(self, redo):
+        parent = self.parent
         if (redo and self.addStep) or (not redo and not self.addStep):
-            self.parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-            self.parent.insertStep(self.step)
-            self.parent.scene().emit(SIGNAL("layoutChanged()"))
+            parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+            parent.insertStep(self.step)
+            parent.scene().emit(SIGNAL("layoutChanged()"))
             self.step.setSelected(True)
         else:
             self.step.setSelected(False)
-            self.parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-            self.parent.deleteStep(self.step)                
-            self.parent.scene().emit(SIGNAL("layoutChanged()"))
-        self.parent.initLayout()
+            parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+            parent.deleteStep(self.step)                
+            parent.scene().emit(SIGNAL("layoutChanged()"))
+        parent.initLayout()
 
     def undo(self):
         self.doAction(False)
@@ -168,58 +165,34 @@ class AddRemoveStepCommand(QUndoCommand):
     def redo(self):
         self.doAction(True)
 
-class AddPageCommand(QUndoCommand):
-
-    """
-    AddPageCommand stores a page that was added
-    """
+class AddRemovePageCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, page):
-        QUndoCommand.__init__(self, "add Page")
+    def __init__(self, page, addPage):
+        QUndoCommand.__init__(self, "%s Page" % ("add" if addPage else "delete"))
         self.page = page
+        self.addPage = addPage
+
+    def doAction(self, redo):
+        page = self.page
+        page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+
+        if (redo and self.addPage) or (not redo and not self.addPage):
+            page.parent().addPage(page)
+            number = page.number
+        else:
+            page.parent().deletePage(page)
+            number = page.number - 1
+
+        page.instructions.emit(SIGNAL("layoutChanged()"))
+        page.instructions.selectPage(number)
 
     def undo(self):
-        page = self.page
-        page.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        page.parent().deletePage(page)
-        page.scene().emit(SIGNAL("layoutChanged()"))
-        page.instructions.selectPage(page.number - 1)
+        self.doAction(False)
 
     def redo(self):
-        page = self.page
-        page.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        page.parent().addPage(page)
-        page.scene().emit(SIGNAL("layoutChanged()"))
-        page.instructions.selectPage(page.number)
-
-class DeletePageCommand(QUndoCommand):
-
-    """
-    DeletePageCommand stores a page that was deleted
-    """
-
-    _id = getNewCommandID()
-
-    def __init__(self, page):
-        QUndoCommand.__init__(self, "delete Page")
-        self.page = page
-
-    def undo(self):
-        page = self.page
-        page.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        page.parent().addPage(page)
-        page.scene().emit(SIGNAL("layoutChanged()"))
-        page.instructions.selectPage(page.number)
-
-    def redo(self):
-        page = self.page
-        page.scene().clearSelection()
-        page.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        page.parent().deletePage(page)
-        page.scene().emit(SIGNAL("layoutChanged()"))
-        page.instructions.selectPage(page.number - 1)
+        self.doAction(True)
 
 class MovePartsToStepCommand(QUndoCommand):
 
