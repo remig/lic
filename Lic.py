@@ -223,8 +223,6 @@ class LicWindow(QMainWindow):
 
         signals = [("itemsMoved", MoveCommand),
                    ("moveStepToNewPage", MoveStepToPageCommand),
-                   ("insertStep", InsertStepCommand),
-                   ("deleteStep", DeleteStepCommand),
                    ("addPage", AddPageCommand),
                    ("deletePage", DeletePageCommand),
                    ("displacePart", DisplacePartCommand),

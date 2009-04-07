@@ -8,12 +8,12 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
 
+from LicUndoActions import *
 import GLHelpers
 import l3p
 import povray
 import LDrawColors
 import Helpers
-import LicUndoActions
 import Layout
 
 from LDrawFileFormat import *
@@ -887,7 +887,7 @@ class Page(QGraphicsRectItem):
     
     def addBlankStepSignal(self):
         step = Step(self, self.getNextStepNumber())
-        self.scene().emit(SIGNAL("insertStep"), step)
+        self.scene().undoStack.push(AddRemoveStepCommand(step, True))
 
     def deletePage(self):
         if self.steps:
@@ -920,7 +920,8 @@ class Callout(QGraphicsRectItem):
         self.showStepNumbers = showStepNumbers
         self.layout = Layout.GridLayout()
         
-        self.setPos(0, 0)
+        self.setPos(0.0, 0.0)
+        self.setRect(0.0, 0.0, 5.0, 5.0)
         self.setPen(QPen(Qt.black))
         self.setFlags(AllFlags)
         
@@ -939,13 +940,13 @@ class Callout(QGraphicsRectItem):
     def data(self, index):
         return "Callout %d - %d step%s" % (self.number, len(self.steps), 's' if len(self.steps) > 1 else '')
 
-    def addBlankStep(self, useSignal = True):
+    def addBlankStep(self, useUndo = True):
         lastNum = self.steps[-1].number + 1 if self.steps else 1
         if lastNum > 1 and not self.showStepNumbers:
             self.toggleStepNumbers()
         step = Step(self, lastNum, False, self.showStepNumbers)
-        if useSignal:
-            self.scene().emit(SIGNAL("insertStep"), step)
+        if useUndo:
+            self.scene().undoStack.push(AddRemoveStepCommand(step, True))
         else:
             self.insertStep(step)
         
@@ -1082,13 +1083,6 @@ class Step(QGraphicsRectItem):
         if self.pli:
             self.pli.removePart(part)
 
-    def addBlankCallout(self):
-        number = self.callouts[-1].number + 1 if self.callouts else 1
-        callout = Callout(self, number)
-        self.callouts.append(callout)
-        callout.addBlankStep(False)
-        return callout
-
     def resetRect(self):
         if self.maxRect:
             r = QRectF(0.0, 0.0, max(1, self.maxRect.width()), max(1, self.maxRect.height()))
@@ -1201,33 +1195,41 @@ class Step(QGraphicsRectItem):
             if isinstance(item, Step):
                 selectedSteps.append(item)
 
-        plural = 's' if len(selectedSteps) > 1 else ''
-        
         menu = QMenu(self.scene().views()[0])
-        prevPage = menu.addAction("Move Step%s to &Previous Page" % plural, self.moveToPrevPage)
-        nextPage = menu.addAction("Move Step%s to &Next Page" % plural, self.moveToNextPage)
-        prevMerge = menu.addAction("Merge Step%s with P&revious Step" % plural, self.mergeWithPrevStep)
-        nextMerge = menu.addAction("Merge Step%s with N&ext Step" % plural, self.mergeWithNextStep)
+        undo = self.scene().undoStack
+        parent = self.parentItem()
+
+        if parent.prevPage():
+            menu.addAction("Move to &Previous Page" % plural, self.moveToPrevPage)
+            if parent.prevPage().steps:
+                menu.addAction("Merge with Previous Step" % plural, self.mergeWithPrevStep)
+        if parent.nextPage():
+            menu.addAction("Move to &Next Page" % plural, self.moveToNextPage)
+            if parent.nextPage().steps:
+                menu.addAction("Merge with Next Step" % plural, self.mergeWithNextStep)
+            
+        menu.addSeparator()
+        menu.addAction("Add blank Callout", self.addBlankCallout)
+        menu.addSeparator()
         doLayout = menu.addAction("Re-layout affected Pages")
         doLayout.setCheckable(True)
         doLayout.setChecked(True)
 
-        if len(self.csi.parts) == 0:
-            menu.addAction("&Delete Step", lambda: self.scene().emit(SIGNAL("deleteStep"), self))
-
-        parent = self.parentItem()
-
-        if isinstance(parent, Page):
-            if not parent.prevPage():
-                prevPage.setEnabled(False)
-                prevMerge.setEnabled(False)
-    
-            if not parent.nextPage():
-                nextPage.setEnabled(False)
-                nextMerge.setEnabled(False)
+        if not self.csi.parts:
+            menu.addAction("&Delete Step", lambda: undo.push(AddRemoveStepCommand(self, False)))
 
         menu.exec_(event.screenPos())
 
+    def addBlankCallout(self):
+        number = self.callouts[-1].number + 1 if self.callouts else 1
+        callout = Callout(self, number)
+        callout.addBlankStep(False)
+        self.callouts.append(callout)
+
+    def removeCallout(self, callout):
+        self.callouts.remove(callout)
+        self.scene().removeItem(callout)
+    
     def moveToPrevPage(self):
         stepSet = []
         for step in self.scene().selectedItems():
@@ -2457,7 +2459,8 @@ class Part(QGraphicsRectItem):
     def createCallout(self):
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         step = self.getStep()
-        callout = step.addBlankCallout()
+        step.addBlankCallout()
+        callout = step.callouts[-1]
 
         for item in self.scene().selectedItems():
             if isinstance(item, Part):
@@ -2516,7 +2519,7 @@ class Part(QGraphicsRectItem):
         for item in self.scene().selectedItems():
             if isinstance(item, Part):
                 selectedParts.append(item.duplicate())
-        action = LicUndoActions.AddPartsToCalloutCommand((selectedParts, callout))
+        action = AddPartsToCalloutCommand((selectedParts, callout))
         self.scene().undoStack.push(action)
     
     def startDisplacement(self, direction):
@@ -2590,7 +2593,7 @@ class Part(QGraphicsRectItem):
             if isinstance(item, Part):
                 selectedParts.append(item)
 
-        self.scene().undoStack.push(LicUndoActions.MovePartsToStepCommand((selectedParts, self.getStep(), destStep)))
+        self.scene().undoStack.push(MovePartsToStepCommand((selectedParts, self.getStep(), destStep)))
         
 class Arrow(Part):
 

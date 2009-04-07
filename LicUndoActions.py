@@ -134,57 +134,39 @@ class MoveStepToPageCommand(QUndoCommand):
             newPage.initLayout()
             oldPage.initLayout()
 
-class InsertStepCommand(QUndoCommand):
+class AddRemoveStepCommand(QUndoCommand):
 
     """
-    AddStepCommand stores a step that was added and the page / callout it was added to
+    AddRemoveStepCommand stores a step to add / delete and the page it was on
     """
 
     _id = getNewCommandID()
 
-    def __init__(self, step):
-        QUndoCommand.__init__(self, "add Step")
+    def __init__(self, step, addStep = True):
+        QUndoCommand.__init__(self, "%s Step" % ("add" if addStep else "delete"))
+            
         self.step = step
         self.parent = step.parentItem()
+        self.addStep = addStep
+
+    def doAction(self, redo = True):
+        if (redo and self.addStep) or (not redo and not self.addStep):
+            self.parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+            self.parent.insertStep(self.step)
+            self.parent.scene().emit(SIGNAL("layoutChanged()"))
+            self.step.setSelected(True)
+        else:
+            self.step.setSelected(False)
+            self.parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+            self.parent.deleteStep(self.step)                
+            self.parent.scene().emit(SIGNAL("layoutChanged()"))
+        self.parent.initLayout()
 
     def undo(self):
-        self.step.setSelected(False)
-        self.parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.parent.deleteStep(self.step)
-        self.parent.initLayout()
-        self.parent.scene().emit(SIGNAL("layoutChanged()"))
+        self.doAction(False)
 
     def redo(self):
-        self.parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.parent.insertStep(self.step)
-        self.parent.initLayout()
-        self.parent.scene().emit(SIGNAL("layoutChanged()"))
-        self.step.setSelected(True)
-
-class DeleteStepCommand(QUndoCommand):
-
-    """
-    DeleteStepCommand stores a step that was deleted and the page it was on
-    """
-
-    _id = getNewCommandID()
-
-    def __init__(self, step):
-        QUndoCommand.__init__(self, "delete Step")
-        self.step = step
-        self.page = step.parentItem()
-
-    def undo(self):
-        self.page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.page.insertStep(self.step)
-        self.page.instructions.emit(SIGNAL("layoutChanged()"))
-        self.step.setSelected(True)
-
-    def redo(self):
-        self.step.setSelected(False)
-        self.page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.page.deleteStep(self.step)
-        self.page.instructions.emit(SIGNAL("layoutChanged()"))
+        self.doAction(True)
 
 class AddPageCommand(QUndoCommand):
 
@@ -200,16 +182,16 @@ class AddPageCommand(QUndoCommand):
 
     def undo(self):
         page = self.page
-        page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        page.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         page.parent().deletePage(page)
-        page.instructions.emit(SIGNAL("layoutChanged()"))
+        page.scene().emit(SIGNAL("layoutChanged()"))
         page.instructions.selectPage(page.number - 1)
 
     def redo(self):
         page = self.page
-        page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        page.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         page.parent().addPage(page)
-        page.instructions.emit(SIGNAL("layoutChanged()"))
+        page.scene().emit(SIGNAL("layoutChanged()"))
         page.instructions.selectPage(page.number)
 
 class DeletePageCommand(QUndoCommand):
@@ -226,17 +208,17 @@ class DeletePageCommand(QUndoCommand):
 
     def undo(self):
         page = self.page
-        page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        page.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         page.parent().addPage(page)
-        page.instructions.emit(SIGNAL("layoutChanged()"))
+        page.scene().emit(SIGNAL("layoutChanged()"))
         page.instructions.selectPage(page.number)
 
     def redo(self):
         page = self.page
         page.scene().clearSelection()
-        page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        page.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         page.parent().deletePage(page)
-        page.instructions.emit(SIGNAL("layoutChanged()"))
+        page.scene().emit(SIGNAL("layoutChanged()"))
         page.instructions.selectPage(page.number - 1)
 
 class MovePartsToStepCommand(QUndoCommand):
