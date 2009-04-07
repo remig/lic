@@ -29,8 +29,8 @@ submodelDictionary = {}  # {'filename': Submodel()}
 currentModelFilename = ""
 
 GlobalGLContext = None
-AllFlags = QGraphicsItem.ItemIsMovable | QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
 NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
+AllFlags = NoMoveFlags | QGraphicsItem.ItemIsMovable
 
 class LicTreeView(QTreeView):
 
@@ -838,6 +838,13 @@ class Page(QGraphicsRectItem):
         newPage = Page(self._parent, self.instructions, self.number + 1, self._row + 1)
         self.scene().undoStack.push(AddRemovePageCommand(newPage, True))
 
+class CalloutArrow(QGraphicsPolygonItem):
+    
+    def __init__(self, parent):
+        QGraphicsPolygonItem.__init__(self, parent)
+        self.dataText = "Callout Arrow"
+        self.setFlags(AllFlags)
+
 class Callout(QGraphicsRectItem):
 
     margin = QPointF(15, 15)
@@ -845,6 +852,7 @@ class Callout(QGraphicsRectItem):
     def __init__(self, parent, number = 1, showStepNumbers = False):
         QGraphicsRectItem.__init__(self, parent)
 
+        self.arrow = CalloutArrow(self)
         self.steps = []
         self.number = number
         self.showStepNumbers = showStepNumbers
@@ -856,16 +864,20 @@ class Callout(QGraphicsRectItem):
         self.setFlags(AllFlags)
         
     def child(self, row):
-        if row < 0 or row >= len(self.steps):
+        if row < 0 or row > len(self.steps):
             return None
-        return self.steps[row]
+        if row == 0:
+            return self.arrow
+        return self.steps[row - 1]
 
     def rowCount(self):
-        return len(self.steps)
+        return 1 + len(self.steps)
 
     def getChildRow(self, child):
+        if isinstance(child, CalloutArrow):
+            return 0
         if child in self.steps:
-            return self.steps.index(child)
+            return 1 + self.steps.index(child)
 
     def data(self, index):
         return "Callout %d - %d step%s" % (self.number, len(self.steps), 's' if len(self.steps) > 1 else '')
