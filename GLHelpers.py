@@ -193,14 +193,11 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotSt
 
     glCallList(oglDispID)
 
-    if pBuffer:
-        # TODO: If the old way of calculating image size, with PLI's Image, is still slow, try this pBuffer's QImage
-        #if filename:
-        #    rawFilename = os.path.splitext(os.path.basename(filename))[0]
-        #   image = pBuffer.toImage()
-        #    if image:
-        #       image.save("C:\\LDraw\\tmp\\pixbuf_%s_%dx%d.png" % (rawFilename, w, h), None)
-        pass
+#    if pBuffer and filename:
+#        rawFilename = os.path.splitext(os.path.basename(filename))[0]
+#        image = pBuffer.toImage()
+#        if image:
+#            image.save("C:\\LDraw\\tmp\\pixbuf_%s_%dx%d.png" % (rawFilename, w, h), None)
 
     pixels = glReadPixels (0, 0, w, h, GL_RGB,  GL_UNSIGNED_BYTE)
     img = Image.new ("RGB", (w, h), (1, 1, 1))

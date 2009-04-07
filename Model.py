@@ -242,8 +242,9 @@ class Instructions(QAbstractItemModel):
         self.mainModel.syncPageNumbers()
         self.mainModel.addInitialPagesAndSteps()
         
-        pageCount = self.mainModel.pageCount()
-        totalCount = (pageCount * 2) + 2
+        pageList = self.mainModel.getPageList()
+        pageList.sort(key = lambda x: x._number)
+        totalCount = (len(pageList) * 2) + 2
         currentCount = 1
         yield (totalCount, "Initializing GL display lists")
 
@@ -258,11 +259,14 @@ class Instructions(QAbstractItemModel):
             currentCount = step
             yield (step, label)
             
-        self.initCSIPixmaps()       # Generate a pixmap for each CSI
+        self.initCSIPixmaps()
+        self.mainModel.addSubmodelImages()
+        
+        for page in pageList:
+            label = page.initLayout()
+            currentCount += 1
+            yield (currentCount, label)
 
-        for step, label in self.mainModel.initLayout(currentCount):
-            yield (step, label)
-            
         self.mainModel.selectPage(1)
         self.emit(SIGNAL("layoutChanged()"))
         yield (totalCount, "Import Complete!")
@@ -1928,6 +1932,16 @@ class BoundingBox(object):
         self.y1 = self.y2 = y
         self.z1 = self.z2 = z
 
+    def vertices(self):
+        yield (self.x1, self.y1, self.z1)
+        yield (self.x1, self.y1, self.z2)
+        yield (self.x1, self.y2, self.z1)
+        yield (self.x1, self.y2, self.z2)
+        yield (self.x2, self.y1, self.z1)
+        yield (self.x2, self.y1, self.z2)
+        yield (self.x2, self.y2, self.z1)
+        yield (self.x2, self.y2, self.z2)
+        
     def growByPoints(self, x, y, z):
         self.x1 = min(x, self.x1)
         self.x2 = max(x, self.x2)
@@ -2049,12 +2063,6 @@ class Submodel(PartOGL):
 
         return pageNumber
     
-    def pageCount(self):
-        pageCount = len(self.pages)
-        for submodel in self.submodels:
-            pageCount += submodel.pageCount()
-        return pageCount
-
     def appendBlankPage(self):
 
         if not self.pages and not self.submodels:
@@ -2183,24 +2191,22 @@ class Submodel(PartOGL):
 
         return csiList
 
+    def pageCount(self):
+        pageCount = len(self.pages)
+        for submodel in self.submodels:
+            pageCount += submodel.pageCount()
+        return pageCount
+
     def getPageList(self):
         pageList = list(self.pages)
         for submodel in self.submodels:
             pageList += submodel.getPageList()
         return pageList
         
-    def initLayout(self, currentCount):
-
-        if self.pages:
-            self.pages[0].addSubmodelImage()
-
-        pageList = self.getPageList()
-        pageList.sort(key = lambda x: x._number)
-        
-        for page in pageList:
-            label = page.initLayout()
-            currentCount += 1
-            yield (currentCount, label)
+    def addSubmodelImages(self):
+        self.pages[0].addSubmodelImage()
+        for submodel in self.submodels:
+            submodel.addSubmodelImages()
 
     def exportImages(self):
         for page in self.pages:

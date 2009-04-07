@@ -8,6 +8,49 @@ except ImportError:
                          QMessageBox.NoButton)
     sys.exit(1)
 
+def paint(self, painter, option, widget = None):
+    global GlobalGLContext
+    GlobalGLContext.makeCurrent()
+    
+    minX = minY = 20.0
+    maxX = maxY = 0.0
+
+    GLHelpers.initFreshContext()
+    GLHelpers.adjustGLViewport(0, 0, 80, 80)
+    GLHelpers.rotateToDefaultView(100.0, 100.0, 0.0, PLI.scale)
+    
+    b = self.partOGL.getBoundingBox()
+    
+    for v in b.vertices():
+        res = GLU.gluProject(v[0], v[1], v[2])
+        maxX = max(res[0], maxX)
+        maxY = max(res[1], maxY)
+        minX = min(res[0], minX)
+        minY = min(res[1], minY)
+        
+    self.setPos(minX, minY)
+    self.setRect(0.0, 0.0, maxX-minX, maxY-minY)
+    QGraphicsRectItem.paint(self, painter, option, widget)
+
+    """
+    aX, aY, aZ = GLU.gluUnProject(minX, minY, 0.0)
+    bX, bY, bZ = GLU.gluUnProject(minX, maxY, 0.0)
+    cX, cY, cZ = GLU.gluUnProject(maxX, maxY, 0.0)
+    dX, dY, dZ = GLU.gluUnProject(maxX, minY, 0.0)
+    
+    GL.glPushAttrib(GL.GL_CURRENT_BIT)
+    GL.glColor4fv([1.0, 1.0, 1.0, 1.0])
+    
+    GL.glBegin(GL.GL_LINE_LOOP)
+    GL.glVertex3f(aX, aY, aZ)
+    GL.glVertex3f(bX, bY, bZ)
+    GL.glVertex3f(cX, cY, cZ)
+    GL.glVertex3f(dX, dY, dZ)
+    GL.glEnd()
+
+    GL.glPopAttrib()
+    """
+        
 def displaceManySelectedParts():
     partList = []
     for item in self.scene().selectedItems():
