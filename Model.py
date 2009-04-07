@@ -2390,19 +2390,6 @@ class Part(QGraphicsRectItem):
         p.displaceDirection = self.displaceDirection
         return p
 
-    def createCallout(self):
-        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        step = self.getStep()
-        step.addBlankCalloutSignal()
-        callout = step.callouts[-1]
-
-        for item in self.scene().selectedItems():
-            if isinstance(item, Part):
-                callout.addPart(item.duplicate())
-        callout.steps[0].csi.resetPixmap()
-        callout.initLayout()
-        self.scene().emit(SIGNAL("layoutChanged()"))
-        
     def contextMenuEvent(self, event):
         """ 
         This is called if any part is the target of a right click.  
@@ -2412,12 +2399,12 @@ class Part(QGraphicsRectItem):
         step = self.getStep()
         menu = QMenu(self.scene().views()[0])
 
-        menu.addAction("Create Callout from Parts", self.createCallout)
+        menu.addAction("Create Callout from Parts", self.createCalloutSignal)
 
         if step.callouts:
-            arrowMenu = menu.addMenu("Move Part to Callout")
+            subMenu = menu.addMenu("Move Part to Callout")
             for callout in step.callouts:
-                arrowMenu.addAction("Callout %d" % callout.number, lambda x = callout: self.moveToCallout(x))
+                subMenu.addAction("Callout %d" % callout.number, lambda x = callout: self.moveToCalloutSignal(x))
         
         menu.addSeparator()
         
@@ -2437,18 +2424,25 @@ class Part(QGraphicsRectItem):
             menu.addAction("&Increase displacement", self.increaseDisplacement)
             menu.addAction("&Decrease displacement", self.decreaseDisplacement)
         else:
-            s = self.scene()
+            s = self.scene().undoStack
             arrowMenu = menu.addMenu("Displace With &Arrow")
-            arrowMenu.addAction("Move Up", lambda: s.emit(SIGNAL("beginDisplacement"), (self, Qt.Key_PageUp, Arrow(Qt.Key_PageUp))))
-            arrowMenu.addAction("Move Down", lambda: s.emit(SIGNAL("beginDisplacement"), (self, Qt.Key_PageDown, Arrow(Qt.Key_PageDown))))
-            arrowMenu.addAction("Move Forward", lambda: s.emit(SIGNAL("beginDisplacement"), (self, Qt.Key_Down, Arrow(Qt.Key_Down))))
-            arrowMenu.addAction("Move Back", lambda: s.emit(SIGNAL("beginDisplacement"), (self, Qt.Key_Up, Arrow(Qt.Key_Up))))
-            arrowMenu.addAction("Move Left", lambda: s.emit(SIGNAL("beginDisplacement"), (self, Qt.Key_Left, Arrow(Qt.Key_Left))))
-            arrowMenu.addAction("Move Right", lambda: s.emit(SIGNAL("beginDisplacement"), (self, Qt.Key_Right, Arrow(Qt.Key_Right))))
-
+            arrowMenu.addAction("Move Up", lambda: s.push(BeginDisplacement(self, Qt.Key_PageUp, Arrow(Qt.Key_PageUp))))
+            arrowMenu.addAction("Move Down", lambda: s.push(BeginDisplacement(self, Qt.Key_PageDown, Arrow(Qt.Key_PageDown))))
+            arrowMenu.addAction("Move Forward", lambda: s.push(BeginDisplacement(self, Qt.Key_Down, Arrow(Qt.Key_Down))))
+            arrowMenu.addAction("Move Back", lambda: s.push(BeginDisplacement(self, Qt.Key_Up, Arrow(Qt.Key_Up))))
+            arrowMenu.addAction("Move Left", lambda: s.push(BeginDisplacement(self, Qt.Key_Left, Arrow(Qt.Key_Left))))
+            arrowMenu.addAction("Move Right", lambda: s.push(BeginDisplacement(self, Qt.Key_Right, Arrow(Qt.Key_Right))))
+            
         menu.exec_(event.screenPos())
 
-    def moveToCallout(self, callout):
+    def createCalloutSignal(self):
+        self.scene().undoStack.beginMacro("Create new Callout from Parts")
+        step = self.getStep()
+        step.addBlankCalloutSignal()
+        self.moveToCalloutSignal(step.callouts[-1])
+        self.scene().undoStack.endMacro()
+        
+    def moveToCalloutSignal(self, callout):
         selectedParts = []
         for item in self.scene().selectedItems():
             if isinstance(item, Part):

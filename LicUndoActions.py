@@ -66,9 +66,10 @@ class BeginDisplacement(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, beginCommand):
+    def __init__(self, part, direction, arrow):
         QUndoCommand.__init__(self, "Begin Part displacement")
-        self.part, self.direction, arrow = beginCommand
+        self.part = part 
+        self.direction = direction
         self.part.arrow = arrow
 
     def undo(self):
@@ -278,9 +279,9 @@ class AddPartsToCalloutCommand(QUndoCommand):
                 self.callout.addPart(part)
             else:
                 self.callout.removePart(part)
+        self.callout.scene().emit(SIGNAL("layoutChanged()"))
         self.callout.steps[-1].csi.resetPixmap()
         self.callout.initLayout()
-        self.callout.scene().emit(SIGNAL("layoutChanged()"))
         
     def undo(self):
         self.doAction(False)

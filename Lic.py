@@ -224,7 +224,6 @@ class LicWindow(QMainWindow):
         signals = [("itemsMoved", MoveCommand),
                    ("moveStepToNewPage", MoveStepToPageCommand),
                    ("displacePart", DisplacePartCommand),
-                   ("beginDisplacement", BeginDisplacement),
                    ("adjustArrowLength", AdjustArrowLength)]
 
         for signal, command in signals:
