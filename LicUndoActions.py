@@ -165,6 +165,37 @@ class AddRemoveStepCommand(QUndoCommand):
     def redo(self):
         self.doAction(True)
 
+class AddRemoveCalloutCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, callout, addCallout):
+        QUndoCommand.__init__(self, "%s Callout" % ("add" if addCallout else "delete"))
+            
+        self.callout = callout
+        self.parent = callout.parentItem()
+        self.addCallout = addCallout
+
+    def doAction(self, redo):
+        parent = self.parent
+        if (redo and self.addCallout) or (not redo and not self.addCallout):
+            parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+            parent.addCallout(self.callout)
+            parent.scene().emit(SIGNAL("layoutChanged()"))
+            self.callout.setSelected(True)
+        else:
+            self.callout.setSelected(False)
+            parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+            parent.removeCallout(self.callout)                
+            parent.scene().emit(SIGNAL("layoutChanged()"))
+        parent.initLayout()
+
+    def undo(self):
+        self.doAction(False)
+
+    def redo(self):
+        self.doAction(True)
+
 class AddRemovePageCommand(QUndoCommand):
 
     _id = getNewCommandID()

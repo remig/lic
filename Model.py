@@ -851,7 +851,7 @@ class Callout(QGraphicsRectItem):
         self.layout = Layout.GridLayout()
         
         self.setPos(0.0, 0.0)
-        self.setRect(0.0, 0.0, 5.0, 5.0)
+        self.setRect(0.0, 0.0, 30.0, 30.0)
         self.setPen(QPen(Qt.black))
         self.setFlags(AllFlags)
         
@@ -1013,6 +1013,14 @@ class Step(QGraphicsRectItem):
         if self.pli:
             self.pli.removePart(part)
 
+    def addCallout(self, callout):
+        callout.setParentItem(self)
+        self.callouts.append(callout)
+    
+    def removeCallout(self, callout):
+        self.callouts.remove(callout)
+        self.scene().removeItem(callout)
+    
     def resetRect(self):
         if self.maxRect:
             r = QRectF(0.0, 0.0, max(1, self.maxRect.width()), max(1, self.maxRect.height()))
@@ -1139,7 +1147,7 @@ class Step(QGraphicsRectItem):
                 menu.addAction("Merge with Next Step" % plural, self.mergeWithNextStep)
             
         menu.addSeparator()
-        menu.addAction("Add blank Callout", self.addBlankCallout)
+        menu.addAction("Add blank Callout", self.addBlankCalloutSignal)
         menu.addSeparator()
         doLayout = menu.addAction("Re-layout affected Pages")
         doLayout.setCheckable(True)
@@ -1150,15 +1158,11 @@ class Step(QGraphicsRectItem):
 
         menu.exec_(event.screenPos())
 
-    def addBlankCallout(self):
+    def addBlankCalloutSignal(self):
         number = self.callouts[-1].number + 1 if self.callouts else 1
         callout = Callout(self, number)
         callout.addBlankStep(False)
-        self.callouts.append(callout)
-
-    def removeCallout(self, callout):
-        self.callouts.remove(callout)
-        self.scene().removeItem(callout)
+        self.scene().undoStack.push(AddRemoveCalloutCommand(callout, True))
     
     def moveToPrevPage(self):
         stepSet = []
@@ -2389,7 +2393,7 @@ class Part(QGraphicsRectItem):
     def createCallout(self):
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         step = self.getStep()
-        step.addBlankCallout()
+        step.addBlankCalloutSignal()
         callout = step.callouts[-1]
 
         for item in self.scene().selectedItems():
