@@ -845,6 +845,7 @@ class Page(QGraphicsRectItem):
 class CalloutArrow(QGraphicsRectItem):
     
     arrowTipLength = 20.0
+    arrowTipHeight = 5.0
     
     def __init__(self, parent, csi):
         QGraphicsRectItem.__init__(self, parent)
@@ -854,8 +855,8 @@ class CalloutArrow(QGraphicsRectItem):
         self.setPen(QPen(Qt.NoPen))
         self.setFlags(NoMoveFlags)
         
-        # Basic points for arrow head
-        x = [0.0, CalloutArrow.arrowTipLength, 25.0, 50.0]
+        # Basic points for arrow head - this matches the lists in Arrow (GL)
+        x = [0.0, 20.0, 25.0, 50.0]
         y = [-5.0, -1.0, 0.0, 1.0, 5.0]
         
         # Build the arrow head
@@ -923,8 +924,13 @@ class CalloutArrow(QGraphicsRectItem):
         painter.translate(tip)
         painter.rotate(rotation)
         painter.drawPolygon(self.arrowHead)
-        
-        self.setRect(QRectF(tip, end).normalized())
+
+        # Widen / heighten bounding rect to include tip and end line
+        r = QRectF(tip, end).normalized()
+        if rotation == 0 or rotation == 180:
+            self.setRect(r.adjusted(0.0, -CalloutArrow.arrowTipHeight - 2, 0.0, CalloutArrow.arrowTipHeight + 2))
+        else:
+            self.setRect(r.adjusted(-CalloutArrow.arrowTipHeight - 2, 0.0, CalloutArrow.arrowTipHeight + 2, 0.0))
 
 class Callout(QGraphicsRectItem):
 
@@ -965,8 +971,6 @@ class Callout(QGraphicsRectItem):
 
     def addBlankStep(self, useUndo = True):
         lastNum = self.steps[-1].number + 1 if self.steps else 1
-        if lastNum > 1 and not self.showStepNumbers:
-            self.toggleStepNumbers()
         step = Step(self, lastNum, False, self.showStepNumbers)
         if useUndo:
             self.scene().undoStack.push(AddRemoveStepCommand(step, True))
@@ -976,10 +980,14 @@ class Callout(QGraphicsRectItem):
     def insertStep(self, step):
         self.steps.append(step)
         step.setParentItem(self)
+        if len(self.steps) > 1:
+            self.enableStepNumbers()
 
     def deleteStep(self, step):
         self.steps.remove(step)
         self.scene().removeItem(step)
+        if len(self.steps) <= 1:
+            self.disableStepNumbers()
 
     def addPart(self, part):
         self.steps[-1].addPart(part)
@@ -987,11 +995,17 @@ class Callout(QGraphicsRectItem):
     def removePart(self, part):
         for step in self.steps:
             step.removePart(part)
-        
+
     def resetRect(self):
-        b = self.childrenBoundingRect()
-        b.adjust(0.0, 0.0, Page.margin.x() * 2, Page.margin.y() * 2)
-        self.setRect(0.0, 0.0, b.width(), b.height())
+        children = self.children()
+        children.remove(self.arrow)  # Don't want Callout arrow inside its selection box
+
+        b = QRectF()
+        for child in children:
+            b |= child.rect().translated(child.pos())
+            
+        x, y = Page.margin.x(), Page.margin.y()
+        self.setRect(b.adjusted(-x, -y, x, y))
 
     def getArrowBasePoint(self, side):
         # TODO: arrow base should come out of last step in callout
@@ -1020,16 +1034,25 @@ class Callout(QGraphicsRectItem):
         self.resetRect()
         self.parentItem().initLayout()
 
-    def toggleStepNumbers(self):
+    def enableStepNumbers(self):
         for step in self.steps:
-            step.toggleNumberItem()
-        self.showStepNumbers = not self.showStepNumbers
+            step.enableNumberItem()
+        self.showStepNumbers = True
+        self.initLayout()
+
+    def disableStepNumbers(self):
+        for step in self.steps:
+            step.disableNumberItem()
+        self.showStepNumbers = False
         self.initLayout()
     
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Add blank Step", self.addBlankStep)
-        menu.addAction("%s Step numbers" % ("Hide" if self.showStepNumbers else "Show"), self.toggleStepNumbers)
+        if self.showStepNumbers:
+            menu.addAction("Hide Step numbers", self.disableStepNumbers)
+        else:
+            menu.addAction("Show Step numbers", self.enableStepNumbers)
         menu.exec_(event.screenPos())
 
     def getStep(self, number):
@@ -1057,7 +1080,7 @@ class Step(QGraphicsRectItem):
         self.setPos(Page.margin)
 
         if hasNumberItem:
-            self.toggleNumberItem()
+            self.enableNumberItem()
 
         self.setFlags(AllFlags)
 
@@ -1139,16 +1162,18 @@ class Step(QGraphicsRectItem):
     def getPrevStep(self):
         return self.parentItem().getStep(self.number - 1)
 
-    def toggleNumberItem(self):
-        if self.numberItem:
-            self.scene().removeItem(self.numberItem)
-            self.numberItem = None
-        else:
+    def enableNumberItem(self):
+        if not self.numberItem:
             self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
             self.numberItem.setPos(0, 0)
             self.numberItem.setFont(QFont("Arial", 15))
             self.numberItem.setFlags(AllFlags)
             self.numberItem.dataText = "Step Number Label"
+            
+    def disableNumberItem(self):
+        if self.numberItem:
+            self.scene().removeItem(self.numberItem)
+            self.numberItem = None
         
     def initMinimumLayout(self):
 
@@ -1211,9 +1236,9 @@ class Step(QGraphicsRectItem):
         placeRight = remainingWidth > remainingHeight
         
         if placeRight:
-            csiWidth += cr.width() + Page.margin.x()
+            csiWidth += cr.width() + (Page.margin.x() * 3)
         else:
-            csiHeight += cr.height() + Page.margin.y()
+            csiHeight += cr.height() + (Page.margin.y() * 3)
 
         x = (r.width() - csiWidth) / 2.0
         y = (r.height() - csiHeight) / 2.0
@@ -1239,14 +1264,15 @@ class Step(QGraphicsRectItem):
         undo = self.scene().undoStack
         parent = self.parentItem()
 
-        if parent.prevPage():
-            menu.addAction("Move to &Previous Page" % plural, self.moveToPrevPage)
-            if parent.prevPage().steps:
-                menu.addAction("Merge with Previous Step" % plural, self.mergeWithPrevStep)
-        if parent.nextPage():
-            menu.addAction("Move to &Next Page" % plural, self.moveToNextPage)
-            if parent.nextPage().steps:
-                menu.addAction("Merge with Next Step" % plural, self.mergeWithNextStep)
+        if isinstance(parent, Page):  # TODO: Fix all the step merging code
+            if parent.prevPage():
+                menu.addAction("Move to &Previous Page" % plural, self.moveToPrevPage)
+                if parent.prevPage().steps:
+                    menu.addAction("Merge with Previous Step" % plural, self.mergeWithPrevStep)
+            if parent.nextPage():
+                menu.addAction("Move to &Next Page" % plural, self.moveToNextPage)
+                if parent.nextPage().steps:
+                    menu.addAction("Merge with Next Step" % plural, self.mergeWithNextStep)
             
         menu.addSeparator()
         menu.addAction("Add blank Callout", self.addBlankCalloutSignal)
