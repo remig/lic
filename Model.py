@@ -942,6 +942,7 @@ class Callout(QGraphicsRectItem):
         self.arrow = CalloutArrow(self, self.parentItem().csi)
         self.steps = []
         self.number = number
+        self.qtyLabel = None
         self.showStepNumbers = showStepNumbers
         self.layout = Layout.GridLayout()
         
@@ -951,20 +952,25 @@ class Callout(QGraphicsRectItem):
         self.setFlags(AllFlags)
         
     def child(self, row):
-        if row < 0 or row > len(self.steps):
-            return None
         if row == 0:
             return self.arrow
-        return self.steps[row - 1]
+        if row == 1 and self.qtyLabel:
+            return self.qtyLabel
+        offset = 2 if self.qtyLabel else 1
+        return self.steps[row - offset]
 
     def rowCount(self):
-        return 1 + len(self.steps)
+        offset = 1 if self.qtyLabel else 0
+        return 1 + len(self.steps) + offset
 
     def getChildRow(self, child):
         if isinstance(child, CalloutArrow):
             return 0
+        if isinstance(child, QGraphicsSimpleTextItem):
+            return 1
         if child in self.steps:
-            return 1 + self.steps.index(child)
+            offset = 2 if self.qtyLabel else 1
+            return self.steps.index(child) + offset
 
     def data(self, index):
         return "Callout %d - %d step%s" % (self.number, len(self.steps), 's' if len(self.steps) > 1 else '')
@@ -1002,9 +1008,11 @@ class Callout(QGraphicsRectItem):
 
         b = QRectF()
         for child in children:
-            b |= child.rect().translated(child.pos())
+            b |= child.boundingRect().translated(child.pos())
             
         x, y = Page.margin.x(), Page.margin.y()
+        if self.qtyLabel:
+            b.adjust(0.0, 0.0, self.qtyLabel.boundingRect().width(), self.qtyLabel.boundingRect().height())
         self.setRect(b.adjusted(-x, -y, x, y))
 
     def getArrowBasePoint(self, side):
@@ -1030,8 +1038,17 @@ class Callout(QGraphicsRectItem):
             
         self.layout.rowCount = self.layout.colCount = -1
         self.layout.initLayoutInsideOut(self.steps)
+        
+        if self.qtyLabel:  # Hide qty label inside step temporarily, so its bounding box is ignored
+            self.qtyLabel.setPos(self.steps[0].pos())
 
         self.resetRect()
+        
+        if self.qtyLabel:
+            r = self.qtyLabel.boundingRect()
+            r.moveBottomRight(self.rect().bottomRight() - Page.margin)
+            self.qtyLabel.setPos(r.topLeft())
+            
         self.parentItem().initLayout()
 
     def enableStepNumbers(self):
@@ -1043,11 +1060,42 @@ class Callout(QGraphicsRectItem):
         for step in self.steps:
             step.disableNumberItem()
         self.showStepNumbers = False
+
+    def addQuantityLabel(self):
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.qtyLabel = QGraphicsSimpleTextItem("1x", self)
+        self.qtyLabel.setPos(0, 0)
+        self.qtyLabel.setFont(QFont("Arial", 15))
+        self.qtyLabel.setFlags(AllFlags)
+        self.qtyLabel.dataText = "Quantity Label"
+        self.scene().emit(SIGNAL("layoutChanged()"))
+        self.initLayout()
+            
+    def removeQuantityLabel(self):
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.scene().removeItem(self.qtyLabel)
+        self.qtyLabel = None
+        self.scene().emit(SIGNAL("layoutChanged()"))
+        self.initLayout()
     
+    def increaseQuantityLabel(self):
+        qty = int(self.qtyLabel.text()[:-1])
+        self.qtyLabel.setText("%dx" % (qty + 1))
+    
+    def decreaseQuantityLabel(self):
+        qty = int(self.qtyLabel.text()[:-1])
+        self.qtyLabel.setText("%dx" % (qty - 1))
+
     def contextMenuEvent(self, event):
         stack = self.scene().undoStack
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Add blank Step", self.addBlankStep)
+        if self.qtyLabel:
+            menu.addAction("Increase Quantity", self.increaseQuantityLabel)
+            menu.addAction("Decrease Quantity", self.decreaseQuantityLabel)
+            menu.addAction("Remove Quantity Label", self.removeQuantityLabel)
+        else:
+            menu.addAction("Add Quantity Label", self.addQuantityLabel)
         if self.showStepNumbers:
             menu.addAction("Hide Step numbers", lambda: stack.push(ToggleStepNumbersCommand(self, False)))
         else:
