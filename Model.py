@@ -1038,13 +1038,11 @@ class Callout(QGraphicsRectItem):
         for step in self.steps:
             step.enableNumberItem()
         self.showStepNumbers = True
-        self.initLayout()
 
     def disableStepNumbers(self):
         for step in self.steps:
             step.disableNumberItem()
         self.showStepNumbers = False
-        self.initLayout()
     
     def contextMenuEvent(self, event):
         stack = self.scene().undoStack
@@ -1153,9 +1151,6 @@ class Step(QGraphicsRectItem):
         else:
             r = QRectF(0.0, 0.0, 1.0, 1.0)
         self.setRect(r | self.childrenBoundingRect())
-
-        if hasattr(self.parentItem(), "resetRect"):
-            self.parentItem().resetRect()
 
     def getNextStep(self):
         return self.parentItem().getStep(self.number + 1)
