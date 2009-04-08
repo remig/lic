@@ -842,12 +842,89 @@ class Page(QGraphicsRectItem):
         newPage = Page(self._parent, self.instructions, self.number + 1, self._row + 1)
         self.scene().undoStack.push(AddRemovePageCommand(newPage, True))
 
-class CalloutArrow(QGraphicsPolygonItem):
+class CalloutArrow(QGraphicsRectItem):
     
-    def __init__(self, parent):
-        QGraphicsPolygonItem.__init__(self, parent)
+    arrowTipLength = 20.0
+    
+    def __init__(self, parent, csi):
+        QGraphicsRectItem.__init__(self, parent)
         self.dataText = "Callout Arrow"
-        self.setFlags(AllFlags)
+
+        self.csi = csi
+        self.setPen(QPen(Qt.NoPen))
+        self.setFlags(NoMoveFlags)
+        
+        # Basic points for arrow head
+        x = [0.0, CalloutArrow.arrowTipLength, 25.0, 50.0]
+        y = [-5.0, -1.0, 0.0, 1.0, 5.0]
+        
+        # Build the arrow head
+        self.arrowHead = QPolygonF()
+        tip = QPointF(x[0], y[2])
+        topEnd = QPointF(x[2], y[0])
+        joint = QPointF(x[1], y[2])
+        botEnd = QPointF(x[2], y[4])
+        
+        for point in [tip, topEnd, joint, botEnd]:
+            self.arrowHead.append(point)
+
+    def paint(self, painter, option, widget = None):
+        QGraphicsRectItem.paint(self, painter, option, widget)
+        
+        # Find two target rects, both in *LOCAL* coordinates
+        callout = self.parentItem()
+        csiRect = self.mapFromItem(self.csi, self.csi.boundingRect()).boundingRect()
+        calloutRect = self.mapFromItem(callout, callout.rect()).boundingRect()
+
+        if csiRect.right() < calloutRect.left():  # Callout right of CSI
+            rotation = 0.0
+            offset = QPointF(CalloutArrow.arrowTipLength, 0)
+            tip = csiRect.topRight() + QPointF(0.0, csiRect.height() / 2.0)
+            end = callout.getArrowBasePoint('left')
+            
+        elif calloutRect.right() < csiRect.left():  # Callout left of CSI
+            rotation = 180.0
+            offset = QPointF(-CalloutArrow.arrowTipLength, 0)
+            tip = csiRect.topLeft() + QPointF(0.0, csiRect.height() / 2.0)
+            end = callout.getArrowBasePoint('right')
+            
+        elif calloutRect.bottom() < csiRect.top():  # Callout above CSI
+            rotation = -90.0
+            offset = QPointF(0, -CalloutArrow.arrowTipLength)
+            tip = csiRect.topLeft() + QPointF(csiRect.width() / 2.0, 0.0)
+            end = callout.getArrowBasePoint('bottom')
+
+        else:  # Callout below CSI
+            rotation = 90.0
+            offset = QPointF(0, CalloutArrow.arrowTipLength)
+            tip = csiRect.bottomLeft() + QPointF(csiRect.width() / 2.0, 0.0)
+            end = callout.getArrowBasePoint('top')
+            
+        if rotation == 0 or rotation == 180:
+            midX = (tip.x() + offset.x() + end.x()) / 2.0
+            mid1 = QPointF(midX, tip.y())
+            mid2 = QPointF(midX, end.y())
+        else:
+            midY = (tip.y() + offset.y() + end.y()) / 2.0
+            mid1 = QPointF(tip.x(), midY)
+            mid2 = QPointF(end.x(), midY)
+
+        # Draw step line
+        line = QPolygonF()
+        line.append(tip + offset)
+        line.append(mid1)
+        line.append(mid2)
+        line.append(end)
+
+        painter.setPen(QPen(Qt.black))
+        painter.drawPolyline(line)
+
+        # Draw arrow head
+        painter.translate(tip)
+        painter.rotate(rotation)
+        painter.drawPolygon(self.arrowHead)
+        
+        self.setRect(QRectF(tip, end).normalized())
 
 class Callout(QGraphicsRectItem):
 
@@ -856,7 +933,7 @@ class Callout(QGraphicsRectItem):
     def __init__(self, parent, number = 1, showStepNumbers = False):
         QGraphicsRectItem.__init__(self, parent)
 
-        self.arrow = CalloutArrow(self)
+        self.arrow = CalloutArrow(self, self.parentItem().csi)
         self.steps = []
         self.number = number
         self.showStepNumbers = showStepNumbers
@@ -915,7 +992,19 @@ class Callout(QGraphicsRectItem):
         b = self.childrenBoundingRect()
         b.adjust(0.0, 0.0, Page.margin.x() * 2, Page.margin.y() * 2)
         self.setRect(0.0, 0.0, b.width(), b.height())
-        
+
+    def getArrowBasePoint(self, side):
+        # TODO: arrow base should come out of last step in callout
+        r = self.rect()
+        if side == 'right':
+            return r.topRight() + QPointF(0.0, r.height() / 2.0)
+        elif side == 'left':
+            return r.topLeft() + QPointF(0.0, r.height() / 2.0)
+        elif side == 'bottom':
+            return r.bottomLeft() + QPointF(r.width() / 2.0, 0.0)
+        else:
+            return r.topLeft() + QPointF(r.width() / 2.0, 0.0)
+
     def initLayout(self):
 
         if not self.steps:
@@ -964,10 +1053,7 @@ class Step(QGraphicsRectItem):
         
         self.maxRect = None
 
-        pen = self.pen()
-        pen.setStyle(Qt.NoPen)
-        self.setPen(pen)
-
+        self.setPen(QPen(Qt.NoPen))
         self.setPos(Page.margin)
 
         if hasNumberItem:
@@ -1217,9 +1303,7 @@ class PLIItem(QGraphicsRectItem):
         self.quantity = 0
         self.color = color
 
-        pen = self.pen()
-        pen.setStyle(Qt.NoPen)
-        self.setPen(pen)
+        self.setPen(QPen(Qt.NoPen))
         self.setFlags(AllFlags)
 
         # Stores a pixmap of the actual part
