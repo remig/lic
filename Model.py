@@ -1047,12 +1047,13 @@ class Callout(QGraphicsRectItem):
         self.initLayout()
     
     def contextMenuEvent(self, event):
+        stack = self.scene().undoStack
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Add blank Step", self.addBlankStep)
         if self.showStepNumbers:
-            menu.addAction("Hide Step numbers", self.disableStepNumbers)
+            menu.addAction("Hide Step numbers", lambda: stack.push(ToggleStepNumbersCommand(self, False)))
         else:
-            menu.addAction("Show Step numbers", self.enableStepNumbers)
+            menu.addAction("Show Step numbers", lambda: stack.push(ToggleStepNumbersCommand(self, True)))
         menu.exec_(event.screenPos())
 
     def getStep(self, number):

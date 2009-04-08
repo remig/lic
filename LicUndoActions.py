@@ -10,6 +10,8 @@ def getNewCommandID():
     return NextCommandID
 
 QUndoCommand.id = lambda self: self._id
+QUndoCommand.undo = lambda self: self.doAction(False)
+QUndoCommand.redo = lambda self: self.doAction(True)
 
 class MoveCommand(QUndoCommand):
 
@@ -175,12 +177,6 @@ class AddRemoveStepCommand(QUndoCommand):
             parent.scene().emit(SIGNAL("layoutChanged()"))
         parent.initLayout()
 
-    def undo(self):
-        self.doAction(False)
-
-    def redo(self):
-        self.doAction(True)
-
 class AddRemoveCalloutCommand(QUndoCommand):
 
     _id = getNewCommandID()
@@ -206,12 +202,6 @@ class AddRemoveCalloutCommand(QUndoCommand):
             parent.scene().emit(SIGNAL("layoutChanged()"))
         parent.initLayout()
 
-    def undo(self):
-        self.doAction(False)
-
-    def redo(self):
-        self.doAction(True)
-
 class AddRemovePageCommand(QUndoCommand):
 
     _id = getNewCommandID()
@@ -234,12 +224,6 @@ class AddRemovePageCommand(QUndoCommand):
 
         page.instructions.emit(SIGNAL("layoutChanged()"))
         page.instructions.selectPage(number)
-
-    def undo(self):
-        self.doAction(False)
-
-    def redo(self):
-        self.doAction(True)
 
 class MovePartsToStepCommand(QUndoCommand):
 
@@ -298,12 +282,24 @@ class AddPartsToCalloutCommand(QUndoCommand):
         self.callout.steps[-1].csi.resetPixmap()
         self.callout.initLayout()
         
-    def undo(self):
-        self.doAction(False)
+class ToggleStepNumbersCommand(QUndoCommand):
 
-    def redo(self):
-        self.doAction(True)
+    _id = getNewCommandID()
 
+    def __init__(self, callout, enableNumbers):
+        QUndoCommand.__init__(self, "%s Step Numbers" % ("show" if enableNumbers else "hide"))
+        self.callout = callout
+        self.enableNumbers = enableNumbers
+
+    def doAction(self, redo):
+        self.callout.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        if (redo and self.enableNumbers) or (not redo and not self.enableNumbers):
+            self.callout.enableStepNumbers()
+        else:
+            self.callout.disableStepNumbers()
+        self.callout.scene().emit(SIGNAL("layoutChanged()"))
+        self.callout.initLayout()
+        
 class AdjustArrowLength(QUndoCommand):
 
     """
