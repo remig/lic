@@ -7,23 +7,33 @@ Vertical = 1
 def maxSafe(s):
     return max(s) if s else 0.0
 
-class GridLayout(QRectF):
+class GridLayout(object):
     # Assumes any item added inside this class is the correct size
     # Stores a margin and row & column count, and provides layout algorithms given a list of stuff to layout
-    # Can layout any objects as long as they define initLayout(QRectF)
+    # Stores a set of separators that separate each member.
     
     def __init__(self, rowCount = -1, colCount = -1, margin = 15, orientation = Vertical):
-        QRectF.__init__(self)
         self.colCount = rowCount
         self.rowCount = colCount
         self.margin = margin
         self.orientation = orientation
+        self.separators = []  # List of (index, QRectF) tuples that encode all separator info
 
-    def setRect(self, rect):
-        QRectF.setRect(self, rect.x(), rect.y(), rect.width(), rect.height())
-
-    def initRowColCount(self, memberList):
+    def addHSeparator(self, x, y, width, index):
+        b = QRectF(x + self.margin, y, width - (self.margin * 2), 1.0)
+        self.separators.append((index, b))
         
+    def addVSeparator(self, x, y, height, index):
+        b = QRectF(x, y + self.margin, 1.0, height - (self.margin * 2))
+        self.separators.append((index, b))
+
+    def getRowColCount(self, memberList):
+        
+        if self.rowCount != -1 and self.colCount != -1:
+            rows = min(len(memberList), self.rowCount)
+            cols = min(len(memberList), self.colCount)
+            return (rows, cols)
+
         itemCount = len(memberList)
         x = int(math.ceil(math.sqrt(itemCount)))
         y = itemCount // x  # This needs to be integer division
@@ -31,25 +41,16 @@ class GridLayout(QRectF):
             y += 1
             
         if self.orientation == Horizontal:
-            self.rowCount, self.colCount = y, x
+            return (y, x)
         else:
-            self.rowCount, self.colCount = x, y
+            return (x, y)
             
-    def getActualRowColCount(self, memberList):
-        if self.rowCount == -1 or self.colCount == -1:
-            self.initRowColCount(memberList)
-        
-        cols = min(len(memberList), self.colCount)
-        rows = min(len(memberList), self.rowCount)
-        
-        return (rows, cols)
-        
     def initLayoutInsideOut(self, memberList):
         # Assumes each member in list is right width & height
         # Sets position of each member into a grid
         # MemberList is a list of any objects that have rect(), setPos() and moveBy() methods
 
-        rows, cols = self.getActualRowColCount(memberList)
+        rows, cols = self.getRowColCount(memberList)
         rowHeights, colWidths = [], []
         
         # Build a table of each row's height and column's width
@@ -87,37 +88,38 @@ class GridLayout(QRectF):
                 member.moveBy(dx, dy)
     
     def initGridLayout(self, rect, memberList):
-        # Assumes the QRectF position, width & height of this layout has already been set
-        # Divides rect into equally sized rows & columns, and sizes each member to fit inside
-        # If row / col count are -1 (unset), will be set to something appropriate
+        # Assumes the QRectF position, width & height of this layout has already been set.
+        # Divides rect into equally sized rows & columns, and sizes each member to fit inside.
+        # If row / col count are -1 (unset), will be set to something appropriate.
         # MemberList is a list of any objects that have an initLayout(rect) method
         
-        rows, cols = self.getActualRowColCount(memberList)
+        rows, cols = self.getRowColCount(memberList)
+        self.separators = []
         
         colWidth = rect.width() / cols
         rowHeight = rect.height() / rows
-
-        if self.orientation == Horizontal:
-            x, y = 0.0, -rowHeight
-        else:
-            x, y = -colWidth, 0.0
+        x = y = 0.0
         
         for i, member in enumerate(memberList):
             
-            if self.orientation == Horizontal:
-                if i % cols:  # Add to right of current column
-                    x += colWidth
-                else:  # Start a new row
-                    x = 0.0
-                    y += rowHeight
-            else:
-                if i % rows:  # Add to bottom of current row
-                    y += rowHeight
-                else:  # Start a new column
-                    y = 0.0
-                    x += colWidth
-
+            if i > 0:
+                if self.orientation == Horizontal:
+                    if i % cols:  # Add to right of current column
+                        x += colWidth
+                    else:  # Start a new row
+                        x = 0.0
+                        y += rowHeight
+                        self.addHSeparator(x, y, rect.width(), i + 1)
+                else:
+                    if i % rows:  # Add to bottom of current row
+                        y += rowHeight
+                    else:  # Start a new column
+                        y = 0.0
+                        x += colWidth
+                        self.addVSeparator(x, y, rect.height(), i + 1)
+                        
             tmpRect = QRectF(x, y, colWidth, rowHeight)
             tmpRect.translate(rect.x(), rect.y())
             tmpRect.adjust(self.margin, self.margin, -self.margin, -self.margin)
             member.initLayout(tmpRect)
+            

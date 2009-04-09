@@ -430,17 +430,11 @@ class Instructions(QAbstractItemModel):
         return submodelDictionary
     
     def pageUp(self):
-        if self.mainModel:
-            self.mainModel.selectPage(self.mainModel.currentPage._number - 1)
-            self.mainModel.currentPage.setSelected(True)
+        self.selectPage(self.mainModel.currentPage._number - 1)
 
     def pageDown(self):
-        if self.mainModel:
-            m = self.mainModel
-            lastPage = m.pages[-1]._number
-            nextPage = min(m.currentPage._number + 1, lastPage)
-            m.selectPage(nextPage)
-            m.currentPage.setSelected(True)
+        lastPage = self.mainModel.pages[-1]._number
+        self.selectPage(min(lastPage, self.mainModel.currentPage._number + 1))
 
     def selectFirstPage(self):
         self.selectPage(0)
@@ -499,6 +493,7 @@ class Page(QGraphicsRectItem):
         # Position this rectangle inset from the containing scene
         self.setPos(0, 0)
         self.setRect(instructions.scene.sceneRect())
+        self.setFlags(NoMoveFlags)
 
         self.instructions = instructions
         self._parent = parent
@@ -508,7 +503,7 @@ class Page(QGraphicsRectItem):
         self.separators = []
         self.children = []
         self.submodelItem = None
-        self.layout = Layout.GridLayout(orientation = Layout.Horizontal)
+        self.layout = Layout.GridLayout()
 
         # Setup this page's page number
         self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
@@ -520,7 +515,6 @@ class Page(QGraphicsRectItem):
         rect = self.numberItem.boundingRect()
         rect.moveBottomRight(self.rect().bottomRight() - Page.margin)
         self.numberItem.setPos(rect.topLeft())
-        self.setFlags(NoMoveFlags)
         self.numberItem.setFlags(AllFlags)
 
     def _setNumber(self, number):
@@ -640,45 +634,17 @@ class Page(QGraphicsRectItem):
         for i, item in enumerate(self.children):
             item.setZValue(len(self.children) - i)
 
-    def addStepSeparator(self, index):
-
-        border = QGraphicsRectItem(self)
-        border.setRect(QRectF(0, 0, 1, 1))
-        border.setFlags(AllFlags)
-        border.dataText = "Step Separator"
-        self.separators.append(border)
-        self.addChild(index, border)
-        return border
-
-    def addAllSeparators(self):
+    def addStepSeparator(self, index, rect = None):
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        
-        stepCount = len(self.steps)
-        colCount = int(math.ceil(math.sqrt(stepCount)))
-        rowCount = stepCount / colCount  # This needs to be integer division
-        
-        if stepCount % colCount:
-            rowCount += 1
-            
-        separatorIndices = []
-        for i, step in enumerate(self.steps):
-            if (i > 0) and (not i % rowCount):
-                separatorIndices.append(step.row())
-        
-        my = Page.margin.y()
-        pageRect = self.rect()
-        if self.submodelItem:
-            pageRect.setTop(self.submodelItem.rect().height() + my + my)
-        stepWidth = pageRect.width() / colCount
-        
-        for i in range(1, colCount):
-            index = separatorIndices[i - 1]
-            sep = self.addStepSeparator(index)
-            sep.setPos(stepWidth * i, pageRect.top() + my)
-            sep.setRect(QRectF(0, 0, 1, pageRect.height() - my - my))
-            
+        s = QGraphicsRectItem(self)
+        s.setRect(rect if rect else QRectF(0, 0, 1, 1))
+        s.setFlags(AllFlags)
+        s.dataText = "Step Separator"
+        self.separators.append(s)
+        self.addChild(index, s)
         self.scene().emit(SIGNAL("layoutChanged()"))
-    
+        return s
+
     def removeAllSeparators(self):
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         for separator in self.separators:
@@ -686,6 +652,14 @@ class Page(QGraphicsRectItem):
             self.scene().removeItem(separator)
         del self.separators[:]
         self.scene().emit(SIGNAL("layoutChanged()"))
+    
+    def showSeparators(self):
+        for s in self.separators:
+            s.show()
+    
+    def hideSeparators(self):
+        for s in self.separators:
+            s.hide()
     
     def removeStep(self, step):
         self.steps.remove(step)
@@ -728,7 +702,7 @@ class Page(QGraphicsRectItem):
 
     def initLayout(self):
 
-        # Remove any separators, since we'll re-add them in the appropriate place later
+        # Remove any separators; we'll re-add them in the appropriate place later
         self.removeAllSeparators()
 
         pageRect = self.rect()
@@ -746,12 +720,9 @@ class Page(QGraphicsRectItem):
             return label # No steps - nothing more to do here
 
         self.layout.initGridLayout(pageRect, self.steps)
+        for index, rect in self.layout.separators:
+            self.addStepSeparator(index, rect)
         
-        if len(self.steps) < 2:
-            return label # if there's only one step, no step separators needed
-
-        # Add a step separator between each column of steps
-        self.addAllSeparators()
         return label
 
     def scaleImages(self):
@@ -819,9 +790,9 @@ class Page(QGraphicsRectItem):
         menu.addAction("Append blank Page", self.addPageAfterSignal)
         menu.addSeparator()
         if self.separators:
-            menu.addAction("Remove Step Separators", self.removeAllSeparators)
+            menu.addAction("Hide Step Separators", self.hideSeparators)
         else:
-            menu.addAction("Add Step Separators", self.addAllSeparators)
+            menu.addAction("Show Step Separators", self.showSeparators)
         menu.addAction("Add blank Step", self.addBlankStepSignal)
         menu.addSeparator()
         menu.addAction("Delete Page", self.deletePageSignal)
@@ -1039,7 +1010,6 @@ class Callout(QGraphicsRectItem):
         for step in self.steps:
             step.initMinimumLayout()
             
-        self.layout.rowCount = self.layout.colCount = -1
         self.layout.initLayoutInsideOut(self.steps)
         
         if self.qtyLabel:  # Hide qty label inside step temporarily, so its bounding box is ignored
