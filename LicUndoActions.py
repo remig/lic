@@ -299,7 +299,7 @@ class ToggleStepNumbersCommand(QUndoCommand):
             self.callout.disableStepNumbers()
         self.callout.scene().emit(SIGNAL("layoutChanged()"))
         self.callout.initLayout()
-        
+
 class AdjustArrowLength(QUndoCommand):
 
     """
@@ -318,3 +318,21 @@ class AdjustArrowLength(QUndoCommand):
 
     def redo(self):
         self.arrow.adjustLength(self.offset)
+
+class RotateCSICommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, csi, rotation):
+        QUndoCommand.__init__(self, "CSI rotation")
+        self.csi, self.rotation = csi, rotation
+        self.prevRotation = self.csi.rotation
+
+    def undo(self):
+        self.csi.rotation = self.prevRotation
+        self.csi.resetPixmap()
+
+    def redo(self):
+        self.csi.rotation = self.rotation
+        self.csi.resetPixmap()
+        

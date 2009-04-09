@@ -288,6 +288,8 @@ def __readCSI(stream, step):
     stream >> pixmap
     csi.setPixmap(pixmap)
 
+    csi.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+
     global partDictionary, submodelDictionary
     partCount = stream.readInt32()
     for i in range(0, partCount):

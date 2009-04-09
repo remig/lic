@@ -181,6 +181,9 @@ def __writeCSI(stream, csi):
     stream << csi.center
     stream << csi.pixmap()
     
+    for i in csi.rotation:
+        stream.writeFloat(i)
+
     stream.writeInt32(csi.partCount())
     for partItem in csi.parts:
         for part in partItem.parts:

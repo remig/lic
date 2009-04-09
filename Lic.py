@@ -72,6 +72,9 @@ class LicGraphicsScene(QGraphicsScene):
             if isinstance(item, Callout):
                 item.contextMenuEvent(event)
                 return
+            if isinstance(item, CSI):
+                item.contextMenuEvent(event)
+                return
 
     def keyReleaseEvent(self, event):
 

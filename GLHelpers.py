@@ -57,9 +57,6 @@ def adjustGLViewport(x, y, width, height):
     glOrtho( -width, width, height, -height, -3000, 3000 )
     glMatrixMode(GL_MODELVIEW)
 
-def rotateViewByPoint3D(pt3D):
-    rotateView(pt3D.x, pt3D.y, pt3D.z)
-
 def rotateView(x, y, z):
     glRotatef(x, 1.0, 0.0, 0.0)
     glRotatef(y, 0.0, 1.0, 0.0)
@@ -174,7 +171,7 @@ def _checkPixelsRight(data, width, height, top, bottom, left):
                 return i
     return width
 
-def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotStep = None, pBuffer = None):
+def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotation = None, pBuffer = None):
     
     # Clear the drawing buffer with white
     glClearColor(1.0, 1.0, 1.0, 1.0)
@@ -186,8 +183,8 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotSt
     adjustGLViewport(0, 0, w, h)
     if isCSI:
         rotateToDefaultView(x, y, 0.0)
-        if rotStep:
-            rotateViewByPoint3D(rotStep['point'])
+        if rotation:
+            rotateView(*rotation)
     else:
         rotateToPLIView(x, y, 0.0)
 
@@ -216,7 +213,7 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotSt
     
     return (top, bottom, left, right, bottom - leftInset, bottomInset - left)
 
-def initImgSize(width, height, oglDispID, isCSI, filename = None, rotStep = None, pBuffer = None):
+def initImgSize(width, height, oglDispID, isCSI, filename = None, rotation = None, pBuffer = None):
     """
     Draw this piece to the already initialized GL Frame Buffer Object, in order to calculate
     its displayed width and height.  These dimensions are required to properly lay out PLIs and CSIs.
@@ -227,16 +224,16 @@ def initImgSize(width, height, oglDispID, isCSI, filename = None, rotStep = None
         oglDispID: The GL Display List ID to be rendered and dimensioned.
         isCSI: Need to do a few things differently if we're working with a CSI vs a PLI part.
         filename: Optional string used for debugging.
-        rotStep: An optional rotation step to use when rendering this part.
+        rotation: An optional [x, y, z] rotation to use when rendering this part.
     
     Returns:
         None, if the rendered image has been rendered partially or wholly out of frame.
-        If isCSI is True, retuns the (width, height, centerPoint, displacementPoint) parameters of this image.
+        If isCSI is True, returns the (width, height, centerPoint, displacementPoint) parameters of this image.
         If isCSI is False, returns the (width, height, leftInset, bottomInset, centerPoint) parameters of this image.
     """
     
     # Draw piece to frame buffer, then calculate bounding box
-    top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(0.0, 0.0, width, height, oglDispID, filename, isCSI, rotStep, pBuffer)
+    top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(0.0, 0.0, width, height, oglDispID, filename, isCSI, rotation, pBuffer)
     
     if _checkImgMaxBounds(top, bottom, left, right, width, height, filename):
         return None  # Drawn completely out of bounds
@@ -258,7 +255,7 @@ def initImgSize(width, height, oglDispID, isCSI, filename = None, rotStep = None
     
     if (x != 0) or (y != 0):
         # Drew at least one edge out of bounds - try moving part as much as possible and redrawing
-        top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(x, y, width, height, oglDispID, filename, isCSI, rotStep, pBuffer)
+        top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(x, y, width, height, oglDispID, filename, isCSI, rotation, pBuffer)
     
     if _checkImgTouchingBounds(top, bottom, left, right, width, height, filename):
         return None  # Drew on edge out of bounds - could try another displacement, but easier to just try bigger size

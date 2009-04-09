@@ -1636,8 +1636,9 @@ class CSI(QGraphicsPixmapItem):
         self.oglDispID = UNINIT_GL_DISPID
         self.setFlags(AllFlags)
 
-        self.dataText = "CSI"  # String displayed in Tree - reimplement data(self, index) to override
+        self.dataText = "CSI"  # String displayed in Tree - re-implement data(self, index) to override
         self._row = 0
+        self.rotation = [0.0, 0.0, 0.0]
         
         self.parts = []
         self.arrows = []
@@ -1768,7 +1769,7 @@ class CSI(QGraphicsPixmapItem):
         # Move pixmap to compensate for new size, so we don't actually move the CSI itself
         self.translate(-dx, -dy)
 
-    def resetPixmap(self, reposition = True):
+    def resetPixmap(self):
         global GlobalGLContext
         
         if not self.parts:
@@ -1797,8 +1798,7 @@ class CSI(QGraphicsPixmapItem):
 
         self.resetTransform()
         self.updatePixmap(False)
-        if reposition:
-            self.parentItem().positionInternalBits()
+        self.parentItem().positionInternalBits()
         GlobalGLContext.makeCurrent()
 
     def initSize(self, size, pBuffer):
@@ -1829,7 +1829,7 @@ class CSI(QGraphicsPixmapItem):
         if not self.parts:
             return result  # A CSI with no parts is already initialized
 
-        params = GLHelpers.initImgSize(size, size, self.oglDispID, True, filename, None, pBuffer)
+        params = GLHelpers.initImgSize(size, size, self.oglDispID, True, filename, self.rotation, pBuffer)
         if params is None:
             return False
 
@@ -1846,6 +1846,7 @@ class CSI(QGraphicsPixmapItem):
         y = self.center.y() * CSI.scale
         GLHelpers.adjustGLViewport(0, 0, w, h)
         GLHelpers.rotateToDefaultView(x, y, 0.0, CSI.scale)
+        GLHelpers.rotateView(*self.rotation)
 
         GL.glCallList(self.oglDispID)
 
@@ -1879,6 +1880,13 @@ class CSI(QGraphicsPixmapItem):
         step = self.parentItem()
         page = step.parentItem()
         return (page.number, step.number)
+
+    def contextMenuEvent(self, event):
+
+        menu = QMenu(self.scene().views()[0])
+        stack = self.scene().undoStack
+        menu.addAction("Rotate CSI", lambda: stack.push(RotateCSICommand(self, [30, 10, 15])))
+        menu.exec_(event.screenPos())
 
 class PartOGL(object):
     """

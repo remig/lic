@@ -129,6 +129,11 @@ CSI:
   int32 height
   QPointF center
   QPixmap pixmap
+
+  float rotation x
+  float rotation y
+  float rotation z
+  
   int32 number of parts
   ... Part 0..n ...
 
