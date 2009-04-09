@@ -224,9 +224,7 @@ class LicWindow(QMainWindow):
         
     def createUndoSignals(self):
 
-        signals = [("itemsMoved", MoveCommand),
-                   ("moveStepToNewPage", MoveStepToPageCommand),
-                   ("adjustArrowLength", AdjustArrowLength)]
+        signals = [("itemsMoved", MoveCommand)]
 
         for signal, command in signals:
             self.connect(self.scene, SIGNAL(signal), lambda x, c = command: self.undoStack.push(c(x)))

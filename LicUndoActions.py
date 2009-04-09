@@ -302,22 +302,19 @@ class ToggleStepNumbersCommand(QUndoCommand):
 
 class AdjustArrowLength(QUndoCommand):
 
-    """
-    AdjustArrowLength stores an arrow and offset to add / remove to length
-    (arrow, offset)
-    """
-
     _id = getNewCommandID()
 
-    def __init__(self, arrowSet):
+    def __init__(self, arrow, offset):
         QUndoCommand.__init__(self, "arrow length change")
-        self.arrow, self.offset = arrowSet
+        self.arrow, self.offset = arrow, offset
 
     def undo(self):
         self.arrow.adjustLength(-self.offset)
+        self.arrow.csi().resetPixmap()
 
     def redo(self):
         self.arrow.adjustLength(self.offset)
+        self.arrow.csi().resetPixmap()
 
 class RotateCSICommand(QUndoCommand):
 

@@ -1313,13 +1313,13 @@ class Step(QGraphicsRectItem):
 
         if isinstance(parent, Page):  # TODO: Fix all the step merging code
             if parent.prevPage():
-                menu.addAction("Move to &Previous Page" % plural, self.moveToPrevPage)
+                menu.addAction("Move to &Previous Page", self.moveToPrevPage)
                 if parent.prevPage().steps:
-                    menu.addAction("Merge with Previous Step" % plural, self.mergeWithPrevStep)
+                    menu.addAction("Merge with Previous Step", self.mergeWithPrevStep)
             if parent.nextPage():
-                menu.addAction("Move to &Next Page" % plural, self.moveToNextPage)
+                menu.addAction("Move to &Next Page", self.moveToNextPage)
                 if parent.nextPage().steps:
-                    menu.addAction("Merge with Next Step" % plural, self.mergeWithNextStep)
+                    menu.addAction("Merge with Next Step", self.mergeWithNextStep)
             
         menu.addSeparator()
         menu.addAction("Add blank Callout", self.addBlankCalloutSignal)
@@ -1344,14 +1344,14 @@ class Step(QGraphicsRectItem):
         for step in self.scene().selectedItems():
             if isinstance(step, Step):
                 stepSet.append((step, step.parentItem(), step.parentItem().prevPage()))
-        step.scene().emit(SIGNAL("moveStepToNewPage"), stepSet)
+        step.scene().undoStack.push(MoveStepToPageCommand(stepSet))
         
     def moveToNextPage(self):
         stepSet = []
         for step in self.scene().selectedItems():
             if isinstance(step, Step):
                 stepSet.append((step, step.parentItem(), step.parentItem().nextPage()))
-        step.scene().emit(SIGNAL("moveStepToNewPage"), stepSet)
+        step.scene().undoStack.push(MoveStepToPageCommand(stepSet))
     
     def moveToPage(self, page):
         
@@ -2762,25 +2762,25 @@ class Arrow(Part):
         if color != LDrawColors.CurrentColor:
             GL.glPopAttrib()
 
-    def contextMenuEvent(self, event):
-
-        menu = QMenu(self.scene().views()[0])
-        
-        menu.addAction("Move &Forward", self.decreaseDisplacement)
-        menu.addAction("Move &Back", self.increaseDisplacement)
-        menu.addAction("&Longer", lambda: self.scene().emit(SIGNAL("adjustArrowLength"), (self, 20)))
-        menu.addAction("&Shorter", lambda: self.scene().emit(SIGNAL("adjustArrowLength"), (self, -20)))
-
-        menu.exec_(event.screenPos())
-
     def adjustLength(self, offset):
         p = self.partOGL.primitives[-1]
         p.points[3] = max(p.points[3] + offset, 0) 
         p.points[6] = max(p.points[6] + offset, 0)
         self.partOGL.resetBoundingBox()
         self.partOGL.createOGLDisplayList()
-        self.csi().resetPixmap()
-    
+        
+    def contextMenuEvent(self, event):
+
+        menu = QMenu(self.scene().views()[0])
+        stack = self.scene().undoStack
+        
+        menu.addAction("Move &Forward", lambda: self.displaceSignal(Helpers.getOppositeDirection(self.displaceDirection)))
+        menu.addAction("Move &Back", lambda: self.displaceSignal(self.displaceDirection))
+        menu.addAction("&Longer", lambda: stack.push(AdjustArrowLength(self, 20)))
+        menu.addAction("&Shorter", lambda: stack.push(AdjustArrowLength(self, -20)))
+
+        menu.exec_(event.screenPos())
+
 class Primitive(object):
     """
     Not a primitive in the LDraw sense, just a single line/triangle/quad.
