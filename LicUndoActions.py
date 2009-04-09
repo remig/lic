@@ -227,16 +227,11 @@ class AddRemovePageCommand(QUndoCommand):
 
 class MovePartsToStepCommand(QUndoCommand):
 
-    """
-    MovePartToStepCommand stores a part list, original step and step moved to
-    (partList, oldStep, newStep)
-    """
-
     _id = getNewCommandID()
 
-    def __init__(self, partSet):
+    def __init__(self, partList, oldStep, newStep):
         QUndoCommand.__init__(self, "move Part to Step")
-        self.partList, self.oldStep, self.newStep = partSet
+        self.partList, self.oldStep, self.newStep = partList, oldStep, newStep
 
     def moveFromStepToStep(self, oldStep, newStep):
         oldStep.scene().clearSelection()

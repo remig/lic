@@ -1311,16 +1311,17 @@ class Step(QGraphicsRectItem):
         undo = self.scene().undoStack
         parent = self.parentItem()
 
-        if isinstance(parent, Page):  # TODO: Fix all the step merging code
+        if isinstance(parent, Page):
             if parent.prevPage():
                 menu.addAction("Move to &Previous Page", self.moveToPrevPage)
-                if parent.prevPage().steps:
-                    menu.addAction("Merge with Previous Step", self.mergeWithPrevStep)
             if parent.nextPage():
                 menu.addAction("Move to &Next Page", self.moveToNextPage)
-                if parent.nextPage().steps:
-                    menu.addAction("Merge with Next Step", self.mergeWithNextStep)
             
+        if self.getPrevStep():
+            menu.addAction("Merge with Previous Step", lambda: self.mergeWithStepSignal(self.getPrevStep()))
+        if self.getNextStep():
+            menu.addAction("Merge with Next Step", lambda: self.mergeWithStepSignal(self.getNextStep()))
+                    
         menu.addSeparator()
         menu.addAction("Add blank Callout", self.addBlankCalloutSignal)
         menu.addSeparator()
@@ -1354,17 +1355,14 @@ class Step(QGraphicsRectItem):
         step.scene().undoStack.push(MoveStepToPageCommand(stepSet))
     
     def moveToPage(self, page):
-        
         page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.parentItem().removeStep(self)
         page.addStep(self)
         page.instructions.emit(SIGNAL("layoutChanged()"))
 
-    def mergeWithPrevStep(self):
-        print "Merging Step %d with previous Step - NYI" % self._number
-
-    def mergeWithNextStep(self, args = None):
-        print "Merging Step %d with next Step - NYI" % self._number
+    def mergeWithStepSignal(self, step):
+        a = MovePartsToStepCommand(self.csi.getPartList(), self, step)
+        self.scene().undoStack.push(a)
 
 class PLIItem(QGraphicsRectItem):
     """ Represents one part inside a PLI along with its quantity label. """
@@ -2208,11 +2206,12 @@ class Submodel(PartOGL):
             partList = csi.getPartList()
             partList.sort(key = lambda x: x.getXYZSortOrder())
             
-            for part in partList[PARTS_PER_STEP_MAX : ]:
+            for part in partList[PARTS_PER_STEP_MAX : ]:  # Move all but the first 5 parts to next step
                 part.getStep().removePart(part)
                 newPage.steps[-1].addPart(part)
+
             csi = newPage.steps[-1].csi
-    
+
     def syncPageNumbers(self, firstPageNumber = 1):
 
         rowList = self.pages + self.submodels
@@ -2469,6 +2468,15 @@ class Part(QGraphicsRectItem):
         x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
         return (-y, -z, x)
 
+    def x(self):
+        return self.matrix[12]
+    
+    def y(self):
+        return self.matrix[13]
+    
+    def z(self):
+        return self.matrix[14]
+
     def csi(self):
         return self.parentItem().parentItem()
     
@@ -2663,7 +2671,7 @@ class Part(QGraphicsRectItem):
             if isinstance(item, Part):
                 selectedParts.append(item)
 
-        self.scene().undoStack.push(MovePartsToStepCommand((selectedParts, self.getStep(), destStep)))
+        self.scene().undoStack.push(MovePartsToStepCommand(selectedParts, self.getStep(), destStep))
         
 class Arrow(Part):
 
