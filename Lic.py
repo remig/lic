@@ -349,7 +349,7 @@ class LicWindow(QMainWindow):
         
         recentFiles = []
         for filename in self.recentFiles:
-            if filename != QString(self.filename):
+            if filename != QString(self.filename) and QFile.exists(filename):
                 recentFiles.append(filename)
                 
         if recentFiles:
@@ -498,7 +498,13 @@ class LicWindow(QMainWindow):
         self.exportMenu.setEnabled(True)
 
     def fileSaveAs(self):
-        filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Safe File As", self.filename, "Lic Instruction Book files (*.lic)"))
+        if self.filename:
+            f = self.filename
+        else:
+            f = self.instructions.getModelName()
+            f = f.split('.')[0] + '.lic'
+            
+        filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Safe File As", f, "Lic Instruction Book files (*.lic)"))
         if filename:
             self.filename = filename
             return self.fileSave()

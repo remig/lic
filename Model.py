@@ -271,6 +271,9 @@ class Instructions(QAbstractItemModel):
         self.emit(SIGNAL("layoutChanged()"))
         yield (totalCount, "Import Complete!")
 
+    def getModelName(self):
+        return self.mainModel.filename
+
     def initGLDisplayLists(self):
         global GlobalGLContext
         GlobalGLContext.makeCurrent()
