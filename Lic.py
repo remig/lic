@@ -23,14 +23,15 @@ class LicGraphicsScene(QGraphicsScene):
 
     def __init__(self, parent):
         QGraphicsScene.__init__(self, parent)
-        self.currentPageNumber = None
+        self.pagesToDisplay = 1
+        self.currentPage = None
         self.pages = []
 
     def pageUp(self):
-        self.selectPage(max(1, self.currentPageNumber - 1))
+        self.selectPage(max(1, self.currentPage._number - 1))
 
     def pageDown(self):
-        self.selectPage(min(self.pages[-1]._number, self.currentPageNumber + 1))
+        self.selectPage(min(self.pages[-1]._number, self.currentPage._number + 1))
 
     def selectFirstPage(self):
         self.selectPage(1)
@@ -41,11 +42,45 @@ class LicGraphicsScene(QGraphicsScene):
     def selectPage(self, pageNumber):
         for page in self.pages:
             if page._number == pageNumber:
+                page.setPos(10, 10)
                 page.show()
-                self.currentPageNumber = page._number
+                self.currentPage = page
+            elif self.pagesToDisplay == 2 and page._number == pageNumber + 1:
+                page.show()
+                page.setPos(PageSize.width() + 20, 10)
             else:
                 page.hide()
+                page.setPos(10, 10)
+            if self.pagesToDisplay == 2 and pageNumber == self.pages[-1]._number:
+                self.pages[-1].setPos(PageSize.width() + 20, 10)
+                self.pages[-1].show()
+                self.pages[-2].setPos(10, 10)
+                self.pages[-2].show()
+
+    def showOnePage(self):
+        self.pagesToDisplay = 1
+        self.setSceneRect(0, 0, PageSize.width() + 20, PageSize.height() + 20)
+        for page in self.pages:
+            page.setPos(0.0, 0.0)
+        self.selectPage(self.currentPage._number)
+    
+    def showTwoPages(self):
+        self.pagesToDisplay = 2
+        self.setSceneRect(0, 0, (PageSize.width() * 2) + 30, PageSize.height() + 20)
+
+        index = self.pages.index(self.currentPage)
+        if self.currentPage == self.pages[-1]:
+            p1 = self.pages[index - 1]
+            p2 = self.currentPage
+        else:
+            p1 = self.currentPage
+            p2 = self.pages[index + 1]
         
+        p1.setPos(10, 10)
+        p1.show()
+        p2.setPos(PageSize.width() + 20, 10)
+        p2.show()
+    
     def addItem(self, item):
         QGraphicsScene.addItem(self, item)
         self.pages.append(item)
@@ -383,19 +418,11 @@ class LicWindow(QMainWindow):
         self.exportMenu.addAction(self.exportImagesAction)
 
     def showOnePage(self):
-        self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
-        currentPage = self.instructions.currentPage
-        currentPage.setPos(0.0, 0.0)
-        self.scene.selectPage(currentPage.number)
+        self.scene.showOnePage()
     
     def showTwoPages(self):
-        currentPage = self.instructions.currentPage
-        nextPage = self.instructions.mainModel.getPage(currentPage.number + 1)
-        self.scene.setSceneRect(0, 0, (PageSize.width() * 2) + 30, PageSize.height())
-        currentPage.setPos(10.0, 0)
-        nextPage.setPos(PageSize.width() + 20.0, 0.0)
-        nextPage.show()
-    
+        self.scene.showTwoPages()
+
     def zoomIn(self):
         self.graphicsView.scaleView(1.2)
     
