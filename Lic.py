@@ -136,6 +136,14 @@ class LicGraphicsView(QGraphicsView):
         self.setRenderHint(QPainter.Antialiasing)
         self.setRenderHint(QPainter.TextAntialiasing)
         self.setBackgroundBrush(QBrush(Qt.gray))
+    
+    def scaleView(self, scaleFactor):
+        factor = self.matrix().scale(scaleFactor, scaleFactor).mapRect(QRectF(0, 0, 1, 1)).width()
+
+        if factor < 0.07 or factor > 100:
+            return
+
+        self.scale(scaleFactor, scaleFactor)
 
 class LicWindow(QMainWindow):
 
@@ -298,16 +306,16 @@ class LicWindow(QMainWindow):
         self.fileMenu = menu.addMenu("&File")
         self.connect(self.fileMenu, SIGNAL("aboutToShow()"), self.updateFileMenu)
 
-        self.fileOpenAction = self.createMenuAction("&Open...", self.fileOpen, QKeySequence.Open, "Open an existing Instruction book")
+        fileOpenAction = self.createMenuAction("&Open...", self.fileOpen, QKeySequence.Open, "Open an existing Instruction book")
         self.fileCloseAction = self.createMenuAction("&Close", self.fileClose, QKeySequence.Close, "Close current Instruction book")
 
         self.fileSaveAction = self.createMenuAction("&Save", self.fileSave, QKeySequence.Save, "Save the Instruction book")
         self.fileSaveAsAction = self.createMenuAction("Save &As...", self.fileSaveAs, None, "Save the Instruction book using a new filename")
-        self.fileImportAction = self.createMenuAction("&Import Model", self.fileImport, None, "Import an existing LDraw Model into a new Instruction book")
+        fileImportAction = self.createMenuAction("&Import Model", self.fileImport, None, "Import an existing LDraw Model into a new Instruction book")
 
-        self.fileExitAction = self.createMenuAction("E&xit", SLOT("close()"), "Ctrl+Q", "Exit Lic")
+        fileExitAction = self.createMenuAction("E&xit", SLOT("close()"), "Ctrl+Q", "Exit Lic")
 
-        self.fileMenuActions = (self.fileOpenAction, self.fileCloseAction, None, self.fileSaveAction, self.fileSaveAsAction, self.fileImportAction, None, self.fileExitAction)
+        self.fileMenuActions = (fileOpenAction, self.fileCloseAction, None, self.fileSaveAction, self.fileSaveAsAction, fileImportAction, None, fileExitAction)
         
         # Edit Menu - undo / redo is generated dynamicall in updateEditMenu()
         self.editMenu = menu.addMenu("&Edit")
@@ -328,19 +336,44 @@ class LicWindow(QMainWindow):
 
         # View Menu
         self.viewMenu = menu.addMenu("&View")
+        zoomIn = self.createMenuAction("Zoom In", self.zoomIn, None, "Zoom In")
+        zoomOut = self.createMenuAction("Zoom Out", self.zoomOut, None, "Zoom Out")
+        onePage = self.createMenuAction("Show One Page", self.showOnePage, None, "Show One Page")
+        twoPages = self.createMenuAction("Show Two Pages", self.showTwoPages, None, "Show Two Pages")
+        self.addActions(self.viewMenu, (zoomIn, zoomOut, onePage, twoPages))
 
         # Page Menu
         self.pageMenu = menu.addMenu("&Page")
 
-        self.pageSizeAction = self.createMenuAction("Page Size...", self.changePageSize, None, "Change the overall size of all Pages in this Instruction book")       
-        self.csipliSizeAction = self.createMenuAction("CSI | PLI Image Size...", self.changeCSIPLISize, None, "Change the relative size of all CSIs and PLIs throughout Instruction book")
-        self.addActions(self.pageMenu, (self.pageSizeAction, self.csipliSizeAction))
+        pageSizeAction = self.createMenuAction("Page Size...", self.changePageSize, None, "Change the overall size of all Pages in this Instruction book")       
+        csipliSizeAction = self.createMenuAction("CSI | PLI Image Size...", self.changeCSIPLISize, None, "Change the relative size of all CSIs and PLIs throughout Instruction book")
+        self.addActions(self.pageMenu, (pageSizeAction, csipliSizeAction))
         
         # Export Menu
         self.exportMenu = menu.addMenu("E&xport")
         self.exportImagesAction = self.createMenuAction("Generate Final Images", self.exportImages, None, "Generate final, high res images of each page in this Instruction book")
         self.exportMenu.addAction(self.exportImagesAction)
 
+    def showOnePage(self):
+        self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
+        currentPage = self.instructions.currentPage
+        currentPage.setPos(0.0, 0.0)
+        self.instructions.selectPage(currentPage.number)
+    
+    def showTwoPages(self):
+        currentPage = self.instructions.currentPage
+        nextPage = self.instructions.mainModel.getPage(currentPage.number + 1)
+        self.scene.setSceneRect(0, 0, (PageSize.width() * 2) + 30, PageSize.height())
+        currentPage.setPos(10.0, 0)
+        nextPage.setPos(PageSize.width() + 20.0, 0.0)
+        nextPage.show()
+    
+    def zoomIn(self):
+        self.graphicsView.scaleView(1.2)
+    
+    def zoomOut(self):
+        self.graphicsView.scaleView(1.0 / 1.2)
+    
     def updateFileMenu(self):
         self.fileMenu.clear()
         self.addActions(self.fileMenu, self.fileMenuActions[:-1])  # Don't add last Exit yet

@@ -95,13 +95,13 @@ class LicTreeView(QTreeView):
 
         # Find the selected item's parent page, then flip to that page
         if isinstance(index.internalPointer(), Submodel):
-            instructions.mainModel.selectPage(index.internalPointer().pages[0].number)
+            instructions.selectPage(index.internalPointer().pages[0].number)
             self.scrollTo(index.child(0, 0))
         else:
             parent = QModelIndex(index)
             while not isinstance(parent.internalPointer(), Page):
                 parent = parent.parent()
-            instructions.mainModel.selectPage(parent.internalPointer().number)
+            instructions.selectPage(parent.internalPointer().number)
 
         # Finally, select the things we actually clicked on
         partList = []
@@ -130,7 +130,8 @@ class Instructions(QAbstractItemModel):
 
         self.scene = scene
         self.mainModel = None
-
+        self.currentPage = None
+        
         GlobalGLContext = glWidget
         GlobalGLContext.makeCurrent()
 
@@ -267,7 +268,7 @@ class Instructions(QAbstractItemModel):
             currentCount += 1
             yield (currentCount, label)
 
-        self.mainModel.selectPage(1)
+        self.selectPage(1)
         self.emit(SIGNAL("layoutChanged()"))
         yield (totalCount, "Import Complete!")
 
@@ -430,11 +431,11 @@ class Instructions(QAbstractItemModel):
         return submodelDictionary
     
     def pageUp(self):
-        self.selectPage(self.mainModel.currentPage._number - 1)
+        self.selectPage(self.currentPage._number - 1)
 
     def pageDown(self):
         lastPage = self.mainModel.pages[-1]._number
-        self.selectPage(min(lastPage, self.mainModel.currentPage._number + 1))
+        self.selectPage(min(lastPage, self.currentPage._number + 1))
 
     def selectFirstPage(self):
         self.selectPage(0)
@@ -444,8 +445,8 @@ class Instructions(QAbstractItemModel):
 
     def selectPage(self, pageNumber):
         if self.mainModel:
-            self.mainModel.selectPage(pageNumber)
-            self.mainModel.currentPage.setSelected(True)
+            self.currentPage = self.mainModel.selectPage(pageNumber)
+            self.currentPage.setSelected(True)
         
     def updatePageNumbers(self, newNumber, increment = 1):
         if self.mainModel:
@@ -2103,7 +2104,6 @@ class Submodel(PartOGL):
         self._row = 0
         self._parent = parent
         self.isSubmodel = True
-        self.currentPage = None # Track the currently selected page in this model
         
     def setSelected(self, selected):
         self.pages[0].setSelected(selected)
@@ -2278,21 +2278,21 @@ class Submodel(PartOGL):
     def selectPage(self, pageNumber):
 
         pageNumber = max(pageNumber, 1)
-        newPage = self.currentPage = None
+        newPage = currentPage = None
         
         for page in self.pages:
             if page._number == pageNumber:
                 page.show()
-                self.currentPage = page
+                currentPage = page
             else:
                 page.hide()
 
         for submodel in self.submodels:
             newPage = submodel.selectPage(pageNumber)
             if newPage:
-                self.currentPage = newPage
+                currentPage = newPage
             
-        return self.currentPage
+        return currentPage
 
     def addPartFromLine(self, p, line):
         

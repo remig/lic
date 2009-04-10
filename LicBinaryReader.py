@@ -21,7 +21,7 @@ def loadLicFile(filename, instructions):
         raise IOError, "unrecognized .lic file version"
 
     __readInstructions(stream, instructions)
-    instructions.mainModel.selectPage(1)
+    instructions.selectPage(1)
 
     if fh is not None:
         fh.close()
