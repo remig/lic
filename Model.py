@@ -95,13 +95,13 @@ class LicTreeView(QTreeView):
 
         # Find the selected item's parent page, then flip to that page
         if isinstance(index.internalPointer(), Submodel):
-            instructions.selectPage(index.internalPointer().pages[0].number)
+            instructions.scene.selectPage(index.internalPointer().pages[0].number)
             self.scrollTo(index.child(0, 0))
         else:
             parent = QModelIndex(index)
             while not isinstance(parent.internalPointer(), Page):
                 parent = parent.parent()
-            instructions.selectPage(parent.internalPointer().number)
+            instructions.scene.selectPage(parent.internalPointer()._number)
 
         # Finally, select the things we actually clicked on
         partList = []
@@ -130,7 +130,6 @@ class Instructions(QAbstractItemModel):
 
         self.scene = scene
         self.mainModel = None
-        self.currentPage = None
         
         GlobalGLContext = glWidget
         GlobalGLContext.makeCurrent()
@@ -268,7 +267,7 @@ class Instructions(QAbstractItemModel):
             currentCount += 1
             yield (currentCount, label)
 
-        self.selectPage(1)
+        self.scene.selectPage(1)
         self.emit(SIGNAL("layoutChanged()"))
         yield (totalCount, "Import Complete!")
 
@@ -430,24 +429,6 @@ class Instructions(QAbstractItemModel):
         global submodelDictionary
         return submodelDictionary
     
-    def pageUp(self):
-        self.selectPage(self.currentPage._number - 1)
-
-    def pageDown(self):
-        lastPage = self.mainModel.pages[-1]._number
-        self.selectPage(min(lastPage, self.currentPage._number + 1))
-
-    def selectFirstPage(self):
-        self.selectPage(0)
-
-    def selectLastPage(self):
-        self.selectPage(self.mainModel.pages[-1]._number)
-
-    def selectPage(self, pageNumber):
-        if self.mainModel:
-            self.currentPage = self.mainModel.selectPage(pageNumber)
-            self.currentPage.setSelected(True)
-        
     def updatePageNumbers(self, newNumber, increment = 1):
         if self.mainModel:
             self.mainModel.updatePageNumbers(newNumber, increment)
@@ -489,7 +470,6 @@ class Page(QGraphicsRectItem):
 
     def __init__(self, parent, instructions, number, row):
         QGraphicsRectItem.__init__(self)
-        instructions.scene.addItem(self)
 
         # Position this rectangle inset from the containing scene
         self.setPos(0, 0)
@@ -517,6 +497,9 @@ class Page(QGraphicsRectItem):
         rect.moveBottomRight(self.rect().bottomRight() - Page.margin)
         self.numberItem.setPos(rect.topLeft())
         self.numberItem.setFlags(AllFlags)
+
+        # Need to explicitly add this page to scene, since it has no parent
+        instructions.scene.addItem(self)
 
     def _setNumber(self, number):
         self._number = number
@@ -2274,25 +2257,6 @@ class Submodel(PartOGL):
             if page:
                 return page
         return None
-
-    def selectPage(self, pageNumber):
-
-        pageNumber = max(pageNumber, 1)
-        newPage = currentPage = None
-        
-        for page in self.pages:
-            if page._number == pageNumber:
-                page.show()
-                currentPage = page
-            else:
-                page.hide()
-
-        for submodel in self.submodels:
-            newPage = submodel.selectPage(pageNumber)
-            if newPage:
-                currentPage = newPage
-            
-        return currentPage
 
     def addPartFromLine(self, p, line):
         

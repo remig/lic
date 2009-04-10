@@ -223,7 +223,7 @@ class AddRemovePageCommand(QUndoCommand):
             number = page.number - 1
 
         page.instructions.emit(SIGNAL("layoutChanged()"))
-        page.instructions.selectPage(number)
+        page.instructions.scene.selectPage(number)
 
 class MovePartsToStepCommand(QUndoCommand):
 

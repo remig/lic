@@ -23,7 +23,34 @@ class LicGraphicsScene(QGraphicsScene):
 
     def __init__(self, parent):
         QGraphicsScene.__init__(self, parent)
+        self.currentPageNumber = None
+        self.pages = []
 
+    def pageUp(self):
+        self.selectPage(max(1, self.currentPageNumber - 1))
+
+    def pageDown(self):
+        self.selectPage(min(self.pages[-1]._number, self.currentPageNumber + 1))
+
+    def selectFirstPage(self):
+        self.selectPage(1)
+
+    def selectLastPage(self):
+        self.selectPage(self.pages[-1]._number)
+
+    def selectPage(self, pageNumber):
+        for page in self.pages:
+            if page._number == pageNumber:
+                page.show()
+                self.currentPageNumber = page._number
+            else:
+                page.hide()
+        
+    def addItem(self, item):
+        QGraphicsScene.addItem(self, item)
+        self.pages.append(item)
+        self.pages.sort(key = lambda x: x._number)
+        
     def mouseReleaseEvent(self, event):
 
         # Need to compare the selection list before and after selection, to deselect any selected parts
@@ -183,10 +210,10 @@ class LicWindow(QMainWindow):
         self.treeView.setSelectionModel(self.selectionModel)
         self.treeView.connect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateSelection)
 
-        self.connect(self.scene, SIGNAL("pageUp"), self.instructions.pageUp)
-        self.connect(self.scene, SIGNAL("pageDown"), self.instructions.pageDown)
-        self.connect(self.scene, SIGNAL("home"), self.instructions.selectFirstPage)
-        self.connect(self.scene, SIGNAL("end"), self.instructions.selectLastPage)
+        self.connect(self.scene, SIGNAL("pageUp"), self.scene.pageUp)
+        self.connect(self.scene, SIGNAL("pageDown"), self.scene.pageDown)
+        self.connect(self.scene, SIGNAL("home"), self.scene.selectFirstPage)
+        self.connect(self.scene, SIGNAL("end"), self.scene.selectLastPage)
         
         # Allow the graphics scene to emit the layoutAboutToBeChanged and layoutChanged 
         # signals, for easy notification of layout changes everywhere
@@ -215,6 +242,7 @@ class LicWindow(QMainWindow):
         self.restoreState(settings.value("MainWindow/State").toByteArray())
     
     def keyReleaseEvent(self, event):
+        pass
         key = event.key()
         
         if key == Qt.Key_Plus:
@@ -358,7 +386,7 @@ class LicWindow(QMainWindow):
         self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
         currentPage = self.instructions.currentPage
         currentPage.setPos(0.0, 0.0)
-        self.instructions.selectPage(currentPage.number)
+        self.scene.selectPage(currentPage.number)
     
     def showTwoPages(self):
         currentPage = self.instructions.currentPage
