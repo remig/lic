@@ -170,6 +170,11 @@ def __writeCallout(stream, callout):
     stream.writeInt32(callout.number)
     stream.writeBool(callout.showStepNumbers)
 
+    stream.writeBool(True if callout.qtyLabel else False)
+    if callout.qtyLabel:
+        stream << callout.qtyLabel.pos() << callout.qtyLabel.font()
+        stream.writeInt32(int(callout.qtyLabel.text()[:-1]))
+        
     stream.writeInt32(len(callout.steps))
     for step in callout.steps:
         __writeStep(stream, step)

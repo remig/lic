@@ -72,6 +72,11 @@ def __fixPovFile(filename, imgWidth, imgHeight, offset, camera):
     licHeader = "// Lic: Processed lights, camera and rotation\n"
     originalFile = open(filename, 'r')
     
+    # Bug in l3p: if we're rendering only one part, l3p declares it as an object, 
+    # not union; PovRay then ignores the color, and we get a black part
+    objectName = os.path.splitext(os.path.basename(filename))[0]
+    objectName = objectName.replace('_', '__') + '_dot_dat'
+    
     # Check if we've already processed this pov, abort if we have
     if originalFile.readline() == licHeader:
         originalFile.close()
@@ -87,7 +92,10 @@ def __fixPovFile(filename, imgWidth, imgHeight, offset, camera):
         if line.startswith('object { '):
             lastObjectLine = line
         
-        elif line == 'light_source {\n':
+        elif line.startswith('#declare %s = object' % objectName):
+            line = line.replace('object', 'union')
+        
+        elif line == 'light_source     {\n':
             inLight = True
         
         elif line == '}\n' and inLight:

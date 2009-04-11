@@ -42,24 +42,24 @@ class LicGraphicsScene(QGraphicsScene):
     def selectPage(self, pageNumber):
         for page in self.pages:
             if page._number == pageNumber:
-                page.setPos(10, 10)
+                page.setPos(0, 0)
                 page.show()
                 self.currentPage = page
             elif self.pagesToDisplay == 2 and page._number == pageNumber + 1:
                 page.show()
-                page.setPos(PageSize.width() + 20, 10)
+                page.setPos(PageSize.width() + 10, 10)
             else:
                 page.hide()
-                page.setPos(10, 10)
+                page.setPos(0, 0)
             if self.pagesToDisplay == 2 and pageNumber == self.pages[-1]._number:
-                self.pages[-1].setPos(PageSize.width() + 20, 10)
+                self.pages[-1].setPos(PageSize.width() + 10, 10)
                 self.pages[-1].show()
-                self.pages[-2].setPos(10, 10)
+                self.pages[-2].setPos(0, 0)
                 self.pages[-2].show()
 
     def showOnePage(self):
         self.pagesToDisplay = 1
-        self.setSceneRect(0, 0, PageSize.width() + 20, PageSize.height() + 20)
+        self.setSceneRect(0, 0, PageSize.width(), PageSize.height())
         for page in self.pages:
             page.setPos(0.0, 0.0)
         self.selectPage(self.currentPage._number)

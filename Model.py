@@ -539,12 +539,22 @@ class Page(QGraphicsRectItem):
 
         for step in self.steps:
             items.append(step)
-            items.append(step.numberItem)
+            if step.numberItem:
+                items.append(step.numberItem)
             if step.pli:
                 items.append(step.pli)
                 for pliItem in step.pli.pliItems:
                     items.append(pliItem)
                     items.append(pliItem.numberItem)
+            for callout in step.callouts:
+                items.append(callout)
+                items.append(callout.arrow)
+                if callout.qtyLabel:
+                    items.append(callout.qtyLabel)
+                for step in callout.steps:
+                    items.append(step)
+                    if step.numberItem:
+                        items.append(step.numberItem)
 
         for separator in self.separators:
             items.append(separator)
@@ -721,6 +731,11 @@ class Page(QGraphicsRectItem):
 
         for step in self.steps:
             step.csi.createPng()
+            
+            for callout in step.callouts:
+                for s in callout.steps:
+                    s.csi.createPng()
+                    
             if step.pli:
                 for item in step.pli.pliItems:
                     item.createPng()
@@ -735,17 +750,15 @@ class Page(QGraphicsRectItem):
         self.scene().drawItems(painter, items, optionList)
 
         for step in self.steps:
-            if hasattr(step.csi, "pngImage"):
-                painter.drawImage(step.csi.scenePos(), step.csi.pngImage)
-            else:
-                print "Error: Trying to draw a csi that was not exported to png: page %d step %d" % step.csi.getPageStepNumberPair()
+            painter.drawImage(step.csi.scenePos(), step.csi.pngImage)
                 
+            for callout in step.callouts:
+                for s in callout.steps:
+                    painter.drawImage(s.csi.scenePos(), s.csi.pngImage)
+            
             if step.pli:
                 for item in step.pli.pliItems:
-                    if hasattr(item, "pngImage"):
-                        painter.drawImage(item.scenePos(), item.pngImage)
-                    else:
-                        print "Error: Trying to draw a pliItem that was not exported to png: step %d, item %s" % (step._number, item.partOGL.filename)
+                    painter.drawImage(item.scenePos(), item.pngImage)
 
         if self.submodelItem:
             painter.drawImage(self.submodelItem.pos() + PLI.margin, self._parent.pngImage)
@@ -779,9 +792,21 @@ class Page(QGraphicsRectItem):
             menu.addAction("Show Step Separators", self.showSeparators)
         menu.addAction("Add blank Step", self.addBlankStepSignal)
         menu.addSeparator()
+        if self.layout.orientation == Layout.Horizontal:
+            menu.addAction("Use Vertical layout", self.useVerticalLayout)
+        else:
+            menu.addAction("Use Horizontal layout", self.useHorizontalLayout)
         menu.addAction("Delete Page", self.deletePageSignal)
         menu.exec_(event.screenPos())
     
+    def useVerticalLayout(self):
+        self.layout.orientation = Layout.Vertical
+        self.initLayout()
+        
+    def useHorizontalLayout(self):
+        self.layout.orientation = Layout.Horizontal
+        self.initLayout()
+        
     def addBlankStepSignal(self):
         step = Step(self, self.getNextStepNumber())
         self.scene().undoStack.push(AddRemoveStepCommand(step, True))
@@ -1018,31 +1043,26 @@ class Callout(QGraphicsRectItem):
             step.disableNumberItem()
         self.showStepNumbers = False
 
-    def addQuantityLabel(self):
-        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+    def addQuantityLabel(self, pos = None, font = None):
         self.qtyLabel = QGraphicsSimpleTextItem("1x", self)
-        self.qtyLabel.setPos(0, 0)
-        self.qtyLabel.setFont(QFont("Arial", 15))
+        self.qtyLabel.setPos(pos if pos else QPointF(0, 0))
+        self.qtyLabel.setFont(font if font else QFont("Arial", 15))
         self.qtyLabel.setFlags(AllFlags)
         self.qtyLabel.dataText = "Quantity Label"
-        self.scene().emit(SIGNAL("layoutChanged()"))
-        self.initLayout()
             
     def removeQuantityLabel(self):
-        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         self.scene().removeItem(self.qtyLabel)
         self.qtyLabel = None
-        self.scene().emit(SIGNAL("layoutChanged()"))
-        self.initLayout()
     
     def increaseQuantityLabel(self):
-        qty = int(self.qtyLabel.text()[:-1])
-        self.qtyLabel.setText("%dx" % (qty + 1))
+        self.setQuantity(int(self.qtyLabel.text()[:-1]) + 1)
     
     def decreaseQuantityLabel(self):
-        qty = int(self.qtyLabel.text()[:-1])
-        self.qtyLabel.setText("%dx" % (qty - 1))
+        self.setQuantity(int(self.qtyLabel.text()[:-1]) - 1)
 
+    def setQuantity(self, qty):
+        self.qtyLabel.setText("%dx" % qty)
+        
     def contextMenuEvent(self, event):
         stack = self.scene().undoStack
         menu = QMenu(self.scene().views()[0])
@@ -1050,9 +1070,9 @@ class Callout(QGraphicsRectItem):
         if self.qtyLabel:
             menu.addAction("Increase Quantity", self.increaseQuantityLabel)
             menu.addAction("Decrease Quantity", self.decreaseQuantityLabel)
-            menu.addAction("Remove Quantity Label", self.removeQuantityLabel)
+            menu.addAction("Remove Quantity Label", lambda: stack.push(ToggleCalloutQtyCommand(self, False)))
         else:
-            menu.addAction("Add Quantity Label", self.addQuantityLabel)
+            menu.addAction("Add Quantity Label", lambda: stack.push(ToggleCalloutQtyCommand(self, True)))
         if self.showStepNumbers:
             menu.addAction("Hide Step numbers", lambda: stack.push(ToggleStepNumbersCommand(self, False)))
         else:
@@ -1164,17 +1184,15 @@ class Step(QGraphicsRectItem):
         return self.parentItem().getStep(self.number - 1)
 
     def enableNumberItem(self):
-        if not self.numberItem:
-            self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
-            self.numberItem.setPos(0, 0)
-            self.numberItem.setFont(QFont("Arial", 15))
-            self.numberItem.setFlags(AllFlags)
-            self.numberItem.dataText = "Step Number Label"
+        self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
+        self.numberItem.setPos(0, 0)
+        self.numberItem.setFont(QFont("Arial", 15))
+        self.numberItem.setFlags(AllFlags)
+        self.numberItem.dataText = "Step Number Label"
             
     def disableNumberItem(self):
-        if self.numberItem:
-            self.scene().removeItem(self.numberItem)
-            self.numberItem = None
+        self.scene().removeItem(self.numberItem)
+        self.numberItem = None
         
     def initMinimumLayout(self):
 
@@ -1778,7 +1796,7 @@ class CSI(QGraphicsPixmapItem):
         
         rawFilename = os.path.splitext(os.path.basename(currentModelFilename))[0]
         pageNumber, stepNumber = self.getPageStepNumberPair()
-        filename = "%s_page_%d_step_%d" % (rawFilename, pageNumber, stepNumber)
+        filename = self.getDatFilename()
 
         result = "Initializing CSI Page %d Step %d" % (pageNumber, stepNumber)
         if not self.parts:
@@ -1810,7 +1828,7 @@ class CSI(QGraphicsPixmapItem):
 
     def createPng(self):
 
-        csiName = "CSI_Page_%d_Step_%d.dat" % self.getPageStepNumberPair()
+        csiName = self.getDatFilename()
         datFile = os.path.join(config.config['datPath'], csiName)
         
         if not os.path.isfile(datFile):
@@ -1831,6 +1849,14 @@ class CSI(QGraphicsPixmapItem):
             for part in partItem.parts:
                 part.exportToLDrawFile(fh)
 
+    def getDatFilename(self):
+        step = self.parentItem()
+        parent = step.parentItem()
+        if isinstance(parent, Callout):
+            return "CSI_Callout_%d_Step_%d.dat" % (parent.number, step.number)
+        else:
+            return "CSI_Page_%d_Step_%d.dat" % (parent.number, step.number)
+    
     def getPageStepNumberPair(self):
         step = self.parentItem()
         page = step.parentItem()

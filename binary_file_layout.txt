@@ -120,6 +120,11 @@ Callout:
   int32 number
   bool showStepNumbers
   
+  bool hasQuantityLabel
+  QPointf qtyLabel.pos, if hasQuantityLabel
+  QFont qtyLabel.font, if hasQuantityLabel
+  int32 quantity, if hasQuantityLabel
+
   int32 number of Steps
   ... Step 0..n ...
   

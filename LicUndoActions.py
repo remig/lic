@@ -276,7 +276,7 @@ class AddPartsToCalloutCommand(QUndoCommand):
         self.callout.scene().emit(SIGNAL("layoutChanged()"))
         self.callout.steps[-1].csi.resetPixmap()
         self.callout.initLayout()
-        
+
 class ToggleStepNumbersCommand(QUndoCommand):
 
     _id = getNewCommandID()
@@ -295,6 +295,24 @@ class ToggleStepNumbersCommand(QUndoCommand):
         self.callout.scene().emit(SIGNAL("layoutChanged()"))
         self.callout.initLayout()
 
+class ToggleCalloutQtyCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, callout, enableQty):
+        QUndoCommand.__init__(self, "%s Callout Quantity" % ("Add" if enableQty else "Remove"))
+        self.callout = callout
+        self.enableQty = enableQty
+
+    def doAction(self, redo):
+        self.callout.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        if (redo and self.enableQty) or (not redo and not self.enableQty):
+            self.callout.addQuantityLabel()
+        else:
+            self.callout.removeQuantityLabel()
+        self.callout.scene().emit(SIGNAL("layoutChanged()"))
+        self.callout.initLayout()
+                
 class AdjustArrowLength(QUndoCommand):
 
     _id = getNewCommandID()

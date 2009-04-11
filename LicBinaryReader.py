@@ -267,6 +267,12 @@ def __readCallout(stream, parent):
     callout.setPen(pen)
     callout.setRect(rect)
 
+    if stream.readBool():  # has quantity label
+        font = QFont()
+        stream >> pos >> font
+        callout.addQuantityLabel(pos, font)
+        callout.setQuantity(stream.readInt32())
+        
     stepCount = stream.readInt32()
     for i in range(0, stepCount):
         step = __readStep(stream, callout)
