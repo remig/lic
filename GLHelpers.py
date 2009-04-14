@@ -12,15 +12,15 @@ def drawCoordLines(length = 20.0):
     glPushAttrib(GL_CURRENT_BIT)
     
     glBegin(GL_LINES)
-    glColor4fv([1.0, 0.0, 0.0, 1.0])
+    glColor4f(1.0, 0.0, 0.0, 1.0)
     glVertex3f(0.0, 0.0, 0.0)
     glVertex3f(length, 0.0, 0.0)
     
-    glColor4fv([0.0, 1.0, 0.0, 1.0])
+    glColor4f(0.0, 1.0, 0.0, 1.0)
     glVertex3f(0.0, 0.0, 0.0)
     glVertex3f(0.0, length, 0.0)
     
-    glColor4fv([0.0, 0.0, 1.0, 1.0])
+    glColor4f(0.0, 0.0, 1.0, 1.0)
     glVertex3f(0.0, 0.0, 0.0)
     glVertex3f(0.0, 0.0, length)
     glEnd()

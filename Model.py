@@ -1921,12 +1921,18 @@ class PartOGL(object):
         if isValidPartLine(line):
             self.addPartFromLine(lineToPart(line), line)
 
+        elif isValidLineLine(line):
+            self.addPrimitive(lineToLine(line), GL.GL_LINES)
+        
         elif isValidTriangleLine(line):
             self.addPrimitive(lineToTriangle(line), GL.GL_TRIANGLES)
 
         elif isValidQuadLine(line):
             self.addPrimitive(lineToQuad(line), GL.GL_QUADS)
             
+        #elif isValidConditionalLine(line):
+        #    self.addPrimitive(lineToConditionalLine(line), GL.GL_LINES)
+    
         elif isValidBFCLine(line):
             if line[3] == 'CERTIFY':
                 self.winding = GL.GL_CW if line[4] == 'CW' else GL.GL_CCW
@@ -2798,9 +2804,11 @@ class Primitive(object):
         p = self.points
         box = BoundingBox(p[0], p[1], p[2])
         box.growByPoints(p[3], p[4], p[5])
-        box.growByPoints(p[6], p[7], p[8])
-        if self.type == GL.GL_QUADS:
-            box.growByPoints(p[9], p[10], p[11])
+        if self.type != GL.GL_LINES:
+            box.growByPoints(p[6], p[7], p[8])
+            if self.type == GL.GL_QUADS:
+                box.growByPoints(p[9], p[10], p[11])
+                
         self.__boundingBox = box
         return box
 
@@ -2811,9 +2819,10 @@ class Primitive(object):
         p = self.points
         yield (p[0], p[1], p[2])
         yield (p[3], p[4], p[5])
-        yield (p[6], p[7], p[8])
-        if self.type == GL.GL_QUADS:
-            yield (p[9], p[10], p[11])
+        if self.type != GL.GL_LINES:
+            yield (p[6], p[7], p[8])
+            if self.type == GL.GL_QUADS:
+                yield (p[9], p[10], p[11])
 
     # TODO: using numpy for all this would probably work a lot better
     def addNormal(self, p1, p2, p3):
@@ -2838,13 +2847,23 @@ class Primitive(object):
     def callGLDisplayList(self):
 
         # must be called inside a glNewList/EndList pair
+        p = self.points
+        if self.type == GL.GL_LINES:
+            GL.glPushAttrib(GL.GL_CURRENT_BIT)
+            GL.glColor4f(0.0, 0.0, 0.0, 1.0)
+            GL.glBegin(self.type)
+            GL.glVertex3f(p[0], p[1], p[2])
+            GL.glVertex3f(p[3], p[4], p[5])
+            GL.glEnd()
+            GL.glPopAttrib()
+            return
+
         color = LDrawColors.convertToRGBA(self.color)
 
         if color != LDrawColors.CurrentColor:
             GL.glPushAttrib(GL.GL_CURRENT_BIT)
             GL.glColor4fv(color)
 
-        p = self.points
 
         if self.winding == GL.GL_CCW:
             normal = self.addNormal(p[0:3], p[3:6], p[6:9])

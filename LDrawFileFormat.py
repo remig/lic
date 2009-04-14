@@ -55,6 +55,25 @@ def lineToQuad(line):
     d['points'] = [float(x) for x in line[3:]]
     return d
 
+def isValidConditionalLine(line):
+    return (len(line) == 15) and (line[1] == ConditionalLineCommand)
+
+def isValidLineLine(line):
+    return (len(line) == 9) and (line[1] == LineCommand)
+
+def lineToConditionalLine(line):
+    d = {}
+    d['color'] = float(line[2])
+    d['points'] = [float(x) for x in line[3:9]]
+    d['control points'] = [float(x) for x in line[9:]]
+    return d
+
+def lineToLine(line):
+    d = {}
+    d['color'] = float(line[2])
+    d['points'] = [float(x) for x in line[3:]]
+    return d
+
 def isValidFileLine(line):
     return (len(line) > 2) and (line[1] == Comment) and (line[2] == FileCommand)
 
