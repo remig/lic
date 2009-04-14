@@ -2,14 +2,6 @@ Lic TODO:
 
 Thoughts on displacing parts:
 
-- For the problem where a part being moved falls out of the CSI bounds: as soon as we enter
-  'part displacement mode', enlarge and regenerate the CSI to as big as the page, behind
-  everything else.  That gives the part maximal room to be moved in.  As soon as we
-  exit 'part displacement mode', recalculate the size of the new CSI, and draw that.
-  
-  - This require better support for a real 'part displacement mode'
-  - Hopefully, regenerating the CSI at a big size like that is fast enough...
-
 - For context menus: could add a 'Reposition...' menu, which has options like 'Center
   CSI Vertically in page', etc.  Or just use guides with snap-to?
 
@@ -30,22 +22,19 @@ Eventually:
   - Add parts to that one global cache, so cache can be shared by all renderings of that size
   - Not a priority, since calculating part sizes is usually only a few seconds, at most
 
-TODO: Remove all the annoying as hell '?' from all the small dialog title bars.
+- Remove all the annoying as hell '?' from all the small dialog title bars.
 
-TODO: Only create config paths when a file is about to be exported.  No sense creating them on model import!
+- Only create config paths when a file is about to be exported.  No sense creating them on model import!
 
-TODO: Still need to handle submodels that are not embedded in the main model file.
+- Still need to handle submodels that are not embedded in the main model file.
 
-TODO: Have a small problem where if you click on a submodel, its node is expanded automatically and its first page is selected, which is fine.  But if you then use arrow keys to move up or left, selection is automatically forced back to the first page.  Kinda unnatural.  To fix, when a submodel is selected, do not automatically select the first page, select the submodel itself, and just draw its first page.
+- Have a small problem where if you click on a submodel, its node is expanded automatically and its first page is selected, which is fine.  But if you then use arrow keys to move up or left, selection is automatically forced back to the first page.  Kinda unnatural.  To fix, when a submodel is selected, do not automatically select the first page, select the submodel itself, and just draw its first page.
 
-TODO: Should have separate scale settings for submodel images?
+- Should have separate scale settings for submodel images?
 
-TODO: Need to try and reduce the amount of work done on each scale resize, since it can take several seconds to process a size change, even on really small models.  Could possibly provide a preview of one page, scale that, then apply those changes, once finalized by the user, to the full document...
+- Need to try and reduce the amount of work done on each scale resize, since it can take several seconds to process a size change, even on really small models.  Could possibly provide a preview of one page, scale that, then apply those changes, once finalized by the user, to the full document...
 
-TODO: If it's gonna take a while to scale CSIs | PLIs, let the user know, by greying out the Scale CSI | PLI dialog buttons or a progress bar or something.
-
-
-Lic thoughts on default vs. local settings.
+- If it's gonna take a while to scale CSIs | PLIs, let the user know, by greying out the Scale CSI | PLI dialog buttons or a progress bar or something.
 
 - Any changes on any particular page apply to that one selected item.
 
@@ -58,8 +47,4 @@ set all the defaults for the overall document.
 
 - Add status indicator to file->open operation
 
-- Add recently opened file list
-
 - step.setSelected(True) selects step in graphics view but not tree view (InsertStepCommand)
-
-- Should automate creating tiny undoStack.push functions for each undo / redo signal created in Lic.LicWindow

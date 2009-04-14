@@ -15,7 +15,6 @@ import povray
 import LDrawColors
 import Helpers
 import Layout
-import Matrix
 
 from LDrawFileFormat import *
 
