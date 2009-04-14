@@ -2475,16 +2475,16 @@ class Part(QGraphicsRectItem):
     def z(self):
         return self.matrix[14]
 
-    def csi(self):
+    def getCSI(self):
         return self.parentItem().parentItem()
     
+    def getStep(self):
+        return self.parentItem().parentItem().parentItem()
+
     def setSelected(self, selected, updatePixmap = True):
         QGraphicsRectItem.setSelected(self, selected)
         if updatePixmap:
-            self.csi().updatePixmap()
-
-    def getStep(self):
-        return self.csi().parentItem()
+            self.getCSI().updatePixmap()
 
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
@@ -2602,11 +2602,11 @@ class Part(QGraphicsRectItem):
         
         needSeparator = False
         if step.getPrevStep():
-            menu.addAction("Move to &Previous Step", self.moveToPrevStep)
+            menu.addAction("Move to &Previous Step", lambda: self.moveToStepSignal(step.getPrevStep()))
             needSeparator = True
             
         if step.getNextStep():
-            menu.addAction("Move to &Next Step", self.moveToNextStep)
+            menu.addAction("Move to &Next Step", lambda: self.moveToStepSignal(step.getNextStep()))
             needSeparator = True
 
         if needSeparator:
@@ -2618,12 +2618,12 @@ class Part(QGraphicsRectItem):
         else:
             s = self.scene().undoStack
             arrowMenu = menu.addMenu("Displace With &Arrow")
-            arrowMenu.addAction("Move Up", lambda: s.push(BeginDisplacement(self, Qt.Key_PageUp, Arrow(Qt.Key_PageUp))))
-            arrowMenu.addAction("Move Down", lambda: s.push(BeginDisplacement(self, Qt.Key_PageDown, Arrow(Qt.Key_PageDown))))
-            arrowMenu.addAction("Move Forward", lambda: s.push(BeginDisplacement(self, Qt.Key_Down, Arrow(Qt.Key_Down))))
-            arrowMenu.addAction("Move Back", lambda: s.push(BeginDisplacement(self, Qt.Key_Up, Arrow(Qt.Key_Up))))
-            arrowMenu.addAction("Move Left", lambda: s.push(BeginDisplacement(self, Qt.Key_Left, Arrow(Qt.Key_Left))))
-            arrowMenu.addAction("Move Right", lambda: s.push(BeginDisplacement(self, Qt.Key_Right, Arrow(Qt.Key_Right))))
+            arrowMenu.addAction("Move Up", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_PageUp, Arrow(Qt.Key_PageUp))))
+            arrowMenu.addAction("Move Down", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_PageDown, Arrow(Qt.Key_PageDown))))
+            arrowMenu.addAction("Move Forward", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_Down, Arrow(Qt.Key_Down))))
+            arrowMenu.addAction("Move Back", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_Up, Arrow(Qt.Key_Up))))
+            arrowMenu.addAction("Move Left", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_Left, Arrow(Qt.Key_Left))))
+            arrowMenu.addAction("Move Right", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_Right, Arrow(Qt.Key_Right))))
             
         menu.exec_(event.screenPos())
 
@@ -2656,13 +2656,7 @@ class Part(QGraphicsRectItem):
             newPos = [oldPos[0] + displacement[0], oldPos[1] + displacement[1], oldPos[2] + displacement[2]]
             self.scene().undoStack.push(DisplacePartCommand(self, oldPos, newPos))
 
-    def moveToPrevStep(self):
-        self.moveToStep(self.getStep().getPrevStep())
-
-    def moveToNextStep(self):
-        self.moveToStep(self.getStep().getNextStep())
-        
-    def moveToStep(self, destStep):
+    def moveToStepSignal(self, destStep):
         selectedParts = []
         for item in self.scene().selectedItems():
             if isinstance(item, Part):

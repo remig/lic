@@ -51,30 +51,28 @@ class DisplacePartCommand(QUndoCommand):
 
     def undo(self):
         self.part.displacement = list(self.oldDisp)
-        self.part.csi().resetPixmap()
+        self.part.getCSI().resetPixmap()
 
     def redo(self):
         self.part.displacement = list(self.newDisp)
-        self.part.csi().resetPixmap()
+        self.part.getCSI().resetPixmap()
 
-class BeginDisplacement(QUndoCommand):
+class BeginDisplacementCommand(QUndoCommand):
     
     _id = getNewCommandID()
 
     def __init__(self, part, direction, arrow):
         QUndoCommand.__init__(self, "Begin Part displacement")
-        self.part = part 
-        self.direction = direction
-        self.arrow = arrow
+        self.part, self.direction, self.arrow = part, direction, arrow
 
     def undo(self):
         part = self.part
         part.displaceDirection = None
         part.displacement = []
         part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        part.csi().removeArrow(self.arrow)
+        part.getCSI().removeArrow(self.arrow)
         part.scene().emit(SIGNAL("layoutChanged()"))
-        part.csi().resetPixmap()
+        part.getCSI().resetPixmap()
 
     def redo(self):
         part = self.part
@@ -82,9 +80,9 @@ class BeginDisplacement(QUndoCommand):
         part.displacement = Helpers.getDisplacementOffset(self.direction)
         self.arrow.setPosition(*Helpers.GLMatrixToXYZ(part.matrix))
         part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        part.csi().addArrow(self.arrow)
+        part.getCSI().addArrow(self.arrow)
         part.scene().emit(SIGNAL("layoutChanged()"))
-        part.csi().resetPixmap()
+        part.getCSI().resetPixmap()
     
 class ResizeCSIPLICommand(QUndoCommand):
 
@@ -310,11 +308,11 @@ class AdjustArrowLength(QUndoCommand):
 
     def undo(self):
         self.arrow.adjustLength(-self.offset)
-        self.arrow.csi().resetPixmap()
+        self.arrow.getCSI().resetPixmap()
 
     def redo(self):
         self.arrow.adjustLength(self.offset)
-        self.arrow.csi().resetPixmap()
+        self.arrow.getCSI().resetPixmap()
 
 class RotateCSICommand(QUndoCommand):
 
