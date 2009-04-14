@@ -93,11 +93,6 @@ def __writePrimitive(stream, primitive):
     stream.writeInt16(primitive.type)
     stream.writeInt32(primitive.winding)
 
-    if primitive.type == GL.GL_QUADS:
-        assert len(primitive.points) == 12
-    elif primitive.type == GL.GL_TRIANGLES:
-        assert len(primitive.points) == 9
-
     for point in primitive.points:
         stream.writeFloat(point)
 

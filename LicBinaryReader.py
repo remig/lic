@@ -130,7 +130,13 @@ def __readPrimitive(stream):
     type = stream.readInt16()
     winding = stream.readInt32()
     
-    count = 9 if type == GL.GL_TRIANGLES else 12
+    if type == GL.GL_LINES:
+        count = 6
+    elif type == GL.GL_TRIANGLES:
+        count = 9 
+    elif type == GL.GL_QUADS:
+        count = 12
+    
     points = []
     for i in range(0, count):
         points.append(stream.readFloat())
