@@ -15,6 +15,7 @@ import povray
 import LDrawColors
 import Helpers
 import Layout
+import Matrix
 
 from LDrawFileFormat import *
 
@@ -1427,7 +1428,7 @@ class PLIItem(QGraphicsRectItem):
         self.setRect(pixmapRect | numberRect)
         self.translate(-self.rect().x(), -self.rect().y())
 
-    """        
+    """
     def paint(self, painter, option, widget = None):
         rect = self.boundingRect()
         painter.drawRect(rect)
@@ -1693,6 +1694,7 @@ class CSI(QGraphicsPixmapItem):
             
         self.oglDispID = GL.glGenLists(1)
         GL.glNewList(self.oglDispID, GL.GL_COMPILE)
+        #GLHelpers.drawCoordLines()
         self.__callPreviousOGLDisplayLists(True)
         GL.glEndList()
 
@@ -1866,7 +1868,7 @@ class CSI(QGraphicsPixmapItem):
 
         menu = QMenu(self.scene().views()[0])
         stack = self.scene().undoStack
-        menu.addAction("Rotate CSI", lambda: stack.push(RotateCSICommand(self, [30, 10, 15])))
+        menu.addAction("Rotate CSI", lambda: stack.push(RotateCSICommand(self, [60, 0, 0])))
         menu.exec_(event.screenPos())
 
 class PartOGL(object):
@@ -1881,8 +1883,8 @@ class PartOGL(object):
     def __init__(self, filename = None, loadFromFile = False):
 
         self.name = self.filename = filename
-        self.inverted = False  # TODO: Fix this! inverted = GL.GL_CW
         self.invertNext = False
+        self.winding = GL.GL_CCW
         self.parts = []
         self.primitives = []
         self.oglDispID = UNINIT_GL_DISPID
@@ -1900,6 +1902,8 @@ class PartOGL(object):
     def loadFromFile(self):
 
         ldrawFile = LDrawFile(self.filename)
+        ldrawFile.loadFileArray()
+        
         self.isPrimitive = ldrawFile.isPrimitive
         self.name = ldrawFile.name
 
@@ -1922,10 +1926,21 @@ class PartOGL(object):
 
         elif isValidQuadLine(line):
             self.addPrimitive(lineToQuad(line), GL.GL_QUADS)
+            
+        elif isValidBFCLine(line):
+            if line[3] == 'CERTIFY':
+                self.winding = GL.GL_CW if line[4] == 'CW' else GL.GL_CCW
+            elif line [3] == 'INVERTNEXT':
+                self.invertNext = True
 
     def addPartFromLine(self, p, line):
         try:
-            part = Part(p['filename'], p['color'], p['matrix'], False, True)
+            part = Part(p['filename'], p['color'], p['matrix'], False)
+            part.setInversion(self.invertNext)
+            part.initializePartOGL()
+            if self.invertNext:
+                self.invertNext = False
+                
         except IOError:
             print "Could not find file: %s - Ignoring." % p['filename']
             return
@@ -1934,7 +1949,7 @@ class PartOGL(object):
         return part
 
     def addPrimitive(self, p, shape):
-        primitive = Primitive(p['color'], p['points'], shape, self.inverted ^ self.invertNext)
+        primitive = Primitive(p['color'], p['points'], shape, self.winding)
         self.primitives.append(primitive)
 
     def vertexIterator(self):
@@ -2023,15 +2038,18 @@ class PartOGL(object):
 
         if color is not None:
             color = LDrawColors.convertToRGBA(color)
+            if color == LDrawColors.CurrentColor:
+                color = LDrawColors.colors[2][:4]
             GL.glColor4fv(color)
 
         self.draw()
 
         image = pBuffer.toImage()
-        #if image:
-        #    image.save("C:\\ldraw\\tmp\\buffer_%s.png" % self.filename, None)
-
         pixmap = QPixmap.fromImage(image)
+        
+        #if image:
+        #    image.save("C:\\lic\\tmp\\part_buffer_%s.png" % self.filename, None)
+
         GlobalGLContext.makeCurrent()
         return pixmap
     
@@ -2144,12 +2162,13 @@ class Submodel(PartOGL):
     def importModel(self):
         """ Reads in an LDraw model file and populates this submodel with the info. """
 
-        global submodelDictionary
         ldrawFile = LDrawFile(self.filename)
+        ldrawFile.loadFileArray()
         submodelList = ldrawFile.getSubmodels()
 
         # Add any submodels found in this LDraw file to the submodel dictionary, unused and uninitialized
         if submodelList:
+            global submodelDictionary
             for submodelFilename, index in submodelList.items():
                 lineArray = ldrawFile.fileArray[index[0]: index[1]]
                 model = Submodel(self, self.instructions, submodelFilename, lineArray)
@@ -2388,14 +2407,13 @@ class Part(QGraphicsRectItem):
     in one LDraw FILE (5) command.
     """
 
-    def __init__(self, filename, color = 16, matrix = None, invert = False, setPartOGL = True):
+    def __init__(self, filename, color = 16, matrix = None, invert = False):
         QGraphicsRectItem.__init__(self)
-        global partDictionary, submodelDictionary
 
+        self.filename = filename  # Needed for save / load
         self.color = color
         self.matrix = matrix
         self.inverted = invert
-        self.filename = filename  # Needed for save / load
         self.partOGL = None
 
         self.displacement = []
@@ -2406,16 +2424,28 @@ class Part(QGraphicsRectItem):
         #self.setPen(QPen(Qt.black))
         self.setFlags(NoMoveFlags)
 
-        if setPartOGL:
-            if filename in submodelDictionary:
-                self.partOGL = submodelDictionary[filename]
-                if not self.partOGL.used:
-                    self.partOGL.loadFromLineArray()
-            elif filename in partDictionary:
-                self.partOGL = partDictionary[filename]
-            else:
-                self.partOGL = partDictionary[filename] = PartOGL(filename, loadFromFile = True)
-
+    def initializePartOGL(self):
+        global partDictionary, submodelDictionary
+        
+        fn = self.filename
+        if fn in submodelDictionary:
+            self.partOGL = submodelDictionary[fn]
+            if not self.partOGL.used:
+                self.partOGL.loadFromLineArray()
+        elif fn in partDictionary:
+            self.partOGL = partDictionary[fn]
+        else:
+            self.partOGL = partDictionary[fn] = PartOGL(fn, loadFromFile = True)
+        
+    def setInversion(self, invert):
+        # Inversion is annoying as hell.  
+        # Possible the containing part used a BFC INVERTNEXT (invert arg)
+        # Possible this part's matrix implies an inversion (det < 0)
+        m = self.matrix
+        matrix = Matrix.Matrix([m[0:4], m[4:8], m[8:12], m[12:16]])
+        det = matrix.determinant()
+        self.inverted = (True if det < 0 else False) ^ invert
+        
     def row(self):
         return self.parentItem().parts.index(self)
     
@@ -2537,7 +2567,7 @@ class Part(QGraphicsRectItem):
         fh.write(line + '\n')
 
     def duplicate(self):
-        p = Part(self.filename, self.color, self.matrix, self.inverted, False)
+        p = Part(self.filename, self.color, self.matrix, self.inverted)
         p.partOGL = self.partOGL
         p.setParentItem(self.parentItem())
         p.displacement = list(self.displacement)
@@ -2601,8 +2631,7 @@ class Part(QGraphicsRectItem):
         for item in self.scene().selectedItems():
             if isinstance(item, Part):
                 selectedParts.append(item.duplicate())
-        action = AddPartsToCalloutCommand((selectedParts, callout))
-        self.scene().undoStack.push(action)
+        self.scene().undoStack.push(AddPartsToCalloutCommand(callout, selectedParts))
     
     def keyReleaseEvent(self, event):
         direction = event.key()
@@ -2636,7 +2665,7 @@ class Part(QGraphicsRectItem):
 class Arrow(Part):
 
     def __init__(self, direction):
-        Part.__init__(self, "arrow", 4, None, False, False)
+        Part.__init__(self, "arrow", 4, None, False)
         self.partOGL = PartOGL("arrow")
         
         self.matrix = IdentityMatrix()
@@ -2654,9 +2683,9 @@ class Arrow(Part):
         br = [x[3], y[3], 0.0]
         bl = [x[1], y[3], 0.0]
         
-        tip1 = Primitive(4, self.tip + topEnd + joint, GL.GL_TRIANGLES, invert = False)
-        tip2 = Primitive(4, self.tip + joint + botEnd, GL.GL_TRIANGLES, invert = False)
-        base = Primitive(4, tl + tr + br + bl, GL.GL_QUADS, invert = False)
+        tip1 = Primitive(4, self.tip + topEnd + joint, GL.GL_TRIANGLES)
+        tip2 = Primitive(4, self.tip + joint + botEnd, GL.GL_TRIANGLES)
+        base = Primitive(4, tl + tr + br + bl, GL.GL_QUADS)
 
         self.partOGL.primitives.append(tip1)
         self.partOGL.primitives.append(tip2)
@@ -2755,11 +2784,11 @@ class Primitive(object):
     Used mainly to construct an OGL display list for a set of points.
     """
 
-    def __init__(self, color, points, type, invert = True):
+    def __init__(self, color, points, type, winding = GL.GL_CW):
         self.color = color
         self.type = type
         self.points = points
-        self.inverted = invert
+        self.winding = winding
         self.__boundingBox = None
 
     def getBoundingBox(self):
@@ -2817,22 +2846,7 @@ class Primitive(object):
 
         p = self.points
 
-        if self.inverted:
-            normal = self.addNormal(p[6:9], p[3:6], p[0:3])
-            #GL.glBegin( GL.GL_LINES )
-            #GL.glVertex3f(p[3], p[4], p[5])
-            #GL.glVertex3f(p[3] + normal[0], p[4] + normal[1], p[5] + normal[2])
-            #GL.glEnd()
-
-            GL.glBegin(self.type)
-            GL.glNormal3fv(normal)
-            if self.type == GL.GL_QUADS:
-                GL.glVertex3f(p[9], p[10], p[11])
-            GL.glVertex3f(p[6], p[7], p[8])
-            GL.glVertex3f(p[3], p[4], p[5])
-            GL.glVertex3f(p[0], p[1], p[2])
-            GL.glEnd()
-        else:
+        if self.winding == GL.GL_CCW:
             normal = self.addNormal(p[0:3], p[3:6], p[6:9])
             #GL.glBegin( GL.GL_LINES )
             #GL.glVertex3f(p[3], p[4], p[5])
@@ -2846,6 +2860,22 @@ class Primitive(object):
             GL.glVertex3f(p[6], p[7], p[8])
             if self.type == GL.GL_QUADS:
                 GL.glVertex3f(p[9], p[10], p[11])
+            GL.glEnd()
+            
+        elif self.winding == GL.GL_CW:
+            normal = self.addNormal(p[0:3], p[6:9], p[3:6])
+            #GL.glBegin( GL.GL_LINES )
+            #GL.glVertex3f(p[3], p[4], p[5])
+            #GL.glVertex3f(p[3] + normal[0], p[4] + normal[1], p[5] + normal[2])
+            #GL.glEnd()
+
+            GL.glBegin(self.type)
+            GL.glNormal3fv(normal)
+            GL.glVertex3f(p[0], p[1], p[2])
+            if self.type == GL.GL_QUADS:
+                GL.glVertex3f(p[9], p[10], p[11])
+            GL.glVertex3f(p[6], p[7], p[8])
+            GL.glVertex3f(p[3], p[4], p[5])
             GL.glEnd()
 
         if color != LDrawColors.CurrentColor:

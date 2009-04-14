@@ -43,11 +43,6 @@ class MoveCommand(QUndoCommand):
 
 class DisplacePartCommand(QUndoCommand):
 
-    """
-    DisplacePartCommand stores a tuple of part and old & new displacement:
-    displaceCommand = (part, oldDisplacement, newDisplacement)
-    """
-
     _id = getNewCommandID()
 
     def __init__(self, part, oldDisp, newDisp):
@@ -64,10 +59,6 @@ class DisplacePartCommand(QUndoCommand):
 
 class BeginDisplacement(QUndoCommand):
     
-    """
-    BeginDisplaceCommand stores a (part, direction, arrow) tuple to displace
-    """
-
     _id = getNewCommandID()
 
     def __init__(self, part, direction, arrow):
@@ -256,15 +247,11 @@ class MovePartsToStepCommand(QUndoCommand):
 
 class AddPartsToCalloutCommand(QUndoCommand):
 
-    """
-    AddPartsToCalloutCommand stores a part list and destination callout
-    """
-
     _id = getNewCommandID()
 
-    def __init__(self, partSet):
+    def __init__(self, callout, partList):
         QUndoCommand.__init__(self, "add Part to Callout")
-        self.partList, self.callout = partSet
+        self.callout, self.partList = callout, partList
 
     def doAction(self, redo):
         self.callout.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
@@ -339,10 +326,14 @@ class RotateCSICommand(QUndoCommand):
         self.prevRotation = self.csi.rotation
 
     def undo(self):
-        self.csi.rotation = self.prevRotation
+        self.csi.rotation[0] -= self.rotation[0]
+        self.csi.rotation[1] -= self.rotation[1]
+        self.csi.rotation[2] -= self.rotation[2]
         self.csi.resetPixmap()
 
     def redo(self):
-        self.csi.rotation = self.rotation
+        self.csi.rotation[0] += self.rotation[0]
+        self.csi.rotation[1] += self.rotation[1]
+        self.csi.rotation[2] += self.rotation[2]
         self.csi.resetPixmap()
         

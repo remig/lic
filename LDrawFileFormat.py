@@ -15,6 +15,7 @@ ConditionalLineCommand = '5'
 RotStepCommand = 'ROTSTEP'
 StepCommand = 'STEP'
 FileCommand = 'FILE'
+BFCCommand = 'BFC'
 
 def IdentityMatrix():
     return [1.0, 0.0, 0.0, 0.0,  
@@ -32,6 +33,9 @@ def OGLToLDMatrix(matrix):
 
 def isValidCommentLine(line):
     return (len(line) > 2) and (line[1] == Comment)
+
+def isValidBFCLine(line):
+    return (len(line) > 3) and (line[1] == Comment) and (line[2] == BFCCommand)
 
 def isValidTriangleLine(line):
     return (len(line) == 12) and (line[1] == TriangleCommand)
@@ -106,9 +110,8 @@ class LDrawFile(object):
         self.isPrimitive = False      # Anything in the 'P' directory
         
         self.fileArray = []
-        self._loadFileArray()
 
-    def _loadFileArray(self):
+    def loadFileArray(self):
         
         try:
             f = file(self.filename)

@@ -8,39 +8,67 @@ from PyQt4.QtCore import QPointF
 
 DEBUG = 0
 
-def drawCoordLines(length = 100.0):
+def drawCoordLines(length = 20.0):
+    glPushAttrib(GL_CURRENT_BIT)
+    
     glBegin(GL_LINES)
+    glColor4fv([1.0, 0.0, 0.0, 1.0])
     glVertex3f(0.0, 0.0, 0.0)
     glVertex3f(length, 0.0, 0.0)
     
+    glColor4fv([0.0, 1.0, 0.0, 1.0])
     glVertex3f(0.0, 0.0, 0.0)
     glVertex3f(0.0, length, 0.0)
     
+    glColor4fv([0.0, 0.0, 1.0, 1.0])
     glVertex3f(0.0, 0.0, 0.0)
     glVertex3f(0.0, 0.0, length)
     glEnd()
+    glPopAttrib()
+
+def setupLight(light):
+    glLightfv(GL_LIGHT0, GL_SPECULAR, [0.0, 0.0, 0.0])
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, [1.0, 1.0, 1.0])
+    glLightfv(GL_LIGHT0, GL_POSITION, [0.0, 100.0, 100.0])
+    glEnable(GL_LIGHT0)
+
+def setupLighting():
+    glDisable(GL_NORMALIZE)
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
+    glEnable(GL_LIGHTING)
+    
+    maxLights = glGetIntegerv(GL_MAX_LIGHTS)
+    for i in range(0, maxLights):
+        glDisable(GL_LIGHT0 + i)
+
+    setupLight(GL_LIGHT0)
+    glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 1.0)
+    glLightf(GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.0)
+    glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.0)
+    
+    glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, 1)
+    
+def setupMaterial():
+    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, [0.0, 0.0, 0.0, 1.0])
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, [0.0, 0.0, 0.0, 1.0])
+    glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 64.0)
+    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
+    glEnable(GL_COLOR_MATERIAL)
 
 def initFreshContext():
-    glEnable(GL_LIGHTING)
-    glEnable(GL_LIGHT0)
+    
+    glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 0)
     glShadeModel(GL_SMOOTH)
+    glEnable(GL_CULL_FACE)
+    glFrontFace(GL_CCW)
     
-    glEnable(GL_COLOR_MATERIAL)
-    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
-    
-    lightPos = [100.0, 500.0, -500.0]
-    ambient = [0.2, 0.2, 0.2]
-    diffuse = [0.8, 0.8, 0.8]
-    specular = [0.5, 0.5, 0.5]
-    
-    glLightfv(GL_LIGHT0, GL_POSITION, lightPos)
-    glLightfv(GL_LIGHT0, GL_AMBIENT, ambient)
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse)
-    glLightfv(GL_LIGHT0, GL_SPECULAR, specular)
+    setupLighting()
+    setupMaterial()
     
     glEnable(GL_DEPTH_TEST)
     glClearColor(0.0, 0.0, 0.0, 0.0)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    glEnable(GL_NORMALIZE)
         
 def adjustGLViewport(x, y, width, height):
     x = int(x)
@@ -54,7 +82,7 @@ def adjustGLViewport(x, y, width, height):
     height = max(1, height / 2)
 
     # Viewing box (left, right) (bottom, top), (near, far)
-    glOrtho( -width, width, height, -height, -3000, 3000 )
+    glOrtho( -width, width, -height, height, -3000, 3000 )
     glMatrixMode(GL_MODELVIEW)
 
 def rotateView(x, y, z):
@@ -65,7 +93,7 @@ def rotateView(x, y, z):
 def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0, scale = 1.0):
     # position (x,y,z), look at (x,y,z), up vector (x,y,z)
     gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
-    glScalef(-1.0, 1.0, 1.0)
+    glRotatef(180.0, 0.0, 0.0, 1.0)
     glScalef(scale, scale, scale)
     
     # Rotate model into something approximating the generic ortho view
@@ -78,11 +106,12 @@ def getDefaultCamera():
 def rotateToPLIView(x = 0.0, y = 0.0, z = 0.0, scale = 1.0):
     # position (x,y,z), look at (x,y,z), up vector (x,y,z)
     gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
+    glRotatef(180.0, 0.0, 0.0, 1.0)
     glScalef(scale, scale, scale)
     
     # Rotate model into something approximating the ortho view as seen in Lego PLIs
     glRotatef(20.0, 1.0, 0.0, 0.0)
-    glRotatef(45.0, 0.0, 1.0, 0.0)
+    glRotatef(-45.0, 0.0, 1.0, 0.0)
 
 def getPLICamera():
     return [('y', -45.0), ('x', 20)]
@@ -147,19 +176,19 @@ def _checkPixelsTop(data, width, height):
     for i in range(0, height):
         for j in range(0, width):
             if (data[j, i] != _imgWhite):
-                return i
+                return (i, j)
     return height
 
 def _checkPixelsBottom(data, width, height, top):
     for i in range(height-1, top, -1):
         for j in range(0, width):
             if (data[j, i] != _imgWhite):
-                return (i, j)
+                return i
     return (0, 0)
 
 def _checkPixelsLeft(data, width, height, top, bottom):
     for i in range(0, width):
-        for j in range(bottom, top, -1):
+        for j in range(top, bottom):
             if (data[i, j] != _imgWhite):
                 return (i, j)
     return (0, 0)
@@ -194,24 +223,24 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotat
 #        rawFilename = os.path.splitext(os.path.basename(filename))[0]
 #        image = pBuffer.toImage()
 #        if image:
-#            image.save("C:\\LDraw\\tmp\\pixbuf_%s_%dx%d.png" % (rawFilename, w, h), None)
+#            image.save("C:\\Lic\\tmp\\pixbuf_%s_%dx%d.png" % (rawFilename, w, h), None)
 
     pixels = glReadPixels (0, 0, w, h, GL_RGB,  GL_UNSIGNED_BYTE)
-    img = Image.new ("RGB", (w, h), (1, 1, 1))
+    img = Image.new("RGB", (w, h), (1, 1, 1))
     img.fromstring(pixels)
-    img = img.transpose(Image.FLIP_TOP_BOTTOM)
-    
-#    if filename:
-#        rawFilename = os.path.splitext(os.path.basename(filename))[0]
-#        img.save("C:\\LDraw\\tmp\\%s_%dx%d.png" % (rawFilename, w, h))
+
+    #img = img.transpose(Image.FLIP_TOP_BOTTOM)
+    #if filename:
+    #    rawFilename = os.path.splitext(os.path.basename(filename))[0]
+    #    img.save("C:\\Lic\\tmp\\%s_%dx%d.png" % (rawFilename, w, h))
     
     data = img.load()
-    top = _checkPixelsTop(data, w, h)
-    bottom, bottomInset = _checkPixelsBottom(data, w, h, top)
-    left, leftInset = _checkPixelsLeft(data, w, h, top, bottom)
+    top, leftInset = _checkPixelsTop(data, w, h)
+    bottom  = _checkPixelsBottom(data, w, h, top)
+    left, bottomInset = _checkPixelsLeft(data, w, h, top, bottom)
     right = _checkPixelsRight(data, w, h, top, bottom, left)
     
-    return (top, bottom, left, right, bottom - leftInset, bottomInset - left)
+    return (top, bottom, left, right, leftInset - left, bottomInset - top)
 
 def initImgSize(width, height, oglDispID, isCSI, filename = None, rotation = None, pBuffer = None):
     """
@@ -262,11 +291,9 @@ def initImgSize(width, height, oglDispID, isCSI, filename = None, rotation = Non
     
     imgWidth = right - left + 1
     imgHeight = bottom - top + 2
-    imgLeftInset = leftInset 
-    imgBottomInset = bottomInset
     
     w = (left + (imgWidth/2)) - (width/2)
     h = (top + (imgHeight/2)) - (height/2)
-    imgCenter = QPointF(x - w, y + h)
+    imgCenter = QPointF(x - w, h - y)
 
-    return (imgWidth, imgHeight, imgCenter, imgLeftInset, imgBottomInset)
+    return (imgWidth, imgHeight, imgCenter, leftInset, bottomInset)

@@ -95,14 +95,14 @@ def __fixPovFile(filename, imgWidth, imgHeight, offset, camera):
         elif line.startswith('#declare %s = object' % objectName):
             line = line.replace('object', 'union')
         
-        elif line == 'light_source     {\n':
+        elif line.startswith('light_source'):
             inLight = True
         
         elif line == '}\n' and inLight:
             inLight = False
             copyFile.write('\tshadowless\n')
         
-        elif line == 'camera {\n':
+        elif line.startswith('camera'):
             inCamera = True
             copyFile.write(line)
             copyFile.write('\torthographic\n')

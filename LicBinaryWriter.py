@@ -89,9 +89,9 @@ def __writePartOGL(stream, partOGL):
         __writePart(stream, part)
 
 def __writePrimitive(stream, primitive):
-    stream.writeBool(primitive.inverted)
     stream.writeInt32(primitive.color)
     stream.writeInt16(primitive.type)
+    stream.writeInt32(primitive.winding)
 
     if primitive.type == GL.GL_QUADS:
         assert len(primitive.points) == 12

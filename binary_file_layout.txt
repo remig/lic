@@ -39,9 +39,10 @@ PartOGL:
   ... Part 0..n ...
   
 Primitive:  # 9 points for triangle, 12 points for quad
-  bool inverted
   int32 color
   int8 type
+  int32 winding
+  
   float points[0]
   ...
   float points[8]  # for triangle

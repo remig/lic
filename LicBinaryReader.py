@@ -126,14 +126,15 @@ def __readPartOGL(stream, createSubmodel = False):
     return part
 
 def __readPrimitive(stream):
-    invert = stream.readBool()
     color = stream.readInt32()
     type = stream.readInt16()
+    winding = stream.readInt32()
+    
     count = 9 if type == GL.GL_TRIANGLES else 12
     points = []
     for i in range(0, count):
         points.append(stream.readFloat())
-    return Primitive(color, points, type, invert)
+    return Primitive(color, points, type, winding)
 
 def __readPart(stream):
     filename = QString()
@@ -158,8 +159,8 @@ def __readPart(stream):
         arrow.displacement = displacement
         return arrow
     
-    part = Part(filename, color, matrix, invert, False)
-
+    part = Part(filename, color, matrix, invert)
+    
     if useDisplacement:
         part.displacement = displacement
         part.displaceDirection = displaceDirection
