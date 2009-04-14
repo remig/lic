@@ -2452,9 +2452,7 @@ class Part(QGraphicsRectItem):
         # Inversion is annoying as hell.  
         # Possible the containing part used a BFC INVERTNEXT (invert arg)
         # Possible this part's matrix implies an inversion (det < 0)
-        m = self.matrix
-        matrix = Matrix.Matrix([m[0:4], m[4:8], m[8:12], m[12:16]])
-        det = matrix.determinant()
+        det = Helpers.determinant3x3([self.matrix[0:3], self.matrix[4:7], self.matrix[8:11]])
         self.inverted = (True if det < 0 else False) ^ invert
         
     def row(self):

@@ -8,6 +8,13 @@ def makeFunc(func, arg):
     def f(): func(arg)
     return f
 
+def determinant3x3(m):
+    # m must be in the form [[00, 01, 02], [10, 11, 12], [20, 21, 22]]
+    d1 = m[0][0] * ((m[1][1] * m[2][2]) - (m[1][2] * m[2][1]))
+    d2 = m[0][1] * ((m[1][0] * m[2][2]) - (m[1][2] * m[2][0]))
+    d3 = m[0][2] * ((m[1][0] * m[2][1]) - (m[1][1] * m[2][0]))
+    return d1 - d2 + d3
+
 def GLMatrixToXYZ(matrix):
     return [matrix[12], matrix[13], matrix[14]]
 
