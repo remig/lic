@@ -1654,7 +1654,7 @@ class CSI(QGraphicsPixmapItem):
         for p in self.parts:
             p.removePart(part)
 
-        for p in [x for x in self.parts if not p.parts]:
+        for p in [x for x in self.parts if not x.parts]:
             self.parts.remove(p)
 
     def addArrow(self, arrow):
@@ -2122,8 +2122,14 @@ class BoundingBox(object):
         self.growByPoints(box.x1, box.y1, box.z1)
         self.growByPoints(box.x2, box.y2, box.z2)
 
-    def getBottomOffset(self):
-        return (self.y1 + self.y2) / 2.0
+    def xSize(self):
+        return (abs(self.x1) + abs(self.x2)) / 2.0
+
+    def ySize(self):
+        return (abs(self.y1) + abs(self.y2)) / 2.0
+
+    def zSize(self):
+        return (abs(self.z1) + abs(self.z2)) / 2.0
     
 class Submodel(PartOGL):
     """ A Submodel is just a PartOGL that also has pages & steps, and can be inserted into a tree. """
@@ -2416,7 +2422,7 @@ class PartTreeItem(QGraphicsRectItem):
     def removePart(self, part):
         if part in self.parts:
             self.parts.remove(part)
-        self.__dataString = None
+            self.__dataString = None
 
 class Part(QGraphicsRectItem):
     """
@@ -2664,7 +2670,7 @@ class Part(QGraphicsRectItem):
         self.displaceSignal(direction)
 
     def displaceSignal(self, direction):
-        displacement = Helpers.getDisplacementOffset(direction)
+        displacement = Helpers.getDisplacementOffset(direction, False, self.partOGL.getBoundingBox())
         if displacement:
             oldPos = self.displacement if self.displacement else [0.0, 0.0, 0.0]
             newPos = [oldPos[0] + displacement[0], oldPos[1] + displacement[1], oldPos[2] + displacement[2]]
@@ -2729,23 +2735,31 @@ class Arrow(Part):
         self.matrix[13] = y
         self.matrix[14] = z
         
-    def getRotation(self):
+    def doGLRotation(self):
         
         d = self.displaceDirection
-        if d == Qt.Key_PageUp:
-            return [1.0, 0.0, -1.0]
-        elif d == Qt.Key_PageDown:
-            return [-1.0, 0.0, 1.0]
+        if d == Qt.Key_PageUp:  # Up
+            GL.glRotatef(-90, 0.0, 0.0, 1.0)
+            GL.glRotatef(45, 1.0, 0.0, 0.0)
+        elif d == Qt.Key_PageDown:  # Down
+            GL.glRotatef(90, 0.0, 0.0, 1.0)
+            GL.glRotatef(-45, 1.0, 0.0, 0.0)
 
-        elif d == Qt.Key_Left:
-            return [1.0, 1.0, 0.0]
-        elif d == Qt.Key_Right:
-            return [-1.0, -1.0, 0.0]
+        elif d == Qt.Key_Left:  # Left
+            GL.glRotatef(90, 0.0, 1.0, 0.0)
+            GL.glRotatef(225, 1.0, 0.0, 0.0)
+        elif d == Qt.Key_Right:  # Right
+            GL.glRotatef(-90, 0.0, 1.0, 0.0)
+            GL.glRotatef(-45, 1.0, 0.0, 0.0)
 
-        elif d == Qt.Key_Up:
-            return [1.0, 1.0, 1.0]
-        elif d == Qt.Key_Down:
-            return [-1.0, 0.0, 0.0]
+        elif d == Qt.Key_Up:  # Back
+            GL.glRotatef(180, 0.0, 0.0, 1.0)
+            GL.glRotatef(45, 1.0, 0.0, 0.0)
+        elif d == Qt.Key_Down:  # Forward
+            GL.glRotatef(-45, 1.0, 0.0, 0.0)
+
+        if self.getCSI().rotation:
+            GLHelpers.rotateView(*self.getCSI().rotation)
 
     def callGLDisplayList(self, useDisplacement = False):
 
@@ -2766,12 +2780,8 @@ class Arrow(Part):
         GL.glPushMatrix()
         GL.glMultMatrixf(matrix)
         
-        r = self.getRotation()
-        if r[1] and r[2]:
-            GL.glRotatef(180.0, 0.0, 1.0, 0.0) # Back arrow rotated 180      
-        elif r[1] or r[2]:
-            GL.glRotatef(90.0, 0.0, r[1], r[2]) # All but front & back
-        GL.glRotatef(45.0, r[0], 0.0, 0.0)  # Rotate about x to face viewer
+        GLHelpers.drawCoordLines()
+        self.doGLRotation()
 
         if self.isSelected():
             self.drawGLBoundingBox()

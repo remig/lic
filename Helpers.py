@@ -18,22 +18,23 @@ def determinant3x3(m):
 def GLMatrixToXYZ(matrix):
     return [matrix[12], matrix[13], matrix[14]]
 
-def getDisplacementOffset(direction):
-    offset = 20
+def getDisplacementOffset(direction, initialOffset, box):
+
+    offset = 80.0 if initialOffset else 50.0
     displacement = [0.0, 0.0, 0.0]
 
     if direction == Qt.Key_Up:
-        displacement[0] -= offset
+        displacement[0] -= offset + box.xSize()
     elif direction == Qt.Key_Down:
-        displacement[0] += offset
+        displacement[0] += offset + box.xSize()
     elif direction == Qt.Key_PageUp:
-        displacement[1] -= offset
+        displacement[1] -= offset + box.ySize()
     elif direction == Qt.Key_PageDown:
-        displacement[1] += offset
+        displacement[1] += offset + box.ySize()
     elif direction == Qt.Key_Left:
-        displacement[2] -= offset
+        displacement[2] -= offset + box.zSize()
     elif direction == Qt.Key_Right:
-        displacement[2] += offset
+        displacement[2] += offset + box.zSize()
     else:
         return None
 

@@ -77,9 +77,8 @@ class BeginDisplacementCommand(QUndoCommand):
     def redo(self):
         part = self.part
         part.displaceDirection = self.direction
-        part.displacement = Helpers.getDisplacementOffset(self.direction)
+        part.displacement = Helpers.getDisplacementOffset(self.direction, True, part.partOGL.getBoundingBox())
         self.arrow.setPosition(*Helpers.GLMatrixToXYZ(part.matrix))
-        #self.arrow.positionToBox(self.direction, part.partOGL.getBoundingBox())
         part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         part.getCSI().addArrow(self.arrow)
         part.scene().emit(SIGNAL("layoutChanged()"))
