@@ -295,7 +295,9 @@ def __readCSI(stream, step):
     stream >> pixmap
     csi.setPixmap(pixmap)
 
-    csi.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+    x, y, z = stream.readFloat(), stream.readFloat(), stream.readFloat()
+    if (x != 0.0) and (y != 0.0) and (z != 0.0):
+        csi.rotation = [x, y, z]
 
     global partDictionary, submodelDictionary
     partCount = stream.readInt32()

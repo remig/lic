@@ -186,7 +186,8 @@ def __writeCSI(stream, csi):
     stream << csi.center
     stream << csi.pixmap()
     
-    for i in csi.rotation:
+    rotation = csi.rotation if csi.rotation else [0.0, 0.0, 0.0]
+    for i in rotation:
         stream.writeFloat(i)
 
     stream.writeInt32(csi.partCount())

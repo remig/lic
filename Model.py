@@ -1612,7 +1612,7 @@ class CSI(QGraphicsPixmapItem):
 
         self.dataText = "CSI"  # String displayed in Tree - re-implement data(self, index) to override
         self._row = 0
-        self.rotation = [0.0, 0.0, 0.0]
+        self.rotation = None
         
         self.parts = []
         self.arrows = []
@@ -1821,7 +1821,8 @@ class CSI(QGraphicsPixmapItem):
         y = self.center.y() * CSI.scale
         GLHelpers.adjustGLViewport(0, 0, w, h)
         GLHelpers.rotateToDefaultView(x, y, 0.0, CSI.scale)
-        GLHelpers.rotateView(*self.rotation)
+        if self.rotation:
+            GLHelpers.rotateView(*self.rotation)
 
         GL.glCallList(self.oglDispID)
 
@@ -1868,6 +1869,8 @@ class CSI(QGraphicsPixmapItem):
 
         menu = QMenu(self.scene().views()[0])
         stack = self.scene().undoStack
+        if not self.rotation:
+            self.rotation = [0.0, 0.0, 0.0]
         menu.addAction("Rotate CSI", lambda: stack.push(RotateCSICommand(self, [60, 0, 0])))
         menu.exec_(event.screenPos())
 
@@ -1891,6 +1894,7 @@ class PartOGL(object):
         self.isPrimitive = False  # primitive here means any file in 'P'
         self.isSubmodel = False
         self.__boundingBox = None
+        self.__pixmapDict = {}  # cache pixmaps, keyed by LDraw color code
 
         self.width = self.height = -1
         self.leftInset = self.bottomInset = -1
@@ -1930,9 +1934,6 @@ class PartOGL(object):
         elif isValidQuadLine(line):
             self.addPrimitive(lineToQuad(line), GL.GL_QUADS)
             
-        #elif isValidConditionalLine(line):
-        #    self.addPrimitive(lineToConditionalLine(line), GL.GL_LINES)
-    
         elif isValidBFCLine(line):
             if line[3] == 'CERTIFY':
                 self.winding = GL.GL_CW if line[4] == 'CW' else GL.GL_CCW
@@ -2027,6 +2028,10 @@ class PartOGL(object):
         if self.isPrimitive:
             return None  # Do not generate pixmaps for primitives
 
+        # Check if we've already generated a pixmap for this part
+        if color is not None and color in self.__pixmapDict:
+            return self.__pixmapDict[color]
+
         w = self.width * PLI.scale
         h = self.height * PLI.scale
         x = self.center.x() * PLI.scale
@@ -2043,21 +2048,21 @@ class PartOGL(object):
             GLHelpers.rotateToPLIView(x, y, 0.0, PLI.scale)
 
         if color is not None:
-            color = LDrawColors.convertToRGBA(color)
-            if color == LDrawColors.CurrentColor:
-                color = LDrawColors.colors[2][:4]
-            GL.glColor4fv(color)
+            colorRGB = LDrawColors.convertToRGBA(color)
+            if colorRGB == LDrawColors.CurrentColor:
+                colorRGB = LDrawColors.colors[2][:4]
+            GL.glColor4fv(colorRGB)
 
         self.draw()
 
         image = pBuffer.toImage()
-        pixmap = QPixmap.fromImage(image)
+        self.__pixmapDict[color] = QPixmap.fromImage(image)
         
         #if image:
         #    image.save("C:\\lic\\tmp\\part_buffer_%s.png" % self.filename, None)
 
         GlobalGLContext.makeCurrent()
-        return pixmap
+        return self.__pixmapDict[color]
     
     def getBoundingBox(self):
         if self.__boundingBox:

@@ -323,7 +323,6 @@ class RotateCSICommand(QUndoCommand):
     def __init__(self, csi, rotation):
         QUndoCommand.__init__(self, "CSI rotation")
         self.csi, self.rotation = csi, rotation
-        self.prevRotation = self.csi.rotation
 
     def undo(self):
         self.csi.rotation[0] -= self.rotation[0]

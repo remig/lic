@@ -177,14 +177,14 @@ def _checkPixelsTop(data, width, height):
         for j in range(0, width):
             if (data[j, i] != _imgWhite):
                 return (i, j)
-    return height
+    return (height, 0)
 
 def _checkPixelsBottom(data, width, height, top):
     for i in range(height-1, top, -1):
         for j in range(0, width):
             if (data[j, i] != _imgWhite):
                 return i
-    return (0, 0)
+    return 0
 
 def _checkPixelsLeft(data, width, height, top, bottom):
     for i in range(0, width):
