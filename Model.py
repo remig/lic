@@ -1609,7 +1609,6 @@ class CSI(QGraphicsPixmapItem):
         self.oglDispID = UNINIT_GL_DISPID
         self.setFlags(AllFlags)
 
-        self.dataText = "CSI"  # String displayed in Tree - re-implement data(self, index) to override
         self._row = 0
         self.rotation = None
         
@@ -1651,14 +1650,12 @@ class CSI(QGraphicsPixmapItem):
         self.parts.sort(key = lambda partItem: partItem.name)
 
     def removePart(self, part):
-        target = None
+
         for p in self.parts:
-            if part in p.parts:
-                target = p
-        if target:
-            target.parts.remove(part)
-            if not target.parts:
-                self.parts.remove(target)
+            p.removePart(part)
+
+        for p in [x for x in self.parts if not p.parts]:
+            self.parts.remove(p)
 
     def addArrow(self, arrow):
         self.addPart(arrow)
@@ -2125,6 +2122,9 @@ class BoundingBox(object):
         self.growByPoints(box.x1, box.y1, box.z1)
         self.growByPoints(box.x2, box.y2, box.z2)
 
+    def getBottomOffset(self):
+        return (self.y1 + self.y2) / 2.0
+    
 class Submodel(PartOGL):
     """ A Submodel is just a PartOGL that also has pages & steps, and can be inserted into a tree. """
 
@@ -2389,6 +2389,7 @@ class PartTreeItem(QGraphicsRectItem):
         self.name = name
         self.parts = []
         self.setFlags(AllFlags)
+        self.__dataString = None  # Cache data string for tree
         
     def child(self, row):
         if row < 0 or row >= len(self.parts):
@@ -2402,11 +2403,20 @@ class PartTreeItem(QGraphicsRectItem):
         return len(self.parts)
     
     def data(self, index):
-        return "%s - x%d" % (self.name, len(self.parts))
-    
+        if self.__dataString:
+            return self.__dataString
+        self.__dataString = "%s - x%d" % (self.name, len(self.parts))
+        return self.__dataString
+        
     def addPart(self, part):
         part.setParentItem(self)
+        self.__dataString = None
         self.parts.append(part)
+        
+    def removePart(self, part):
+        if part in self.parts:
+            self.parts.remove(part)
+        self.__dataString = None
 
 class Part(QGraphicsRectItem):
     """
@@ -2425,6 +2435,7 @@ class Part(QGraphicsRectItem):
         self.matrix = matrix
         self.inverted = invert
         self.partOGL = None
+        self.__dataString = None  # Cache data string for tree
 
         self.displacement = []
         self.displaceDirection = None
@@ -2456,12 +2467,15 @@ class Part(QGraphicsRectItem):
         
     def row(self):
         return self.parentItem().parts.index(self)
-    
+
     def data(self, index):
+        if self.__dataString:
+            return self.__dataString
         x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
         color = LDrawColors.getColorName(self.color)
-        return "%s - (%.1f, %.1f, %.1f)" % (color, x, y, z)
-
+        self.__dataString = "%s - (%.1f, %.1f, %.1f)" % (color, x, y, z)
+        return self.__dataString
+     
     def getXYZSortOrder(self):
         x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
         return (-y, -z, x)
@@ -2668,8 +2682,11 @@ class Arrow(Part):
 
     def __init__(self, direction):
         Part.__init__(self, "arrow", 4, None, False)
-        self.partOGL = PartOGL("arrow")
         
+        self.displaceDirection = direction
+        self.displacement = [0.0, 0.0, 0.0]
+        
+        self.partOGL = PartOGL("arrow")
         self.matrix = IdentityMatrix()
 
         x = [0.0, 20.0, 25.0, 50.0]
@@ -2692,15 +2709,21 @@ class Arrow(Part):
         self.partOGL.primitives.append(tip1)
         self.partOGL.primitives.append(tip2)
         self.partOGL.primitives.append(base)
-   
-        self.displacement = [0.0, 0.0, 0.0]
-        self.displaceDirection = direction
         self.partOGL.createOGLDisplayList()
 
     def data(self, index):
         x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
         return "%s  (%.1f, %.1f, %.1f)" % (self.partOGL.filename, x, y, z)
 
+    def positionToBox(self, direction, box):
+        y = box.getBottomOffset()
+        self.addToPosition(0, y + self.length, 0)
+
+    def addToPosition(self, x, y, z):
+        self.matrix[12] += x
+        self.matrix[13] += y
+        self.matrix[14] += z
+        
     def setPosition(self, x, y, z):
         self.matrix[12] = x
         self.matrix[13] = y

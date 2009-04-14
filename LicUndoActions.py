@@ -79,6 +79,7 @@ class BeginDisplacementCommand(QUndoCommand):
         part.displaceDirection = self.direction
         part.displacement = Helpers.getDisplacementOffset(self.direction)
         self.arrow.setPosition(*Helpers.GLMatrixToXYZ(part.matrix))
+        #self.arrow.positionToBox(self.direction, part.partOGL.getBoundingBox())
         part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         part.getCSI().addArrow(self.arrow)
         part.scene().emit(SIGNAL("layoutChanged()"))
@@ -148,9 +149,8 @@ class AddRemoveStepCommand(QUndoCommand):
     def __init__(self, step, addStep):
         QUndoCommand.__init__(self, "%s Step" % ("add" if addStep else "delete"))
             
-        self.step = step
+        self.step, self.addStep = step, addStep
         self.parent = step.parentItem()
-        self.addStep = addStep
 
     def doAction(self, redo):
         parent = self.parent
@@ -173,9 +173,8 @@ class AddRemoveCalloutCommand(QUndoCommand):
     def __init__(self, callout, addCallout):
         QUndoCommand.__init__(self, "%s Callout" % ("add" if addCallout else "delete"))
             
-        self.callout = callout
+        self.callout, self.addCallout = callout, addCallout
         self.parent = callout.parentItem()
-        self.addCallout = addCallout
 
     def doAction(self, redo):
         parent = self.parent
@@ -197,8 +196,7 @@ class AddRemovePageCommand(QUndoCommand):
 
     def __init__(self, page, addPage):
         QUndoCommand.__init__(self, "%s Page" % ("add" if addPage else "delete"))
-        self.page = page
-        self.addPage = addPage
+        self.page, self.addPage = page, addPage
 
     def doAction(self, redo):
         page = self.page
@@ -268,8 +266,7 @@ class ToggleStepNumbersCommand(QUndoCommand):
 
     def __init__(self, callout, enableNumbers):
         QUndoCommand.__init__(self, "%s Step Numbers" % ("show" if enableNumbers else "hide"))
-        self.callout = callout
-        self.enableNumbers = enableNumbers
+        self.callout, self.enableNumbers = callout, enableNumbers
 
     def doAction(self, redo):
         self.callout.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
@@ -286,8 +283,7 @@ class ToggleCalloutQtyCommand(QUndoCommand):
 
     def __init__(self, callout, enableQty):
         QUndoCommand.__init__(self, "%s Callout Quantity" % ("Add" if enableQty else "Remove"))
-        self.callout = callout
-        self.enableQty = enableQty
+        self.callout, self.enableQty = callout, enableQty
 
     def doAction(self, redo):
         self.callout.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
