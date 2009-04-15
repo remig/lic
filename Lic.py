@@ -505,6 +505,7 @@ class LicWindow(QMainWindow):
             
             # Need to explicitly disconnect this signal, because the scene emits an updateSelection right before it's deleted
             self.disconnect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateSelection)
+            self.glWidget.doneCurrent()  # Avoid a crash when exiting
             event.accept()
         else:
             event.ignore()

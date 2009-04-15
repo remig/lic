@@ -99,13 +99,6 @@ QGraphicsRectItem.parent = genericItemParent
 QGraphicsRectItem.data = genericItemData
 QGraphicsRectItem.row = genericRow
 
-QGraphicsPolygonItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
-QGraphicsPolygonItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
-
-QGraphicsPolygonItem.parent = genericItemParent
-QGraphicsPolygonItem.data = genericItemData
-QGraphicsPolygonItem.row = genericRow
-
 QGraphicsSimpleTextItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
 QGraphicsSimpleTextItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
