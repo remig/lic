@@ -620,8 +620,8 @@ class LicWindow(QMainWindow):
     def exportImages(self):
         self.instructions.exportImages()
         print "\nExport complete"
-    
-if __name__ == '__main__':
+
+def main():
     app = QApplication(sys.argv)
     app.setOrganizationName("BugEyedMonkeys Inc.")
     app.setOrganizationDomain("bugeyedmonkeys.com")
@@ -629,3 +629,6 @@ if __name__ == '__main__':
     window = LicWindow()
     window.show()
     sys.exit(app.exec_())
+    
+if __name__ == '__main__':
+    main()
