@@ -41,21 +41,32 @@ class LicGraphicsScene(QGraphicsScene):
 
     def selectPage(self, pageNumber):
         for page in self.pages:
-            if page._number == pageNumber:
+            if self.pagesToDisplay == 1 and page._number == pageNumber:
                 page.setPos(0, 0)
+                page.show()
+                self.currentPage = page
+            elif self.pagesToDisplay == 2 and page._number == pageNumber:
+                page.setPos(10, 0)
                 page.show()
                 self.currentPage = page
             elif self.pagesToDisplay == 2 and page._number == pageNumber + 1:
                 page.show()
-                page.setPos(PageSize.width() + 10, 10)
+                page.setPos(PageSize.width() + 20, 0)
+            elif self.pagesToDisplay == 'continuous' or self.pagesToDisplay == 'continuousFacing':
+                if page._number == pageNumber:
+                    self.currentPage = page
             else:
                 page.hide()
                 page.setPos(0, 0)
             if self.pagesToDisplay == 2 and pageNumber == self.pages[-1]._number:
-                self.pages[-1].setPos(PageSize.width() + 10, 10)
+                self.pages[-1].setPos(PageSize.width() + 20, 0)
                 self.pages[-1].show()
-                self.pages[-2].setPos(0, 0)
+                self.pages[-2].setPos(10, 0)
                 self.pages[-2].show()
+                
+        self.currentPage.setSelected(True)
+        for view in self.views():
+           view.centerOn(self.currentPage)
 
     def showOnePage(self):
         self.pagesToDisplay = 1
@@ -76,10 +87,31 @@ class LicGraphicsScene(QGraphicsScene):
             p1 = self.currentPage
             p2 = self.pages[index + 1]
         
-        p1.setPos(10, 10)
+        p1.setPos(10, 0)
         p1.show()
-        p2.setPos(PageSize.width() + 20, 10)
+        p2.setPos(PageSize.width() + 20, 0)
         p2.show()
+
+    def continuous(self):
+        self.pagesToDisplay = 'continuous'
+        pc = len(self.pages)
+        ph = PageSize.height()
+        self.setSceneRect(0, 0, PageSize.width() + 20, (10 * (pc + 1)) + (ph * pc))
+        for i, page in enumerate(self.pages):
+            page.setPos(10, (10 * (i + 1)) + (ph * i))
+            page.show()
+    
+    def continuousFacing(self):
+        self.pagesToDisplay = 'continuousFacing'
+        pw = PageSize.width()
+        ph = PageSize.height()
+        rows = sum(divmod(len(self.pages), 2))
+        self.setSceneRect(0, 0, pw + pw + 30, (10 * (rows + 1)) + (ph * rows))
+        for i, page in enumerate(self.pages):
+            x = 10 + ((pw + 10) * (i % 2))
+            y = (10 * ((i // 2) + 1)) + (ph * (i // 2))
+            page.setPos(x, y)
+            page.show()
     
     def addItem(self, item):
         QGraphicsScene.addItem(self, item)
@@ -122,21 +154,9 @@ class LicGraphicsScene(QGraphicsScene):
         # menu that was *clicked on*, not the menu of the selected items
         # TODO: need to handle this better: What if a page and a step are selected?
         for item in self.selectedItems():
-            if isinstance(item, Part):
-                item.contextMenuEvent(event)
-                return
-            if isinstance(item, Step):
-                item.contextMenuEvent(event)
-                return
-            if isinstance(item, Page):
-                item.contextMenuEvent(event)
-                return
-            if isinstance(item, Callout):
-                item.contextMenuEvent(event)
-                return
-            if isinstance(item, CSI):
-                item.contextMenuEvent(event)
-                return
+            for t in [Part, Step, Page, Callout, CSI]:
+                if isinstance(item, t):
+                    return item.contextMenuEvent(event)
 
     def keyReleaseEvent(self, event):
 
@@ -243,7 +263,7 @@ class LicWindow(QMainWindow):
         self.treeView.setModel(self.instructions)
         self.selectionModel = QItemSelectionModel(self.instructions)
         self.treeView.setSelectionModel(self.selectionModel)
-        self.treeView.connect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateSelection)
+        self.treeView.connect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateTreeSelection)
 
         self.connect(self.scene, SIGNAL("pageUp"), self.scene.pageUp)
         self.connect(self.scene, SIGNAL("pageDown"), self.scene.pageDown)
@@ -401,9 +421,11 @@ class LicWindow(QMainWindow):
         self.viewMenu = menu.addMenu("&View")
         zoomIn = self.createMenuAction("Zoom In", self.zoomIn, None, "Zoom In")
         zoomOut = self.createMenuAction("Zoom Out", self.zoomOut, None, "Zoom Out")
-        onePage = self.createMenuAction("Show One Page", self.showOnePage, None, "Show One Page")
-        twoPages = self.createMenuAction("Show Two Pages", self.showTwoPages, None, "Show Two Pages")
-        self.addActions(self.viewMenu, (zoomIn, zoomOut, onePage, twoPages))
+        onePage = self.createMenuAction("Show One Page", self.scene.showOnePage, None, "Show One Page")
+        twoPages = self.createMenuAction("Show Two Pages", self.scene.showTwoPages, None, "Show Two Pages")
+        continuous = self.createMenuAction("Continuous", self.scene.continuous, None, "Continuous")
+        continuousFacing = self.createMenuAction("Continuous Facing", self.scene.continuousFacing, None, "Continuous Facing")
+        self.addActions(self.viewMenu, (zoomIn, zoomOut, onePage, twoPages, continuous, continuousFacing))
 
         # Page Menu
         self.pageMenu = menu.addMenu("&Page")
@@ -416,12 +438,6 @@ class LicWindow(QMainWindow):
         self.exportMenu = menu.addMenu("E&xport")
         self.exportImagesAction = self.createMenuAction("Generate Final Images", self.exportImages, None, "Generate final, high res images of each page in this Instruction book")
         self.exportMenu.addAction(self.exportImagesAction)
-
-    def showOnePage(self):
-        self.scene.showOnePage()
-    
-    def showTwoPages(self):
-        self.scene.showTwoPages()
 
     def zoomIn(self):
         self.graphicsView.scaleView(1.2)
@@ -503,8 +519,8 @@ class LicWindow(QMainWindow):
             settings.setValue("Geometry", QVariant(self.saveGeometry()))
             settings.setValue("MainWindow/State", QVariant(self.saveState()))
             
-            # Need to explicitly disconnect this signal, because the scene emits an updateSelection right before it's deleted
-            self.disconnect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateSelection)
+            # Need to explicitly disconnect these signals, because the scene emits a selectionChanged right before it's deleted
+            self.disconnect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateTreeSelection)
             self.glWidget.doneCurrent()  # Avoid a crash when exiting
             event.accept()
         else:

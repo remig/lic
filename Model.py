@@ -65,7 +65,7 @@ class LicTreeView(QTreeView):
             self.clicked(self.currentIndex())
     """
         
-    def updateSelection(self):
+    def updateTreeSelection(self):
         """ This is called whenever the graphics scene's selection changes """
         
         # Deselect everything in the tree
@@ -564,6 +564,9 @@ class Page(QGraphicsRectItem):
 
         return items
 
+    def getPage(self):
+        return self
+    
     def prevPage(self):
         if self._row:
             return self._parent.pages[self._row - 1]
@@ -825,6 +828,9 @@ class Page(QGraphicsRectItem):
         newPage = Page(self._parent, self.instructions, self.number + 1, self._row + 1)
         self.scene().undoStack.push(AddRemovePageCommand(newPage, True))
 
+class CalloutArrowEnd(QGraphicsRectItem):
+    pass
+
 class CalloutArrow(QGraphicsRectItem):
     
     arrowTipLength = 20.0
@@ -862,7 +868,7 @@ class CalloutArrow(QGraphicsRectItem):
         return 2
 
     def initChildRect(self, width, height, dataText, row):
-        r = QGraphicsRectItem(self)
+        r = CalloutArrowEnd(self)
         r.setFlags(NoMoveFlags)
         r.setPen(QPen(Qt.NoPen))
         r.setRect(0, 0, width, height)  # 31 = 25 (arrow) + 3 + 3 (padding)
@@ -979,6 +985,12 @@ class Callout(QGraphicsRectItem):
     def data(self, index):
         return "Callout %d - %d step%s" % (self.number, len(self.steps), 's' if len(self.steps) > 1 else '')
 
+    def getPage(self):
+        parent = self.parentItem()
+        while not isinstance(parent, Page):
+            parent = self.parentItem()
+        return parent
+    
     def addBlankStep(self, useUndo = True):
         lastNum = self.steps[-1].number + 1 if self.steps else 1
         step = Step(self, lastNum, False, self.showStepNumbers)
@@ -1173,6 +1185,12 @@ class Step(QGraphicsRectItem):
         if child in self.callouts:
             return self.callouts.index(child) + 1 + (1 if self.pli else 0) + (1 if self.numberItem else 0)
         
+    def getPage(self):
+        p = self.parentItem()
+        while not isinstance(p, Page):
+            p = self.parentItem()
+        return p
+    
     def addPart(self, part):
         self.csi.addPart(part)
         if self.pli:
