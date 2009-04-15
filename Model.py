@@ -851,6 +851,24 @@ class CalloutArrow(QGraphicsRectItem):
         
         for point in [tip, topEnd, joint, botEnd]:
             self.arrowHead.append(point)
+            
+        self.tipRect = self.initChildRect(31, 20, "Arrow Tip", 0)
+        self.baseRect = self.initChildRect(20, 20, "Arrow Base", 1)
+
+    def child(self, row):
+        return self.tipRect if row == 0 else self.baseRect
+
+    def rowCount(self):
+        return 2
+
+    def initChildRect(self, width, height, dataText, row):
+        r = QGraphicsRectItem(self)
+        r.setFlags(NoMoveFlags)
+        r.setPen(QPen(Qt.NoPen))
+        r.setRect(0, 0, width, height)  # 31 = 25 (arrow) + 3 + 3 (padding)
+        r.dataText = dataText
+        r._row = row
+        return r
 
     def paint(self, painter, option, widget = None):
         QGraphicsRectItem.paint(self, painter, option, widget)
@@ -892,6 +910,9 @@ class CalloutArrow(QGraphicsRectItem):
             midY = (tip.y() + offset.y() + end.y()) / 2.0
             mid1 = QPointF(tip.x(), midY)
             mid2 = QPointF(end.x(), midY)
+
+        self.baseRect.setPos(end.x() - 18, end.y() - 10)  # 18 = 2 units overlap past end, 10 = 1/2 height
+        self.tipRect.setPos(tip.x() - 3, tip.y() - 10)    # 3 = nice inset, 10 = 1/2 height
 
         # Draw step line
         line = QPolygonF()
@@ -2780,7 +2801,7 @@ class Arrow(Part):
         GL.glPushMatrix()
         GL.glMultMatrixf(matrix)
         
-        GLHelpers.drawCoordLines()
+        #GLHelpers.drawCoordLines()
         self.doGLRotation()
 
         if self.isSelected():

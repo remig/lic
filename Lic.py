@@ -217,7 +217,7 @@ class LicWindow(QMainWindow):
         self.undoStack = QUndoStack()
         self.connect(self.undoStack, SIGNAL("cleanChanged(bool)"), self._setWindowModified)
         
-        self.glWidget = QGLWidget(self)
+        self.glWidget = QGLWidget(QGLFormat(QGL.SampleBuffers | QGL.AlphaChannel), self)
         self.treeView = LicTreeView(self)
 
         statusBar = self.statusBar()
