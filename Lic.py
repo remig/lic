@@ -127,6 +127,15 @@ class LicGraphicsScene(QGraphicsScene):
         self.pages.append(item)
         self.pages.sort(key = lambda x: x._number)
         
+    def removeItem(self, item):
+        QGraphicsScene.removeItem(self, item)
+        if isinstance(item, Page) and item in self.pages:
+            self.pages.remove(item)
+            if self.pagesToDisplay == 'continuous':
+                self.continuous()
+            elif self.pagesToDisplay == 'continuousFacing':
+                self.continuousFacing()
+        
     def mouseReleaseEvent(self, event):
 
         # Need to compare the selection list before and after selection, to deselect any selected parts
