@@ -65,9 +65,18 @@ class LicGraphicsScene(QGraphicsScene):
                 self.pages[-2].show()
                 
         self.currentPage.setSelected(True)
-        for view in self.views():
-           view.centerOn(self.currentPage)
 
+    def selectionChanged(self):
+        if not self.selectedItems():
+            return
+        self.scrollToPage(self.selectedItems()[-1].getPage())
+    
+    def scrollToPage(self, page):
+        view = self.views()[0]
+        view.setInteractive(False)
+        view.centerOn(page)
+        view.setInteractive(True)
+        
     def showOnePage(self):
         self.pagesToDisplay = 1
         self.setSceneRect(0, 0, PageSize.width(), PageSize.height())
@@ -264,6 +273,7 @@ class LicWindow(QMainWindow):
         self.selectionModel = QItemSelectionModel(self.instructions)
         self.treeView.setSelectionModel(self.selectionModel)
         self.treeView.connect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateTreeSelection)
+        self.scene.connect(self.scene, SIGNAL("selectionChanged()"), self.scene.selectionChanged)
 
         self.connect(self.scene, SIGNAL("pageUp"), self.scene.pageUp)
         self.connect(self.scene, SIGNAL("pageDown"), self.scene.pageDown)
@@ -521,6 +531,7 @@ class LicWindow(QMainWindow):
             
             # Need to explicitly disconnect these signals, because the scene emits a selectionChanged right before it's deleted
             self.disconnect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateTreeSelection)
+            self.disconnect(self.scene, SIGNAL("selectionChanged()"), self.scene.selectionChanged)
             self.glWidget.doneCurrent()  # Avoid a crash when exiting
             event.accept()
         else:
