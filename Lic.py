@@ -64,7 +64,7 @@ class LicGraphicsScene(QGraphicsScene):
                 self.pages[-2].setPos(10, 0)
                 self.pages[-2].show()
                 
-        self.currentPage.setSelected(True)
+        self.scrollToPage(self.currentPage)
 
     def selectionChanged(self):
         if not self.selectedItems():

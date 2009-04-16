@@ -790,9 +790,10 @@ class Page(QGraphicsRectItem):
         menu.addAction("Append blank Page", self.addPageAfterSignal)
         menu.addSeparator()
         if self.separators:
-            menu.addAction("Hide Step Separators", self.hideSeparators)
-        else:
-            menu.addAction("Show Step Separators", self.showSeparators)
+            if [x for x in self.separators if x.isVisible()]:
+                menu.addAction("Hide Step Separators", self.hideSeparators)
+            else:
+                menu.addAction("Show Step Separators", self.showSeparators)
         menu.addAction("Add blank Step", self.addBlankStepSignal)
         menu.addSeparator()
         if self.layout.orientation == Layout.Horizontal:
@@ -2801,6 +2802,8 @@ class Arrow(Part):
             GLHelpers.rotateView(*self.getCSI().rotation)
 
     def callGLDisplayList(self, useDisplacement = False):
+        if not useDisplacement:
+            return
 
         # Must be called inside a glNewList/EndList pair
         color = LDrawColors.convertToRGBA(self.color)
@@ -2812,7 +2815,7 @@ class Arrow(Part):
             GL.glColor4fv(color)
 
         matrix = list(self.matrix)
-        if useDisplacement and self.displacement:
+        if self.displacement:
             matrix[12] += self.displacement[0]
             matrix[13] += self.displacement[1]
             matrix[14] += self.displacement[2]
