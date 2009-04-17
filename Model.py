@@ -1391,7 +1391,7 @@ class PLIItem(QGraphicsRectItem):
         self.quantity = 0
         self.color = color
 
-        self.setPen(QPen(Qt.NoPen))
+        self.setPen(QPen(Qt.NoPen)) # QPen(Qt.black)
         self.setFlags(AllFlags)
 
         # Stores a pixmap of the actual part
@@ -1447,36 +1447,37 @@ class PLIItem(QGraphicsRectItem):
 
     def initLayout(self):
 
-        self.resetTransform()
         if not self.pixmapItem.boundingRect().width():
             self.initPixmap()
         part = self.partOGL
-        lblHeight = self.numberItem.boundingRect().height() / 2.0
 
-        li = part.leftInset * PLI.scale
-        bi = part.bottomInset * PLI.scale
-        h = part.height * PLI.scale
-        
-        # Position quantity label based on part corner, empty corner triangle and label's size
-        if part.leftInset == part.bottomInset == 0:
-            dx = -3   # Bottom left triangle is full - shift just a little, for a touch more padding
-        else:
-            slope = li / float(bi)
-            dx = ((li - lblHeight) / slope) - 3  # 3 for a touch more padding
-
-        self.numberItem.setPos(dx, h - lblHeight)
+        # Put label directly below part, left sides aligned
+        # Label's implicit lower top right corner (from qty 'x'), means no padding needed
+        x = self.pixmapItem.pos().x()
+        y = self.pixmapItem.pos().y()
+        self.numberItem.setPos(x, y + (part.height * PLI.scale))  
+       
+        lblWidth = self.numberItem.boundingRect().width()
+        lblHeight = self.numberItem.boundingRect().height()
+        if part.leftInset > lblWidth:
+            if part.bottomInset > lblHeight:
+                self.numberItem.moveBy(0, -lblHeight)  # Label fits entirely under part: bottom left corners now match
+            else:
+                li = part.leftInset * PLI.scale   # Move label up until top right corner intersects bottom left inset line
+                slope = (part.bottomInset * PLI.scale) / float(li)
+                dy = slope * (li - lblWidth)
+                self.numberItem.moveBy(0, -dy)
 
         # Set this item to the union of its image and qty label rects
         pixmapRect = self.pixmapItem.boundingRect().translated(self.pixmapItem.pos())
         numberRect = self.numberItem.boundingRect().translated(self.numberItem.pos())
         self.setRect(pixmapRect | numberRect)
-        self.translate(-self.rect().x(), -self.rect().y())
+        self.moveBy(-self.rect().x(), -self.rect().y())
 
     """
     def paint(self, painter, option, widget = None):
-        rect = self.boundingRect()
-        painter.drawRect(rect)
         QGraphicsRectItem.paint(self, painter, option, widget)
+        painter.drawRect(self.boundingRect())
     """
 
     def createPng(self):
