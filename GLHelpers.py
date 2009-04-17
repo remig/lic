@@ -130,30 +130,6 @@ def popAllGLMatrices():
     glPopMatrix()
     glPopAttrib()
 
-def _checkImgMaxBounds(top, bottom, left, right, width, height, filename):
-    
-    if (top == 0) and (bottom == height-1): 
-        if DEBUG and filename:
-            print "%s - top & bottom out of bounds" % (filename)
-        return True
-    
-    if (left == 0) and (right == width-1):
-        if DEBUG and filename:
-            print "%s - left & right out of bounds" % (filename)
-        return True
-    
-    if (top == height) and (bottom == 0):
-        if DEBUG and filename:
-            print "%s - blank page" % (filename)
-        return True
-    
-    if (left == width) and (right == 0):
-        if DEBUG and filename:
-            print "%s - blank page" % (filename)
-        return True
-    
-    return False
-
 def _checkImgTouchingBounds(top, bottom, left, right, width, height, filename):
     
     if (top == 0) or (bottom == height-1):
@@ -233,7 +209,7 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotat
     #img = img.transpose(Image.FLIP_TOP_BOTTOM)
     #if filename:
     #    rawFilename = os.path.splitext(os.path.basename(filename))[0]
-    #    img.save("C:\\Lic\\tmp\\%s_%dx%d.png" % (rawFilename, w, h))
+    #    img.save("C:\\lic\\tmp\\%s_%dx%d.png" % (rawFilename, w, h))
     
     data = img.load()
     top, leftInset = _checkPixelsTop(data, w, h)
@@ -265,36 +241,14 @@ def initImgSize(width, height, oglDispID, isCSI, filename = None, rotation = Non
     # Draw piece to frame buffer, then calculate bounding box
     top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(0.0, 0.0, width, height, oglDispID, filename, isCSI, rotation, pBuffer)
     
-    if _checkImgMaxBounds(top, bottom, left, right, width, height, filename):
-        return None  # Drawn completely out of bounds
-    
-    # If we hit one of these cases, at least one edge was drawn off screen
-    # Try to reposition the part and draw again, see if we can fit it on screen
-    x = y = 0
-    if top == 0:
-        y = bottom - height + 2
-    
-    if bottom == height-1:
-        y = top - 1
-    
-    if left == 0:
-        x = width - right - 2
-    
-    if right == width-1:
-        x = 1 - left
-    
-    if (x != 0) or (y != 0):
-        # Drew at least one edge out of bounds - try moving part as much as possible and redrawing
-        top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(x, y, width, height, oglDispID, filename, isCSI, rotation, pBuffer)
-    
     if _checkImgTouchingBounds(top, bottom, left, right, width, height, filename):
-        return None  # Drew on edge out of bounds - could try another displacement, but easier to just try bigger size
+        return None  # Drew on edge out of bounds - try next size
     
     imgWidth = right - left + 1
     imgHeight = bottom - top + 2
     
     w = (left + (imgWidth/2)) - (width/2)
     h = (top + (imgHeight/2)) - (height/2)
-    imgCenter = QPointF(x - w, h - y)
+    imgCenter = QPointF(-w, h)
 
     return (imgWidth, imgHeight, imgCenter, leftInset, bottomInset)

@@ -991,12 +991,6 @@ class Callout(QGraphicsRectItem):
     def data(self, index):
         return "Callout %d - %d step%s" % (self.number, len(self.steps), 's' if len(self.steps) > 1 else '')
 
-    def getPage(self):
-        parent = self.parentItem()
-        while not isinstance(parent, Page):
-            parent = parent.parentItem()
-        return parent
-    
     def addBlankStep(self, useUndo = True):
         lastNum = self.steps[-1].number + 1 if self.steps else 1
         step = Step(self, lastNum, False, self.showStepNumbers)
@@ -1191,12 +1185,6 @@ class Step(QGraphicsRectItem):
         if child in self.callouts:
             return self.callouts.index(child) + 1 + (1 if self.pli else 0) + (1 if self.numberItem else 0)
         
-    def getPage(self):
-        parent = self.parentItem()
-        while not isinstance(parent, Page):
-            parent = parent.parentItem()
-        return parent
-    
     def addPart(self, part):
         self.csi.addPart(part)
         if self.pli:
