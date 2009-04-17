@@ -32,6 +32,11 @@ GlobalGLContext = None
 NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
 AllFlags = NoMoveFlags | QGraphicsItem.ItemIsMovable
 
+def getGLFormat():
+    format = QGLFormat(QGL.SampleBuffers)
+    format.setSamples(8)
+    return format
+
 class LicTreeView(QTreeView):
 
     def __init__(self, parent):
@@ -322,7 +327,7 @@ class Instructions(QAbstractItemModel):
         for size in sizes:
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, QGLFormat(), GlobalGLContext)
+            pBuffer = QGLPixelBuffer(size, size, getGLFormat(), GlobalGLContext)
             pBuffer.makeCurrent()
 
             # Render each image and calculate their sizes
@@ -368,7 +373,7 @@ class Instructions(QAbstractItemModel):
         for size in sizes:
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, QGLFormat(), GlobalGLContext)
+            pBuffer = QGLPixelBuffer(size, size, getGLFormat(), GlobalGLContext)
 
             # Render each CSI and calculate its size
             for csi in csiList:
@@ -397,7 +402,7 @@ class Instructions(QAbstractItemModel):
         for csi in csiList:
             if csi.width < 1 or csi.height < 1:
                 continue
-            pBuffer = QGLPixelBuffer(csi.width * CSI.scale, csi.height * CSI.scale, QGLFormat(), GlobalGLContext)
+            pBuffer = QGLPixelBuffer(csi.width * CSI.scale, csi.height * CSI.scale, getGLFormat(), GlobalGLContext)
             pBuffer.makeCurrent()
             csi.initPixmap(pBuffer)
 
@@ -989,7 +994,7 @@ class Callout(QGraphicsRectItem):
     def getPage(self):
         parent = self.parentItem()
         while not isinstance(parent, Page):
-            parent = self.parentItem()
+            parent = parent.parentItem()
         return parent
     
     def addBlankStep(self, useUndo = True):
@@ -1187,10 +1192,10 @@ class Step(QGraphicsRectItem):
             return self.callouts.index(child) + 1 + (1 if self.pli else 0) + (1 if self.numberItem else 0)
         
     def getPage(self):
-        p = self.parentItem()
-        while not isinstance(p, Page):
-            p = self.parentItem()
-        return p
+        parent = self.parentItem()
+        while not isinstance(parent, Page):
+            parent = parent.parentItem()
+        return parent
     
     def addPart(self, part):
         self.csi.addPart(part)
@@ -1764,7 +1769,7 @@ class CSI(QGraphicsPixmapItem):
         if rebuildDisplayList or self.oglDispID == UNINIT_GL_DISPID:
             self.createOGLDisplayList()
 
-        pBuffer = QGLPixelBuffer(self.width * CSI.scale, self.height * CSI.scale, QGLFormat(), GlobalGLContext)
+        pBuffer = QGLPixelBuffer(self.width * CSI.scale, self.height * CSI.scale, getGLFormat(), GlobalGLContext)
         pBuffer.makeCurrent()
         self.initPixmap(pBuffer)
         GlobalGLContext.makeCurrent()
@@ -1801,7 +1806,7 @@ class CSI(QGraphicsPixmapItem):
         for size in sizes:
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, QGLFormat(), GlobalGLContext)
+            pBuffer = QGLPixelBuffer(size, size, getGLFormat(), GlobalGLContext)
             pBuffer.makeCurrent()
 
             if self.initSize(size, pBuffer):
@@ -2073,7 +2078,7 @@ class PartOGL(object):
         x = self.center.x() * PLI.scale
         y = self.center.y() * PLI.scale
 
-        pBuffer = QGLPixelBuffer(w, h, QGLFormat(), GlobalGLContext)
+        pBuffer = QGLPixelBuffer(w, h, getGLFormat(), GlobalGLContext)
         pBuffer.makeCurrent()
 
         GLHelpers.initFreshContext()
@@ -2807,7 +2812,6 @@ class Arrow(Part):
 
         # Must be called inside a glNewList/EndList pair
         color = LDrawColors.convertToRGBA(self.color)
-
         if color != LDrawColors.CurrentColor:
             if self.isSelected():
                 color[3] = 0.5
@@ -2829,9 +2833,7 @@ class Arrow(Part):
             self.drawGLBoundingBox()
 
         GL.glCallList(self.partOGL.oglDispID)
-
-        if self.matrix:
-            GL.glPopMatrix()
+        GL.glPopMatrix()
 
         if color != LDrawColors.CurrentColor:
             GL.glPopAttrib()

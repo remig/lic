@@ -2,6 +2,7 @@
 import random
 import sys
 import math
+import os.path
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -14,7 +15,7 @@ import config
 import l3p
 import povray
 import LicDialogs
-from LicUndoActions import *
+import LicUndoActions
 
 __version__ = 0.1
 PageSize = QSize(800, 600)
@@ -250,12 +251,12 @@ class LicWindow(QMainWindow):
     def __init__(self, parent = None):
         QMainWindow.__init__(self, parent)
         
-        self.initWindowSettings()
+        self.loadSettings()
         
         self.undoStack = QUndoStack()
         self.connect(self.undoStack, SIGNAL("cleanChanged(bool)"), self._setWindowModified)
         
-        self.glWidget = QGLWidget(QGLFormat(QGL.SampleBuffers | QGL.AlphaChannel), self)
+        self.glWidget = QGLWidget(getGLFormat(), self)
         self.treeView = LicTreeView(self)
 
         statusBar = self.statusBar()
@@ -273,6 +274,7 @@ class LicWindow(QMainWindow):
         self.mainSplitter = QSplitter(Qt.Horizontal)
         self.mainSplitter.addWidget(self.treeView)
         self.mainSplitter.addWidget(self.graphicsView)
+        self.mainSplitter.restoreState(self.splitterState)
         self.setCentralWidget(self.mainSplitter)
 
         self.initMenu()
@@ -309,11 +311,24 @@ class LicWindow(QMainWindow):
             self.loadModel(self.modelName)
             statusBar.showMessage("Model: " + self.modelName)
 
-    def initWindowSettings(self):
-        settings = QSettings()
+    def getSettingsFile(self):
+        iniFile = os.path.join(os.path.dirname(sys.argv[0]), 'Lic.ini')
+        return QSettings(QString(iniFile), QSettings.IniFormat)
+        
+    def loadSettings(self):
+        settings = self.getSettingsFile()
         self.recentFiles = settings.value("RecentFiles").toStringList()
         self.restoreGeometry(settings.value("Geometry").toByteArray())
         self.restoreState(settings.value("MainWindow/State").toByteArray())
+        self.splitterState = settings.value("SplitterSizes").toByteArray()
+    
+    def saveSettings(self):
+        settings = self.getSettingsFile()
+        recentFiles = QVariant(self.recentFiles) if self.recentFiles else QVariant()
+        settings.setValue("RecentFiles", recentFiles)
+        settings.setValue("Geometry", QVariant(self.saveGeometry()))
+        settings.setValue("MainWindow/State", QVariant(self.saveState()))
+        settings.setValue("SplitterSizes", QVariant(self.mainSplitter.saveState()))
     
     def keyReleaseEvent(self, event):
         pass
@@ -334,7 +349,7 @@ class LicWindow(QMainWindow):
         
     def createUndoSignals(self):
 
-        signals = [("itemsMoved", MoveCommand)]
+        signals = [("itemsMoved", LicUndoActions.MoveCommand)]
 
         for signal, command in signals:
             self.connect(self.scene, SIGNAL(signal), lambda x, c = command: self.undoStack.push(c(x)))
@@ -510,7 +525,7 @@ class LicWindow(QMainWindow):
     def setCSIPLISize(self, newCSISize, newPLISize):
         if newCSISize != CSI.scale or newPLISize != PLI.scale:
             sizes = ((CSI.scale, newCSISize), (PLI.scale, newPLISize))
-            self.undoStack.push(ResizeCSIPLICommand(self.instructions, sizes))
+            self.undoStack.push(LicUndoActions.ResizeCSIPLICommand(self.instructions, sizes))
 
     def addActions(self, target, actions):
         for action in actions:
@@ -532,11 +547,7 @@ class LicWindow(QMainWindow):
 
     def closeEvent(self, event):
         if self.offerSave():
-            settings = QSettings()
-            recentFiles = QVariant(self.recentFiles) if self.recentFiles else QVariant()
-            settings.setValue("RecentFiles", recentFiles)
-            settings.setValue("Geometry", QVariant(self.saveGeometry()))
-            settings.setValue("MainWindow/State", QVariant(self.saveState()))
+            self.saveSettings()
             
             # Need to explicitly disconnect these signals, because the scene emits a selectionChanged right before it's deleted
             self.disconnect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateTreeSelection)
