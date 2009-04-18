@@ -835,7 +835,10 @@ class Page(QGraphicsRectItem):
         self.scene().undoStack.push(AddRemovePageCommand(newPage, True))
 
 class CalloutArrowEnd(QGraphicsRectItem):
-    pass
+    
+    def mouseMoveEvent(self, event):
+        QGraphicsRectItem.mouseMoveEvent(self, event)
+        self.point -= event.lastScenePos() - event.scenePos()
 
 class CalloutArrow(QGraphicsRectItem):
     
@@ -864,8 +867,8 @@ class CalloutArrow(QGraphicsRectItem):
         for point in [tip, topEnd, joint, botEnd]:
             self.arrowHead.append(point)
             
-        self.tipRect = self.initChildRect(31, 20, "Arrow Tip", 0)
-        self.baseRect = self.initChildRect(20, 20, "Arrow Base", 1)
+        self.tipRect = self.createChildRect(32, 32, "Arrow Tip", 0)
+        self.baseRect = self.createChildRect(20, 20, "Arrow Base", 1)
 
     def child(self, row):
         return self.tipRect if row == 0 else self.baseRect
@@ -873,47 +876,75 @@ class CalloutArrow(QGraphicsRectItem):
     def rowCount(self):
         return 2
 
-    def initChildRect(self, width, height, dataText, row):
+    def createChildRect(self, width, height, dataText, row):
         r = CalloutArrowEnd(self)
-        r.setFlags(NoMoveFlags)
+        r.setFlags(AllFlags)
         r.setPen(QPen(Qt.NoPen))
         r.setRect(0, 0, width, height)  # 31 = 25 (arrow) + 3 + 3 (padding)
         r.dataText = dataText
         r._row = row
+        r.point = QPointF()
         return r
 
+    def initializeEndPoints(self):
+        # Find two target rects, both in *LOCAL* coordinates
+        callout = self.parentItem()
+        calloutRect = self.mapFromItem(callout, callout.rect()).boundingRect()
+        csiRect = self.mapFromItem(self.csi, self.csi.boundingRect()).boundingRect()
+
+        if csiRect.right() < calloutRect.left():  # Callout right of CSI
+            self.tipRect.point = csiRect.topRight() + QPointF(0.0, csiRect.height() / 2.0)
+            self.baseRect.point = callout.getArrowBasePoint('left')
+            
+        elif calloutRect.right() < csiRect.left():  # Callout left of CSI
+            self.tipRect.point = csiRect.topLeft() + QPointF(0.0, csiRect.height() / 2.0)
+            self.baseRect.point = callout.getArrowBasePoint('right')
+            
+        elif calloutRect.bottom() < csiRect.top():  # Callout above CSI
+            self.tipRect.point = csiRect.topLeft() + QPointF(csiRect.width() / 2.0, 0.0)
+            self.baseRect.point = callout.getArrowBasePoint('bottom')
+
+        else:  # Callout below CSI
+            self.tipRect.point = csiRect.bottomLeft() + QPointF(csiRect.width() / 2.0, 0.0)
+            self.baseRect.point = callout.getArrowBasePoint('top')
+            
+        self.tipRect.point = self.mapToItem(self.csi, self.tipRect.point)  # Store tip point in CSI space
+        
     def paint(self, painter, option, widget = None):
         QGraphicsRectItem.paint(self, painter, option, widget)
         
         # Find two target rects, both in *LOCAL* coordinates
         callout = self.parentItem()
-        csiRect = self.mapFromItem(self.csi, self.csi.boundingRect()).boundingRect()
         calloutRect = self.mapFromItem(callout, callout.rect()).boundingRect()
+        csiRect = self.mapFromItem(self.csi, self.csi.boundingRect()).boundingRect()
+
+        tip = self.mapFromItem(self.csi, self.tipRect.point)
+        end = self.baseRect.point
 
         if csiRect.right() < calloutRect.left():  # Callout right of CSI
             rotation = 0.0
             offset = QPointF(CalloutArrow.arrowTipLength, 0)
-            tip = csiRect.topRight() + QPointF(0.0, csiRect.height() / 2.0)
-            end = callout.getArrowBasePoint('left')
+            self.tipRect.setPos(tip - QPointF(3, 16))    # 3 = nice inset, 10 = 1/2 height
+            self.baseRect.setPos(end - QPointF(18, 10))  # 18 = 2 units overlap past end, 10 = 1/2 height
             
         elif calloutRect.right() < csiRect.left():  # Callout left of CSI
             rotation = 180.0
             offset = QPointF(-CalloutArrow.arrowTipLength, 0)
-            tip = csiRect.topLeft() + QPointF(0.0, csiRect.height() / 2.0)
-            end = callout.getArrowBasePoint('right')
+            self.tipRect.setPos(tip - QPointF(29, 16))    # 3 = nice inset, 10 = 1/2 height
+            self.baseRect.setPos(end - QPointF(2, 10))  # 2 units overlap past end, 10 = 1/2 height
             
         elif calloutRect.bottom() < csiRect.top():  # Callout above CSI
             rotation = -90.0
             offset = QPointF(0, -CalloutArrow.arrowTipLength)
-            tip = csiRect.topLeft() + QPointF(csiRect.width() / 2.0, 0.0)
-            end = callout.getArrowBasePoint('bottom')
+            self.tipRect.setPos(tip - QPointF(16, 29))    # 3 = nice inset, 10 = 1/2 height
+            self.baseRect.setPos(end - QPointF(10, 2))  # 18 = 2 units overlap past end, 10 = 1/2 height
 
         else:  # Callout below CSI
             rotation = 90.0
             offset = QPointF(0, CalloutArrow.arrowTipLength)
-            tip = csiRect.bottomLeft() + QPointF(csiRect.width() / 2.0, 0.0)
-            end = callout.getArrowBasePoint('top')
-            
+            self.tipRect.setPos(tip - QPointF(16, 3))    # 3 = nice inset, 10 = 1/2 height
+            self.baseRect.setPos(end - QPointF(10, 18))  # 18 = 2 units overlap past end, 10 = 1/2 height
+
         if rotation == 0 or rotation == 180:
             midX = (tip.x() + offset.x() + end.x()) / 2.0
             mid1 = QPointF(midX, tip.y())
@@ -922,9 +953,6 @@ class CalloutArrow(QGraphicsRectItem):
             midY = (tip.y() + offset.y() + end.y()) / 2.0
             mid1 = QPointF(tip.x(), midY)
             mid2 = QPointF(end.x(), midY)
-
-        self.baseRect.setPos(end.x() - 18, end.y() - 10)  # 18 = 2 units overlap past end, 10 = 1/2 height
-        self.tipRect.setPos(tip.x() - 3, tip.y() - 10)    # 3 = nice inset, 10 = 1/2 height
 
         # Draw step line
         line = QPolygonF()
@@ -1065,6 +1093,7 @@ class Callout(QGraphicsRectItem):
             self.qtyLabel.setPos(r.topLeft())
             
         self.parentItem().initLayout()
+        self.arrow.initializeEndPoints()
 
     def enableStepNumbers(self):
         for step in self.steps:
