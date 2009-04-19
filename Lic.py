@@ -149,6 +149,12 @@ class LicGraphicsScene(QGraphicsScene):
             self.undoStack.push(LicUndoActions.AddRemoveGuideCommand(self, guide, False))
         self.undoStack.endMacro()
 
+    def addGuide(self, orientation, pos):
+        guide = Guide(orientation)
+        guide.setPos(pos)
+        self.guides.append(guide)
+        self.addItem(guide)
+
     def addNewGuide(self, orientation):
         self.undoStack.push(LicUndoActions.AddRemoveGuideCommand(self, Guide(orientation), True))
 

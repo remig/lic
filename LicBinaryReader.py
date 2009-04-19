@@ -1,6 +1,7 @@
 from PyQt4.QtCore import *
 
 from Model import *
+import Layout
 
 def loadLicFile(filename, instructions):
     global FileVersion, MagicNumber
@@ -58,6 +59,13 @@ def __readInstructions(stream, instructions):
         submodelDictionary[model.filename] = model
 
     instructions.mainModel = __readSubmodel(stream, instructions)
+
+    guideCount = stream.readInt32()
+    for i in range(0, guideCount):
+        pos = QPointF()
+        stream >> pos
+        orientation = Layout.Horizontal if stream.readBool() else Layout.Vertical
+        instructions.scene.addGuide(orientation, pos)
 
     for model in submodelDictionary.values():
         __linkModelPartNames(model)

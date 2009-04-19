@@ -9,11 +9,18 @@ Instructions:
   QString imported filename
   float CSI.scale
   float PLI.scale
+  
   int32 - length of part dictionary
   ... PartOGL 0..n ...
+ 
   int32 - length of submodel dictionary
   ... Submodel 0..n ...
+ 
   Submodel instructions.mainModel
+ 
+  int32 - length of scene.guides 
+  ... QPointF guide.pos ...
+  ... bool guide.orientation (True = Horizontal) ...
 
 Submodel:
   PartOGL self
@@ -69,11 +76,11 @@ Part:
     int32 arrow.length
   
 Page:
-  QPointf pos
-  QRectf rect
+  QPointF pos
+  QRectF rect
   int32 number
   int32 _row
-  QPointf number.pos
+  QPointF number.pos
   QFont number.font
 
   int32 number of Steps
@@ -87,14 +94,14 @@ Page:
 
 Border:
   int32 child row
-  QPointf pos
-  QRectf rect
+  QPointF pos
+  QRectF rect
   QPen pen
 
 SubmodelItem:
   int32 child row
-  QPointf pos
-  QRectf rect
+  QPointF pos
+  QRectF rect
   QPen pen
   QPixmap pixmap
 
@@ -103,22 +110,22 @@ Step:
   bool hasPLI
   bool hasNumberItem
   
-  QPointf pos
-  QRectf rect
-  QRectf maxRect
+  QPointF pos
+  QRectF rect
+  QRectF maxRect
 
   CSI csi
   PLI pli, if hasPLI
     
-  QPointf number.pos, if hasNumberItem
+  QPointF number.pos, if hasNumberItem
   QFont number.font, if hasNumberItem
 
   int32 number of Callouts
   ... Callout 0..n ...
 
 Callout:
-  QPointf pos
-  QRectf rect
+  QPointF pos
+  QRectF rect
   QPen pen
   
   int32 number
@@ -128,7 +135,7 @@ Callout:
   QPointF callout.arrow.baseRect.point
   
   bool hasQuantityLabel
-  QPointf qtyLabel.pos, if hasQuantityLabel
+  QPointF qtyLabel.pos, if hasQuantityLabel
   QFont qtyLabel.font, if hasQuantityLabel
   int32 quantity, if hasQuantityLabel
 
@@ -136,7 +143,7 @@ Callout:
   ... Step 0..n ...
   
 CSI:
-  QPointf pos
+  QPointF pos
   int32 width
   int32 height
   QPointF center
@@ -150,20 +157,20 @@ CSI:
   ... Part 0..n ...
 
 PLI:
-  QPointf pos
-  QRectf rect
+  QPointF pos
+  QRectF rect
   QPen pen
   int32 number of pliItems
   ... PLIItem 0..n ...
 
 PLIItem:
   QString filename
-  QPointf pos
-  QRectf rect
+  QPointF pos
+  QRectF rect
   QTransform transform
   int32 color
   int32 quantity
-  QPointf numberItem.pos
+  QPointF numberItem.pos
   QFont numberItem.font
   QPixmap pixmapItem.pixmap
   
