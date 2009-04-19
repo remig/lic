@@ -16,6 +16,7 @@ import l3p
 import povray
 import LicDialogs
 import LicUndoActions
+import Layout
 
 __version__ = 0.1
 PageSize = QSize(800, 600)
@@ -27,6 +28,7 @@ class LicGraphicsScene(QGraphicsScene):
         self.pagesToDisplay = 1
         self.currentPage = None
         self.pages = []
+        self.guides = []
 
     def pageUp(self):
         self.selectPage(max(1, self.currentPage._number - 1))
@@ -125,18 +127,54 @@ class LicGraphicsScene(QGraphicsScene):
     
     def addItem(self, item):
         QGraphicsScene.addItem(self, item)
+        if not isinstance(item, Page):
+            return
         self.pages.append(item)
         self.pages.sort(key = lambda x: x._number)
         
     def removeItem(self, item):
         QGraphicsScene.removeItem(self, item)
+        if not isinstance(item, Page):
+            return
         if isinstance(item, Page) and item in self.pages:
             self.pages.remove(item)
             if self.pagesToDisplay == 'continuous':
                 self.continuous()
             elif self.pagesToDisplay == 'continuousFacing':
                 self.continuousFacing()
+
+    def removeGuides(self):
+        for guide in self.guides:
+            self.removeItem(guide)
+        self.guides = []
+
+    def addGuide(self, orientation):
+        guide = Guide(orientation)
+        self.guides.append(guide)
+        self.addItem(guide)
+
+    def snapToGuides(self, item):
+        return
+        nearestX, nearestY = 1000.0
+        pt = item.mapToScene(item.pos())
+        x1, y1 = pt.x(), pt.y()
+        #x2, y2 = x1 + item.boundingRect().width(), y1 + item.boundingRect().height()
         
+        for guide in self.guides:
+            if guide.orientation == Layout.Horizontal:
+                dx = abs(guide.line().x1() - x1)
+                if dx < nearestX:
+                    nearestX = min(x1, dx)
+            else:
+                pass
+            #x = gridSpacing * int(item.pos().x() / gridSpacing)
+            #y = gridSpacing * int(item.pos().y() / gridSpacing)
+            
+        if nearestX < 10 and nearestX < nearestY:
+            item.setPos(item.mapFromScene(nearestX, y1))
+        elif nearestY < 10:
+            item.setPos(item.mapFromScene(x1, nearestY))
+
     def mouseReleaseEvent(self, event):
 
         # Need to compare the selection list before and after selection, to deselect any selected parts
@@ -228,6 +266,35 @@ class LicGraphicsScene(QGraphicsScene):
 
         if movedItems:
             self.emit(SIGNAL("itemsMoved"), movedItems)
+
+class Guide(QGraphicsLineItem):
+    
+    def __init__(self, orientation):
+        QGraphicsLineItem.__init__(self)
+        
+        self.orientation = orientation
+        self.setFlags(AllFlags)
+        self.setPen(QPen(QColor(0, 0, 255, 128)))  # Blue 1/2 transparent
+        #self.setPen(QPen(QBrush(QColor(0, 0, 255, 128)), 1.5))  # Blue 1/2 transparent, 1.5 thick
+        self.row = lambda: -1
+        self.setZValue(10000)  # Put on top of everything else
+        
+        if orientation == Layout.Horizontal:
+            self.setCursor(Qt.SplitVCursor)
+            self.setLine(-1000, PageSize.height() / 2.0, 1000, PageSize.height() / 2.0)
+        else:
+            self.setCursor(Qt.SplitHCursor)
+            self.setLine(PageSize.width() / 2.0, -1000, PageSize.width() / 2.0, 1000)
+
+    def mouseMoveEvent(self, event):
+        if self.orientation == Layout.Horizontal:
+            x = self.pos().x()
+            QGraphicsLineItem.mouseMoveEvent(self, event)
+            self.setPos(x, self.pos().y())
+        else:
+            y = self.pos().y()
+            QGraphicsLineItem.mouseMoveEvent(self, event)
+            self.setPos(self.pos().x(), y)
 
 class LicGraphicsView(QGraphicsView):
     def __init__(self, parent):
@@ -457,13 +524,18 @@ class LicWindow(QMainWindow):
 
         # View Menu
         self.viewMenu = menu.addMenu("&View")
+        addHGuide = self.createMenuAction("Add Horizontal Guide", lambda: self.scene.addGuide(Layout.Horizontal), None, "Add Guide")
+        addVGuide = self.createMenuAction("Add Vertical Guide", lambda: self.scene.addGuide(Layout.Vertical), None, "Add Guide")
+        removeGuides = self.createMenuAction("Remove Guides", self.scene.removeGuides, None, "Add Guide")
+
         zoomIn = self.createMenuAction("Zoom In", self.zoomIn, None, "Zoom In")
         zoomOut = self.createMenuAction("Zoom Out", self.zoomOut, None, "Zoom Out")
+
         onePage = self.createMenuAction("Show One Page", self.scene.showOnePage, None, "Show One Page")
         twoPages = self.createMenuAction("Show Two Pages", self.scene.showTwoPages, None, "Show Two Pages")
         continuous = self.createMenuAction("Continuous", self.scene.continuous, None, "Continuous")
         continuousFacing = self.createMenuAction("Continuous Facing", self.scene.continuousFacing, None, "Continuous Facing")
-        self.addActions(self.viewMenu, (zoomIn, zoomOut, onePage, twoPages, continuous, continuousFacing))
+        self.addActions(self.viewMenu, (addHGuide, addVGuide, removeGuides, None, zoomIn, zoomOut, onePage, twoPages, continuous, continuousFacing))
 
         # Page Menu
         self.pageMenu = menu.addMenu("&Page")

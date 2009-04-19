@@ -74,6 +74,20 @@ def genericMousePressEvent(className):
 
     return _tmp
     
+def snapToGrid(item):
+    gridSpacing = 50
+    x = gridSpacing * int(item.pos().x() / gridSpacing)
+    y = gridSpacing * int(item.pos().y() / gridSpacing)
+    item.setPos(x, y)
+
+def genericMouseMoveEvent(className):
+    
+    def _tmp(self, event):
+        className.mouseMoveEvent(self, event)
+        self.scene().snapToGuides(self)
+        #snapToGrid(self)
+    return _tmp
+    
 def genericMouseReleaseEvent(className):
     
     def _tmp(self, event):
@@ -114,6 +128,7 @@ def roundRectItemPaint(self, painter, option, widget = None):
         painter.drawRect(self.rect())
 
 QGraphicsRectItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
+QGraphicsRectItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)
 QGraphicsRectItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
 QGraphicsRectItem.parent = genericItemParent
@@ -125,6 +140,7 @@ QGraphicsRectItem.cornerRadius = 0.0
 QGraphicsRectItem.paint = roundRectItemPaint
 
 QGraphicsSimpleTextItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
+#QGraphicsSimpleTextItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)
 QGraphicsSimpleTextItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
 QGraphicsSimpleTextItem.parent = genericItemParent
@@ -133,6 +149,7 @@ QGraphicsSimpleTextItem.row = genericRow
 QGraphicsSimpleTextItem.getPage = genericGetPage
 
 QGraphicsPixmapItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
+#QGraphicsPixmapItem.mouseMoveEvent = genericMouseMoveEvent(QGraphicsItem)
 QGraphicsPixmapItem.mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsItem)
 
 QGraphicsPixmapItem.parent = genericItemParent
