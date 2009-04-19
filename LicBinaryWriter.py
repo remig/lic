@@ -112,6 +112,9 @@ def __writePart(stream, part):
     else:
         stream.writeBool(False)
         
+    if isinstance(part, Arrow):
+        stream.writeInt32(part.getLength())
+
 def __writePage(stream, page):
     stream << page.pos() << page.rect()
     stream.writeInt32(page.number)

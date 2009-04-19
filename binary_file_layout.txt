@@ -64,6 +64,9 @@ Part:
     float displacement[1] # y
     float displacement[2] # z
     int32 displaceDir
+    
+  if part is also Arrow:
+    int32 arrow.length
   
 Page:
   QPointf pos

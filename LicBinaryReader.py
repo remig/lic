@@ -163,6 +163,7 @@ def __readPart(stream):
         arrow = Arrow(displaceDirection)
         arrow.matrix = matrix
         arrow.displacement = displacement
+        arrow.setLength(stream.readInt32())
         return arrow
     
     part = Part(filename, color, matrix, invert)

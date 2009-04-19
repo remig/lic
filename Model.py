@@ -2868,12 +2868,19 @@ class Arrow(Part):
         if color != LDrawColors.CurrentColor:
             GL.glPopAttrib()
 
-    def adjustLength(self, offset):
+    def getLength(self):
         p = self.partOGL.primitives[-1]
-        p.points[3] = max(p.points[3] + offset, 0) 
-        p.points[6] = max(p.points[6] + offset, 0)
+        return p.points[3]
+
+    def setLength(self, length):
+        p = self.partOGL.primitives[-1]
+        p.points[3] = length 
+        p.points[6] = length
         self.partOGL.resetBoundingBox()
         self.partOGL.createOGLDisplayList()
+    
+    def adjustLength(self, offset):
+        self.setLength(self.getLength() + offset)
         
     def contextMenuEvent(self, event):
 
