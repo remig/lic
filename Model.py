@@ -1005,6 +1005,8 @@ class Callout(QGraphicsRectItem):
         self.setPen(QPen(Qt.black))
         self.setFlags(AllFlags)
         
+        self.cornerRadius = 10
+        
     def child(self, row):
         if row == 0:
             return self.arrow
@@ -1135,12 +1137,6 @@ class Callout(QGraphicsRectItem):
     def setQuantity(self, qty):
         self.qtyLabel.setText("%dx" % qty)
         
-    def paint(self, painter, option, widget = None):
-        painter.setPen(self.pen())
-        if self.isSelected():
-            painter.setPen(Qt.DashLine)
-        painter.drawRoundedRect(self.rect(), 10, 10)
-
     def contextMenuEvent(self, event):
         stack = self.scene().undoStack
         menu = QMenu(self.scene().views()[0])

@@ -104,13 +104,25 @@ def genericRow(self):
 def genericGetPage(self):
     return self.parentItem().getPage()
 
+def roundRectItemPaint(self, painter, option, widget = None):
+    painter.setPen(self.pen())
+    if self.isSelected():
+        painter.setPen(Qt.DashLine)
+    if self.cornerRadius:
+        painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
+    else:
+        painter.drawRect(self.rect())
+
 QGraphicsRectItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
 QGraphicsRectItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
 QGraphicsRectItem.parent = genericItemParent
 QGraphicsRectItem.data = genericItemData
 QGraphicsRectItem.row = genericRow
+
 QGraphicsRectItem.getPage = genericGetPage
+QGraphicsRectItem.cornerRadius = 0.0
+QGraphicsRectItem.paint = roundRectItemPaint
 
 QGraphicsSimpleTextItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
 QGraphicsSimpleTextItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)

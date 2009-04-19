@@ -68,7 +68,7 @@ class LicGraphicsScene(QGraphicsScene):
         self.scrollToPage(self.currentPage)
 
     def selectionChanged(self):
-        if not self.selectedItems():
+        if self.pagesToDisplay == 1 or not self.selectedItems():
             return
         self.scrollToPage(self.selectedItems()[-1].getPage())
     
@@ -278,6 +278,7 @@ class LicWindow(QMainWindow):
         self.setCentralWidget(self.mainSplitter)
 
         self.initMenu()
+        self.initToolBars()
 
         self.instructions = Instructions(self.treeView, self.scene, self.glWidget)
         self.treeView.setModel(self.instructions)
@@ -415,6 +416,9 @@ class LicWindow(QMainWindow):
 
         return config
 
+    def initToolBars(self):
+        self.toolBar = None
+    
     def initMenu(self):
         
         menu = self.menuBar()
@@ -620,7 +624,7 @@ class LicWindow(QMainWindow):
                 self.fileClose()
                 return
 
-        progress.setValue(stopValue)
+        progress.setValue(progress.maximum())
         
         config.config = self.initConfig()
         self.statusBar().showMessage("Instruction book loaded")
@@ -675,6 +679,13 @@ def main():
     app.setOrganizationDomain("bugeyedmonkeys.com")
     app.setApplicationName("Lic")
     window = LicWindow()
+
+    try:
+        import psyco
+        psyco.full()
+    except ImportError:
+        pass
+
     window.show()
     sys.exit(app.exec_())
     
