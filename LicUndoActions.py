@@ -41,6 +41,23 @@ class MoveCommand(QUndoCommand):
             if hasattr(item.parentItem(), "resetRect"):
                 item.parentItem().resetRect()
 
+class CalloutArrowMoveCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, part, oldPoint, newPoint):
+        QUndoCommand.__init__(self, "move Callout Arrow")
+        self.part, self.oldPoint, self.newPoint = part, oldPoint, newPoint
+
+    # Need to invalidate scene because we don't actually move a part here, so scene doesn't redraw
+    def undo(self):
+        self.part.point = self.oldPoint
+        self.part.scene().invalidate(self.part.parentItem().boundingRect())
+
+    def redo(self):
+        self.part.point = self.newPoint
+        self.part.scene().invalidate(self.part.parentItem().boundingRect())
+
 class DisplacePartCommand(QUndoCommand):
 
     _id = getNewCommandID()

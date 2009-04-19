@@ -121,6 +121,9 @@ Callout:
   int32 number
   bool showStepNumbers
   
+  QPointF callout.arrow.tipRect.point
+  QPointF callout.arrow.baseRect.point
+  
   bool hasQuantityLabel
   QPointf qtyLabel.pos, if hasQuantityLabel
   QFont qtyLabel.font, if hasQuantityLabel

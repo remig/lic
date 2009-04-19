@@ -836,9 +836,21 @@ class Page(QGraphicsRectItem):
 
 class CalloutArrowEnd(QGraphicsRectItem):
     
+    def mousePressEvent(self, event):
+        if event.button() == Qt.RightButton:
+            return
+        QGraphicsItem.mousePressEvent(self, event)
+        self.oldPoint = QPointF(self.point)
+    
     def mouseMoveEvent(self, event):
         QGraphicsRectItem.mouseMoveEvent(self, event)
         self.point -= event.lastScenePos() - event.scenePos()
+        
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.RightButton:
+            return
+        QGraphicsItem.mouseReleaseEvent(self, event)
+        self.scene().undoStack.push(CalloutArrowMoveCommand(self, self.oldPoint, self.point))
 
 class CalloutArrow(QGraphicsRectItem):
     
@@ -954,13 +966,21 @@ class CalloutArrow(QGraphicsRectItem):
             mid1 = QPointF(tip.x(), midY)
             mid2 = QPointF(end.x(), midY)
 
+        x, y = end.x(), end.y()   # Make sure end point still touches Callout bounding box
+        if x < calloutRect.right() and x > calloutRect.left():  # Clamp y
+            if y <= calloutRect.center().y():
+                end.setY(calloutRect.top())
+            else:
+                end.setY(calloutRect.bottom())
+        else:  # Clamp x
+            end.setY(min(calloutRect.bottom(), max(y, calloutRect.top())))
+            if x <= calloutRect.center().x():
+                end.setX(calloutRect.left())
+            else:
+                end.setX(calloutRect.right())
+            
         # Draw step line
-        line = QPolygonF()
-        line.append(tip + offset)
-        line.append(mid1)
-        line.append(mid2)
-        line.append(end)
-
+        line = QPolygonF([tip + offset, mid1, mid2, end])
         painter.setPen(QPen(Qt.black))
         painter.drawPolyline(line)
 

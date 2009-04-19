@@ -165,6 +165,9 @@ def __writeCallout(stream, callout):
     stream.writeInt32(callout.number)
     stream.writeBool(callout.showStepNumbers)
 
+    stream << callout.arrow.tipRect.point
+    stream << callout.arrow.baseRect.point
+    
     stream.writeBool(True if callout.qtyLabel else False)
     if callout.qtyLabel:
         stream << callout.qtyLabel.pos() << callout.qtyLabel.font()
