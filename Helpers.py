@@ -127,6 +127,9 @@ def roundRectItemPaint(self, painter, option, widget = None):
     else:
         painter.drawRect(self.rect())
 
+QGraphicsLineItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
+QGraphicsLineItem.mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsItem)
+
 QGraphicsRectItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
 QGraphicsRectItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)
 QGraphicsRectItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)

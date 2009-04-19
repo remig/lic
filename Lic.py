@@ -143,15 +143,14 @@ class LicGraphicsScene(QGraphicsScene):
             elif self.pagesToDisplay == 'continuousFacing':
                 self.continuousFacing()
 
-    def removeGuides(self):
-        for guide in self.guides:
-            self.removeItem(guide)
-        self.guides = []
+    def removeAllGuides(self):
+        self.undoStack.beginMacro("Remove all guides")
+        for guide in list(self.guides):
+            self.undoStack.push(LicUndoActions.AddRemoveGuideCommand(self, guide, False))
+        self.undoStack.endMacro()
 
-    def addGuide(self, orientation):
-        guide = Guide(orientation)
-        self.guides.append(guide)
-        self.addItem(guide)
+    def addNewGuide(self, orientation):
+        self.undoStack.push(LicUndoActions.AddRemoveGuideCommand(self, Guide(orientation), True))
 
     def snapToGuides(self, item):
         snapDistance = 30
@@ -530,9 +529,9 @@ class LicWindow(QMainWindow):
 
         # View Menu
         self.viewMenu = menu.addMenu("&View")
-        addHGuide = self.createMenuAction("Add Horizontal Guide", lambda: self.scene.addGuide(Layout.Horizontal), None, "Add Guide")
-        addVGuide = self.createMenuAction("Add Vertical Guide", lambda: self.scene.addGuide(Layout.Vertical), None, "Add Guide")
-        removeGuides = self.createMenuAction("Remove Guides", self.scene.removeGuides, None, "Add Guide")
+        addHGuide = self.createMenuAction("Add Horizontal Guide", lambda: self.scene.addNewGuide(Layout.Horizontal), None, "Add Guide")
+        addVGuide = self.createMenuAction("Add Vertical Guide", lambda: self.scene.addNewGuide(Layout.Vertical), None, "Add Guide")
+        removeGuides = self.createMenuAction("Remove Guides", self.scene.removeAllGuides, None, "Add Guide")
 
         zoomIn = self.createMenuAction("Zoom In", self.zoomIn, None, "Zoom In")
         zoomOut = self.createMenuAction("Zoom Out", self.zoomOut, None, "Zoom Out")

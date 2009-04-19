@@ -229,6 +229,23 @@ class AddRemovePageCommand(QUndoCommand):
         page.instructions.emit(SIGNAL("layoutChanged()"))
         page.instructions.scene.selectPage(number)
 
+class AddRemoveGuideCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, scene, guide, addGude):
+        QUndoCommand.__init__(self, "%s Guide" % ("add" if addGude else "remove"))
+        self.scene, self.guide, self.addGude = scene, guide, addGude
+
+    def doAction(self, redo):
+
+        if (redo and self.addGude) or (not redo and not self.addGude):
+            self.scene.guides.append(self.guide)
+            self.scene.addItem(self.guide)
+        else:
+            self.scene.removeItem(self.guide)
+            self.scene.guides.remove(self.guide)
+
 class MovePartsToStepCommand(QUndoCommand):
 
     _id = getNewCommandID()
