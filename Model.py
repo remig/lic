@@ -834,7 +834,17 @@ class Page(QGraphicsRectItem):
         newPage = Page(self._parent, self.instructions, self.number + 1, self._row + 1)
         self.scene().undoStack.push(AddRemovePageCommand(newPage, True))
 
-class CalloutArrowEnd(QGraphicsRectItem):
+class CalloutArrowEndItem(QGraphicsRectItem):
+    
+    def __init__(self, parent, width, height, dataText, row):
+        QGraphicsRectItem.__init__(self, parent)
+        self.setRect(0, 0, width, height)
+        self.dataText = dataText
+        self._row = row
+        
+        self.point = QPointF()
+        self.setFlags(AllFlags)
+        self.setPen(QPen(Qt.NoPen))
     
     def mousePressEvent(self, event):
         if event.button() == Qt.RightButton:
@@ -854,8 +864,12 @@ class CalloutArrowEnd(QGraphicsRectItem):
 
 class CalloutArrow(QGraphicsRectItem):
     
-    arrowTipLength = 20.0
+    arrowTipLength = 22.0
     arrowTipHeight = 5.0
+    arrowHead = QPolygonF([QPointF(),
+                           QPointF(arrowTipLength + 3, -arrowTipHeight),
+                           QPointF(arrowTipLength, 0.0),
+                           QPointF(arrowTipLength + 3, arrowTipHeight)])
     
     def __init__(self, parent, csi):
         QGraphicsRectItem.__init__(self, parent)
@@ -865,38 +879,14 @@ class CalloutArrow(QGraphicsRectItem):
         self.setPen(QPen(Qt.NoPen))
         self.setFlags(NoMoveFlags)
         
-        # Basic points for arrow head - this matches the lists in Arrow (GL)
-        x = [0.0, 20.0, 25.0, 50.0]
-        y = [-5.0, -1.0, 0.0, 1.0, 5.0]
-        
-        # Build the arrow head
-        self.arrowHead = QPolygonF()
-        tip = QPointF(x[0], y[2])
-        topEnd = QPointF(x[2], y[0])
-        joint = QPointF(x[1], y[2])
-        botEnd = QPointF(x[2], y[4])
-        
-        for point in [tip, topEnd, joint, botEnd]:
-            self.arrowHead.append(point)
-            
-        self.tipRect = self.createChildRect(32, 32, "Arrow Tip", 0)
-        self.baseRect = self.createChildRect(20, 20, "Arrow Base", 1)
+        self.tipRect = CalloutArrowEndItem(self, 32, 32, "Arrow Tip", 0)
+        self.baseRect = CalloutArrowEndItem(self, 20, 20, "Arrow Base", 1)
 
     def child(self, row):
         return self.tipRect if row == 0 else self.baseRect
 
     def rowCount(self):
         return 2
-
-    def createChildRect(self, width, height, dataText, row):
-        r = CalloutArrowEnd(self)
-        r.setFlags(AllFlags)
-        r.setPen(QPen(Qt.NoPen))
-        r.setRect(0, 0, width, height)  # 31 = 25 (arrow) + 3 + 3 (padding)
-        r.dataText = dataText
-        r._row = row
-        r.point = QPointF()
-        return r
 
     def initializeEndPoints(self):
         # Find two target rects, both in *LOCAL* coordinates
@@ -935,25 +925,25 @@ class CalloutArrow(QGraphicsRectItem):
 
         if csiRect.right() < calloutRect.left():  # Callout right of CSI
             rotation = 0.0
-            offset = QPointF(CalloutArrow.arrowTipLength, 0)
+            offset = QPointF(self.arrowTipLength, 0)
             self.tipRect.setPos(tip - QPointF(3, 16))    # 3 = nice inset, 10 = 1/2 height
             self.baseRect.setPos(end - QPointF(18, 10))  # 18 = 2 units overlap past end, 10 = 1/2 height
             
         elif calloutRect.right() < csiRect.left():  # Callout left of CSI
             rotation = 180.0
-            offset = QPointF(-CalloutArrow.arrowTipLength, 0)
+            offset = QPointF(-self.arrowTipLength, 0)
             self.tipRect.setPos(tip - QPointF(29, 16))    # 3 = nice inset, 10 = 1/2 height
             self.baseRect.setPos(end - QPointF(2, 10))  # 2 units overlap past end, 10 = 1/2 height
             
         elif calloutRect.bottom() < csiRect.top():  # Callout above CSI
             rotation = -90.0
-            offset = QPointF(0, -CalloutArrow.arrowTipLength)
+            offset = QPointF(0, -self.arrowTipLength)
             self.tipRect.setPos(tip - QPointF(16, 29))    # 3 = nice inset, 10 = 1/2 height
             self.baseRect.setPos(end - QPointF(10, 2))  # 18 = 2 units overlap past end, 10 = 1/2 height
 
         else:  # Callout below CSI
             rotation = 90.0
-            offset = QPointF(0, CalloutArrow.arrowTipLength)
+            offset = QPointF(0, self.arrowTipLength)
             self.tipRect.setPos(tip - QPointF(16, 3))    # 3 = nice inset, 10 = 1/2 height
             self.baseRect.setPos(end - QPointF(10, 18))  # 18 = 2 units overlap past end, 10 = 1/2 height
 
@@ -992,9 +982,9 @@ class CalloutArrow(QGraphicsRectItem):
         # Widen / heighten bounding rect to include tip and end line
         r = QRectF(tip, end).normalized()
         if rotation == 0 or rotation == 180:
-            self.setRect(r.adjusted(0.0, -CalloutArrow.arrowTipHeight - 2, 0.0, CalloutArrow.arrowTipHeight + 2))
+            self.setRect(r.adjusted(0.0, -self.arrowTipHeight - 2, 0.0, self.arrowTipHeight + 2))
         else:
-            self.setRect(r.adjusted(-CalloutArrow.arrowTipHeight - 2, 0.0, CalloutArrow.arrowTipHeight + 2, 0.0))
+            self.setRect(r.adjusted(-self.arrowTipHeight - 2, 0.0, self.arrowTipHeight + 2, 0.0))
 
 class Callout(QGraphicsRectItem):
 
@@ -1145,6 +1135,12 @@ class Callout(QGraphicsRectItem):
     def setQuantity(self, qty):
         self.qtyLabel.setText("%dx" % qty)
         
+    def paint(self, painter, option, widget = None):
+        painter.setPen(self.pen())
+        if self.isSelected():
+            painter.setPen(Qt.DashLine)
+        painter.drawRoundedRect(self.rect(), 10, 10)
+
     def contextMenuEvent(self, event):
         stack = self.scene().undoStack
         menu = QMenu(self.scene().views()[0])

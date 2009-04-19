@@ -98,7 +98,7 @@ class GridLayout(object):
         
         colWidth = rect.width() / cols
         rowHeight = rect.height() / rows
-        x = y = 0.0
+        x, y, = rect.x(), rect.y()
         
         for i, member in enumerate(memberList):
             
@@ -107,19 +107,18 @@ class GridLayout(object):
                     if i % cols:  # Add to right of current column
                         x += colWidth
                     else:  # Start a new row
-                        x = 0.0
+                        x = rect.x()
                         y += rowHeight
                         self.addHSeparator(x, y, rect.width(), i + 1)
                 else:
                     if i % rows:  # Add to bottom of current row
                         y += rowHeight
                     else:  # Start a new column
-                        y = 0.0
+                        y = rect.y()
                         x += colWidth
                         self.addVSeparator(x, y, rect.height(), i + 1)
                         
             tmpRect = QRectF(x, y, colWidth, rowHeight)
-            tmpRect.translate(rect.x(), rect.y())
             tmpRect.adjust(self.margin, self.margin, -self.margin, -self.margin)
             member.initLayout(tmpRect)
             
