@@ -154,26 +154,32 @@ class LicGraphicsScene(QGraphicsScene):
         self.addItem(guide)
 
     def snapToGuides(self, item):
-        return
-        nearestX, nearestY = 1000.0
-        pt = item.mapToScene(item.pos())
-        x1, y1 = pt.x(), pt.y()
-        #x2, y2 = x1 + item.boundingRect().width(), y1 + item.boundingRect().height()
+        snapDistance = 30
+        dx = dy = nearestX = nearestY = 100.0
+        
+        itemPt1 = item.mapToScene(item.mapFromParent(item.pos())) # pos is in item.parent coordinates
+        itemPt2 = itemPt1 + QPointF(item.boundingRect().width(), item.boundingRect().height())
+        
+        def snap(nearest, current, d1, d2):
+            i = d1 - d2
+            if abs(i) < nearest:
+                return abs(i), i
+            return nearest, current
         
         for guide in self.guides:
-            if guide.orientation == Layout.Horizontal:
-                dx = abs(guide.line().x1() - x1)
-                if dx < nearestX:
-                    nearestX = min(x1, dx)
-            else:
-                pass
-            #x = gridSpacing * int(item.pos().x() / gridSpacing)
-            #y = gridSpacing * int(item.pos().y() / gridSpacing)
+            guidePt = guide.mapToScene(guide.line().p1())
             
-        if nearestX < 10 and nearestX < nearestY:
-            item.setPos(item.mapFromScene(nearestX, y1))
-        elif nearestY < 10:
-            item.setPos(item.mapFromScene(x1, nearestY))
+            if guide.orientation == Layout.Vertical:
+                nearestX, dx = snap(nearestX, dx, guidePt.x(), itemPt1.x())
+                nearestX, dx = snap(nearestX, dx, guidePt.x(), itemPt2.x())
+            else:
+                nearestY, dy = snap(nearestY, dy, guidePt.y(), itemPt1.y())
+                nearestY, dy = snap(nearestY, dy, guidePt.y(), itemPt2.y())
+            
+        if nearestX < snapDistance:
+            item.moveBy(dx, 0)
+        if nearestY < snapDistance:
+            item.moveBy(0, dy)
 
     def mouseReleaseEvent(self, event):
 

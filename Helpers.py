@@ -140,7 +140,7 @@ QGraphicsRectItem.cornerRadius = 0.0
 QGraphicsRectItem.paint = roundRectItemPaint
 
 QGraphicsSimpleTextItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
-#QGraphicsSimpleTextItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)
+QGraphicsSimpleTextItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)
 QGraphicsSimpleTextItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
 QGraphicsSimpleTextItem.parent = genericItemParent
@@ -149,7 +149,7 @@ QGraphicsSimpleTextItem.row = genericRow
 QGraphicsSimpleTextItem.getPage = genericGetPage
 
 QGraphicsPixmapItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
-#QGraphicsPixmapItem.mouseMoveEvent = genericMouseMoveEvent(QGraphicsItem)
+QGraphicsPixmapItem.mouseMoveEvent = genericMouseMoveEvent(QGraphicsItem)
 QGraphicsPixmapItem.mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsItem)
 
 QGraphicsPixmapItem.parent = genericItemParent

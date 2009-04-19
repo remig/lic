@@ -47,4 +47,6 @@ set all the defaults for the overall document.
 
 - Add status indicator to file->open operation
 
+- On initial import, try adding new steps to current page, until CSI & PLIs overlap
+
 - step.setSelected(True) selects step in graphics view but not tree view (InsertStepCommand)
