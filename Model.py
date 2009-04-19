@@ -272,6 +272,8 @@ class Instructions(QAbstractItemModel):
             currentCount += 1
             yield (currentCount, label)
 
+        self.mainModel.mergeInitialPages()
+        
         self.scene.selectPage(1)
         self.emit(SIGNAL("layoutChanged()"))
         yield (totalCount, "Import Complete!")
@@ -573,14 +575,16 @@ class Page(QGraphicsRectItem):
         return self
     
     def prevPage(self):
-        if self._row:
-            return self._parent.pages[self._row - 1]
-        return None
+        i = self._parent.pages.index(self)
+        if i == 0:
+            return None
+        return self._parent.pages[i - 1]
 
     def nextPage(self):
-        if self._row == len(self._parent.pages) - 1:
+        i = self._parent.pages.index(self)
+        if i == len(self._parent.pages) - 1:
             return None
-        return self._parent.pages[self._row + 1]
+        return self._parent.pages[i + 1]
         
     def getStep(self, number):
         return self._parent.getStep(number)
@@ -702,6 +706,12 @@ class Page(QGraphicsRectItem):
 
         self.submodelItem.setRect(0, 0, pixmap.width() + PLI.margin.x() * 2, pixmap.height() + PLI.margin.y() * 2)
 
+    def checkForLayoutOverlaps(self):
+        for step in self.steps:
+            if step.checkForLayoutOverlaps():
+                return True
+        return False
+    
     def initLayout(self):
 
         # Remove any separators; we'll re-add them in the appropriate place later
@@ -1284,6 +1294,24 @@ class Step(QGraphicsRectItem):
         self.resetRect()
         self.maxRect = self.rect()
 
+    def checkForLayoutOverlaps(self):
+        if self.csi.pos().y() < self.pli.rect().bottom() and self.csi.pos().x() < self.pli.rect().right():
+            return True
+        if self.csi.pos().y() < self.pli.rect().top():
+            return True
+        if self.csi.boundingRect().width() > self.rect().width():
+            return True
+        if self.pli.rect().width() > self.rect().width():
+            return True
+        page = self.getPage()
+        topLeft = self.mapToItem(page, self.rect().topLeft())
+        botRight = self.mapToItem(page, self.rect().bottomRight())
+        if topLeft.x() < 0 or topLeft.y() < 0:
+            return True
+        if botRight.x() > page.rect().width() or botRight.y() > page.rect().height():
+            return True
+        return False
+
     def initLayout(self, destRect = None):
 
         if destRect:
@@ -1400,11 +1428,13 @@ class Step(QGraphicsRectItem):
                 stepSet.append((step, step.parentItem(), step.parentItem().nextPage()))
         step.scene().undoStack.push(MoveStepToPageCommand(stepSet))
     
-    def moveToPage(self, page):
-        page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+    def moveToPage(self, page, useSignals = True):
+        if useSignals:
+            page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.parentItem().removeStep(self)
         page.addStep(self)
-        page.instructions.emit(SIGNAL("layoutChanged()"))
+        if useSignals:
+            page.instructions.emit(SIGNAL("layoutChanged()"))
 
     def mergeWithStepSignal(self, step):
         a = MovePartsToStepCommand(self.csi.getPartList(), self, step)
@@ -1974,6 +2004,12 @@ class PartOGL(object):
         if filename and loadFromFile:
             self.loadFromFile()
 
+    def sortEdgesToBack(self):
+        for p in list(self.primitives):
+            if p.type == GL.GL_LINES:
+                self.primitives.remove(p)
+                self.primitives.append(p)
+            
     def loadFromFile(self):
 
         ldrawFile = LDrawFile(self.filename)
@@ -1982,7 +2018,7 @@ class PartOGL(object):
         self.isPrimitive = ldrawFile.isPrimitive
         self.name = ldrawFile.name
 
-        # Loop over the specified LDraw file array, skipping the first line
+        # Loop over the specified LDraw file array, skipping the first (title) line
         for line in ldrawFile.fileArray[1:]:
 
             # A FILE line means we're finished loading this model
@@ -2300,6 +2336,38 @@ class Submodel(PartOGL):
                 newPage.steps[-1].addPart(part)
 
             csi = newPage.steps[-1].csi
+
+    def mergeInitialPages(self):
+        
+        for submodel in self.submodels:
+            submodel.mergeInitialPages()
+        
+        if len(self.pages) < 2:
+            return
+        
+        currentPage = self.pages[0]
+        nextPage = self.pages[1]
+        
+        while True:   # yeah yeah, nested infinite loops of nastiness
+            while True:
+                nextPage.steps[0].moveToPage(currentPage, False)
+                currentPage.initLayout()
+                if currentPage.checkForLayoutOverlaps():  # Have overlap - move back & redo layouts
+                    currentPage.steps[-1].moveToPage(nextPage, False)
+                    currentPage.initLayout()
+                    nextPage.initLayout()
+                    break  # This page is full: move on to the next
+                else:
+                    tmp = nextPage.nextPage()  # No overlap - delete empty page & move on
+                    self.deletePage(nextPage)
+                    if tmp is None:  # At last page - all done
+                        return
+                    nextPage = tmp
+                    
+            currentPage = nextPage
+            nextPage = nextPage.nextPage()
+            if nextPage is None:  # At last page - all done
+                return
 
     def syncPageNumbers(self, firstPageNumber = 1):
 
