@@ -70,7 +70,8 @@ class LicGraphicsScene(QGraphicsScene):
         self.scrollToPage(self.currentPage)
 
     def selectionChanged(self):
-        if self.pagesToDisplay == 1 or not self.selectedItems():
+        selList = self.selectedItems()
+        if self.pagesToDisplay == 1 or not selList or isinstance(selList[-1], Guide):
             return
         self.scrollToPage(self.selectedItems()[-1].getPage())
     
@@ -88,6 +89,8 @@ class LicGraphicsScene(QGraphicsScene):
         self.selectPage(self.currentPage._number)
     
     def showTwoPages(self):
+        if len(self.pages) < 2:
+            return self.showOnePage()
         self.pagesToDisplay = 2
         self.setSceneRect(0, 0, (PageSize.width() * 2) + 30, PageSize.height() + 20)
 
@@ -108,17 +111,34 @@ class LicGraphicsScene(QGraphicsScene):
         self.pagesToDisplay = 'continuous'
         pc = len(self.pages)
         ph = PageSize.height()
-        self.setSceneRect(0, 0, PageSize.width() + 20, (10 * (pc + 1)) + (ph * pc))
+        height = (10 * (pc + 1)) + (ph * pc)
+        self.setSceneRect(0, 0, PageSize.width() + 20, height)
+        
+        for guide in self.guides:
+            if guide.orientation == Layout.Vertical:
+                guide.setLength(height)
+                
         for i, page in enumerate(self.pages):
             page.setPos(10, (10 * (i + 1)) + (ph * i))
             page.show()
     
     def continuousFacing(self):
+        if len(self.pages) < 2:
+            return self.continuous()
         self.pagesToDisplay = 'continuousFacing'
         pw = PageSize.width()
         ph = PageSize.height()
         rows = sum(divmod(len(self.pages), 2))
-        self.setSceneRect(0, 0, pw + pw + 30, (10 * (rows + 1)) + (ph * rows))
+        width = pw + pw + 30
+        height = (10 * (rows + 1)) + (ph * rows)
+        self.setSceneRect(0, 0, width, height)
+        
+        for guide in self.guides:
+            if guide.orientation == Layout.Vertical:
+                guide.setLength(height)
+            else:
+                guide.setLength(width)
+            
         for i, page in enumerate(self.pages):
             x = 10 + ((pw + 10) * (i % 2))
             y = (10 * ((i // 2) + 1)) + (ph * (i // 2))
@@ -226,11 +246,17 @@ class LicGraphicsScene(QGraphicsScene):
                 if isinstance(item, t):
                     return item.contextMenuEvent(event)
 
+    def keyPressEvent(self, event):
+        if not self.selectedItems():
+            event.ignore()
+        else:
+            event.accept()
+        
     def keyReleaseEvent(self, event):
 
         for item in self.selectedItems():
             if isinstance(item, Part):
-                QGraphicsScene.keyReleaseEvent(self, event)
+                item.keyReleaseEvent(self, event)
                 return
 
         key = event.key()
@@ -262,8 +288,7 @@ class LicGraphicsScene(QGraphicsScene):
         elif key == Qt.Key_Down:
             y = offset
         else:
-            # We do not handle this key stroke here - pass it on and return
-            QGraphicsScene.keyReleaseEvent(self, event)
+            event.ignore()  # We do not handle this key stroke here - pass it on and return
             return
 
         movedItems = []
@@ -277,8 +302,11 @@ class LicGraphicsScene(QGraphicsScene):
 
         if movedItems:
             self.emit(SIGNAL("itemsMoved"), movedItems)
+        event.accept()
 
 class Guide(QGraphicsLineItem):
+    
+    extends = 500
     
     def __init__(self, orientation):
         QGraphicsLineItem.__init__(self)
@@ -290,12 +318,18 @@ class Guide(QGraphicsLineItem):
         self.row = lambda: -1
         self.setZValue(10000)  # Put on top of everything else
         
+        pw, ph = PageSize.width(), PageSize.height()
         if orientation == Layout.Horizontal:
             self.setCursor(Qt.SplitVCursor)
-            self.setLine(-1000, PageSize.height() / 2.0, 1000, PageSize.height() / 2.0)
+            self.setLine(-self.extends, ph / 2.0, pw + self.extends, ph / 2.0)
         else:
             self.setCursor(Qt.SplitHCursor)
-            self.setLine(PageSize.width() / 2.0, -1000, PageSize.width() / 2.0, 1000)
+            self.setLine(pw / 2.0, -self.extends, pw / 2.0, ph + self.extends)
+
+    def setLength(self, length):
+        line = self.line()
+        line.setLength(length + self.extends + self.extends)
+        self.setLine(line)
 
     def mouseMoveEvent(self, event):
         if self.orientation == Layout.Horizontal:
