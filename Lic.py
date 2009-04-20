@@ -239,12 +239,11 @@ class LicGraphicsScene(QGraphicsScene):
     def contextMenuEvent(self, event):
 
         # We can't use the default handler at all because it calls the
-        # menu that was *clicked on*, not the menu of the selected items
+        # menu of the item that was *right-clicked on*, not the menu of the selected items
         # TODO: need to handle this better: What if a page and a step are selected?
         for item in self.selectedItems():
-            for t in [Part, Step, Page, Callout, CSI]:
-                if isinstance(item, t):
-                    return item.contextMenuEvent(event)
+            if type(item) in [Part, Step, Page, Callout, CSI]:
+                return item.contextMenuEvent(event)
 
     def keyPressEvent(self, event):
         if not self.selectedItems():

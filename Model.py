@@ -42,7 +42,6 @@ class LicTreeView(QTreeView):
     def __init__(self, parent):
         QTreeView.__init__(self, parent)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.connect(self, SIGNAL("clicked(QModelIndex)"), self.clicked)
 
     """
     def keyReleaseEvent(self, event):
@@ -69,7 +68,6 @@ class LicTreeView(QTreeView):
             QTreeView.keyReleaseEvent(self, event)
             self.clicked(self.currentIndex())
     """
-        
     def updateTreeSelection(self):
         """ This is called whenever the graphics scene's selection changes """
         
@@ -86,12 +84,16 @@ class LicTreeView(QTreeView):
                 selection.select(index, QItemSelectionModel.Select)
                 self.scrollTo(index)
 
-    def clicked(self, index = None):
-        if not index:
+    def mouseReleaseEvent(self, event):
+
+        if event.button() == Qt.RightButton:
             return
 
         # Get a list of everything selected in the tree
         selList = self.selectionModel().selectedIndexes()
+        if not selList:
+            return
+        index = selList[-1]
 
         # Clear any existing selection from the graphics view
         instructions = self.model()
@@ -103,10 +105,8 @@ class LicTreeView(QTreeView):
             instructions.scene.selectPage(index.internalPointer().pages[0].number)
             self.scrollTo(index.child(0, 0))
         else:
-            parent = QModelIndex(index)
-            while not isinstance(parent.internalPointer(), Page):
-                parent = parent.parent()
-            instructions.scene.selectPage(parent.internalPointer()._number)
+            page = index.internalPointer().getPage()
+            instructions.scene.selectPage(page._number)
 
         # Finally, select the things we actually clicked on
         partList = []
@@ -123,6 +123,16 @@ class LicTreeView(QTreeView):
             for part in partList[:-1]:
                 part.setSelected(True, False)
             partList[-1].setSelected(True, True)
+
+    def contextMenuEvent(self, event):
+        # Pass right clicks on to the item right-clicked on
+        selList = self.selectionModel().selectedIndexes()
+        if not selList:
+            return
+        event.screenPos = event.globalPos  # QContextMenuEvent vs. QGraphicsSceneContextMenuEvent silliness
+        item = selList[0].internalPointer()
+        if type(item) in [Part, Step, Page, Callout, CSI]:
+            return item.contextMenuEvent(event)
 
 class Instructions(QAbstractItemModel):
 
@@ -2557,6 +2567,9 @@ class PartTreeItem(QGraphicsRectItem):
         self.__dataString = "%s - x%d" % (self.name, len(self.parts))
         return self.__dataString
         
+    def setSelected(self, selected):
+        self.parts[0].setSelected(selected)
+
     def addPart(self, part):
         part.setParentItem(self)
         self.__dataString = None
