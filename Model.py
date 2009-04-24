@@ -450,6 +450,10 @@ class Instructions(QAbstractItemModel):
         if self.mainModel:
             self.mainModel.updatePageNumbers(newNumber, increment)
 
+    def setPageSize(self, newPageSize):
+        if self.mainModel:
+            self.mainModel.setPageSize(newPageSize)
+
     def setCSIPLISize(self, newCSISize, newPLISize):
 
         print "Setting size to: %d, %d" % (newCSISize, newPLISize)
@@ -1846,9 +1850,16 @@ class CSI(QGraphicsPixmapItem):
     
     def maximizePixmap(self):
 
+	# TODO: verify that maximizing a CSI when pages change size still works.
+        #sceneRect = self.scene().sceneRect()
+        #dx = (sceneRect.width() - self.width) / 2.0
+        #dy = (sceneRect.height() - self.height) / 2.0
+
         dx = (PageSize.width() - self.width) / 2.0
         dy = (PageSize.height() - self.height) / 2.0
 
+        #self.width = sceneRect.width()
+        #self.height = sceneRect.height()
         self.width = PageSize.width()
         self.height = PageSize.height()
 
@@ -2491,6 +2502,15 @@ class Submodel(PartOGL):
             p.used = True
             self.pages[-1]._row += 1
             self.submodels.append(p)
+
+    def setPageSize(self, newPageSize):
+        
+        for page in self.pages:
+            page.setPos(0, 0)
+            page.setRect(0, 0, newPageSize.width(), newPageSize.height())
+            
+        for submodel in self.submodels:
+            submodel.setPageSize(newPageSize)
 
     def getCSIList(self):
         csiList = []

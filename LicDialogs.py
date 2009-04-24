@@ -43,15 +43,23 @@ class CSIPLIImageSizeDlg(QDialog):
 
 class PageSizeDlg(QDialog):
 
-    def __init__(self, parent):
+    def __init__(self, parent, pageSize, resolution):
         QDialog.__init__(self, parent)
 
-        pixelWidthLabel, pixelWidthEditBox, pixelWidthComboBox = self.createLabelEditComboWidgets("&Width:")
-        pixelHeightLabel, pixelHeightEditBox, pixelHeightComboBox = self.createLabelEditComboWidgets("&Height:")
+        pixelWidthLabel, self.pixelWidthEditBox, pixelWidthComboBox = self.createLabelEditComboWidgets("&Width:")
+        pixelHeightLabel, self.pixelHeightEditBox, pixelHeightComboBox = self.createLabelEditComboWidgets("&Height:")
+
+        self.pixelWidthEditBox.setText(str(pageSize.width()))
+        self.pixelWidthEditBox.setValidator(QIntValidator(1, 10000, self))
+        self.connect(self.pixelWidthEditBox, SIGNAL("textEdited(const QString &)"), self.updatePixelWidth)
+        
+        self.pixelHeightEditBox.setText(str(pageSize.height()))
+        self.pixelHeightEditBox.setValidator(QIntValidator(1, 10000, self))
+        self.connect(self.pixelHeightEditBox, SIGNAL("textEdited(const QString &)"), self.updatePixelHeight)
 
         grid = QGridLayout()
-        self.addWidgetsToGrid(grid, 0, pixelWidthLabel, pixelWidthEditBox, pixelWidthComboBox)
-        self.addWidgetsToGrid(grid, 1, pixelHeightLabel, pixelHeightEditBox, pixelHeightComboBox)
+        self.addWidgetsToGrid(grid, 0, pixelWidthLabel, self.pixelWidthEditBox, pixelWidthComboBox)
+        self.addWidgetsToGrid(grid, 1, pixelHeightLabel, self.pixelHeightEditBox, pixelHeightComboBox)
         self.setGridSize(grid)
         
         pixelGroupBox = QGroupBox("Pixel Dimensions:", self)
@@ -59,24 +67,33 @@ class PageSizeDlg(QDialog):
 
         docWidthLabel, docWidthEditBox, docWidthComboBox = self.createLabelEditComboWidgets("Wi&dth:", "inches")
         docHeightLabel, docHeightEditBox, docHeightComboBox = self.createLabelEditComboWidgets("Hei&ght:", "inches")
-        resLabel, resEditBox, resComboBox = self.createLabelEditComboWidgets("&Resolution:", "pixels/inch", "pixels/cm")
+        resLabel, self.resEditBox, resComboBox = self.createLabelEditComboWidgets("&Resolution:", "pixels/inch", "pixels/cm")
 
+        docWidthEditBox.setText("%.2f" % (pageSize.width() / resolution))
+        docWidthEditBox.setValidator(QDoubleValidator(1.0, 10000.0, 4, self))
+
+        docHeightEditBox.setText("%.2f" % (pageSize.height() / resolution))
+        docHeightEditBox.setValidator(QDoubleValidator(1.0, 10000.0, 4, self))
+
+        self.resEditBox.setText(str(resolution))
+        self.resEditBox.setValidator(QDoubleValidator(1.0, 10000.0, 4, self))
+        
         grid = QGridLayout()
         self.addWidgetsToGrid(grid, 0, docWidthLabel, docWidthEditBox, docWidthComboBox)
         self.addWidgetsToGrid(grid, 1, docHeightLabel, docHeightEditBox, docHeightComboBox)
-        self.addWidgetsToGrid(grid, 2, resLabel, resEditBox, resComboBox)        
+        self.addWidgetsToGrid(grid, 2, resLabel, self.resEditBox, resComboBox)        
         self.setGridSize(grid)
         
         docGroupBox = QGroupBox("Document Size:")
         docGroupBox.setLayout(grid)
         
-        constrainCheckBox = QCheckBox("C&onstrain Proportions")
-        resampleCheckBox = QCheckBox("Rescale all &Page Elements")
+        self.constrainCheckBox = QCheckBox("&Constrain Page Proportions")
+        resampleCheckBox = QCheckBox("Rescale all &Page Elements on Resize")
         
         layout = QVBoxLayout()
         layout.addWidget(pixelGroupBox)
         layout.addWidget(docGroupBox)
-        layout.addWidget(constrainCheckBox)
+        layout.addWidget(self.constrainCheckBox)
         layout.addWidget(resampleCheckBox)
         
         buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Vertical)
@@ -90,6 +107,41 @@ class PageSizeDlg(QDialog):
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
         self.setWindowTitle("Set Page Size")
         
+    def updatePixelWidth(self, text):
+        
+        if not text or not self.pixelWidthEditBox.hasAcceptableInput():
+            return
+        
+        newPageWidth = float(text)
+        oldPageWidth = float(self.pixelWidthEditBox.text())
+        pageHeight = float(self.pixelHeightEditBox.text())
+        if self.constrainCheckBox.isChecked():
+            aspect = pageHeight / oldPageWidth
+            pageHeight = int(newPageWidth * aspect)
+            self.pixelHeightEditBox.setText(str(pageHeight))
+
+    def updatePixelHeight(self, text):
+        
+        if not text or not self.pixelHeightEditBox.hasAcceptableInput():
+            return
+        
+        newPageHeight = float(text)
+        oldPageHeight = float(self.pixelHeightEditBox.text())
+        pageWidth = float(self.pixelWidthEditBox.text())
+        if self.constrainCheckBox.isChecked():
+            aspect = pageWidth / oldPageHeight
+            pageWidth = int(newPageHeight * aspect)
+            self.pixelWidthEditBox.setText(str(pageWidth))
+            
+    def isValid(self):
+        if not self.pixelWidthEditBox.hasAcceptableInput():
+            return False
+        if not self.pixelHeightEditBox.hasAcceptableInput():
+            return False
+        if not self.resEditBox.hasAcceptableInput():
+            return False
+        return True
+    
     def createLabelEditComboWidgets(self, labelStr, comboStr1 = "pixels", comboStr2 = "percent"):
         
         label = QLabel(labelStr)
@@ -123,14 +175,10 @@ class PageSizeDlg(QDialog):
         
     def accept(self):
 
-        csiSize = self.csiSizeSpinBox.value() / 100.0
-        pliSize = self.pliSizeSpinBox.value() / 100.0
-        self.emit(SIGNAL("newCSIPLISize"), csiSize, pliSize)
-        
-        isValid = False
-        
-        if isValid:
+        if self.isValid():
+            pageWidth = int(self.pixelWidthEditBox.text())
+            pageHeight = int(self.pixelHeightEditBox.text())
+            newPageSize = QSize(pageWidth, pageHeight)
+            resolution = float(self.resEditBox.text())
+            self.emit(SIGNAL("newPageSize"), newPageSize, resolution)        
             QDialog.accept(self)
-
-    def getPageSize(self):
-        return (0, 0)

@@ -19,7 +19,9 @@ import LicUndoActions
 import Layout
 
 __version__ = 0.1
-PageSize = QSize(800, 600)
+
+PageSize = QSize(800, 600)  # Always pixels
+resolution = 72.0           # Always pixels / inch
 
 class LicGraphicsScene(QGraphicsScene):
 
@@ -584,14 +586,28 @@ class LicWindow(QMainWindow):
         # Page Menu
         self.pageMenu = menu.addMenu("&Page")
 
-        pageSizeAction = self.createMenuAction("Page Size...", self.changePageSize, None, "Change the overall size of all Pages in this Instruction book")       
-        csipliSizeAction = self.createMenuAction("CSI | PLI Image Size...", self.changeCSIPLISize, None, "Change the relative size of all CSIs and PLIs throughout Instruction book")
+        pageSizeAction = self.createMenuAction("Page Size...", self.changePageSizeAction, None, "Change the overall size of all Pages in this Instruction book")       
+        csipliSizeAction = self.createMenuAction("CSI | PLI Image Size...", self.changeCSIPLISizeAction, None, "Change the relative size of all CSIs and PLIs throughout Instruction book")
         self.addActions(self.pageMenu, (pageSizeAction, csipliSizeAction))
         
         # Export Menu
         self.exportMenu = menu.addMenu("E&xport")
         self.exportImagesAction = self.createMenuAction("Generate Final Images", self.exportImages, None, "Generate final, high res images of each page in this Instruction book")
         self.exportMenu.addAction(self.exportImagesAction)
+
+    def changePageSizeAction(self):
+        dialog = LicDialogs.PageSizeDlg(self, PageSize, resolution)
+        self.connect(dialog, SIGNAL("newPageSize"), self.setPageSize)
+        dialog.exec_()
+
+    def setPageSize(self, newPageSize, newResolution):
+        global PageSize, resolution
+        
+        if (newPageSize.width() != PageSize.width() or newPageSize.height() != PageSize.height()) or (newResolution != resolution):
+            PageSize = newPageSize
+            resolution = newResolution
+            self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
+            self.instructions.setPageSize(PageSize)
 
     def zoomIn(self):
         self.graphicsView.scaleView(1.2)
@@ -637,7 +653,7 @@ class LicWindow(QMainWindow):
         if dialog.exec_():
             pageSize = dialog.pageSize()
     
-    def changeCSIPLISize(self):
+    def changeCSIPLISizeAction(self):
         dialog = LicDialogs.CSIPLIImageSizeDlg(self, CSI.scale, PLI.scale)
         self.connect(dialog, SIGNAL("newCSIPLISize"), self.setCSIPLISize)
         dialog.show()

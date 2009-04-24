@@ -134,6 +134,38 @@ class ResizeCSIPLICommand(QUndoCommand):
         self.newPLISize = command.newPLISize
         return True
 
+class ResizePageCommand(QUndoCommand):
+
+    """
+    ResizePageCommand stores a list of old / new page size and resolution pairs:
+    sizes = ((oldPageSize, newPageSize), (oldRes, newRes))
+    """
+
+    _id = getNewCommandID()
+
+    def __init__(self, instructions, sizes):
+        QUndoCommand.__init__(self, "Undo the last Page resize")
+        
+        self.instructions = instructions
+        csiSizes, pliSizes = sizes
+        self.oldCSISize, self.newCSISize = csiSizes
+        self.oldPLISize, self.newPLISize = pliSizes
+        
+    def undo(self):
+        self.instructions.setCSIPLISize(self.oldCSISize, self.oldPLISize)
+    
+    def redo(self):
+        self.instructions.setCSIPLISize(self.newCSISize, self.newPLISize)
+    
+    def mergeWith(self, command):
+        
+        if command.id() != self.id():
+            return False
+        
+        self.newCSISize = command.newCSISize
+        self.newPLISize = command.newPLISize
+        return True
+
 class MoveStepToPageCommand(QUndoCommand):
 
     """
