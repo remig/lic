@@ -241,7 +241,7 @@ class LicGraphicsScene(QGraphicsScene):
         # menu of the item that was *right-clicked on*, not the menu of the selected items
         # TODO: need to handle this better: What if a page and a step are selected?
         for item in self.selectedItems():
-            if type(item) in [Part, Step, Page, Callout, CSI]:
+            if type(item) in [Part, Arrow, Step, Page, Callout, CSI]:
                 return item.contextMenuEvent(event)
 
     def keyPressEvent(self, event):
@@ -254,7 +254,7 @@ class LicGraphicsScene(QGraphicsScene):
 
         for item in self.selectedItems():
             if isinstance(item, Part):
-                item.keyReleaseEvent(self, event)
+                item.keyReleaseEvent(event)
                 return
 
         key = event.key()

@@ -40,6 +40,9 @@ class LicTreeView(QTreeView):
     def __init__(self, parent):
         QTreeView.__init__(self, parent)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.connect(self, SIGNAL("clicked(QModelIndex)"), self.clicked)
+        self.setAcceptDrops(True)
+        self.setDragEnabled(True)
 
     """
     def keyReleaseEvent(self, event):
@@ -83,16 +86,18 @@ class LicTreeView(QTreeView):
                 selection.select(index, QItemSelectionModel.Select)
                 self.scrollTo(index)
 
-    def mouseReleaseEvent(self, event):
+    def clicked(self, index = None):
+    #def mouseReleaseEvent(self, event):
 
-        if event.button() == Qt.RightButton:
+        #if event.button() == Qt.RightButton:
+        if not index:
             return
 
         # Get a list of everything selected in the tree
         selList = self.selectionModel().selectedIndexes()
-        if not selList:
-            return
-        index = selList[-1]
+        #if not selList:
+        #    return
+        #index = selList[-1]
 
         # Clear any existing selection from the graphics view
         instructions = self.model()
@@ -179,10 +184,73 @@ class Instructions(QAbstractItemModel):
     def columnCount(self, parentIndex):
         return 1  # Every single item in the tree has exactly 1 column
 
+    def supportedDropActions(self):
+        return Qt.MoveAction
+    
+    def mimeTypes(self):
+        return ["application/x-rowlist"]
+    
+    def mimeData(self, indexes):
+        data = ""
+        for index in [i for i in indexes if i.isValid()]:
+            data += str(index.row())
+            parent = index.parent()
+            while parent.isValid():
+                data += ',' + str(parent.row())
+                parent = parent.parent()
+            data += '|'
+        data = data[:-1]  # Remove trailing |
+                
+        mimeData = QMimeData()
+        mimeData.setData("application/x-rowlist", data)
+        return mimeData
+        
+    def dropMimeData(self, data, action, row, column, parent):
+        if action == Qt.IgnoreAction:
+            return True
+        
+        if not data.hasFormat("application/x-rowlist") or column > 0:
+            return False
+
+        targetItem = parent.internalPointer()  # item that dragged items were dropped on
+        #target = self.index(row, column, parent) if row > 0 else parent  # TODO: Handle row argument
+        
+        dragItems = []
+        stringData = str(data.data("application/x-rowlist"))
+        
+        # Build list of items that were dragged
+        for rowList in stringData.split('|'):
+            rowList = [int(x) for x in rowList.split(',')]
+            rowList.reverse()
+            
+            parentIndex = QModelIndex()
+            for r in rowList:
+                parentIndex = self.index(r, 0, parentIndex)
+            dragItems.append(parentIndex.internalPointer())
+
+        parts = [p for p in dragItems if isinstance(p, Part)]
+        if isinstance(targetItem, Step):
+            self.scene.undoStack.push(MovePartsToStepCommand(parts, parts[0].getStep(), targetItem))
+            return True
+        
+        return False
+    
+    def removeRows(self, row, count, parent = None):
+        pass  # Needed because otherwise the super gets called, but we handle all in dropMimeData
+        
     def flags(self, index):
-        if index.isValid():
-            return Qt.ItemIsEnabled | Qt.ItemIsSelectable
-        return Qt.ItemIsEnabled
+        if not index.isValid():
+            return Qt.ItemIsEnabled
+
+        item = index.internalPointer()
+        #if hasattr(item, 'flags'):
+        #    return item.flags()
+
+        if isinstance(item, Part):
+            return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled
+        if isinstance(item, Step):
+            return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDropEnabled
+        return Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
     def index(self, row, column, parent):
         if row < 0 or column < 0:
