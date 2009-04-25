@@ -21,8 +21,6 @@ from LDrawFileFormat import *
 MagicNumber = 0x14768126
 FileVersion = 1
 
-PageSize = QSize(800, 600)
-
 UNINIT_GL_DISPID = -1
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 submodelDictionary = {}  # {'filename': Submodel()}
@@ -68,6 +66,7 @@ class LicTreeView(QTreeView):
             QTreeView.keyReleaseEvent(self, event)
             self.clicked(self.currentIndex())
     """
+
     def updateTreeSelection(self):
         """ This is called whenever the graphics scene's selection changes """
         
@@ -487,6 +486,8 @@ class Instructions(QAbstractItemModel):
 class Page(QGraphicsRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. _parent is a Submodel. """
 
+    PageSize = QSize(800, 600)  # Always pixels
+    Resolution = 72.0           # Always pixels / inch
     margin = QPointF(15, 15)
 
     def __init__(self, parent, instructions, number, row):
@@ -1848,24 +1849,6 @@ class CSI(QGraphicsPixmapItem):
         self.initPixmap(pBuffer)
         GlobalGLContext.makeCurrent()
     
-    def maximizePixmap(self):
-
-	# TODO: verify that maximizing a CSI when pages change size still works.
-        #sceneRect = self.scene().sceneRect()
-        #dx = (sceneRect.width() - self.width) / 2.0
-        #dy = (sceneRect.height() - self.height) / 2.0
-
-        dx = (PageSize.width() - self.width) / 2.0
-        dy = (PageSize.height() - self.height) / 2.0
-
-        #self.width = sceneRect.width()
-        #self.height = sceneRect.height()
-        self.width = PageSize.width()
-        self.height = PageSize.height()
-
-        # Move pixmap to compensate for new size, so we don't actually move the CSI itself
-        self.translate(-dx, -dy)
-
     def resetPixmap(self):
         global GlobalGLContext
         
@@ -1876,9 +1859,10 @@ class CSI(QGraphicsPixmapItem):
             self.setPixmap(QPixmap())
             return  # No parts = reset pixmap
         
-        # First, enlarge this CSI as much as possible, in case 
-        # recent changes pushed image out of existing bounds.
-        self.maximizePixmap()
+        # Temporarily enlarge CSI, in case recent changes pushed image out of existing bounds.
+        oldWidth, oldHeight = self.width, self.height
+        self.width = Page.PageSize.width()
+        self.height = Page.PageSize.height()
         
         GlobalGLContext.makeCurrent()
         self.createOGLDisplayList()
@@ -1893,9 +1877,13 @@ class CSI(QGraphicsPixmapItem):
             if self.initSize(size, pBuffer):
                 break
 
-        self.resetTransform()
         self.updatePixmap(False)
-        self.parentItem().positionInternalBits()
+        
+        # Move CSI so its new center matches its old
+        dx = (self.width - oldWidth) / 2.0
+        dy = (self.height - oldHeight) / 2.0
+        self.moveBy(-dx, -dy)
+
         GlobalGLContext.makeCurrent()
 
     def initSize(self, size, pBuffer):

@@ -360,9 +360,8 @@ def __readPLIItem(stream, pli):
     filename = QString()
     pos = QPointF()
     rect = QRectF()
-    transform = QTransform()
 
-    stream >> filename >> pos >> rect >> transform
+    stream >> filename >> pos >> rect
     filename = str(filename)
 
     color = stream.readInt32()
@@ -388,7 +387,6 @@ def __readPLIItem(stream, pli):
     pliItem.numberItem.setFont(font)
     pliItem.pixmapItem.setPixmap(pixmap)
     pliItem.numberItem.setZValue(pliItem.pixmapItem.zValue() + 1)
-    pliItem.setTransform(transform)
     return pliItem
 
 def __linkModelPartNames(model):

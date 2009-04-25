@@ -20,9 +20,6 @@ import Layout
 
 __version__ = 0.1
 
-PageSize = QSize(800, 600)  # Always pixels
-resolution = 72.0           # Always pixels / inch
-
 class LicGraphicsScene(QGraphicsScene):
 
     def __init__(self, parent):
@@ -56,7 +53,7 @@ class LicGraphicsScene(QGraphicsScene):
                 self.currentPage = page
             elif self.pagesToDisplay == 2 and page._number == pageNumber + 1:
                 page.show()
-                page.setPos(PageSize.width() + 20, 0)
+                page.setPos(Page.PageSize.width() + 20, 0)
             elif self.pagesToDisplay == 'continuous' or self.pagesToDisplay == 'continuousFacing':
                 if page._number == pageNumber:
                     self.currentPage = page
@@ -64,7 +61,7 @@ class LicGraphicsScene(QGraphicsScene):
                 page.hide()
                 page.setPos(0, 0)
             if self.pagesToDisplay == 2 and pageNumber == self.pages[-1]._number:
-                self.pages[-1].setPos(PageSize.width() + 20, 0)
+                self.pages[-1].setPos(Page.PageSize.width() + 20, 0)
                 self.pages[-1].show()
                 self.pages[-2].setPos(10, 0)
                 self.pages[-2].show()
@@ -85,7 +82,7 @@ class LicGraphicsScene(QGraphicsScene):
         
     def showOnePage(self):
         self.pagesToDisplay = 1
-        self.setSceneRect(0, 0, PageSize.width(), PageSize.height())
+        self.setSceneRect(0, 0, Page.PageSize.width(), Page.PageSize.height())
         for page in self.pages:
             page.setPos(0.0, 0.0)
         self.selectPage(self.currentPage._number)
@@ -94,7 +91,7 @@ class LicGraphicsScene(QGraphicsScene):
         if len(self.pages) < 2:
             return self.showOnePage()
         self.pagesToDisplay = 2
-        self.setSceneRect(0, 0, (PageSize.width() * 2) + 30, PageSize.height() + 20)
+        self.setSceneRect(0, 0, (Page.PageSize.width() * 2) + 30, Page.PageSize.height() + 20)
 
         index = self.pages.index(self.currentPage)
         if self.currentPage == self.pages[-1]:
@@ -106,15 +103,15 @@ class LicGraphicsScene(QGraphicsScene):
         
         p1.setPos(10, 0)
         p1.show()
-        p2.setPos(PageSize.width() + 20, 0)
+        p2.setPos(Page.PageSize.width() + 20, 0)
         p2.show()
 
     def continuous(self):
         self.pagesToDisplay = 'continuous'
         pc = len(self.pages)
-        ph = PageSize.height()
+        ph = Page.PageSize.height()
         height = (10 * (pc + 1)) + (ph * pc)
-        self.setSceneRect(0, 0, PageSize.width() + 20, height)
+        self.setSceneRect(0, 0, Page.PageSize.width() + 20, height)
         
         for guide in self.guides:
             if guide.orientation == Layout.Vertical:
@@ -128,8 +125,8 @@ class LicGraphicsScene(QGraphicsScene):
         if len(self.pages) < 2:
             return self.continuous()
         self.pagesToDisplay = 'continuousFacing'
-        pw = PageSize.width()
-        ph = PageSize.height()
+        pw = Page.PageSize.width()
+        ph = Page.PageSize.height()
         rows = sum(divmod(len(self.pages), 2))
         width = pw + pw + 30
         height = (10 * (rows + 1)) + (ph * rows)
@@ -319,7 +316,7 @@ class Guide(QGraphicsLineItem):
         self.row = lambda: -1
         self.setZValue(10000)  # Put on top of everything else
         
-        pw, ph = PageSize.width(), PageSize.height()
+        pw, ph = Page.PageSize.width(), Page.PageSize.height()
         if orientation == Layout.Horizontal:
             self.setCursor(Qt.SplitVCursor)
             self.setLine(-self.extends, ph / 2.0, pw + self.extends, ph / 2.0)
@@ -380,7 +377,7 @@ class LicWindow(QMainWindow):
         self.graphicsView.setScene(self.scene)
         self.graphicsView.setViewport(self.glWidget)
         self.graphicsView.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
-        self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
+        self.scene.setSceneRect(0, 0, Page.PageSize.width(), Page.PageSize.height())
         
         self.createUndoSignals()
 
@@ -596,18 +593,17 @@ class LicWindow(QMainWindow):
         self.exportMenu.addAction(self.exportImagesAction)
 
     def changePageSizeAction(self):
-        dialog = LicDialogs.PageSizeDlg(self, PageSize, resolution)
+        dialog = LicDialogs.PageSizeDlg(self, Page.PageSize, Page.Resolution)
         self.connect(dialog, SIGNAL("newPageSize"), self.setPageSize)
         dialog.exec_()
 
     def setPageSize(self, newPageSize, newResolution):
-        global PageSize, resolution
         
-        if (newPageSize.width() != PageSize.width() or newPageSize.height() != PageSize.height()) or (newResolution != resolution):
-            PageSize = newPageSize
-            resolution = newResolution
-            self.scene.setSceneRect(0, 0, PageSize.width(), PageSize.height())
-            self.instructions.setPageSize(PageSize)
+        if (newPageSize.width() != Page.PageSize.width() or newPageSize.height() != Page.PageSize.height()) or (newResolution != Page.Resolution):
+            Page.PageSize = newPageSize
+            Page.Resolution = newResolution
+            self.scene.setSceneRect(0, 0, Page.PageSize.width(), Page.PageSize.height())
+            self.instructions.setPageSize(Page.PageSize)
 
     def zoomIn(self):
         self.graphicsView.scaleView(1.2)

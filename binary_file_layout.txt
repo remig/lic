@@ -167,7 +167,6 @@ PLIItem:
   QString filename
   QPointF pos
   QRectF rect
-  QTransform transform
   int32 color
   int32 quantity
   QPointF numberItem.pos
