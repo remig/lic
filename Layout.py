@@ -88,7 +88,6 @@ class GridLayout(object):
                 member.moveBy(dx, dy)
     
     def initGridLayout(self, rect, memberList):
-        # Assumes the QRectF position, width & height of this layout has already been set.
         # Divides rect into equally sized rows & columns, and sizes each member to fit inside.
         # If row / col count are -1 (unset), will be set to something appropriate.
         # MemberList is a list of any objects that have an initLayout(rect) method
@@ -107,6 +106,8 @@ class GridLayout(object):
                     if i % cols:  # Add to right of current column
                         x += colWidth
                     else:  # Start a new row
+                        if i // rows == rows - 1:  # Started last row - adjust overall column width
+                            colWidth = rect.width() / (len(memberList) - i)
                         x = rect.x()
                         y += rowHeight
                         self.addHSeparator(x, y, rect.width(), i + 1)
@@ -114,6 +115,8 @@ class GridLayout(object):
                     if i % rows:  # Add to bottom of current row
                         y += rowHeight
                     else:  # Start a new column
+                        if i // cols == cols - 1:  # Started last column - adjust overall row height
+                            rowHeight = rect.height() / (len(memberList) - i)
                         y = rect.y()
                         x += colWidth
                         self.addVSeparator(x, y, rect.height(), i + 1)
