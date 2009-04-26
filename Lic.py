@@ -22,6 +22,9 @@ __version__ = 0.1
 
 class LicGraphicsScene(QGraphicsScene):
 
+    PageViewContinuous = -1
+    PageViewContinuousFacing = -2
+        
     def __init__(self, parent):
         QGraphicsScene.__init__(self, parent)
         self.pagesToDisplay = 1
@@ -54,7 +57,7 @@ class LicGraphicsScene(QGraphicsScene):
             elif self.pagesToDisplay == 2 and page._number == pageNumber + 1:
                 page.show()
                 page.setPos(Page.PageSize.width() + 20, 0)
-            elif self.pagesToDisplay == 'continuous' or self.pagesToDisplay == 'continuousFacing':
+            elif self.pagesToDisplay == self.PageViewContinuous or self.pagesToDisplay == self.PageViewContinuousFacing:
                 if page._number == pageNumber:
                     self.currentPage = page
             else:
@@ -107,7 +110,7 @@ class LicGraphicsScene(QGraphicsScene):
         p2.show()
 
     def continuous(self):
-        self.pagesToDisplay = 'continuous'
+        self.pagesToDisplay = self.PageViewContinuous
         pc = len(self.pages)
         ph = Page.PageSize.height()
         height = (10 * (pc + 1)) + (ph * pc)
@@ -124,7 +127,7 @@ class LicGraphicsScene(QGraphicsScene):
     def continuousFacing(self):
         if len(self.pages) < 2:
             return self.continuous()
-        self.pagesToDisplay = 'continuousFacing'
+        self.pagesToDisplay = self.PageViewContinuousFacing
         pw = Page.PageSize.width()
         ph = Page.PageSize.height()
         rows = sum(divmod(len(self.pages), 2))
@@ -144,6 +147,15 @@ class LicGraphicsScene(QGraphicsScene):
             page.setPos(x, y)
             page.show()
     
+    def setPagesToDisplay(self, pagesToDisplay):
+        if pagesToDisplay == self.PageViewContinuous:
+            return self.continuous()
+        if pagesToDisplay == self.PageViewContinuousFacing:
+            return self.continuousFacing()
+        if pagesToDisplay == 2:
+            return self.showTwoPages()
+        return self.showOnePage()
+
     def addItem(self, item):
         QGraphicsScene.addItem(self, item)
         if not isinstance(item, Page):
@@ -157,9 +169,9 @@ class LicGraphicsScene(QGraphicsScene):
             return
         if isinstance(item, Page) and item in self.pages:
             self.pages.remove(item)
-            if self.pagesToDisplay == 'continuous':
+            if self.pagesToDisplay == self.PageViewContinuous:
                 self.continuous()
-            elif self.pagesToDisplay == 'continuousFacing':
+            elif self.pagesToDisplay == self.PageViewContinuousFacing:
                 self.continuousFacing()
 
     def removeAllGuides(self):
@@ -432,6 +444,7 @@ class LicWindow(QMainWindow):
         self.restoreGeometry(settings.value("Geometry").toByteArray())
         self.restoreState(settings.value("MainWindow/State").toByteArray())
         self.splitterState = settings.value("SplitterSizes").toByteArray()
+        self.pagesToDisplay = settings.value("PageView").toInt()[0]
     
     def saveSettings(self):
         settings = self.getSettingsFile()
@@ -440,6 +453,7 @@ class LicWindow(QMainWindow):
         settings.setValue("Geometry", QVariant(self.saveGeometry()))
         settings.setValue("MainWindow/State", QVariant(self.saveState()))
         settings.setValue("SplitterSizes", QVariant(self.mainSplitter.saveState()))
+        settings.setValue("PageView", QVariant(str(self.scene.pagesToDisplay)))
     
     def keyReleaseEvent(self, event):
         pass
@@ -720,6 +734,7 @@ class LicWindow(QMainWindow):
             self.fileClose()
             self.loadModel(filename)
             self.statusBar().showMessage("LDraw Model imported: " + filename)
+            self.scene.setPagesToDisplay(self.pagesToDisplay)
 
     def loadLicFile(self, filename = None):
         
@@ -732,6 +747,7 @@ class LicWindow(QMainWindow):
         LicBinaryReader.loadLicFile(filename, self.instructions)
         self.filename = filename
         self.addRecentFile(filename)
+        self.scene.setPagesToDisplay(self.pagesToDisplay)
     
     def loadModel(self, filename):
         
