@@ -87,14 +87,21 @@ class LicGraphicsScene(QGraphicsScene):
         self.pagesToDisplay = 1
         self.setSceneRect(0, 0, Page.PageSize.width(), Page.PageSize.height())
         for page in self.pages:
+            page.hide()
             page.setPos(0.0, 0.0)
-        self.selectPage(self.currentPage._number)
+        if self.currentPage:
+            self.selectPage(self.currentPage._number)
     
     def showTwoPages(self):
         if len(self.pages) < 2:
             return self.showOnePage()
+
         self.pagesToDisplay = 2
         self.setSceneRect(0, 0, (Page.PageSize.width() * 2) + 30, Page.PageSize.height() + 20)
+
+        for page in self.pages:
+            page.hide()
+            page.setPos(0, 0)
 
         index = self.pages.index(self.currentPage)
         if self.currentPage == self.pages[-1]:
@@ -162,6 +169,7 @@ class LicGraphicsScene(QGraphicsScene):
             return
         self.pages.append(item)
         self.pages.sort(key = lambda x: x._number)
+        self.setPagesToDisplay(self.pagesToDisplay)
         
     def removeItem(self, item):
         QGraphicsScene.removeItem(self, item)

@@ -563,7 +563,7 @@ class Page(QGraphicsRectItem):
 
         # Position this rectangle inset from the containing scene
         self.setPos(0, 0)
-        self.setRect(instructions.scene.sceneRect())
+        self.setRect(0, 0, self.PageSize.width(), self.PageSize.height())
         self.setFlags(NoMoveFlags)
 
         self.instructions = instructions
@@ -1469,9 +1469,9 @@ class Step(QGraphicsRectItem):
         parent = self.parentItem()
 
         if isinstance(parent, Page):
-            if parent.prevPage():
+            if parent.prevPage() and parent.steps[0] is self:
                 menu.addAction("Move to &Previous Page", self.moveToPrevPage)
-            if parent.nextPage():
+            if parent.nextPage() and parent.steps[-1] is self:
                 menu.addAction("Move to &Next Page", self.moveToNextPage)
             
         if self.getPrevStep():
@@ -2480,11 +2480,11 @@ class Submodel(PartOGL):
             p._row += 1
 
         page._parent = self
-        if page not in self.instructions.scene.items():
-            self.instructions.scene.addItem(page)
-        
         self.instructions.updatePageNumbers(page.number)
         self.pages.insert(page._row, page)
+        if page in self.instructions.scene.items():
+            self.instructions.scene.removeItem(page)  # Need to re-add page to trigger scene page layout
+            self.instructions.scene.addItem(page)
 
     def deletePage(self, page):
 
