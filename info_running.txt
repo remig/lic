@@ -3,11 +3,9 @@ Loading an existing model:
 The first time an LDraw file is opened in Lic, Lic has to do a bunch of one-time calculations to be able to draw the instruction window preview.
 Mainly, Lic has to calculate how big each part and step image are when displayed.  It does this by rendering the part to a background frame buffer, 
 then cropping the resulting image.  This process can take considerable time, but need only be done once.  Part dimensions are stored in a 
-PartDimension.cache file inside the Lic current working directory.  All step image dimensions are stored inside the LDraw file itself, as new comments -  
-but *only* if you save the file.  Lic will not write anything to the file unless you tell it to.
+PartDimension.cache file inside the Lic current working directory.
 
-Since Lic is still at such an early development stage, I suggest backing up any file before using it in Lic (duh).  Also, Lic itself will
-automatically make a back up of the file (to filename + .bak) whenever you save.
+Since Lic is still at such an early development stage, I suggest backing up any file before using it in Lic (duh).  
 
 Once a file has been loaded and saved in Lic, subsequent loads should happen quite fast.
 

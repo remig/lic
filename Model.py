@@ -100,17 +100,17 @@ class LicTreeView(QTreeView):
         #index = selList[-1]
 
         # Clear any existing selection from the graphics view
-        instructions = self.model()
-        instructions.clearSelectedParts()
-        instructions.scene.clearSelection()
+        scene = self.model().scene
+        scene.clearSelectedParts()
+        scene.clearSelection()
 
         # Find the selected item's parent page, then flip to that page
         if isinstance(index.internalPointer(), Submodel):
-            instructions.scene.selectPage(index.internalPointer().pages[0].number)
+            scene.selectPage(index.internalPointer().pages[0].number)
             self.scrollTo(index.child(0, 0))
         else:
             page = index.internalPointer().getPage()
-            instructions.scene.selectPage(page._number)
+            scene.selectPage(page._number)
 
         # Finally, select the things we actually clicked on
         partList = []
@@ -154,7 +154,7 @@ class Instructions(QAbstractItemModel):
         GlobalGLContext.makeCurrent()
 
         if filename:
-            self.loadModel(filename)
+            self.importLDrawModel(filename)
 
     def data(self, index, role = Qt.DisplayRole):
         if role != Qt.DisplayRole:
@@ -199,7 +199,7 @@ class Instructions(QAbstractItemModel):
                 data += ',' + str(parent.row())
                 parent = parent.parent()
             data += '|'
-        data = data[:-1]  # Remove trailing |
+        data = data[:-1]  # Remove trailing '|'
                 
         mimeData = QMimeData()
         mimeData.setData("application/x-rowlist", data)
@@ -303,17 +303,7 @@ class Instructions(QAbstractItemModel):
         GlobalGLContext.makeCurrent()
         self.emit(SIGNAL("layoutChanged()"))
 
-    def clearSelectedParts(self):
-        partList = []
-        for item in self.scene.selectedItems():
-            if isinstance(item, Part):
-                partList.append(item)
-        if partList:
-            for part in partList[:-1]:
-                part.setSelected(False, False)
-            partList[-1].setSelected(False, True)
-
-    def loadModel(self, filename):
+    def importLDrawModel(self, filename):
         
         global currentModelFilename        
         currentModelFilename = filename
@@ -841,6 +831,8 @@ class Page(QGraphicsRectItem):
                 for item in step.pli.pliItems:
                     item.createPng()
 
+        oldPos = self.pos()
+        self.setPos(0, 0)
         image = QImage(self.rect().width(), self.rect().height(), QImage.Format_ARGB32)
         painter = QPainter()
         painter.begin(image)
@@ -868,6 +860,8 @@ class Page(QGraphicsRectItem):
         
         imgName = os.path.join(config.config['imgPath'], "Page_%d.png" % self._number)
         image.save(imgName, None)
+        
+        self.setPos(oldPos)
                 
     def paint(self, painter, option, widget = None):
 
@@ -926,6 +920,14 @@ class Page(QGraphicsRectItem):
     def addPageAfterSignal(self):
         newPage = Page(self._parent, self.instructions, self.number + 1, self._row + 1)
         self.scene().undoStack.push(AddRemovePageCommand(newPage, True))
+
+class TemplatePage(Page):
+
+    def __init__(self, parent, instructions):
+        Page.__init__(self, parent, instructions, 0, 0)
+
+    def data(self, index):
+        return "Template Page"
 
 class CalloutArrowEndItem(QGraphicsRectItem):
     
@@ -2006,6 +2008,7 @@ class CSI(QGraphicsPixmapItem):
 
         image = pBuffer.toImage()
         self.setPixmap(QPixmap.fromImage(image))
+        #image.save("C:\\lic\\tmp\\glrender.png")
 
     def createPng(self):
 
@@ -2104,6 +2107,8 @@ class PartOGL(object):
 
             self._loadOneLDrawLineCommand(line)
 
+        #self.sortEdgesToBack()  # TODO: Fix this - necessary?
+
     def _loadOneLDrawLineCommand(self, line):
 
         if isValidPartLine(line):
@@ -2154,6 +2159,8 @@ class PartOGL(object):
     def createOGLDisplayList(self):
         """ Initialize this part's display list."""
 
+        #self.sortEdgesToBack()  # TODO: Fix this - necessary?
+        
         if self.oglDispID != UNINIT_GL_DISPID:
             GL.glDeleteLists(self.oglDispID, 1)
 

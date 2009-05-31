@@ -32,6 +32,16 @@ class LicGraphicsScene(QGraphicsScene):
         self.pages = []
         self.guides = []
 
+    def clearSelectedParts(self):
+        partList = []
+        for item in self.selectedItems():
+            if isinstance(item, Part):
+                partList.append(item)
+        if partList:
+            for part in partList[:-1]:
+                part.setSelected(False, False)
+            partList[-1].setSelected(False, True)
+
     def pageUp(self):
         self.selectPage(max(1, self.currentPage._number - 1))
 
@@ -361,7 +371,7 @@ class Guide(QGraphicsLineItem):
 
 class LicGraphicsView(QGraphicsView):
     def __init__(self, parent):
-        QGLWidget.__init__(self,  parent)
+        QGraphicsView.__init__(self,  parent)
 
         self.setDragMode(QGraphicsView.RubberBandDrag)
         self.setRenderHint(QPainter.Antialiasing)
@@ -439,7 +449,7 @@ class LicWindow(QMainWindow):
             self.filename = self.__filename
             
         if self.modelName:
-            self.loadModel(self.modelName)
+            self.importLDrawModel(self.modelName)
             statusBar.showMessage("Model: " + self.modelName)
 
     def getSettingsFile(self):
@@ -740,7 +750,7 @@ class LicWindow(QMainWindow):
         filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Import LDraw Model", dir, "LDraw Models (%s)" % " ".join(formats)))
         if filename:
             self.fileClose()
-            self.loadModel(filename)
+            self.importLDrawModel(filename)
             self.statusBar().showMessage("LDraw Model imported: " + filename)
             self.scene.setPagesToDisplay(self.pagesToDisplay)
 
@@ -757,9 +767,9 @@ class LicWindow(QMainWindow):
         self.addRecentFile(filename)
         self.scene.setPagesToDisplay(self.pagesToDisplay)
     
-    def loadModel(self, filename):
+    def importLDrawModel(self, filename):
         
-        loader = self.instructions.loadModel(filename)
+        loader = self.instructions.importLDrawModel(filename)
         startValue = 0
         stopValue, title = loader.next()
 
@@ -826,6 +836,11 @@ class LicWindow(QMainWindow):
         print "\nExport complete"
 
 def main():
+    
+    #f = QGLFormat.defaultFormat()
+    #f.setSampleBuffers(True)
+    #QGLFormat.setDefaultFormat(f)
+    
     app = QApplication(sys.argv)
     app.setOrganizationName("BugEyedMonkeys Inc.")
     app.setOrganizationDomain("bugeyedmonkeys.com")

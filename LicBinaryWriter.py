@@ -16,7 +16,7 @@ def saveLicFile(filename, instructions):
     stream.writeInt16(FileVersion)
 
     # Need to explicitly de-select parts so they refresh the CSI pixmap
-    instructions.clearSelectedParts()
+    instructions.scene.clearSelectedParts()
 
     __writeInstructions(stream, instructions)
 

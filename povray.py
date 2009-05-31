@@ -106,11 +106,11 @@ def __fixPovFile(filename, imgWidth, imgHeight, offset, camera):
             inCamera = True
             copyFile.write(line)
             copyFile.write('\torthographic\n')
-            copyFile.write('\tlocation <-%f, %f, -1000>\n' % (offset.x(), offset.y()))
+            copyFile.write('\tlocation <-%f, %f, -1000>\n' % (offset.x(), -offset.y()))
             copyFile.write('\tsky      -y\n')
             copyFile.write('\tright    -%d * x\n' % (imgWidth))
             copyFile.write('\tup        %d * y\n' % (imgHeight))
-            copyFile.write('\tlook_at   <-%f, %f, 0>\n' % (offset.x(), offset.y()))
+            copyFile.write('\tlook_at   <-%f, %f, 0>\n' % (offset.x(), -offset.y()))
             copyFile.write('\trotate    <0, 1e-5, 0>\n')
         
         elif line == '}\n' and inCamera:
