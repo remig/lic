@@ -43,6 +43,7 @@ class LicTreeView(QTreeView):
         self.connect(self, SIGNAL("clicked(QModelIndex)"), self.clicked)
         self.setAcceptDrops(True)
         self.setDragEnabled(True)
+        self.scene = None
 
     """
     def keyReleaseEvent(self, event):
@@ -79,7 +80,7 @@ class LicTreeView(QTreeView):
         selection.clear()
 
         # Select everything in the tree that's currently selected in the graphics view
-        for item in model.scene.selectedItems():
+        for item in self.scene.selectedItems():
             index = model.createIndex(item.row(), 0, item)
             if index:
                 self.setCurrentIndex(index)
@@ -100,17 +101,16 @@ class LicTreeView(QTreeView):
         #index = selList[-1]
 
         # Clear any existing selection from the graphics view
-        scene = self.model().scene
-        scene.clearSelectedParts()
-        scene.clearSelection()
+        self.scene.clearSelectedParts()
+        self.scene.clearSelection()
 
         # Find the selected item's parent page, then flip to that page
         if isinstance(index.internalPointer(), Submodel):
-            scene.selectPage(index.internalPointer().pages[0].number)
+            self.scene.selectPage(index.internalPointer().pages[0].number)
             self.scrollTo(index.child(0, 0))
         else:
             page = index.internalPointer().getPage()
-            scene.selectPage(page._number)
+            self.scene.selectPage(page._number)
 
         # Finally, select the things we actually clicked on
         partList = []
@@ -138,34 +138,18 @@ class LicTreeView(QTreeView):
         if type(item) in [Part, Step, Page, Callout, CSI]:
             return item.contextMenuEvent(event)
 
-class Instructions(QAbstractItemModel):
+class LicTreeModel(QAbstractItemModel):
 
-    def __init__(self, parent, scene, glWidget, filename = None):
+    def __init__(self, parent):
         QAbstractItemModel.__init__(self, parent)
-        global GlobalGLContext
-
-        # Part dimensions cache line format: filename width height center.x center.y leftInset bottomInset
-        self.partDimensionsFilename = "PartDimensions.cache"
-
-        self.scene = scene
-        self.mainModel = None
         
-        GlobalGLContext = glWidget
-        GlobalGLContext.makeCurrent()
-
-        if filename:
-            self.importLDrawModel(filename)
+        self.root = None
 
     def data(self, index, role = Qt.DisplayRole):
         if role != Qt.DisplayRole:
             return QVariant()
 
-        if not index.isValid():
-            global currentModelFilename
-            return QVariant(currentModelFilename)
-
         item = index.internalPointer()
-
         return QVariant(item.data(0))
 
     def rowCount(self, parent):
@@ -174,7 +158,7 @@ class Instructions(QAbstractItemModel):
             return 0
 
         if not parent.isValid():
-            return self.mainModel.rowCount() if self.mainModel else 0
+            return self.root.rowCount() if self.root else 0
 
         item = parent.internalPointer()
         if hasattr(item, "rowCount"):
@@ -230,7 +214,8 @@ class Instructions(QAbstractItemModel):
 
         parts = [p for p in dragItems if isinstance(p, Part)]
         if isinstance(targetItem, Step):
-            self.scene.undoStack.push(MovePartsToStepCommand(parts, parts[0].getStep(), targetItem))
+            command = MovePartsToStepCommand(parts, parts[0].getStep(), targetItem)
+            targetItem.scene().undoStack.push(command)
             return True
         
         return False
@@ -259,7 +244,7 @@ class Instructions(QAbstractItemModel):
         if parent.isValid():
             parentItem = parent.internalPointer()
         else:
-            parentItem = self.mainModel
+            parentItem = self.root
 
         if not hasattr(parentItem, "child"):
             return QModelIndex()
@@ -277,37 +262,51 @@ class Instructions(QAbstractItemModel):
         childItem = index.internalPointer()
         parentItem = childItem.parent()
 
-        if parentItem is self.mainModel:
+        if parentItem is self.root:
             return QModelIndex()
 
         return self.createIndex(parentItem.row(), 0, parentItem)
 
     def headerData(self, section, orientation, role = Qt.DisplayRole):
         return QVariant("Instruction Book")
+    
+class Instructions(QObject):
+
+    def __init__(self, parent, scene, glWidget, filename = None):
+        QObject.__init__(self, parent)
+
+        # Part dimensions cache line format: filename width height center.x center.y leftInset bottomInset
+        self.partDimensionsFilename = "PartDimensions.cache"
+
+        self.scene = scene
+        self.mainModel = None
+        
+        global GlobalGLContext
+        GlobalGLContext = glWidget
+        GlobalGLContext.makeCurrent()
+
+        if filename:
+            self.importLDrawModel(filename)
 
     def clear(self):
         global partDictionary, submodelDictionary, currentModelFilename
-        self.emit(SIGNAL("layoutAboutToBeChanged()"))
 
         # Remove everything from the graphics scene
         if self.mainModel:
             self.mainModel.deleteAllPages(self.scene)
 
-        self.reset()
-        self.scene.clear()
         self.mainModel = None
         partDictionary = {}
         submodelDictionary = {}
         currentModelFilename = ""
         CSI.scale = PLI.scale = 1.0
         GlobalGLContext.makeCurrent()
-        self.emit(SIGNAL("layoutChanged()"))
 
     def importLDrawModel(self, filename):
         
         global currentModelFilename        
         currentModelFilename = filename
-        self.emit(SIGNAL("layoutAboutToBeChanged()"))
+
         self.mainModel = Submodel(self, self, filename)
         self.mainModel.importModel()
         
@@ -340,9 +339,6 @@ class Instructions(QAbstractItemModel):
             yield (currentCount, label)
 
         self.mainModel.mergeInitialPages()
-        
-        self.scene.selectPage(1)
-        self.emit(SIGNAL("layoutChanged()"))
         yield (totalCount, "Import Complete!")
 
     def getModelName(self):
@@ -1515,11 +1511,11 @@ class Step(QGraphicsRectItem):
     
     def moveToPage(self, page, useSignals = True):
         if useSignals:
-            page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+            page.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         self.parentItem().removeStep(self)
         page.addStep(self)
         if useSignals:
-            page.instructions.emit(SIGNAL("layoutChanged()"))
+            page.scene().emit(SIGNAL("layoutChanged()"))
 
     def mergeWithStepSignal(self, step):
         a = MovePartsToStepCommand(self.csi.getPartList(), self, step)
@@ -2276,8 +2272,6 @@ class PartOGL(object):
                 else:
                     box = p
 
-        # TODO: There's a lot of completely empty partOGLs hanging around - parts
-        # with nothing but (currently) useless edges - remove them?  Do something?
         self.__boundingBox = box
         return box
 

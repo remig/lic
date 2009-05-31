@@ -241,6 +241,7 @@ class AddRemoveCalloutCommand(QUndoCommand):
 
 class AddRemovePageCommand(QUndoCommand):
 
+    # TODO: Remove instructions.emit from here
     _id = getNewCommandID()
 
     def __init__(self, page, addPage):

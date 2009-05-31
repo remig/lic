@@ -420,10 +420,14 @@ class LicWindow(QMainWindow):
         self.initMenu()
         self.initToolBars()
 
-        self.instructions = Instructions(self.treeView, self.scene, self.glWidget)
-        self.treeView.setModel(self.instructions)
-        self.selectionModel = QItemSelectionModel(self.instructions)
+        self.instructions = Instructions(self, self.scene, self.glWidget)
+        self.treeModel = LicTreeModel(self.treeView)
+        
+        self.treeView.scene = self.scene
+        self.treeView.setModel(self.treeModel)
+        self.selectionModel = QItemSelectionModel(self.treeModel)  # MUST keep own reference to selection model here
         self.treeView.setSelectionModel(self.selectionModel)
+        
         self.treeView.connect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateTreeSelection)
         self.scene.connect(self.scene, SIGNAL("selectionChanged()"), self.scene.selectionChanged)
 
@@ -432,10 +436,12 @@ class LicWindow(QMainWindow):
         self.connect(self.scene, SIGNAL("home"), self.scene.selectFirstPage)
         self.connect(self.scene, SIGNAL("end"), self.scene.selectLastPage)
         
-        # Allow the graphics scene to emit the layoutAboutToBeChanged and layoutChanged 
+        # Allow the graphics scene and instructions to emit the layoutAboutToBeChanged and layoutChanged 
         # signals, for easy notification of layout changes everywhere
-        self.connect(self.scene, SIGNAL("layoutAboutToBeChanged()"), self.instructions, SIGNAL("layoutAboutToBeChanged()"))
-        self.connect(self.scene, SIGNAL("layoutChanged()"), self.instructions, SIGNAL("layoutChanged()"))
+        self.connect(self.scene, SIGNAL("layoutAboutToBeChanged()"), self.treeModel, SIGNAL("layoutAboutToBeChanged()"))
+        self.connect(self.scene, SIGNAL("layoutChanged()"), self.treeModel, SIGNAL("layoutChanged()"))
+        self.connect(self.instructions, SIGNAL("layoutAboutToBeChanged()"), self.treeModel, SIGNAL("layoutAboutToBeChanged()"))
+        self.connect(self.instructions, SIGNAL("layoutChanged()"), self.treeModel, SIGNAL("layoutChanged()"))
             
         self.filename = ""   # This will trigger the __setFilename method below
 
@@ -724,8 +730,13 @@ class LicWindow(QMainWindow):
     def fileClose(self):
         if not self.offerSave():
             return
+        self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.instructions.clear()
+        self.treeModel.reset()
+        self.treeModel.root = None
+        self.scene.clear()
         self.filename = ""
+        self.scene.emit(SIGNAL("layoutChanged()"))
         # TODO: Redraw background, to clear up any leftover drawing bits
 
     def offerSave(self):
@@ -763,6 +774,11 @@ class LicWindow(QMainWindow):
                 return
             
         LicBinaryReader.loadLicFile(filename, self.instructions)
+        
+        self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.treeModel.root = self.instructions.mainModel
+        self.scene.emit(SIGNAL("layoutChanged()"))
+        
         self.filename = filename
         self.addRecentFile(filename)
         self.scene.setPagesToDisplay(self.pagesToDisplay)
@@ -788,6 +804,11 @@ class LicWindow(QMainWindow):
 
         progress.setValue(progress.maximum())
         
+        self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.treeModel.root = self.instructions.mainModel
+        self.scene.emit(SIGNAL("layoutChanged()"))
+        self.scene.selectPage(1)
+
         config.config = self.initConfig()
         self.statusBar().showMessage("Instruction book loaded")
         self.fileCloseAction.setEnabled(True)

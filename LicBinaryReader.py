@@ -30,7 +30,6 @@ def loadLicFile(filename, instructions):
 def __readInstructions(stream, instructions):
     global partDictionary, submodelDictionary
 
-    instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
     partDictionary = instructions.getPartDictionary()
     submodelDictionary = instructions.getSubmodelDictionary()
     
@@ -81,7 +80,6 @@ def __readInstructions(stream, instructions):
             submodel._parent = submodelDictionary[submodel._parent]
 
     instructions.initGLDisplayLists()
-    instructions.emit(SIGNAL("layoutChanged()"))
 
 def __readSubmodel(stream, instructions):
 
