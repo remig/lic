@@ -777,6 +777,8 @@ class LicWindow(QMainWindow):
         
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.treeModel.root = self.instructions.mainModel
+        self.treeModel.addTemplatePage(self.instructions)
+
         self.scene.emit(SIGNAL("layoutChanged()"))
         
         self.filename = filename
@@ -806,6 +808,7 @@ class LicWindow(QMainWindow):
         
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.treeModel.root = self.instructions.mainModel
+        self.treeModel.addTemplatePage(self.instructions)
         self.scene.emit(SIGNAL("layoutChanged()"))
         self.scene.selectPage(1)
 

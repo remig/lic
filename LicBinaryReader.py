@@ -79,6 +79,7 @@ def __readInstructions(stream, instructions):
         else:
             submodel._parent = submodelDictionary[submodel._parent]
 
+    instructions.mainModel.incrementRows(-1)
     instructions.initGLDisplayLists()
 
 def __readSubmodel(stream, instructions):

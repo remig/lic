@@ -144,7 +144,12 @@ class LicTreeModel(QAbstractItemModel):
         QAbstractItemModel.__init__(self, parent)
         
         self.root = None
+        self.templatePage = None
 
+    def addTemplatePage(self, instructions):
+        self.templatePage = TemplatePage(self.root, instructions)
+        self.root.incrementRows(1)
+    
     def data(self, index, role = Qt.DisplayRole):
         if role != Qt.DisplayRole:
             return QVariant()
@@ -154,18 +159,16 @@ class LicTreeModel(QAbstractItemModel):
 
     def rowCount(self, parent):
 
-        if parent.column() > 0:
-            return 0
-
         if not parent.isValid():
-            return self.root.rowCount() if self.root else 0
+            offset = 1 if self.templatePage else 0
+            return offset + self.root.rowCount() if self.root else 0
 
         item = parent.internalPointer()
         if hasattr(item, "rowCount"):
             return item.rowCount()
         return 0
 
-    def columnCount(self, parentIndex):
+    def columnCount(self, parent):
         return 1  # Every single item in the tree has exactly 1 column
 
     def supportedDropActions(self):
@@ -240,6 +243,9 @@ class LicTreeModel(QAbstractItemModel):
     def index(self, row, column, parent):
         if row < 0 or column < 0:
             return QModelIndex()
+        
+        if not parent.isValid() and self.templatePage and row == 0:
+            return self.createIndex(row, column, self.templatePage)
 
         if parent.isValid():
             parentItem = parent.internalPointer()
@@ -538,13 +544,13 @@ class Instructions(QObject):
         self.initPLIPixmaps()
 
 class Page(QGraphicsRectItem):
-    """ A single page in an instruction book.  Contains one or more Steps. _parent is a Submodel. """
+    """ A single page in an instruction book.  Contains one or more Steps. """
 
     PageSize = QSize(800, 600)  # Always pixels
     Resolution = 72.0           # Always pixels / inch
     margin = QPointF(15, 15)
 
-    def __init__(self, parent, instructions, number, row):
+    def __init__(self, subModel, instructions, number, row):
         QGraphicsRectItem.__init__(self)
 
         # Position this rectangle inset from the containing scene
@@ -553,7 +559,7 @@ class Page(QGraphicsRectItem):
         self.setFlags(NoMoveFlags)
 
         self.instructions = instructions
-        self._parent = parent
+        self.subModel = subModel
         self._number = number
         self._row = row
         self.steps = []
@@ -587,7 +593,7 @@ class Page(QGraphicsRectItem):
     number = property(fget = _getNumber, fset = _setNumber)
 
     def parent(self):
-        return self._parent
+        return self.subModel
 
     def child(self, row):
         if row < 0 or row >= len(self.children):
@@ -644,19 +650,19 @@ class Page(QGraphicsRectItem):
         return self
     
     def prevPage(self):
-        i = self._parent.pages.index(self)
+        i = self.subModel.pages.index(self)
         if i == 0:
             return None
-        return self._parent.pages[i - 1]
+        return self.subModel.pages[i - 1]
 
     def nextPage(self):
-        i = self._parent.pages.index(self)
-        if i == len(self._parent.pages) - 1:
+        i = self.subModel.pages.index(self)
+        if i == len(self.subModel.pages) - 1:
             return None
-        return self._parent.pages[i + 1]
+        return self.subModel.pages[i + 1]
         
     def getStep(self, number):
-        return self._parent.getStep(number)
+        return self.subModel.getStep(number)
 
     def addStep(self, step):
 
@@ -677,11 +683,11 @@ class Page(QGraphicsRectItem):
         if self.steps:
             return self.steps[-1].number + 1
         
-        for page in self._parent.pages[self._row + 1 : ]:  # Look forward through pages
+        for page in self.subModel.pages[self._row + 1 : ]:  # Look forward through pages
             if page.steps:
                 return page.steps[0].number
 
-        for page in reversed(self._parent.pages[ : self._row]):  # Look back
+        for page in reversed(self.subModel.pages[ : self._row]):  # Look back
             if page.steps:
                 return page.steps[-1].number + 1
 
@@ -691,7 +697,7 @@ class Page(QGraphicsRectItem):
         self.insertStep(Step(self, self.getNextStepNumber()))
     
     def insertStep(self, step):
-        self._parent.updateStepNumbers(step.number)
+        self.subModel.updateStepNumbers(step.number)
         self.addStep(step)
 
     def deleteStep(self, step):
@@ -699,7 +705,7 @@ class Page(QGraphicsRectItem):
         self.steps.remove(step)
         self.children.remove(step)
         self.scene().removeItem(step)
-        self._parent.updateStepNumbers(step.number, -1)
+        self.subModel.updateStepNumbers(step.number, -1)
 
     def addChild(self, index, child):
 
@@ -742,7 +748,7 @@ class Page(QGraphicsRectItem):
 
     def addSubmodelImage(self, childRow = None):
 
-        pixmap = self._parent.getPixmap()
+        pixmap = self.subModel.getPixmap()
         if not pixmap:
             print "Error: could not create a pixmap for page %d's submodel image" % self._number
             return
@@ -765,7 +771,7 @@ class Page(QGraphicsRectItem):
         
     def resetSubmodelImage(self):
         
-        pixmap = self._parent.getPixmap()
+        pixmap = self.subModel.getPixmap()
         if not pixmap:
             print "Error: could not create a pixmap for page %d's submodel image" % self._number
             return
@@ -850,7 +856,7 @@ class Page(QGraphicsRectItem):
                     painter.drawImage(item.scenePos(), item.pngImage)
 
         if self.submodelItem:
-            painter.drawImage(self.submodelItem.pos() + PLI.margin, self._parent.pngImage)
+            painter.drawImage(self.submodelItem.pos() + PLI.margin, self.subModel.pngImage)
 
         painter.end()
         
@@ -910,17 +916,17 @@ class Page(QGraphicsRectItem):
             self.scene().undoStack.push(AddRemovePageCommand(self, False))
         
     def addPageBeforeSignal(self):
-        newPage = Page(self._parent, self.instructions, self.number, self._row)
+        newPage = Page(self.subModel, self.instructions, self.number, self._row)
         self.scene().undoStack.push(AddRemovePageCommand(newPage, True))
     
     def addPageAfterSignal(self):
-        newPage = Page(self._parent, self.instructions, self.number + 1, self._row + 1)
+        newPage = Page(self.subModel, self.instructions, self.number + 1, self._row + 1)
         self.scene().undoStack.push(AddRemovePageCommand(newPage, True))
 
 class TemplatePage(Page):
 
-    def __init__(self, parent, instructions):
-        Page.__init__(self, parent, instructions, 0, 0)
+    def __init__(self, subModel, instructions):
+        Page.__init__(self, subModel, instructions, 0, 0)
 
     def data(self, index):
         return "Template Page"
@@ -2358,6 +2364,12 @@ class Submodel(PartOGL):
     def row(self):
         return self._row
 
+    def incrementRows(self, increment):
+        for page in self.pages:
+            page._row += increment
+        for submodel in self.submodels:
+            submodel._row += increment
+
     def rowCount(self):
         return len(self.pages) + len(self.submodels)
     
@@ -2480,7 +2492,7 @@ class Submodel(PartOGL):
         for p in self.pages[page._row : ]:
             p._row += 1
 
-        page._parent = self
+        page.subModel = self
         self.instructions.updatePageNumbers(page.number)
         self.pages.insert(page._row, page)
         if page in self.instructions.scene.items():
