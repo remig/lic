@@ -923,7 +923,15 @@ class TemplatePage(Page):
     def __init__(self, subModel, instructions):
         Page.__init__(self, subModel, instructions, 0, 0)
 
-    def init(self):
+    def postLoadInit(self):
+
+        # Set all page elements so they can't move
+        s = self.steps[0]
+        modList = [self, self.numberItem, s, s.numberItem, s.csi, s.pli] + s.pli.pliItems + [item.numberItem for item in s.pli.pliItems]
+        for item in modList:
+            item.setFlags(NoMoveFlags)
+
+    def createBlankTemplate(self):
         step = Step(self, 0)
         step.data = lambda(index): "Template Step"
         self.addStep(step)

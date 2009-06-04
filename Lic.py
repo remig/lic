@@ -821,6 +821,7 @@ class LicWindow(QMainWindow):
         #self.treeModel.addTemplatePage()
         #LicBinaryWriter.saveLicTemplate(r"C:\lic\test_template_save.lit", self.treeModel.templatePage)
         templatePage = LicBinaryReader.loadLicTemplate(r"C:\lic\test_template_save.lit", self.instructions)
+        templatePage.postLoadInit()
         self.treeModel.setTemplatePage(templatePage)
         
         self.scene.emit(SIGNAL("layoutChanged()"))
@@ -857,6 +858,9 @@ class LicWindow(QMainWindow):
             QMessageBox.warning(self, "Lic - Save Error", "Failed to save %s: %s" % (self.filename, e))
 
     def fileSaveTemplate(self):
+        pass
+    
+    def fileLoadTemplate(self):
         pass
     
     def fileOpen(self):
