@@ -140,14 +140,15 @@ class LicTreeView(QTreeView):
 
 class LicTreeModel(QAbstractItemModel):
 
-    def __init__(self, parent):
+    def __init__(self, parent, instructions):
         QAbstractItemModel.__init__(self, parent)
         
         self.root = None
+        self.instructions = instructions
         self.templatePage = None
 
-    def addTemplatePage(self, instructions):
-        self.templatePage = TemplatePage(self.root, instructions)
+    def addTemplatePage(self):
+        self.templatePage = TemplatePage(self.root, self.instructions)
         self.root.incrementRows(1)
     
     def data(self, index, role = Qt.DisplayRole):
@@ -465,19 +466,9 @@ class Instructions(QObject):
         GlobalGLContext.makeCurrent()
         
     def initCSIPixmaps(self):
-        global GlobalGLContext
-        GlobalGLContext.makeCurrent()
-        
-        csiList = self.mainModel.getCSIList()
-        
-        for csi in csiList:
-            if csi.width < 1 or csi.height < 1:
-                continue
-            pBuffer = QGLPixelBuffer(csi.width * CSI.scale, csi.height * CSI.scale, getGLFormat(), GlobalGLContext)
-            pBuffer.makeCurrent()
-            csi.initPixmap(pBuffer)
-
-        GlobalGLContext.makeCurrent()
+        for csi in self.mainModel.getCSIList():
+            if csi.width > 0 and csi.height > 0:
+                csi.createPixmap()
         
     def initPLIPixmaps(self):
         for page in self.mainModel.pages:
@@ -928,7 +919,38 @@ class TemplatePage(Page):
     def __init__(self, subModel, instructions):
         Page.__init__(self, subModel, instructions, 0, 0)
 
-    def data(self, index):
+        step = Step(self, 0)
+        self.addStep(step)
+        
+        for part in self.subModel.parts[:5]:
+            step.addPart(part.duplicate())
+        
+        step.csi.createOGLDisplayList()
+        self.initCSIDimension()
+        step.csi.createPixmap()
+        
+        self.initLayout()
+
+    def initCSIDimension(self):
+        global GlobalGLContext
+        GlobalGLContext.makeCurrent()
+
+        csi = self.steps[0].csi
+        sizes = [512, 1024, 2048]
+
+        for size in sizes:
+
+            # Create a new buffer tied to the existing GLWidget, to get access to its display lists
+            pBuffer = QGLPixelBuffer(size, size, getGLFormat(), GlobalGLContext)
+            pBuffer.makeCurrent()
+
+            # Render CSI and calculate its size
+            if csi.initSize(size, pBuffer):
+                break
+
+        GlobalGLContext.makeCurrent()
+
+    def data(self, index):  # Need this to override Page.data
         return "Template Page"
 
 class CalloutArrowEndItem(QGraphicsRectItem):
@@ -1585,16 +1607,13 @@ class PLIItem(QGraphicsRectItem):
         self.setRect(self.childrenBoundingRect())
         self.parentItem().resetRect()
         
-    def initPixmap(self):
-        pixmap = self.partOGL.getPixmap(self.color)
-        if pixmap:
-            self.pixmapItem.setPixmap(pixmap)
-            self.pixmapItem.setPos(0, 0)
-
     def initLayout(self):
 
         if not self.pixmapItem.boundingRect().width():
-            self.initPixmap()
+            pixmap = self.partOGL.getPixmap(self.color)
+            self.pixmapItem.setPixmap(pixmap)
+            self.pixmapItem.setPos(0, 0)
+                
         part = self.partOGL
 
         # Put label directly below part, left sides aligned
@@ -1910,17 +1929,11 @@ class CSI(QGraphicsPixmapItem):
         dX, dY, dZ = GLU.gluUnProject(maxX, minY, 0.0)
     
     def updatePixmap(self, rebuildDisplayList = True):
-        global GlobalGLContext
-        GlobalGLContext.makeCurrent()
 
         if rebuildDisplayList or self.oglDispID == UNINIT_GL_DISPID:
             self.createOGLDisplayList()
+        self.createPixmap()
 
-        pBuffer = QGLPixelBuffer(self.width * CSI.scale, self.height * CSI.scale, getGLFormat(), GlobalGLContext)
-        pBuffer.makeCurrent()
-        self.initPixmap(pBuffer)
-        GlobalGLContext.makeCurrent()
-    
     def resetPixmap(self):
         global GlobalGLContext
         
@@ -1993,7 +2006,17 @@ class CSI(QGraphicsPixmapItem):
         self.width, self.height, self.center, x, y = params  # x & y are just ignored place-holders
         return result
 
-    def initPixmap(self, pBuffer):
+    def createPixmap(self):
+        global GlobalGLContext
+        GlobalGLContext.makeCurrent()
+        
+        pBuffer = QGLPixelBuffer(self.width * CSI.scale, self.height * CSI.scale, getGLFormat(), GlobalGLContext)
+        pBuffer.makeCurrent()
+        self.createPixmapFromBuffer(pBuffer)
+
+        GlobalGLContext.makeCurrent()
+    
+    def createPixmapFromBuffer(self, pBuffer):
         """ Requires a current GL Context, either the global one or a local PixelBuffer """
 
         GLHelpers.initFreshContext()

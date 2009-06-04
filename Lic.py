@@ -421,7 +421,7 @@ class LicWindow(QMainWindow):
         self.initToolBars()
 
         self.instructions = Instructions(self, self.scene, self.glWidget)
-        self.treeModel = LicTreeModel(self.treeView)
+        self.treeModel = LicTreeModel(self.treeView, self.instructions)
         
         self.treeView.scene = self.scene
         self.treeView.setModel(self.treeModel)
@@ -777,7 +777,7 @@ class LicWindow(QMainWindow):
         
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.treeModel.root = self.instructions.mainModel
-        self.treeModel.addTemplatePage(self.instructions)
+        self.treeModel.addTemplatePage()
 
         self.scene.emit(SIGNAL("layoutChanged()"))
         
@@ -808,7 +808,7 @@ class LicWindow(QMainWindow):
         
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.treeModel.root = self.instructions.mainModel
-        self.treeModel.addTemplatePage(self.instructions)
+        self.treeModel.addTemplatePage()
         self.scene.emit(SIGNAL("layoutChanged()"))
         self.scene.selectPage(1)
 
