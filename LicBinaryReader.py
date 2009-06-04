@@ -4,6 +4,44 @@ from Model import *
 import Layout
 
 def loadLicFile(filename, instructions):
+
+    fh, stream = __createStream(filename)
+    __readInstructions(stream, instructions)
+    instructions.scene.selectPage(1)
+
+    if fh is not None:
+        fh.close()
+
+def loadLicTemplate(filename, instructions):
+
+    fh, stream = __createStream(filename, True)
+
+    # Read in the entire partOGL dictionary
+    global partDictionary, submodelDictionary
+    partDictionary, submodelDictionary = {}, {}
+    __readPartDictionary(stream, partDictionary)
+
+    templatePage = __readPage(stream, instructions.mainModel, instructions, True)
+
+    for part in templatePage.steps[0].csi.getPartList():
+        if part.filename in partDictionary:
+            part.partOGL = partDictionary[part.filename]
+        else:
+            print "LOAD ERROR: could not find a partOGL for part: " + part.filename
+
+    for partOGL in partDictionary.values():
+        if partOGL.oglDispID == UNINIT_GL_DISPID:
+            partOGL.createOGLDisplayList()
+            
+    templatePage.steps[0].csi.createOGLDisplayList()
+    templatePage.steps[0].data = lambda(index): "Template Step"
+
+    if fh is not None:
+        fh.close()
+        
+    return templatePage
+
+def __createStream(filename, template = False):
     global FileVersion, MagicNumber
 
     fh = QFile(filename)
@@ -13,20 +51,16 @@ def loadLicFile(filename, instructions):
     stream = QDataStream(fh)
     stream.setVersion(QDataStream.Qt_4_3)
 
+    ext = ".lit" if template else ".lic"
     magic = stream.readInt32()
     if magic != MagicNumber:
-        raise IOError, "not a valid .lic file"
+        raise IOError, "not a valid " + ext + " file"
 
     fileVersion = stream.readInt16()
     if fileVersion != FileVersion:
-        raise IOError, "unrecognized .lic file version"
-
-    __readInstructions(stream, instructions)
-    instructions.scene.selectPage(1)
-
-    if fh is not None:
-        fh.close()
-
+        raise IOError, "unrecognized " + ext + " version"
+    return fh, stream
+    
 def __readInstructions(stream, instructions):
     global partDictionary, submodelDictionary
 
@@ -40,18 +74,8 @@ def __readInstructions(stream, instructions):
     CSI.scale = stream.readFloat()
     PLI.scale = stream.readFloat()
 
-    # Read in the entire partOGL dictionary
-    partCount = stream.readInt32()
-    for i in range(0, partCount):
-        part = __readPartOGL(stream)
-        partDictionary[part.filename] = part
-
-    # Each partOGL can contain several parts, but those parts do
-    # not have valid sub-partOGLs.  Create those now.
-    for partOGL in partDictionary.values():
-        for part in partOGL.parts:
-            part.partOGL = partDictionary[part.filename]
-
+    __readPartDictionary(stream, partDictionary)
+    
     partCount = stream.readInt32()
     for i in range(0, partCount):
         model = __readSubmodel(stream, instructions)
@@ -104,6 +128,19 @@ def __readSubmodel(stream, instructions):
     stream >> filename
     submodel._parent = str(filename)
     return submodel
+
+def __readPartDictionary(stream, partDictionary):
+
+    partCount = stream.readInt32()
+    for i in range(0, partCount):
+        partOGL = __readPartOGL(stream)
+        partDictionary[partOGL.filename] = partOGL
+
+    # Each partOGL can contain several parts, but those parts do
+    # not have valid sub-partOGLs.  Create those now.
+    for partOGL in partDictionary.values():
+        for part in partOGL.parts:
+            part.partOGL = partDictionary[part.filename]
 
 def __readPartOGL(stream, createSubmodel = False):
     filename = QString()
@@ -181,17 +218,18 @@ def __readPart(stream):
 
     return part
 
-def __readPage(stream, parent, instructions):
-    pos = QPointF()
-    rect = QRectF()
-    font = QFont()
-    pen = QPen()
+def __readPage(stream, parent, instructions, isTemplatePage = False):
+    pos, rect, font, pen = QPointF(), QRectF(), QFont(), QPen()
 
     stream >> pos >> rect
     number = stream.readInt32()
     row = stream.readInt32()
 
-    page = Page(parent, instructions, number, row)
+    if isTemplatePage:
+        page = TemplatePage(parent, instructions)
+    else:
+        page = Page(parent, instructions, number, row)
+
     page.setPos(pos)
     page.setRect(rect)
 
@@ -240,10 +278,7 @@ def __readStep(stream, parent):
     
     step = Step(parent, stepNumber, hasPLI, hasNumberItem)
 
-    pos = QPointF()
-    rect = QRectF()
-    maxRect = QRectF()
-    
+    pos, rect, maxRect = QPointF(), QRectF(), QRectF()
     stream >> pos >> rect >> maxRect
     step.setPos(pos)
     step.setRect(rect)
@@ -269,9 +304,7 @@ def __readStep(stream, parent):
 
 def __readCallout(stream, parent):
     
-    pos = QPointF()
-    rect = QRectF()
-    pen = QPen()
+    pos, rect, pen = QPointF(), QRectF(), QPen()
     stream >> pos >> rect >> pen
     
     number = stream.readInt32()
@@ -337,9 +370,7 @@ def __readCSI(stream, step):
     return csi
 
 def __readPLI(stream, parentStep):
-    pos = QPointF()
-    rect = QRectF()
-    pen = QPen()
+    pos, rect, pen = QPointF(), QRectF(), QPen()
     stream >> pos >> rect >> pen
 
     pli = PLI(parentStep)
@@ -356,10 +387,7 @@ def __readPLI(stream, parentStep):
 
 def __readPLIItem(stream, pli):
     
-    filename = QString()
-    pos = QPointF()
-    rect = QRectF()
-
+    filename, pos, rect = QString(), QPointF(), QRectF()
     stream >> filename >> pos >> rect
     filename = str(filename)
 
@@ -378,8 +406,7 @@ def __readPLIItem(stream, pli):
     pliItem.setPos(pos)
     pliItem.setRect(rect)
 
-    font = QFont()
-    pixmap = QPixmap()
+    font, pixmap = QFont(), QPixmap()
     stream >> pos >> font >> pixmap
 
     pliItem.numberItem.setPos(pos)

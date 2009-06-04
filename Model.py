@@ -151,6 +151,10 @@ class LicTreeModel(QAbstractItemModel):
         self.templatePage = TemplatePage(self.root, self.instructions)
         self.root.incrementRows(1)
     
+    def setTemplatePage(self, templatePage):
+        self.templatePage = templatePage
+        self.root.incrementRows(1)
+    
     def data(self, index, role = Qt.DisplayRole):
         if role != Qt.DisplayRole:
             return QVariant()
@@ -919,7 +923,9 @@ class TemplatePage(Page):
     def __init__(self, subModel, instructions):
         Page.__init__(self, subModel, instructions, 0, 0)
 
+    def init(self):
         step = Step(self, 0)
+        step.data = lambda(index): "Template Step"
         self.addStep(step)
         
         for part in self.subModel.parts[:5]:
@@ -2208,6 +2214,13 @@ class PartOGL(object):
     def draw(self):
         GL.glCallList(self.oglDispID)
 
+    def buildSubPartOGLDict(self, partDict):
+            
+        for part in self.parts:
+            if part.partOGL.filename not in partDict:
+                part.partOGL.buildSubPartOGLDict(partDict)
+        partDict[self.filename] = self
+    
     def dimensionsToString(self):
         if self.isPrimitive:
             return ""
@@ -2395,7 +2408,7 @@ class Submodel(PartOGL):
 
     def rowCount(self):
         return len(self.pages) + len(self.submodels)
-    
+
     def data(self, index):
         return self.filename
 

@@ -1,35 +1,50 @@
-int32 - magic number
-int8  - file version
+int32 magic number
+int8  file version
 Instructions
 eof
 
 -----------------------
 
+int32 magic number
+int8 file version
+Template
+eof
+
+-----------------------
+
+Template:
+
+  partDictionary (from page.csi)
+  Page templatePage
+  
 Instructions:
   QString imported filename
   float CSI.scale
   float PLI.scale
-  
-  int32 - length of part dictionary
-  ... PartOGL 0..n ...
+
+  partDictionary (global)
  
-  int32 - length of submodel dictionary
+  int32 length of submodel dictionary
   ... Submodel 0..n ...
  
   Submodel instructions.mainModel
  
-  int32 - length of scene.guides 
+  int32 length of scene.guides 
   ... QPointF guide.pos ...
   ... bool guide.orientation (True = Horizontal) ...
 
 Submodel:
   PartOGL self
-  int32 - length of pages
+  int32 length of pages
   ... Page 0..n ...
-  int32 - length of submodels
+  int32 length of submodels
   ... Submodel filename 0..n ...
   int32 _row
   QString parent (filename of model using this submodel, ie _parent.filename)
+
+partDictionary:
+  int32 length of part dictionary
+  ... PartOGL 0..n ...
 
 PartOGL:
   QString filename

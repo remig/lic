@@ -4,6 +4,34 @@ from Model import *
 import Layout
 
 def saveLicFile(filename, instructions):
+
+    fh, stream = __createStream(filename)
+
+    # Need to explicitly de-select parts so they refresh the CSI pixmap
+    instructions.scene.clearSelectedParts()
+
+    __writeInstructions(stream, instructions)
+
+    if fh is not None:
+        fh.close()
+        
+def saveLicTemplate(filename, templatePage):
+    
+    fh, stream = __createStream(filename)
+
+    # Build part dictionary, since it's not implicitly stored anywhere
+    partDictionary = {}
+    for part in templatePage.steps[0].csi.getPartList():
+        if part.partOGL.filename not in partDictionary:
+            part.partOGL.buildSubPartOGLDict(partDictionary)
+
+    __writePartDictionary(stream, partDictionary)
+    __writePage(stream, templatePage)
+
+    if fh is not None:
+        fh.close()
+
+def __createStream(filename):
     global FileVersion, MagicNumber
     
     fh = QFile(filename)
@@ -14,14 +42,7 @@ def saveLicFile(filename, instructions):
     stream.setVersion(QDataStream.Qt_4_3)
     stream.writeInt32(MagicNumber)
     stream.writeInt16(FileVersion)
-
-    # Need to explicitly de-select parts so they refresh the CSI pixmap
-    instructions.scene.clearSelectedParts()
-
-    __writeInstructions(stream, instructions)
-
-    if fh is not None:
-        fh.close()
+    return fh, stream
 
 def __writeInstructions(stream, instructions):
 
@@ -31,9 +52,7 @@ def __writeInstructions(stream, instructions):
     stream.writeFloat(PLI.scale)
 
     partDictionary = instructions.getPartDictionary()
-    stream.writeInt32(len(partDictionary))
-    for partOGL in partDictionary.values():
-        __writePartOGL(stream, partOGL)
+    __writePartDictionary(stream, partDictionary)
 
     submodelDictionary = instructions.getSubmodelDictionary()
     stream.writeInt32(len(submodelDictionary))
@@ -75,6 +94,12 @@ def __writeSubmodel(stream, submodel):
     stream.writeInt32(submodel._row)
     name = submodel._parent.filename if hasattr(submodel._parent, 'filename') else ""
     stream << QString(name)
+
+def __writePartDictionary(stream, partDictionary):
+
+    stream.writeInt32(len(partDictionary))
+    for partOGL in partDictionary.values():
+        __writePartOGL(stream, partOGL)
 
 def __writePartOGL(stream, partOGL):
 
