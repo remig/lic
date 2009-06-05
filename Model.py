@@ -616,6 +616,7 @@ class Page(QGraphicsRectItem):
 
         for step in self.steps:
             items.append(step)
+            items.append(step.csi)  # TODO: Verify this doesn't break final image rendering
             if step.numberItem:
                 items.append(step.numberItem)
             if step.pli:
@@ -922,13 +923,26 @@ class TemplatePage(Page):
 
     def __init__(self, subModel, instructions):
         Page.__init__(self, subModel, instructions, 0, 0)
+        self.__filename = None
+        self.dataText = "Template Page"
 
-    def postLoadInit(self):
+    def __getFilename(self):
+        return self.__filename
+        
+    def __setFilename(self, filename):
+        self.__filename = filename
+        self.dataText = "Template - " + os.path.basename(self.filename)
+        
+    filename = property(fget = __getFilename, fset = __setFilename)
 
-        # Set all page elements so they can't move
+    def postLoadInit(self, filename):
+
+        self.filename = filename
         s = self.steps[0]
-        modList = [self, self.numberItem, s, s.numberItem, s.csi, s.pli] + s.pli.pliItems + [item.numberItem for item in s.pli.pliItems]
-        for item in modList:
+        s.data = lambda(index): "Template Step"
+        
+        # Set all page elements so they can't move
+        for item in self.getAllChildItems():
             item.setFlags(NoMoveFlags)
 
     def createBlankTemplate(self):
@@ -944,6 +958,7 @@ class TemplatePage(Page):
         step.csi.createPixmap()
         
         self.initLayout()
+        self.postLoadInit()
 
     def initCSIDimension(self):
         global GlobalGLContext
@@ -963,9 +978,18 @@ class TemplatePage(Page):
                 break
 
         GlobalGLContext.makeCurrent()
+        
+    def prevPage(self):
+        return None
+    
+    def nextPage(self):
+        return None
+
+    def getStep(self, number):
+        return self.steps[0] if number == 0 else None
 
     def data(self, index):  # Need this to override Page.data
-        return "Template Page"
+        return self.dataText
 
 class CalloutArrowEndItem(QGraphicsRectItem):
     

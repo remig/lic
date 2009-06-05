@@ -525,6 +525,8 @@ class LicWindow(QMainWindow):
         self.fileCloseAction.setEnabled(enabled)
         self.fileSaveAction.setEnabled(enabled)
         self.fileSaveAsAction.setEnabled(enabled)
+        self.fileSaveTemplateAction.setEnabled(enabled)
+        self.fileSaveTemplateAsAction.setEnabled(enabled)
         self.pageMenu.setEnabled(enabled)
         self.viewMenu.setEnabled(enabled)
         self.exportMenu.setEnabled(enabled)
@@ -582,13 +584,14 @@ class LicWindow(QMainWindow):
         self.fileSaveAsAction = self.createMenuAction("Save &As...", self.fileSaveAs, None, "Save the Instruction book using a new filename")
         fileImportAction = self.createMenuAction("&Import Model", self.fileImport, None, "Import an existing LDraw Model into a new Instruction book")
 
-        fileSaveTemplateAction = self.createMenuAction("&Save Template", self.fileSaveTemplate, None, "Save Template")
+        self.fileSaveTemplateAction = self.createMenuAction("Save Template", self.fileSaveTemplate, None, "Save only the Template")
+        self.fileSaveTemplateAsAction = self.createMenuAction("Save Template As...", self.fileSaveTemplateAs, None, "Save only the Template using a new filename")
 
         fileExitAction = self.createMenuAction("E&xit", SLOT("close()"), "Ctrl+Q", "Exit Lic")
 
         self.fileMenuActions = (fileOpenAction, self.fileCloseAction, None, 
                                 self.fileSaveAction, self.fileSaveAsAction, fileImportAction, None, 
-                                fileSaveTemplateAction, None, 
+                                self.fileSaveTemplateAction, self.fileSaveTemplateAsAction, None, 
                                 fileExitAction)
         
         # Edit Menu - undo / redo is generated dynamicall in updateEditMenu()
@@ -821,7 +824,6 @@ class LicWindow(QMainWindow):
         #self.treeModel.addTemplatePage()
         #LicBinaryWriter.saveLicTemplate(r"C:\lic\test_template_save.lit", self.treeModel.templatePage)
         templatePage = LicBinaryReader.loadLicTemplate(r"C:\lic\test_template_save.lit", self.instructions)
-        templatePage.postLoadInit()
         self.treeModel.setTemplatePage(templatePage)
         
         self.scene.emit(SIGNAL("layoutChanged()"))
@@ -858,7 +860,21 @@ class LicWindow(QMainWindow):
             QMessageBox.warning(self, "Lic - Save Error", "Failed to save %s: %s" % (self.filename, e))
 
     def fileSaveTemplate(self):
-        pass
+        template = self.treeModel.templatePage
+        try:
+            LicBinaryWriter.saveLicTemplate(template)
+            self.statusBar().showMessage("Saved Template to: " + template.filename)
+        except (IOError, OSError), e:
+            QMessageBox.warning(self, "Lic - Save Error", "Failed to save %s: %s" % (template.filename, e))
+    
+    def fileSaveTemplateAs(self):
+        template = self.treeModel.templatePage
+        f = template.filename if template.filename else "template.lic"
+
+        filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Safe Template As", f, "Lic Template files (*.lit)"))
+        if filename:
+            template.filename = filename
+            return self.fileSaveTemplate()
     
     def fileLoadTemplate(self):
         pass

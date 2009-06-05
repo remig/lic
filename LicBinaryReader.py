@@ -32,9 +32,8 @@ def loadLicTemplate(filename, instructions):
     for partOGL in partDictionary.values():
         if partOGL.oglDispID == UNINIT_GL_DISPID:
             partOGL.createOGLDisplayList()
-            
     templatePage.steps[0].csi.createOGLDisplayList()
-    templatePage.steps[0].data = lambda(index): "Template Step"
+    templatePage.postLoadInit(filename)
 
     if fh is not None:
         fh.close()

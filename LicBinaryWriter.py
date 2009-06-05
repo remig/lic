@@ -15,9 +15,9 @@ def saveLicFile(filename, instructions):
     if fh is not None:
         fh.close()
         
-def saveLicTemplate(filename, templatePage):
+def saveLicTemplate(templatePage):
     
-    fh, stream = __createStream(filename)
+    fh, stream = __createStream(templatePage.filename)
 
     # Build part dictionary, since it's not implicitly stored anywhere
     partDictionary = {}
