@@ -1,5 +1,7 @@
 int32 magic number
 int8  file version
+bool hasTemplate
+Template if hasTemplate
 Instructions
 eof
 
@@ -14,6 +16,7 @@ eof
 
 Template:
 
+  QString filename
   partDictionary (from page.csi)
   Page templatePage
   

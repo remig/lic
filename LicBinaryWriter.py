@@ -3,30 +3,29 @@ from PyQt4.QtCore import *
 from Model import *
 import Layout
 
-def saveLicFile(filename, instructions):
+def saveLicFile(filename, instructions, template = None):
 
     fh, stream = __createStream(filename)
 
     # Need to explicitly de-select parts so they refresh the CSI pixmap
     instructions.scene.clearSelectedParts()
 
+    if template:
+        stream.writeBool(True)
+        __writeTemplate(stream, template)
+    else:
+        stream.writeBool(False)
+
     __writeInstructions(stream, instructions)
 
     if fh is not None:
         fh.close()
         
-def saveLicTemplate(templatePage):
+def saveLicTemplate(template):
     
-    fh, stream = __createStream(templatePage.filename)
+    fh, stream = __createStream(template.filename)
 
-    # Build part dictionary, since it's not implicitly stored anywhere
-    partDictionary = {}
-    for part in templatePage.steps[0].csi.getPartList():
-        if part.partOGL.filename not in partDictionary:
-            part.partOGL.buildSubPartOGLDict(partDictionary)
-
-    __writePartDictionary(stream, partDictionary)
-    __writePage(stream, templatePage)
+    __writeTemplate(stream, template)
 
     if fh is not None:
         fh.close()
@@ -43,6 +42,18 @@ def __createStream(filename):
     stream.writeInt32(MagicNumber)
     stream.writeInt16(FileVersion)
     return fh, stream
+
+def __writeTemplate(stream, template):
+
+    # Build part dictionary, since it's not implicitly stored anywhere
+    partDictionary = {}
+    for part in template.steps[0].csi.getPartList():
+        if part.partOGL.filename not in partDictionary:
+            part.partOGL.buildSubPartOGLDict(partDictionary)
+
+    stream << QString(template.filename)
+    __writePartDictionary(stream, partDictionary)
+    __writePage(stream, template)
 
 def __writeInstructions(stream, instructions):
 

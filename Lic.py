@@ -586,12 +586,12 @@ class LicWindow(QMainWindow):
 
         self.fileSaveTemplateAction = self.createMenuAction("Save Template", self.fileSaveTemplate, None, "Save only the Template")
         self.fileSaveTemplateAsAction = self.createMenuAction("Save Template As...", self.fileSaveTemplateAs, None, "Save only the Template using a new filename")
-
+        self.fileLoadTemplateAction = self.createMenuAction("Apply New Template", self.fileLoadTemplate, None, "Discard the current Template and apply a new one")
         fileExitAction = self.createMenuAction("E&xit", SLOT("close()"), "Ctrl+Q", "Exit Lic")
 
         self.fileMenuActions = (fileOpenAction, self.fileCloseAction, None, 
                                 self.fileSaveAction, self.fileSaveAsAction, fileImportAction, None, 
-                                self.fileSaveTemplateAction, self.fileSaveTemplateAsAction, None, 
+                                self.fileSaveTemplateAction, self.fileSaveTemplateAsAction, self.fileLoadTemplateAction, None,
                                 fileExitAction)
         
         # Edit Menu - undo / redo is generated dynamicall in updateEditMenu()
@@ -780,17 +780,10 @@ class LicWindow(QMainWindow):
             filename = unicode(action.data().toString())
             if not self.offerSave():
                 return
-            
-        LicBinaryReader.loadLicFile(filename, self.instructions)
-        
-        self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.treeModel.root = self.instructions.mainModel
-        
-        #self.treeModel.addTemplatePage()
-        #LicBinaryWriter.saveLicTemplate(r"C:\lic\test_template_save.lit", self.treeModel.templatePage)
-        templatePage = LicBinaryReader.loadLicTemplate(r"C:\lic\test_template_save.lit", self.instructions)
-        self.treeModel.setTemplatePage(templatePage)
 
+        self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        LicBinaryReader.loadLicFile(filename, self.instructions, self.treeModel)
+        self.treeModel.root = self.instructions.mainModel
         self.scene.emit(SIGNAL("layoutChanged()"))
         
         self.filename = filename
@@ -820,9 +813,7 @@ class LicWindow(QMainWindow):
         
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.treeModel.root = self.instructions.mainModel
-        
-        #self.treeModel.addTemplatePage()
-        #LicBinaryWriter.saveLicTemplate(r"C:\lic\test_template_save.lit", self.treeModel.templatePage)
+
         templatePage = LicBinaryReader.loadLicTemplate(r"C:\lic\test_template_save.lit", self.instructions)
         self.treeModel.setTemplatePage(templatePage)
         
@@ -852,7 +843,7 @@ class LicWindow(QMainWindow):
 
     def fileSave(self):
         try:
-            LicBinaryWriter.saveLicFile(self.filename, self.instructions)
+            LicBinaryWriter.saveLicFile(self.filename, self.instructions, self.treeModel.templatePage)
             self.setWindowModified(False)
             self.addRecentFile(self.filename)
             self.statusBar().showMessage("Saved to: " + self.filename)

@@ -3,10 +3,18 @@ from PyQt4.QtCore import *
 from Model import *
 import Layout
 
-def loadLicFile(filename, instructions):
+def loadLicFile(filename, instructions, treeModel):
 
     fh, stream = __createStream(filename)
+    
+    if stream.readBool():  # have template
+        treeModel.templatePage = __readTemplate(stream, instructions)
+    
     __readInstructions(stream, instructions)
+
+    if treeModel.templatePage:
+        treeModel.templatePage.subModel = instructions.mainModel
+
     instructions.scene.selectPage(1)
 
     if fh is not None:
@@ -15,30 +23,11 @@ def loadLicFile(filename, instructions):
 def loadLicTemplate(filename, instructions):
 
     fh, stream = __createStream(filename, True)
-
-    # Read in the entire partOGL dictionary
-    global partDictionary, submodelDictionary
-    partDictionary, submodelDictionary = {}, {}
-    __readPartDictionary(stream, partDictionary)
-
-    templatePage = __readPage(stream, instructions.mainModel, instructions, True)
-
-    for part in templatePage.steps[0].csi.getPartList():
-        if part.filename in partDictionary:
-            part.partOGL = partDictionary[part.filename]
-        else:
-            print "LOAD ERROR: could not find a partOGL for part: " + part.filename
-
-    for partOGL in partDictionary.values():
-        if partOGL.oglDispID == UNINIT_GL_DISPID:
-            partOGL.createOGLDisplayList()
-    templatePage.steps[0].csi.createOGLDisplayList()
-    templatePage.postLoadInit(filename)
-
+    template = __readTemplate(stream, instructions)
     if fh is not None:
         fh.close()
-        
-    return templatePage
+
+    return template
 
 def __createStream(filename, template = False):
     global FileVersion, MagicNumber
@@ -60,6 +49,31 @@ def __createStream(filename, template = False):
         raise IOError, "unrecognized " + ext + " version"
     return fh, stream
     
+def __readTemplate(stream, instructions):
+
+    filename = QString()
+    stream >> filename
+
+    # Read in the entire partOGL dictionary
+    global partDictionary, submodelDictionary
+    partDictionary, submodelDictionary = {}, {}
+    __readPartDictionary(stream, partDictionary)
+
+    template = __readPage(stream, instructions.mainModel, instructions, True)
+
+    for part in template.steps[0].csi.getPartList():
+        if part.filename in partDictionary:
+            part.partOGL = partDictionary[part.filename]
+        else:
+            print "TEMPLATE LOAD ERROR: could not find a partOGL for part: " + part.filename
+
+    for partOGL in partDictionary.values():
+        if partOGL.oglDispID == UNINIT_GL_DISPID:
+            partOGL.createOGLDisplayList()
+    template.steps[0].csi.createOGLDisplayList()
+    template.postLoadInit(str(filename))
+    return template
+
 def __readInstructions(stream, instructions):
     global partDictionary, submodelDictionary
 
@@ -102,7 +116,6 @@ def __readInstructions(stream, instructions):
         else:
             submodel._parent = submodelDictionary[submodel._parent]
 
-    instructions.mainModel.incrementRows(-1)
     instructions.initGLDisplayLists()
 
 def __readSubmodel(stream, instructions):
