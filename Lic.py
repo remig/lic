@@ -586,7 +586,7 @@ class LicWindow(QMainWindow):
 
         self.fileSaveTemplateAction = self.createMenuAction("Save Template", self.fileSaveTemplate, None, "Save only the Template")
         self.fileSaveTemplateAsAction = self.createMenuAction("Save Template As...", self.fileSaveTemplateAs, None, "Save only the Template using a new filename")
-        self.fileLoadTemplateAction = self.createMenuAction("Apply New Template", self.fileLoadTemplate, None, "Discard the current Template and apply a new one")
+        self.fileLoadTemplateAction = self.createMenuAction("Load Template", self.fileLoadTemplate, None, "Discard the current Template and apply a new one")
         fileExitAction = self.createMenuAction("E&xit", SLOT("close()"), "Ctrl+Q", "Exit Lic")
 
         self.fileMenuActions = (fileOpenAction, self.fileCloseAction, None, 
@@ -868,7 +868,21 @@ class LicWindow(QMainWindow):
             return self.fileSaveTemplate()
     
     def fileLoadTemplate(self):
-        pass
+        if not self.offerSave():
+            return
+        templateName = self.treeModel.templatePage.filename
+        dir = os.path.dirname(templateName) if templateName is not None else "."
+        newFilename = unicode(QFileDialog.getOpenFileName(self, "Lic - Load Template", dir, "Lic Template files (*.lit)"))
+        if newFilename and newFilename != templateName:
+            try:
+                newTemplate = LicBinaryReader.loadLicTemplate(newFilename, self.instructions)
+            except IOError, e:
+                QMessageBox.warning(self, "Lic - Load Template Error", "Failed to open %s: %s" % (newFilename, e))
+            else:
+                self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+                self.treeModel.templatePage = newTemplate
+                self.scene.emit(SIGNAL("layoutChanged()"))
+                self.setWindowModified(True)
     
     def fileOpen(self):
         if not self.offerSave():
