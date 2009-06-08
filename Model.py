@@ -938,8 +938,14 @@ class TemplatePage(Page):
     def postLoadInit(self, filename):
 
         self.filename = filename
-        s = self.steps[0]
-        s.data = lambda(index): "Template Step"
+        step = self.steps[0]
+        step.data = lambda index: "Template Step"
+        step.contextMenuEvent = self.stepContextMenuEvent
+        step.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, step.numberItem)
+        self.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, self.numberItem)
+
+        for item in step.pli.pliItems:
+            item.numberItem.contextMenuEvent = lambda event, i = item: self.fontMenuEvent(event, i.numberItem)
         
         # Set all page elements so they can't move
         for item in self.getAllChildItems():
@@ -947,7 +953,7 @@ class TemplatePage(Page):
 
     def createBlankTemplate(self):
         step = Step(self, 0)
-        step.data = lambda(index): "Template Step"
+        step.data = lambda index: "Template Step"
         self.addStep(step)
         
         for part in self.subModel.parts[:5]:
@@ -990,6 +996,46 @@ class TemplatePage(Page):
 
     def data(self, index):  # Need this to override Page.data
         return self.dataText
+
+    def contextMenuEvent(self, event):
+        
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Prepend blank Page", self.addPageBeforeSignal)
+        menu.addSeparator()
+        menu.addAction("Delete Page", self.deletePageSignal)
+        menu.exec_(event.screenPos())
+
+    def fontMenuEvent(self, event, item):
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Set Font", lambda: self.setItemFont(item))
+        menu.exec_(event.screenPos())
+        
+    def setItemFont(self, item):
+        font, ok = QFontDialog.getFont(item.font())
+        if ok:
+            item.setFont(font)
+
+    def setColor(self):    
+        color = QColorDialog.getColor(Qt.green, self)
+        if color.isValid(): 
+            self.colorLabel.setText(color.name())
+            self.colorLabel.setPalette(QPalette(color))
+    
+    def stepContextMenuEvent(self, event):
+        
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Prepend blank Page", self.addPageBeforeSignal)
+        menu.addSeparator()
+        menu.addAction("Delete Page", self.deletePageSignal)
+        menu.exec_(event.screenPos())
+
+    def PLIContextMenuEvent(self, event):
+        
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Prepend blank Page", None)
+        menu.addSeparator()
+        menu.addAction("Delete Page", None)
+        menu.exec_(event.screenPos())
 
 class CalloutArrowEndItem(QGraphicsRectItem):
     
