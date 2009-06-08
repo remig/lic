@@ -397,3 +397,32 @@ class RotateCSICommand(QUndoCommand):
         self.csi.rotation[2] += self.rotation[2]
         self.csi.resetPixmap()
         
+class SetItemFontsCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, template, newFont, target):
+        QUndoCommand.__init__(self, "change PLI quantity font")
+        self.template, self.newFont, self.target = template, newFont, target
+        self.oldFont = self.template.numberItem.font()
+
+    def doAction(self, redo):
+        font = self.newFont if redo else self.oldFont
+        if self.target == 'page':
+            self.template.numberItem.setFont(font)
+            for page in self.template.instructions.getPageList():
+                page.numberItem.setFont(font)
+                
+        elif self.target == 'step':
+            self.template.steps[0].numberItem.setFont(font)
+            for page in self.template.instructions.getPageList():
+                for step in page.steps:
+                    step.numberItem.setFont(font)
+                    
+        elif self.target == 'pliitem':
+            for item in self.template.steps[0].pli.pliItems:
+                item.numberItem.setFont(font)
+            for page in self.template.instructions.getPageList():
+                for step in page.steps:
+                    for item in step.pli.pliItems:
+                        item.numberItem.setFont(font)

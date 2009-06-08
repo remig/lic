@@ -355,6 +355,9 @@ class Instructions(QObject):
     def getModelName(self):
         return self.mainModel.filename
 
+    def getPageList(self):
+        return self.mainModel.getPageList()
+
     def initGLDisplayLists(self):
         global GlobalGLContext
         GlobalGLContext.makeCurrent()
@@ -941,11 +944,15 @@ class TemplatePage(Page):
         step = self.steps[0]
         step.data = lambda index: "Template Step"
         step.contextMenuEvent = self.stepContextMenuEvent
-        step.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, step.numberItem)
+        
+        self.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'page'))
+        step.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'step'))
         self.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, self.numberItem)
+        step.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, step.numberItem)
 
         for item in step.pli.pliItems:
             item.numberItem.contextMenuEvent = lambda event, i = item: self.fontMenuEvent(event, i.numberItem)
+            item.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'pliitem'))
         
         # Set all page elements so they can't move
         for item in self.getAllChildItems():
@@ -1013,7 +1020,7 @@ class TemplatePage(Page):
     def setItemFont(self, item):
         font, ok = QFontDialog.getFont(item.font())
         if ok:
-            item.setFont(font)
+            item.setAllFonts(font)
 
     def setColor(self):    
         color = QColorDialog.getColor(Qt.green, self)
