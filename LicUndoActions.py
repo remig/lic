@@ -397,29 +397,59 @@ class RotateCSICommand(QUndoCommand):
         self.csi.rotation[2] += self.rotation[2]
         self.csi.resetPixmap()
         
+class SetPageBackgroundCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, template, newColor, newBrush, useColor):
+        QUndoCommand.__init__(self, "change Page background")
+        self.template, self.newColor, self.newBrush, self.useColor = template, newColor, newBrush, useColor
+        self.oldColor, self.oldBrush = template.color, template.brush
+
+    def doAction(self, redo):
+        color = self.newColor if redo else self.oldColor
+        brush = self.newBrush if redo else self.oldBrush
+        if self.useColor:
+            self.template.color = color
+        else:
+            self.template.brush = brush
+        self.template.update()
+        for page in self.template.instructions.getPageList():
+            if self.useColor:
+                page.color = color
+            else:
+                page.brush = brush
+            page.update()
+
+    
 class SetItemFontsCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
     def __init__(self, template, newFont, target):
-        QUndoCommand.__init__(self, "change PLI quantity font")
+        QUndoCommand.__init__(self, "change " + target + " font")
         self.template, self.newFont, self.target = template, newFont, target
-        self.oldFont = self.template.numberItem.font()
+        if self.target == 'Page':
+            self.oldFont = self.template.numberItem.setFont(font)
+        elif self.target == 'Step':
+            self.oldFont = self.template.steps[0].numberItem.setFont(font)
+        elif self.target == 'PLI Item':
+            self.oldFont = self.template.steps[0].pli.pliItems[0].numberItem.font()
 
     def doAction(self, redo):
         font = self.newFont if redo else self.oldFont
-        if self.target == 'page':
+        if self.target == 'Page':
             self.template.numberItem.setFont(font)
             for page in self.template.instructions.getPageList():
                 page.numberItem.setFont(font)
                 
-        elif self.target == 'step':
+        elif self.target == 'Step':
             self.template.steps[0].numberItem.setFont(font)
             for page in self.template.instructions.getPageList():
                 for step in page.steps:
                     step.numberItem.setFont(font)
                     
-        elif self.target == 'pliitem':
+        elif self.target == 'PLI Item':
             for item in self.template.steps[0].pli.pliItems:
                 item.numberItem.setFont(font)
             for page in self.template.instructions.getPageList():

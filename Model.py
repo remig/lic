@@ -142,17 +142,12 @@ class LicTreeView(QTreeView):
 
 class LicTreeModel(QAbstractItemModel):
 
-    def __init__(self, parent, instructions):
+    def __init__(self, parent):
         QAbstractItemModel.__init__(self, parent)
         
         self.root = None
-        self.instructions = instructions
         self.templatePage = None
 
-    def addTemplatePage(self):
-        self.templatePage = TemplatePage(self.root, self.instructions)
-        self.root.incrementRows(1)
-    
     def setTemplatePage(self, templatePage):
         self.templatePage = templatePage
         self.root.incrementRows(1)
@@ -954,14 +949,14 @@ class TemplatePage(Page):
         step.__class__ = TemplateStep
         step.postLoadInit()
         
-        self.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'page'))
-        step.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'step'))
+        self.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'Page'))
+        step.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'Step'))
         self.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, self.numberItem)
         step.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, step.numberItem)
 
         for item in step.pli.pliItems:
             item.numberItem.contextMenuEvent = lambda event, i = item: self.fontMenuEvent(event, i.numberItem)
-            item.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'pliitem'))
+            item.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'PLI Item'))
         
         # Set all page elements so they can't move
         for item in self.getAllChildItems():
@@ -1025,12 +1020,12 @@ class TemplatePage(Page):
     def setBackgroundColor(self):
         color = QColorDialog.getColor(self.color, self.scene().views()[0])
         if color.isValid(): 
-            self.color = color
+            self.scene().undoStack.push(SetPageBackgroundCommand(self, color, None, True))
     
     def setBackgroundGradient(self):
         dialog = GradientDialog.GradientDialog(self.scene().views()[0], Page.PageSize)
         if dialog.exec_():
-            self.brush = QBrush(dialog.getGradient())
+            self.scene().undoStack.push(SetPageBackgroundCommand(self, None, QBrush(dialog.getGradient()), False))
     
     def setBackgroundImage(self):
         
@@ -1045,12 +1040,9 @@ class TemplatePage(Page):
             return
 
         dialog = LicDialogs.BackgroundImagePropertiesDlg(parentWidget, image, self.color, self.brush, Page.PageSize)
-        parentWidget.connect(dialog, SIGNAL("changed"), self.changeImg)
+        action = lambda image: self.scene().undoStack.push(SetPageBackgroundCommand(self, None, QBrush(image), False))
+        parentWidget.connect(dialog, SIGNAL("changed"), action)
         dialog.exec_()
-
-    def changeImg(self, image):
-        self.brush = QBrush(image)
-        self.update()
 
     def fontMenuEvent(self, event, item):
         menu = QMenu(self.scene().views()[0])
@@ -1062,12 +1054,6 @@ class TemplatePage(Page):
         if ok:
             item.setAllFonts(font)
 
-    def setColor(self):    
-        color = QColorDialog.getColor(Qt.green, self)
-        if color.isValid(): 
-            self.colorLabel.setText(color.name())
-            self.colorLabel.setPalette(QPalette(color))
-    
     def PLIContextMenuEvent(self, event):
         
         menu = QMenu(self.scene().views()[0])
