@@ -15,6 +15,8 @@ import povray
 import LDrawColors
 import Helpers
 import Layout
+import LicDialogs
+import GradientDialog
 
 from LDrawFileFormat import *
 
@@ -565,6 +567,8 @@ class Page(QGraphicsRectItem):
         self.children = []
         self.submodelItem = None
         self.layout = Layout.GridLayout()
+        self.color = QColor(Qt.white)
+        self.brush = None
 
         # Setup this page's page number
         self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
@@ -873,8 +877,13 @@ class Page(QGraphicsRectItem):
 
         # Draw the page itself - white with a thin black border
         painter.setPen(QPen(Qt.black))
-        painter.setBrush(QBrush(Qt.white))
+        painter.setBrush(QBrush(self.color))
         painter.drawRect(self.rect())
+        
+        # Draw any images or gradients this page may have
+        if self.brush:
+            painter.setBrush(self.brush)
+            painter.drawRect(self.rect())
 
     def contextMenuEvent(self, event):
         
@@ -942,8 +951,8 @@ class TemplatePage(Page):
 
         self.filename = filename
         step = self.steps[0]
-        step.data = lambda index: "Template Step"
-        step.contextMenuEvent = self.stepContextMenuEvent
+        step.__class__ = TemplateStep
+        step.postLoadInit()
         
         self.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'page'))
         step.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'step'))
@@ -1005,12 +1014,43 @@ class TemplatePage(Page):
         return self.dataText
 
     def contextMenuEvent(self, event):
-        
         menu = QMenu(self.scene().views()[0])
-        menu.addAction("Prepend blank Page", self.addPageBeforeSignal)
-        menu.addSeparator()
-        menu.addAction("Delete Page", self.deletePageSignal)
+        arrowMenu = menu.addMenu("Format Background")
+        arrowMenu.addAction("Color", self.setBackgroundColor)
+        arrowMenu.addAction("Gradient", self.setBackgroundGradient)
+        arrowMenu.addAction("Image", self.setBackgroundImage)
+        #menu.addSeparator()
         menu.exec_(event.screenPos())
+        
+    def setBackgroundColor(self):
+        color = QColorDialog.getColor(self.color, self.scene().views()[0])
+        if color.isValid(): 
+            self.color = color
+    
+    def setBackgroundGradient(self):
+        dialog = GradientDialog.GradientDialog(self.scene().views()[0], Page.PageSize)
+        if dialog.exec_():
+            self.brush = QBrush(dialog.getGradient())
+    
+    def setBackgroundImage(self):
+        
+        parentWidget = self.scene().views()[0]
+        filename = QFileDialog.getOpenFileName(parentWidget, "Open Background Image", QDir.currentPath())
+        if filename.isEmpty():
+            return
+        
+        image = QImage(filename)
+        if image.isNull():
+            QMessageBox.information(self, "Lic", "Cannot load " + filename)
+            return
+
+        dialog = LicDialogs.BackgroundImagePropertiesDlg(parentWidget, image, self.color, self.brush, Page.PageSize)
+        parentWidget.connect(dialog, SIGNAL("changed"), self.changeImg)
+        dialog.exec_()
+
+    def changeImg(self, image):
+        self.brush = QBrush(image)
+        self.update()
 
     def fontMenuEvent(self, event, item):
         menu = QMenu(self.scene().views()[0])
@@ -1028,14 +1068,6 @@ class TemplatePage(Page):
             self.colorLabel.setText(color.name())
             self.colorLabel.setPalette(QPalette(color))
     
-    def stepContextMenuEvent(self, event):
-        
-        menu = QMenu(self.scene().views()[0])
-        menu.addAction("Prepend blank Page", self.addPageBeforeSignal)
-        menu.addSeparator()
-        menu.addAction("Delete Page", self.deletePageSignal)
-        menu.exec_(event.screenPos())
-
     def PLIContextMenuEvent(self, event):
         
         menu = QMenu(self.scene().views()[0])
@@ -1640,6 +1672,25 @@ class Step(QGraphicsRectItem):
         a = MovePartsToStepCommand(self.csi.getPartList(), self, step)
         self.scene().undoStack.push(a)
 
+class TemplateStep(Step):
+    
+    def postLoadInit(self):
+        self.data = lambda index: "Template Step"
+        self.setFlags(NoMoveFlags)
+    
+    def contextMenuEvent(self, event):
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Format Background", self.formatBackground)
+        arrowMenu = menu.addMenu("Format Background")
+        arrowMenu.addAction("Color", self.setBackgroundColor)
+        arrowMenu.addAction("Gradient", self.setBackgroundColor)
+        arrowMenu.addAction("Image", self.setBackgroundColor)
+        #menu.addSeparator()
+        menu.exec_(event.screenPos())
+
+    def formatBackground(self):
+        pass
+    
 class PLIItem(QGraphicsRectItem):
     """ Represents one part inside a PLI along with its quantity label. """
 

@@ -182,3 +182,65 @@ class PageSizeDlg(QDialog):
             resolution = float(self.resEditBox.text())
             self.emit(SIGNAL("newPageSize"), newPageSize, resolution)        
             QDialog.accept(self)
+
+class BackgroundImagePropertiesDlg(QDialog):
+
+    def __init__(self, parent, image, backgroundColor, originalBrush, pageSize):
+        QDialog.__init__(self, parent)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        
+        self.image = image
+        self.backgroundColor = backgroundColor
+        self.originalBrush = originalBrush
+        self.pageSize = pageSize
+
+        self.imgCenter = QRadioButton("&Center")
+        self.imgTile = QRadioButton("&Tile")
+        self.imgStretch = QRadioButton("&Stretch")
+        self.imgCenter.setChecked(True)
+
+        radioGroup = QGroupBox("Image Fill options:", self)
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.imgCenter)
+        vbox.addWidget(self.imgTile)
+        vbox.addWidget(self.imgStretch)
+        radioGroup.setLayout(vbox)
+
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Vertical)
+
+        mainLayout = QHBoxLayout()
+        mainLayout.addWidget(radioGroup)
+        mainLayout.addWidget(buttonBox)
+        self.setLayout(mainLayout)
+
+        self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
+        self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
+        
+        self.connect(self.imgCenter, SIGNAL("toggled(bool)"), self.changeImg)
+        self.connect(self.imgTile, SIGNAL("toggled(bool)"), self.changeImg)
+        self.connect(self.imgStretch, SIGNAL("toggled(bool)"), self.changeImg)
+        self.setWindowTitle("Image Fill options")
+        
+    def exec_(self):
+        self.changeImg(True)
+        QDialog.exec_(self)
+
+    def changeImg(self, toggled):
+        if not toggled:
+            return
+        if self.imgCenter.isChecked():
+            newImage = QImage(self.pageSize, QImage.Format_RGB32)
+            newImage.fill(self.backgroundColor.rgb())
+            painter = QPainter()
+            painter.begin(newImage)
+            painter.drawImage((self.pageSize.width() - self.image.width()) / 2.0, (self.pageSize.height() - self.image.height()) / 2.0, self.image)
+            painter.end()
+            self.emit(SIGNAL("changed"), newImage)
+        elif self.imgTile.isChecked():
+            self.emit(SIGNAL("changed"), self.image)
+        elif self.imgStretch.isChecked():
+            self.emit(SIGNAL("changed"), self.image.scaled(self.pageSize))
+
+    def reject(self):
+        self.emit(SIGNAL("changed"), self.originalBrush)
+        QDialog.reject(self)
