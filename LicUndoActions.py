@@ -456,3 +456,21 @@ class SetItemFontsCommand(QUndoCommand):
                 for step in page.steps:
                     for item in step.pli.pliItems:
                         item.numberItem.setFont(font)
+
+class TogglePLIs(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, template, enablePLIs):
+        QUndoCommand.__init__(self, "%s PLIs" % ("Enable" if enablePLIs else "Remove"))
+        self.template, self.enablePLIs = template, enablePLIs
+
+    def doAction(self, redo):
+        self.template.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        if (redo and self.enablePLIs) or (not redo and not self.enablePLIs):
+            self.template.pli.show()
+        else:
+            self.template.pli.hide()
+        self.template.scene().emit(SIGNAL("layoutChanged()"))
+        self.template.initLayout()
+                

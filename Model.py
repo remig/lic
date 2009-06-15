@@ -621,7 +621,7 @@ class Page(QGraphicsRectItem):
             items.append(step.csi)  # TODO: Verify this doesn't break final image rendering
             if step.numberItem:
                 items.append(step.numberItem)
-            if step.pli:
+            if step.hasPLI():
                 items.append(step.pli)
                 for pliItem in step.pli.pliItems:
                     items.append(pliItem)
@@ -812,7 +812,7 @@ class Page(QGraphicsRectItem):
 
     def scaleImages(self):
         for step in self.steps:
-            if step.pli:
+            if step.hasPLI():
                 step.pli.initLayout()
             
         if self.submodelItem:
@@ -827,7 +827,7 @@ class Page(QGraphicsRectItem):
                 for s in callout.steps:
                     s.csi.createPng()
                     
-            if step.pli:
+            if step.hasPLI():
                 for item in step.pli.pliItems:
                     item.createPng()
 
@@ -849,7 +849,7 @@ class Page(QGraphicsRectItem):
                 for s in callout.steps:
                     painter.drawImage(s.csi.scenePos(), s.csi.pngImage)
             
-            if step.pli:
+            if step.hasPLI():
                 for item in step.pli.pliItems:
                     painter.drawImage(item.scenePos(), item.pngImage)
 
@@ -946,7 +946,7 @@ class TemplatePage(Page):
 
         self.filename = filename
         step = self.steps[0]
-        step.__class__ = TemplateStep
+        step.__class__ = TemplateStep  # Promote regular Step to TemplateStep subclass
         step.postLoadInit()
         
         self.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'Page'))
@@ -954,9 +954,10 @@ class TemplatePage(Page):
         self.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, self.numberItem)
         step.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, step.numberItem)
 
-        for item in step.pli.pliItems:
-            item.numberItem.contextMenuEvent = lambda event, i = item: self.fontMenuEvent(event, i.numberItem)
-            item.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'PLI Item'))
+        if step.hasPLI():
+            for item in step.pli.pliItems:
+                item.numberItem.contextMenuEvent = lambda event, i = item: self.fontMenuEvent(event, i.numberItem)
+                item.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'PLI Item'))
         
         # Set all page elements so they can't move
         for item in self.getAllChildItems():
@@ -1053,14 +1054,6 @@ class TemplatePage(Page):
         font, ok = QFontDialog.getFont(item.font())
         if ok:
             item.setAllFonts(font)
-
-    def PLIContextMenuEvent(self, event):
-        
-        menu = QMenu(self.scene().views()[0])
-        menu.addAction("Prepend blank Page", None)
-        menu.addSeparator()
-        menu.addAction("Delete Page", None)
-        menu.exec_(event.screenPos())
 
 class CalloutArrowEndItem(QGraphicsRectItem):
     
@@ -1420,11 +1413,14 @@ class Step(QGraphicsRectItem):
 
     number = property(fget = _getNumber, fset = _setNumber)
 
+    def hasPLI(self):
+        return self.pli and self.pli.isVisible()
+    
     def child(self, row):
         if row == 0:
             return self.csi
         if row == 1:
-            if self.pli:
+            if self.hasPLI():
                 return self.pli
             if self.numberItem:
                 return self.numberItem
@@ -1432,14 +1428,14 @@ class Step(QGraphicsRectItem):
             if self.numberItem:
                 return self.numberItem
 
-        offset = row - 1 - (1 if self.pli else 0) - (1 if self.numberItem else 0)
+        offset = row - 1 - (1 if self.hasPLI() else 0) - (1 if self.numberItem else 0)
         if offset < len(self.callouts):
                 return self.callouts[offset]
 
         return None
 
     def rowCount(self):
-        return 1 + (1 if self.pli else 0) + (1 if self.numberItem else 0) + len(self.callouts)
+        return 1 + (1 if self.hasPLI() else 0) + (1 if self.numberItem else 0) + len(self.callouts)
 
     def data(self, index):
         return "Step %d" % self._number
@@ -1450,18 +1446,18 @@ class Step(QGraphicsRectItem):
         if isinstance(child, PLI):
             return 1
         if isinstance(child, QGraphicsSimpleTextItem):
-            return 2 if self.pli else 1
+            return 2 if self.hasPLI() else 1
         if child in self.callouts:
-            return self.callouts.index(child) + 1 + (1 if self.pli else 0) + (1 if self.numberItem else 0)
+            return self.callouts.index(child) + 1 + (1 if self.hasPLI() else 0) + (1 if self.numberItem else 0)
         
     def addPart(self, part):
         self.csi.addPart(part)
-        if self.pli:
+        if self.pli:  # Visibility here is irrelevant
             self.pli.addPart(part)
 
     def removePart(self, part):
         self.csi.removePart(part)
-        if self.pli:
+        if self.pli:  # Visibility here is irrelevant
             self.pli.removePart(part)
 
     def addCallout(self, callout):
@@ -1498,7 +1494,7 @@ class Step(QGraphicsRectItem):
         
     def initMinimumLayout(self):
 
-        if self.pli: # Do not use on a step with PLI
+        if self.hasPLI(): # Do not use on a step with PLI
             return
 
         if self.numberItem:
@@ -1513,6 +1509,7 @@ class Step(QGraphicsRectItem):
         self.maxRect = self.rect()
 
     def checkForLayoutOverlaps(self):
+        # TODO: Test this with steps that don't have PLIs!
         if self.csi.pos().y() < self.pli.rect().bottom() and self.csi.pos().x() < self.pli.rect().right():
             return True
         if self.csi.pos().y() < self.pli.rect().top():
@@ -1540,13 +1537,13 @@ class Step(QGraphicsRectItem):
         self.setPos(destRect.topLeft())
         self.setRect(0, 0, destRect.width(), destRect.height())
         
-        if self.pli:
+        if self.hasPLI():
             self.pli.initLayout()  # Position PLI
 
         # Position Step number label beneath the PLI
         if self.numberItem:
             self.numberItem.setPos(0, 0)
-            pliOffset = self.pli.rect().height() if self.pli else 0.0
+            pliOffset = self.pli.rect().height() if self.hasPLI() else 0.0
             self.numberItem.moveBy(0, pliOffset + Page.margin.y())
 
         self.positionInternalBits()
@@ -1555,7 +1552,7 @@ class Step(QGraphicsRectItem):
 
         r = self.rect()
         
-        if self.pli:
+        if self.hasPLI():
             r.setTop(self.pli.rect().height())
 
         csiWidth = self.csi.width * CSI.scale
@@ -1666,14 +1663,18 @@ class TemplateStep(Step):
     
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
+        menu.addAction("Disable PLIs" if self.hasPLI() else "Enable PLIs", self.togglePLIs)
+        #menu.addSeparator()
         menu.addAction("Format Background", self.formatBackground)
         arrowMenu = menu.addMenu("Format Background")
-        arrowMenu.addAction("Color", self.setBackgroundColor)
-        arrowMenu.addAction("Gradient", self.setBackgroundColor)
-        arrowMenu.addAction("Image", self.setBackgroundColor)
-        #menu.addSeparator()
+        #arrowMenu.addAction("Color", self.setBackgroundColor)
+        #arrowMenu.addAction("Gradient", self.setBackgroundColor)
+        #rrowMenu.addAction("Image", self.setBackgroundColor)
         menu.exec_(event.screenPos())
 
+    def togglePLIs(self):
+        self.scene().undoStack.push(TogglePLIs(self, not self.hasPLI()))
+    
     def formatBackground(self):
         pass
     
