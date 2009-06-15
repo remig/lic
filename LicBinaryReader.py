@@ -3,6 +3,20 @@ from PyQt4.QtCore import *
 from Model import *
 import Layout
 
+def ro(self, targetType):
+    c = targetType()
+    x = self >> c
+    return c
+
+QDataStream.readQColor = lambda self: ro(self, QColor)
+QDataStream.readQBrush = lambda self: ro(self, QBrush)
+QDataStream.readQFont = lambda self: ro(self, QFont)
+QDataStream.readQPen = lambda self: ro(self, QPen)
+QDataStream.readQRectF = lambda self: ro(self, QRectF)
+QDataStream.readQPointF = lambda self: ro(self, QPointF)
+QDataStream.readQString = lambda self: ro(self, QString)
+QDataStream.readQPixmap = lambda self: ro(self, QPixmap)
+
 def loadLicFile(filename, instructions, treeModel):
 
     fh, stream = __createStream(filename)
@@ -51,8 +65,7 @@ def __createStream(filename, template = False):
     
 def __readTemplate(stream, instructions):
 
-    filename = QString()
-    stream >> filename
+    filename = str(stream.readQString())
 
     # Read in the entire partOGL dictionary
     global partDictionary, submodelDictionary
@@ -71,7 +84,7 @@ def __readTemplate(stream, instructions):
         if partOGL.oglDispID == UNINIT_GL_DISPID:
             partOGL.createOGLDisplayList()
     template.steps[0].csi.createOGLDisplayList()
-    template.postLoadInit(str(filename))
+    template.postLoadInit(filename)
     return template
 
 def __readInstructions(stream, instructions):
@@ -80,9 +93,8 @@ def __readInstructions(stream, instructions):
     partDictionary = instructions.getPartDictionary()
     submodelDictionary = instructions.getSubmodelDictionary()
     
-    filename = QString()
-    stream >> filename
-    instructions.filename = str(filename)
+    filename = str(stream.readQString())
+    instructions.filename = filename
 
     CSI.scale = stream.readFloat()
     PLI.scale = stream.readFloat()
@@ -98,8 +110,7 @@ def __readInstructions(stream, instructions):
 
     guideCount = stream.readInt32()
     for i in range(0, guideCount):
-        pos = QPointF()
-        stream >> pos
+        pos = stream.readQPointF()
         orientation = Layout.Horizontal if stream.readBool() else Layout.Vertical
         instructions.scene.addGuide(orientation, pos)
 
@@ -128,17 +139,15 @@ def __readSubmodel(stream, instructions):
         page = __readPage(stream, submodel, instructions)
         submodel.pages.append(page)
 
-    filename = QString()
     submodelCount = stream.readInt32()
     for i in range(0, submodelCount):
-        stream >> filename
-        model = submodelDictionary[str(filename)]
+        filename = str(stream.readQString())
+        model = submodelDictionary[filename]
         model.used = True
         submodel.submodels.append(model)
 
     submodel._row = stream.readInt32()
-    stream >> filename
-    submodel._parent = str(filename)
+    submodel._parent = str(stream.readQString())
     return submodel
 
 def __readPartDictionary(stream, partDictionary):
@@ -155,20 +164,17 @@ def __readPartDictionary(stream, partDictionary):
             part.partOGL = partDictionary[part.filename]
 
 def __readPartOGL(stream, createSubmodel = False):
-    filename = QString()
-    name = QString()
-    stream >> filename >> name
 
     part = Submodel() if createSubmodel else PartOGL()
-    part.filename = str(filename)
-    part.name = str(name)
+    part.filename = str(stream.readQString())
+    part.name = str(stream.readQString())
 
     part.isPrimitive = stream.readBool()
     part.width = stream.readInt32()
     part.height = stream.readInt32()
     part.leftInset = stream.readInt32()
     part.bottomInset = stream.readInt32()
-    stream >> part.center
+    part.center = stream.readQPointF()
     
     primitiveCount = stream.readInt32()
     for i in range(0, primitiveCount):
@@ -199,10 +205,8 @@ def __readPrimitive(stream):
     return Primitive(color, points, type, winding)
 
 def __readPart(stream):
-    filename = QString()
-    stream >> filename
-    filename = str(filename)
     
+    filename = str(stream.readQString())
     invert = stream.readBool()
     color = stream.readInt32()
     matrix = []
@@ -231,54 +235,46 @@ def __readPart(stream):
     return part
 
 def __readPage(stream, parent, instructions, isTemplatePage = False):
-    pos, rect, font, pen = QPointF(), QRectF(), QFont(), QPen()
 
-    stream >> pos >> rect
     number = stream.readInt32()
     row = stream.readInt32()
-
+    
     if isTemplatePage:
         page = TemplatePage(parent, instructions)
     else:
         page = Page(parent, instructions, number, row)
 
-    page.setPos(pos)
-    page.setRect(rect)
-
-    stream >> pos >> font
-    page.numberItem.setPos(pos)
-    page.numberItem.setFont(font)
+    page.setPos(stream.readQPointF())
+    page.setRect(stream.readQRectF())
+    page.color = stream.readQColor()
+    hasBrush = stream.readBool()
+    if hasBrush:
+        page.brush = stream.readQBrush()
+    
+    page.numberItem.setPos(stream.readQPointF())
+    page.numberItem.setFont(stream.readQFont())
     
     # Read in each step in this page
     stepCount = stream.readInt32()
-    step = None
     for i in range(0, stepCount):
-        step = __readStep(stream, page)
-        page.addStep(step)
+        page.addStep(__readStep(stream, page))
 
     # Read in the optional submodel preview image
     hasSubmodelItem = stream.readBool()
     if hasSubmodelItem:
-        pixmap = QPixmap()
-        childRow = stream.readInt32()
-        stream >> pos >> rect >> pen
-        stream >> pixmap
-        
-        page.addSubmodelImage(childRow)
-        page.submodelItem.setPos(pos)
-        page.submodelItem.setRect(rect)
-        page.submodelItem.setPen(pen)
-        page.submodelItem.children()[0].setPixmap(pixmap)
+        page.addSubmodelImage(stream.readInt32())
+        page.submodelItem.setPos(stream.readQPointF())
+        page.submodelItem.setRect(stream.readQRectF())
+        page.submodelItem.setPen(stream.readQPen())
+        page.submodelItem.children()[0].setPixmap(stream.readQPixmap())
 
     # Read in any page separator lines
     borderCount = stream.readInt32()
     for i in range(0, borderCount):
-        childRow = stream.readInt32()
-        stream >> pos >> rect >> pen
-        border = page.addStepSeparator(childRow)
-        border.setPos(pos)
-        border.setRect(rect)
-        border.setPen(pen)
+        border = page.addStepSeparator(stream.readInt32())
+        border.setPos(stream.readQPointF())
+        border.setRect(stream.readQRectF())
+        border.setPen(stream.readQPen())
 
     return page
 
@@ -289,12 +285,10 @@ def __readStep(stream, parent):
     hasNumberItem = stream.readBool()
     
     step = Step(parent, stepNumber, hasPLI, hasNumberItem)
-
-    pos, rect, maxRect = QPointF(), QRectF(), QRectF()
-    stream >> pos >> rect >> maxRect
-    step.setPos(pos)
-    step.setRect(rect)
-    step.maxRect = maxRect
+    
+    step.setPos(stream.readQPointF())
+    step.setRect(stream.readQRectF())
+    step.maxRect = stream.readQRectF()
 
     step.csi = __readCSI(stream, step)
     
@@ -302,10 +296,8 @@ def __readStep(stream, parent):
         step.pli = __readPLI(stream, step)
     
     if hasNumberItem:
-        font = QFont()
-        stream >> pos >> font
-        step.numberItem.setPos(pos)
-        step.numberItem.setFont(font)
+        step.numberItem.setPos(stream.readQPointF())
+        step.numberItem.setFont(stream.readQFont())
 
     calloutCount = stream.readInt32()
     for i in range(0, calloutCount):
@@ -316,26 +308,16 @@ def __readStep(stream, parent):
 
 def __readCallout(stream, parent):
     
-    pos, rect, pen = QPointF(), QRectF(), QPen()
-    stream >> pos >> rect >> pen
+    callout = Callout(parent, stream.readInt32(), stream.readBool())
+    callout.setPos(stream.readQPointF())
+    callout.setRect(stream.readQRectF())
+    callout.setPen(stream.readQPen())
     
-    number = stream.readInt32()
-    showStepNumbers = stream.readBool()
-
-    callout = Callout(parent, number, showStepNumbers)
-    callout.setPos(pos)
-    callout.setPen(pen)
-    callout.setRect(rect)
-    
-    stream >> pos
-    callout.arrow.tipRect.point = QPointF(pos)
-    stream >> pos
-    callout.arrow.baseRect.point = QPointF(pos)
+    callout.arrow.tipRect.point = stream.readQPointF()
+    callout.arrow.baseRect.point = stream.readQPointF()
 
     if stream.readBool():  # has quantity label
-        font = QFont()
-        stream >> pos >> font
-        callout.addQuantityLabel(pos, font)
+        callout.addQuantityLabel(stream.readQPointF(), stream.readQFont())
         callout.setQuantity(stream.readInt32())
         
     stepCount = stream.readInt32()
@@ -346,18 +328,14 @@ def __readCallout(stream, parent):
     return callout
 
 def __readCSI(stream, step):
+
     csi = CSI(step)
-    pos = QPointF()
-    stream >> pos
-    csi.setPos(pos)
+    csi.setPos(stream.readQPointF())
 
     csi.width = stream.readInt32()
     csi.height = stream.readInt32()
-    stream >> csi.center
-
-    pixmap = QPixmap()
-    stream >> pixmap
-    csi.setPixmap(pixmap)
+    csi.center = stream.readQPointF()
+    csi.setPixmap(stream.readQPixmap())
 
     x, y, z = stream.readFloat(), stream.readFloat(), stream.readFloat()
     if (x != 0.0) and (y != 0.0) and (z != 0.0):
@@ -382,13 +360,11 @@ def __readCSI(stream, step):
     return csi
 
 def __readPLI(stream, parentStep):
-    pos, rect, pen = QPointF(), QRectF(), QPen()
-    stream >> pos >> rect >> pen
 
     pli = PLI(parentStep)
-    pli.setPos(pos)
-    pli.setPen(pen)
-    pli.setRect(rect)
+    pli.setPos(stream.readQPointF())
+    pli.setRect(stream.readQRectF())
+    pli.setPen(stream.readQPen())
 
     itemCount = stream.readInt32()
     for i in range(0, itemCount):
@@ -399,12 +375,7 @@ def __readPLI(stream, parentStep):
 
 def __readPLIItem(stream, pli):
     
-    filename, pos, rect = QString(), QPointF(), QRectF()
-    stream >> filename >> pos >> rect
-    filename = str(filename)
-
-    color = stream.readInt32()
-    quantity = stream.readInt32()
+    filename = str(stream.readQString())
 
     global partDictionary, submodelDictionary
     if filename in partDictionary:
@@ -414,16 +385,13 @@ def __readPLIItem(stream, pli):
     else:
         print "LOAD ERROR: Could not find part in part dict: " + filename
 
-    pliItem = PLIItem(pli, partOGL, color, quantity)
-    pliItem.setPos(pos)
-    pliItem.setRect(rect)
+    pliItem = PLIItem(pli, partOGL, stream.readInt32(), stream.readInt32())
+    pliItem.setPos(stream.readQPointF())
+    pliItem.setRect(stream.readQRectF())
 
-    font, pixmap = QFont(), QPixmap()
-    stream >> pos >> font >> pixmap
-
-    pliItem.numberItem.setPos(pos)
-    pliItem.numberItem.setFont(font)
-    pliItem.pixmapItem.setPixmap(pixmap)
+    pliItem.numberItem.setPos(stream.readQPointF())
+    pliItem.numberItem.setFont(stream.readQFont())
+    pliItem.pixmapItem.setPixmap(stream.readQPixmap())
     pliItem.numberItem.setZValue(pliItem.pixmapItem.zValue() + 1)
     return pliItem
 

@@ -271,7 +271,7 @@ class LicGraphicsScene(QGraphicsScene):
         # menu of the item that was *right-clicked on*, not the menu of the selected items
         # TODO: need to handle this better: What if a page and a step are selected?
         for item in self.selectedItems():
-            if type(item) in [Part, Arrow, Step, Page, TemplatePage, Callout, CSI, QGraphicsSimpleTextItem]:
+            if type(item) in [Part, Arrow, Step, Page, TemplatePage, TemplateStep, Callout, CSI, QGraphicsSimpleTextItem]:
                 return item.contextMenuEvent(event)
 
     def keyPressEvent(self, event):
@@ -421,7 +421,7 @@ class LicWindow(QMainWindow):
         self.initToolBars()
 
         self.instructions = Instructions(self, self.scene, self.glWidget)
-        self.treeModel = LicTreeModel(self.treeView, self.instructions)
+        self.treeModel = LicTreeModel(self.treeView)
         
         self.treeView.scene = self.scene
         self.treeView.setModel(self.treeModel)
@@ -444,19 +444,6 @@ class LicWindow(QMainWindow):
         self.connect(self.instructions, SIGNAL("layoutChanged()"), self.treeModel, SIGNAL("layoutChanged()"))
             
         self.filename = ""   # This will trigger the __setFilename method below
-
-        # temp debug code from here to the end 
-        self.__filename = self.modelName = ""
-        #self.__filename = "C:\\ldraw\\lic\\models\\pyramid_orig.lic"
-        #self.modelName = "C:\\ldraw\\lic\\models\\pyramid_orig.dat"
-
-        if self.__filename:
-            LicBinaryReader.loadLicFile(self.__filename, self.instructions)
-            self.filename = self.__filename
-            
-        if self.modelName:
-            self.importLDrawModel(self.modelName)
-            statusBar.showMessage("Model: " + self.modelName)
 
     def getSettingsFile(self):
         iniFile = os.path.join(os.path.dirname(sys.argv[0]), 'Lic.ini')
@@ -920,7 +907,17 @@ def main():
         pass
 
     window.show()
+    filename = ""
+    #filename = unicode("C:\\lic\\6x10_x.lic")
+    #filename = unicode("C:\\lic\\viper_short.lic")
+    if filename:
+        QTimer.singleShot(50, lambda: loadFile(window, filename))
+
     sys.exit(app.exec_())
+
+def loadFile(window, filename):    
+    window.loadLicFile(filename)
+    window.scene.selectPage(0)
     
 if __name__ == '__main__':
     main()

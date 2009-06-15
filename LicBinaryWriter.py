@@ -158,9 +158,16 @@ def __writePart(stream, part):
         stream.writeInt32(part.getLength())
 
 def __writePage(stream, page):
-    stream << page.pos() << page.rect()
     stream.writeInt32(page.number)
     stream.writeInt32(page._row)
+    
+    stream << page.pos() << page.rect() << page.color
+    if page.brush:
+        stream.writeBool(True)
+        stream << page.brush
+    else:
+        stream.writeBool(False)
+        
     stream << page.numberItem.pos() << page.numberItem.font()
 
     # Write out each step in this page
@@ -205,11 +212,10 @@ def __writeStep(stream, step):
         __writeCallout(stream, callout)
 
 def __writeCallout(stream, callout):
-    stream << callout.pos() << callout.rect() << callout.pen()
-
     stream.writeInt32(callout.number)
     stream.writeBool(callout.showStepNumbers)
 
+    stream << callout.pos() << callout.rect() << callout.pen()
     stream << callout.arrow.tipRect.point
     stream << callout.arrow.baseRect.point
     
@@ -226,8 +232,7 @@ def __writeCSI(stream, csi):
     stream << csi.pos()
     stream.writeInt32(csi.width)
     stream.writeInt32(csi.height)
-    stream << csi.center
-    stream << csi.pixmap()
+    stream << csi.center << csi.pixmap()
     
     rotation = csi.rotation if csi.rotation else [0.0, 0.0, 0.0]
     for i in rotation:
@@ -245,7 +250,8 @@ def __writePLI(stream, pli):
         __writePLIItem(stream, item)
 
 def __writePLIItem(stream, pliItem):
-    stream << QString(pliItem.partOGL.filename) << pliItem.pos() << pliItem.rect()
+    stream << QString(pliItem.partOGL.filename)
     stream.writeInt32(pliItem.color)
     stream.writeInt32(pliItem.quantity)
+    stream << pliItem.pos() << pliItem.rect()
     stream << pliItem.numberItem.pos() << pliItem.numberItem.font() << pliItem.pixmapItem.pixmap()

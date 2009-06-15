@@ -94,10 +94,15 @@ Part:
     int32 arrow.length
   
 Page:
-  QPointF pos
-  QRectF rect
   int32 number
   int32 _row
+  
+  QPointF pos
+  QRectF rect
+  QColor color
+  bool hasBrush
+  QBrush brush, if hasBrush
+  
   QPointF number.pos
   QFont number.font
 
@@ -142,12 +147,12 @@ Step:
   ... Callout 0..n ...
 
 Callout:
+  int32 number
+  bool showStepNumbers
+  
   QPointF pos
   QRectF rect
   QPen pen
-  
-  int32 number
-  bool showStepNumbers
   
   QPointF callout.arrow.tipRect.point
   QPointF callout.arrow.baseRect.point
@@ -183,10 +188,10 @@ PLI:
 
 PLIItem:
   QString filename
-  QPointF pos
-  QRectF rect
   int32 color
   int32 quantity
+  QPointF pos
+  QRectF rect
   QPointF numberItem.pos
   QFont numberItem.font
   QPixmap pixmapItem.pixmap
