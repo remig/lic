@@ -803,6 +803,7 @@ class LicWindow(QMainWindow):
 
         templatePage = LicBinaryReader.loadLicTemplate(r"C:\lic\test_template_save.lit", self.instructions)
         self.treeModel.setTemplatePage(templatePage)
+        self.treeModel.templatePage.applyFullTemplate()
         
         self.scene.emit(SIGNAL("layoutChanged()"))
         self.scene.selectPage(1)
@@ -868,6 +869,7 @@ class LicWindow(QMainWindow):
             else:
                 self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
                 self.treeModel.templatePage = newTemplate
+                self.treeModel.templatePage.applyFullTemplate()
                 self.scene.emit(SIGNAL("layoutChanged()"))
                 self.setWindowModified(True)
     

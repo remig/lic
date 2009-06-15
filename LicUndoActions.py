@@ -397,44 +397,45 @@ class RotateCSICommand(QUndoCommand):
         self.csi.rotation[2] += self.rotation[2]
         self.csi.resetPixmap()
         
-class SetPageBackgroundCommand(QUndoCommand):
+class SetPageBackgroundColorCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, template, newColor, newBrush, useColor):
+    def __init__(self, template, oldColor, newColor):
         QUndoCommand.__init__(self, "change Page background")
-        self.template, self.newColor, self.newBrush, self.useColor = template, newColor, newBrush, useColor
-        self.oldColor, self.oldBrush = template.color, template.brush
+        self.template, self.oldColor, self.newColor = template, oldColor, newColor
 
     def doAction(self, redo):
         color = self.newColor if redo else self.oldColor
-        brush = self.newBrush if redo else self.oldBrush
-        if self.useColor:
-            self.template.color = color
-        else:
-            self.template.brush = brush
+        self.template.color = color
         self.template.update()
         for page in self.template.instructions.getPageList():
-            if self.useColor:
-                page.color = color
-            else:
-                page.brush = brush
+            page.color = color
             page.update()
 
+class SetPageBackgroundBrushCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, template, oldBrush, newBrush):
+        QUndoCommand.__init__(self, "change Page background")
+        self.template, self.oldBrush, self.newBrush = template, oldBrush, newBrush
+
+    def doAction(self, redo):
+        brush = self.newBrush if redo else self.oldBrush
+        self.template.brush = brush
+        self.template.update()
+        for page in self.template.instructions.getPageList():
+            page.brush = brush
+            page.update()
     
 class SetItemFontsCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, template, newFont, target):
+    def __init__(self, template, oldFont, newFont, target):
         QUndoCommand.__init__(self, "change " + target + " font")
-        self.template, self.newFont, self.target = template, newFont, target
-        if self.target == 'Page':
-            self.oldFont = self.template.numberItem.setFont(font)
-        elif self.target == 'Step':
-            self.oldFont = self.template.steps[0].numberItem.setFont(font)
-        elif self.target == 'PLI Item':
-            self.oldFont = self.template.steps[0].pli.pliItems[0].numberItem.font()
+        self.template, self.oldFont, self.newFont, self.target = template, oldFont, newFont, target
 
     def doAction(self, redo):
         font = self.newFont if redo else self.oldFont
@@ -468,9 +469,9 @@ class TogglePLIs(QUndoCommand):
     def doAction(self, redo):
         self.template.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         if (redo and self.enablePLIs) or (not redo and not self.enablePLIs):
-            self.template.pli.show()
+            self.template.enablePLI()
         else:
-            self.template.pli.hide()
+            self.template.disablePLI()
         self.template.scene().emit(SIGNAL("layoutChanged()"))
         self.template.initLayout()
                 

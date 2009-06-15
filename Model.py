@@ -949,15 +949,15 @@ class TemplatePage(Page):
         step.__class__ = TemplateStep  # Promote regular Step to TemplateStep subclass
         step.postLoadInit()
         
-        self.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'Page'))
-        step.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'Step'))
+        self.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Page'))
+        step.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Step'))
         self.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, self.numberItem)
         step.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, step.numberItem)
 
         if step.hasPLI():
             for item in step.pli.pliItems:
+                item.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'PLI Item'))
                 item.numberItem.contextMenuEvent = lambda event, i = item: self.fontMenuEvent(event, i.numberItem)
-                item.numberItem.setAllFonts = lambda font: self.scene().undoStack.push(SetItemFontsCommand(self, font, 'PLI Item'))
         
         # Set all page elements so they can't move
         for item in self.getAllChildItems():
@@ -997,6 +997,19 @@ class TemplatePage(Page):
 
         GlobalGLContext.makeCurrent()
         
+    def applyFullTemplate(self):
+        
+        originalPage = self.instructions.mainModel.pages[0]
+        stack = self.scene().undoStack
+        stack.beginMacro("Load Template")
+        stack.push(SetPageBackgroundColorCommand(self, originalPage.color, self.color))
+        stack.push(SetPageBackgroundBrushCommand(self, originalPage.brush, self.brush))
+        
+        stack.push(SetItemFontsCommand(self, originalPage.numberItem.font(), self.numberItem.font(), 'Page'))
+        stack.push(SetItemFontsCommand(self, originalPage.steps[0].numberItem.font(), self.steps[0].numberItem.font(), 'Step'))
+        stack.push(SetItemFontsCommand(self, originalPage.steps[0].pli.pliItems[0].numberItem.font(), self.steps[0].pli.pliItems[0].numberItem.font(), 'PLI Item'))
+        stack.endMacro()
+    
     def prevPage(self):
         return None
     
@@ -1021,12 +1034,12 @@ class TemplatePage(Page):
     def setBackgroundColor(self):
         color = QColorDialog.getColor(self.color, self.scene().views()[0])
         if color.isValid(): 
-            self.scene().undoStack.push(SetPageBackgroundCommand(self, color, None, True))
+            self.scene().undoStack.push(SetPageBackgroundColorCommand(self, self.color, color))
     
     def setBackgroundGradient(self):
         dialog = GradientDialog.GradientDialog(self.scene().views()[0], Page.PageSize)
         if dialog.exec_():
-            self.scene().undoStack.push(SetPageBackgroundCommand(self, None, QBrush(dialog.getGradient()), False))
+            self.scene().undoStack.push(SetPageBackgroundBrushCommand(self, self.brush, QBrush(dialog.getGradient())))
     
     def setBackgroundImage(self):
         
@@ -1041,7 +1054,7 @@ class TemplatePage(Page):
             return
 
         dialog = LicDialogs.BackgroundImagePropertiesDlg(parentWidget, image, self.color, self.brush, Page.PageSize)
-        action = lambda image: self.scene().undoStack.push(SetPageBackgroundCommand(self, None, QBrush(image), False))
+        action = lambda image: self.scene().undoStack.push(SetPageBackgroundBrushCommand(self, self.brush, QBrush(image)))
         parentWidget.connect(dialog, SIGNAL("changed"), action)
         dialog.exec_()
 
@@ -1051,9 +1064,10 @@ class TemplatePage(Page):
         menu.exec_(event.screenPos())
         
     def setItemFont(self, item):
-        font, ok = QFontDialog.getFont(item.font())
+        oldFont = item.font()
+        newFont, ok = QFontDialog.getFont(oldFont)
         if ok:
-            item.setAllFonts(font)
+            item.setAllFonts(oldFont, newFont)
 
 class CalloutArrowEndItem(QGraphicsRectItem):
     
@@ -1391,6 +1405,7 @@ class Step(QGraphicsRectItem):
         self.numberItem = None
         self.csi = CSI(self)
         self.pli = PLI(self) if hasPLI else None
+        self._hasPLI = hasPLI
         self.callouts = []
         
         self.maxRect = None
@@ -1414,7 +1429,15 @@ class Step(QGraphicsRectItem):
     number = property(fget = _getNumber, fset = _setNumber)
 
     def hasPLI(self):
-        return self.pli and self.pli.isVisible()
+        return self._hasPLI
+    
+    def enablePLI(self):
+        self._hasPLI = True
+        self.pli.show()
+    
+    def disablePLI(self):
+        self._hasPLI = False
+        self.pli.hide()
     
     def child(self, row):
         if row == 0:
