@@ -1024,10 +1024,11 @@ class TemplatePage(Page):
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
-        arrowMenu = menu.addMenu("Format Background")
-        arrowMenu.addAction("Color", self.setBackgroundColor)
+        menu.addAction("Background Color", self.setBackgroundColor)
+        arrowMenu = menu.addMenu("Background Fill Effect")
         arrowMenu.addAction("Gradient", self.setBackgroundGradient)
         arrowMenu.addAction("Image", self.setBackgroundImage)
+        arrowMenu.addAction("None", self.setBackgroundNone)
         #menu.addSeparator()
         menu.exec_(event.screenPos())
         
@@ -1036,8 +1037,12 @@ class TemplatePage(Page):
         if color.isValid(): 
             self.scene().undoStack.push(SetPageBackgroundColorCommand(self, self.color, color))
     
+    def setBackgroundNone(self):
+        self.scene().undoStack.push(SetPageBackgroundBrushCommand(self, self.brush, None))
+        
     def setBackgroundGradient(self):
-        dialog = GradientDialog.GradientDialog(self.scene().views()[0], Page.PageSize)
+        g = self.brush.gradient() if self.brush else None
+        dialog = GradientDialog.GradientDialog(self.scene().views()[0], Page.PageSize, g)
         if dialog.exec_():
             self.scene().undoStack.push(SetPageBackgroundBrushCommand(self, self.brush, QBrush(dialog.getGradient())))
     

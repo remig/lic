@@ -325,8 +325,8 @@ class ShadeWidget(QWidget):
         
         self.m_alpha_gradient = QLinearGradient(0, 0, self.width(), 0)
 
-        for stop in stops:
-            self.m_alpha_gradient.setColorAt(stop.position, stop.color)
+        for position, color in stops:
+            self.m_alpha_gradient.setColorAt(position, color)
 
         self.m_shade = QImage()
         self.generateShade()
@@ -402,7 +402,7 @@ class GradientRenderer(QWidget):
         self.m_hoverPoints.setPoints([QPointF(100, 100), QPointF(200, 200)])
         
         self.m_spread = QGradient.PadSpread
-        self.m_gradientType = Qt.LinearGradientPattern
+        self.m_gradientType = QGradient.LinearGradient
         self.m_stops = []
 
     def sizeHint(self):
@@ -415,28 +415,12 @@ class GradientRenderer(QWidget):
     def hoverPoints(self):
         return self.m_hoverPoints
     
-    def setPadSpread(self):
-        self.m_spread = QGradient.PadSpread
+    def setSpread(self, spread):
+        self.m_spread = spread
         self.update()
         
-    def setRepeatSpread(self):
-        self.m_spread = QGradient.RepeatSpread
-        self.update()
-        
-    def setReflectSpread(self):
-        self.m_spread = QGradient.ReflectSpread
-        self.update()
-
-    def setLinearGradient(self):
-        self.m_gradientType = Qt.LinearGradientPattern
-        self.update()
-
-    def setRadialGradient(self):
-        self.m_gradientType = Qt.RadialGradientPattern
-        self.update()
-
-    def setConicalGradient(self):
-        self.m_gradientType = Qt.ConicalGradientPattern
+    def setGradientType(self, gradientType):
+        self.m_gradientType = gradientType
         self.update()
 
     def getGradient(self):
@@ -444,9 +428,9 @@ class GradientRenderer(QWidget):
         pts = self.m_hoverPoints.points()
         g = None
 
-        if (self.m_gradientType == Qt.LinearGradientPattern):
+        if (self.m_gradientType == QGradient.LinearGradient):
             g = QLinearGradient(pts[0], pts[1])
-        elif (self.m_gradientType == Qt.RadialGradientPattern):
+        elif (self.m_gradientType == QGradient.RadialGradient):
             line = QLineF(pts[0], pts[1])
             if (line.length() > 132):
                 line.setLength(132)
@@ -458,8 +442,8 @@ class GradientRenderer(QWidget):
                 angle = 360 - angle
             g = QConicalGradient(pts[0], angle)
 
-        for stop in self.m_stops:
-            g.setColorAt(stop.position, stop.color)
+        for pos, color in self.m_stops:
+            g.setColorAt(pos, color)
             
         g.setSpread(self.m_spread)
         return g
@@ -568,7 +552,7 @@ class GradientEditor(QWidget):
             if (x / w > 1):
                 return
     
-            stops.append(GradientStop(x / w, color))
+            stops.append((x / w, color))
 
         self.m_alpha_shade.setGradientStops(stops)
         self.emit(SIGNAL("gradientStopsChanged"), stops)
@@ -587,9 +571,8 @@ class GradientEditor(QWidget):
         h_blue = self.m_blue_shade.height()
         h_alpha = self.m_alpha_shade.height()
 
-        for stop in stops:
-            pos = stop.position
-            color = stop.color.rgba()
+        for pos, color in stops:
+            color = color.rgba()
             pts_red.append(QPointF(pos * self.m_red_shade.width(), h_red - qRed(color) * h_red / 255))
             pts_green.append(QPointF(pos * self.m_green_shade.width(), h_green - qGreen(color) * h_green / 255))
             pts_blue.append(QPointF(pos * self.m_blue_shade.width(), h_blue - qBlue(color) * h_blue / 255))
@@ -600,14 +583,9 @@ class GradientEditor(QWidget):
         set_shade_points(pts_blue, self.m_blue_shade)
         set_shade_points(pts_alpha, self.m_alpha_shade)
 
-class GradientStop(object):
-    def __init__(self, position, color):
-        self.position = position
-        self.color = color
-        
 class GradientDialog(QDialog):
 
-    def __init__(self, parent, pageSize):
+    def __init__(self, parent, pageSize, initialGradient = None):
         QDialog.__init__(self, parent)
         self.setAttribute(Qt.WA_DeleteOnClose)
 
@@ -676,13 +654,13 @@ class GradientDialog(QDialog):
     
         self.connect(self.m_editor, SIGNAL("gradientStopsChanged"), self.m_renderer.setGradientStops)
     
-        self.connect(self.m_linearButton, SIGNAL("clicked()"), self.m_renderer.setLinearGradient)
-        self.connect(self.m_radialButton, SIGNAL("clicked()"), self.m_renderer.setRadialGradient)
-        self.connect(self.m_conicalButton, SIGNAL("clicked()"), self.m_renderer.setConicalGradient)
+        self.connect(self.m_linearButton, SIGNAL("clicked()"), lambda: self.m_renderer.setGradientType(QGradient.LinearGradient))
+        self.connect(self.m_radialButton, SIGNAL("clicked()"), lambda: self.m_renderer.setGradientType(QGradient.RadialGradient))
+        self.connect(self.m_conicalButton, SIGNAL("clicked()"), lambda: self.m_renderer.setGradientType(QGradient.ConicalGradient))
     
-        self.connect(self.m_padSpreadButton, SIGNAL("clicked()"), self.m_renderer.setPadSpread)
-        self.connect(self.m_reflectSpreadButton, SIGNAL("clicked()"), self.m_renderer.setReflectSpread)
-        self.connect(self.m_repeatSpreadButton, SIGNAL("clicked()"), self.m_renderer.setRepeatSpread)
+        self.connect(self.m_padSpreadButton, SIGNAL("clicked()"), lambda: self.m_renderer.setSpread(QGradient.PadSpread))
+        self.connect(self.m_reflectSpreadButton, SIGNAL("clicked()"), lambda: self.m_renderer.setSpread(QGradient.ReflectSpread))
+        self.connect(self.m_repeatSpreadButton, SIGNAL("clicked()"), lambda: self.m_renderer.setSpread(QGradient.RepeatSpread))
     
         self.connect(default1Button, SIGNAL("clicked()"), lambda: self.setDefault(1))
         self.connect(default2Button, SIGNAL("clicked()"), lambda: self.setDefault(2))
@@ -692,52 +670,85 @@ class GradientDialog(QDialog):
         self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
         
-        QTimer.singleShot(50, lambda: self.setDefault(1))
+        if initialGradient:
+            QTimer.singleShot(50, lambda: self.setGradient(initialGradient))
+        else:
+            QTimer.singleShot(50, lambda: self.setDefault(1))
 
     def getGradient(self):
         return self.m_renderer.getGradient()
 
+    def setGradient(self, g):
+
+        pts = None
+        if g.type() == QGradient.LinearGradient:
+            g.__class__ = QLinearGradient
+            pts = [g.start(), g.finalStop()]
+            self.m_linearButton.animateClick()
+        elif g.type() == QGradient.RadialGradient:
+            g.__class__ = QRadialGradient
+            pts = [g.center(), g.focalPoint()]
+            self.m_radialButton.animateClick()
+        elif g.type() == QGradient.ConicalGradient:
+            g.__class__ = QConicalGradient
+            l = QLineF(g.center(), QPointF(0, 0))
+            l.setAngle(g.angle())
+            l.setLength(120)
+            pts = [g.center(), l.p2()]
+            self.m_conicalButton.animateClick()
+
+        if g.spread() == QGradient.PadSpread:
+            self.m_padSpreadButton.animateClick()
+        elif g.spread() == QGradient.RepeatSpread:
+            self.m_repeatSpreadButton.animateClick()
+        elif g.spread() == QGradient.ReflectSpread:
+            self.m_reflectSpreadButton.animateClick()
+
+        self.m_editor.setGradientStops(g.stops())
+        self.m_renderer.hoverPoints().setPoints(pts)
+        self.m_renderer.setGradientStops(g.stops())
+    
     def setDefault(self, config):
         stops = []
         if config == 1:
-            stops.append(GradientStop(0.00, QColor.fromRgba(0)))
-            stops.append(GradientStop(0.04, QColor.fromRgba(0xff131360)))
-            stops.append(GradientStop(0.08, QColor.fromRgba(0xff202ccc)))
-            stops.append(GradientStop(0.42, QColor.fromRgba(0xff93d3f9)))
-            stops.append(GradientStop(0.51, QColor.fromRgba(0xffb3e6ff)))
-            stops.append(GradientStop(0.73, QColor.fromRgba(0xffffffec)))
-            stops.append(GradientStop(0.92, QColor.fromRgba(0xff5353d9)))
-            stops.append(GradientStop(0.96, QColor.fromRgba(0xff262666)))
-            stops.append(GradientStop(1.00, QColor.fromRgba(0)))
+            stops.append((0.00, QColor.fromRgba(0)))
+            stops.append((0.04, QColor.fromRgba(0xff131360)))
+            stops.append((0.08, QColor.fromRgba(0xff202ccc)))
+            stops.append((0.42, QColor.fromRgba(0xff93d3f9)))
+            stops.append((0.51, QColor.fromRgba(0xffb3e6ff)))
+            stops.append((0.73, QColor.fromRgba(0xffffffec)))
+            stops.append((0.92, QColor.fromRgba(0xff5353d9)))
+            stops.append((0.96, QColor.fromRgba(0xff262666)))
+            stops.append((1.00, QColor.fromRgba(0)))
             self.m_linearButton.animateClick()
             self.m_repeatSpreadButton.animateClick()
 
         elif config == 2:
-            stops.append(GradientStop(0.00, QColor.fromRgba(0xffffffff)))
-            stops.append(GradientStop(0.11, QColor.fromRgba(0xfff9ffa0)))
-            stops.append(GradientStop(0.13, QColor.fromRgba(0xfff9ff99)))
-            stops.append(GradientStop(0.14, QColor.fromRgba(0xfff3ff86)))
-            stops.append(GradientStop(0.49, QColor.fromRgba(0xff93b353)))
-            stops.append(GradientStop(0.87, QColor.fromRgba(0xff264619)))
-            stops.append(GradientStop(0.96, QColor.fromRgba(0xff0c1306)))
-            stops.append(GradientStop(1.00, QColor.fromRgba(0)))
+            stops.append((0.00, QColor.fromRgba(0xffffffff)))
+            stops.append((0.11, QColor.fromRgba(0xfff9ffa0)))
+            stops.append((0.13, QColor.fromRgba(0xfff9ff99)))
+            stops.append((0.14, QColor.fromRgba(0xfff3ff86)))
+            stops.append((0.49, QColor.fromRgba(0xff93b353)))
+            stops.append((0.87, QColor.fromRgba(0xff264619)))
+            stops.append((0.96, QColor.fromRgba(0xff0c1306)))
+            stops.append((1.00, QColor.fromRgba(0)))
             self.m_radialButton.animateClick()
             self.m_padSpreadButton.animateClick()
 
         elif config == 3:
-            stops.append(GradientStop(0.00, QColor.fromRgba(0)))
-            stops.append(GradientStop(0.10, QColor.fromRgba(0xffe0cc73)))
-            stops.append(GradientStop(0.17, QColor.fromRgba(0xffc6a006)))
-            stops.append(GradientStop(0.46, QColor.fromRgba(0xff600659)))
-            stops.append(GradientStop(0.72, QColor.fromRgba(0xff0680ac)))
-            stops.append(GradientStop(0.92, QColor.fromRgba(0xffb9d9e6)))
-            stops.append(GradientStop(1.00, QColor.fromRgba(0)))
+            stops.append((0.00, QColor.fromRgba(0)))
+            stops.append((0.10, QColor.fromRgba(0xffe0cc73)))
+            stops.append((0.17, QColor.fromRgba(0xffc6a006)))
+            stops.append((0.46, QColor.fromRgba(0xff600659)))
+            stops.append((0.72, QColor.fromRgba(0xff0680ac)))
+            stops.append((0.92, QColor.fromRgba(0xffb9d9e6)))
+            stops.append((1.00, QColor.fromRgba(0)))
             self.m_conicalButton.animateClick()
             self.m_padSpreadButton.animateClick()
 
         elif config == 4:
-            stops.append(GradientStop(0.00, QColor.fromRgba(0xff000000)))
-            stops.append(GradientStop(1.00, QColor.fromRgba(0xffffffff)))
+            stops.append((0.00, QColor.fromRgba(0xff000000)))
+            stops.append((1.00, QColor.fromRgba(0xffffffff)))
             
         else:
             qWarning("bad default: %d\n", config)
