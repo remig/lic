@@ -271,7 +271,7 @@ class LicGraphicsScene(QGraphicsScene):
         # menu of the item that was *right-clicked on*, not the menu of the selected items
         # TODO: need to handle this better: What if a page and a step are selected?
         for item in self.selectedItems():
-            if type(item) in [Part, Arrow, Step, Page, TemplatePage, TemplateStep, Callout, CSI, QGraphicsSimpleTextItem]:
+            if type(item) in [Part, Arrow, Step, Page, TemplatePage, TemplateStep, TemplateCallout, Callout, CSI, QGraphicsSimpleTextItem]:
                 return item.contextMenuEvent(event)
 
     def keyPressEvent(self, event):
@@ -912,6 +912,7 @@ def main():
     filename = ""
     #filename = unicode("C:\\lic\\6x10_x.lic")
     #filename = unicode("C:\\lic\\viper_short.lic")
+    #filename = unicode("C:\\lic\\6x10.lic")
     if filename:
         QTimer.singleShot(50, lambda: loadFile(window, filename))
 

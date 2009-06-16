@@ -244,3 +244,105 @@ class BackgroundImagePropertiesDlg(QDialog):
     def reject(self):
         self.emit(SIGNAL("changed"), self.originalBrush)
         QDialog.reject(self)
+
+class PenDlg(QDialog):
+    
+    def __init__(self, parent, originalPen = None):
+        QDialog.__init__(self, parent)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+
+        self.originalPen = originalPen
+        
+        self.penWidthSpinBox = QSpinBox()
+        self.penWidthSpinBox.setRange(0, 20)
+        self.penWidthSpinBox.setValue(originalPen.width())
+
+        self.penWidthLabel = QLabel(self.tr("Pen &Width:"))
+        self.penWidthLabel.setBuddy(self.penWidthSpinBox)
+
+        self.penStyleComboBox = QComboBox()
+        self.penStyleComboBox.addItem(self.tr("None"), QVariant(Qt.NoPen))
+        self.penStyleComboBox.addItem(self.tr("Solid"), QVariant(Qt.SolidLine))
+        self.penStyleComboBox.addItem(self.tr("Dash"), QVariant(Qt.DashLine))
+        self.penStyleComboBox.addItem(self.tr("Dot"), QVariant(Qt.DotLine))
+        self.penStyleComboBox.addItem(self.tr("Dash Dot"), QVariant(Qt.DashDotLine))
+        self.penStyleComboBox.addItem(self.tr("Dash Dot Dot"), QVariant(Qt.DashDotDotLine))
+        self.penStyleComboBox.setCurrentIndex(originalPen.style())  # This works because combobox indexes match style numbers
+
+        self.penStyleLabel = QLabel(self.tr("&Pen Style:"))
+        self.penStyleLabel.setBuddy(self.penStyleComboBox)
+
+        self.penCapComboBox = QComboBox()
+        self.penCapComboBox.addItem(self.tr("Flat"), QVariant(Qt.FlatCap))
+        self.penCapComboBox.addItem(self.tr("Square"), QVariant(Qt.SquareCap))
+        self.penCapComboBox.addItem(self.tr("Round"), QVariant(Qt.RoundCap))
+        if originalPen.capStyle() == Qt.FlatCap:
+            self.penCapComboBox.setCurrentIndex(0)
+        elif originalPen.capStyle() == Qt.SquareCap:
+            self.penCapComboBox.setCurrentIndex(1)
+        else:
+            self.penCapComboBox.setCurrentIndex(2)
+
+        self.penCapLabel = QLabel(self.tr("Pen &Cap:"))
+        self.penCapLabel.setBuddy(self.penCapComboBox)
+
+        self.penJoinComboBox = QComboBox()
+        self.penJoinComboBox.addItem(self.tr("Miter"), QVariant(Qt.MiterJoin))
+        self.penJoinComboBox.addItem(self.tr("Bevel"), QVariant(Qt.BevelJoin))
+        self.penJoinComboBox.addItem(self.tr("Round"), QVariant(Qt.RoundJoin))
+        if originalPen.joinStyle() == Qt.MiterJoin:
+            self.penJoinComboBox.setCurrentIndex(0)
+        elif originalPen.joinStyle() == Qt.BevelJoin:
+            self.penJoinComboBox.setCurrentIndex(1)
+        else:
+            self.penJoinComboBox.setCurrentIndex(2)
+
+        self.penJoinLabel = QLabel(self.tr("Pen &Join:"))
+        self.penJoinLabel.setBuddy(self.penJoinComboBox)
+
+        self.penColorButton = QPushButton(self.tr("C&olor"))
+        self.penColorButton.color = originalPen.color()
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
+        
+        mainLayout = QGridLayout()
+        mainLayout.addWidget(self.penWidthLabel, 0, 0)
+        mainLayout.addWidget(self.penWidthSpinBox, 0, 1)
+        mainLayout.addWidget(self.penStyleLabel, 1, 0)
+        mainLayout.addWidget(self.penStyleComboBox, 1, 1)
+        mainLayout.addWidget(self.penCapLabel, 2, 0)
+        mainLayout.addWidget(self.penCapComboBox, 2, 1)
+        mainLayout.addWidget(self.penJoinLabel, 3, 0)
+        mainLayout.addWidget(self.penJoinComboBox, 3, 1)
+        mainLayout.addWidget(self.penColorButton, 4, 0, 1, 2)
+        mainLayout.addWidget(buttonBox, 5, 0, 1, 2)
+        self.setLayout(mainLayout)
+
+        self.connect(self.penWidthSpinBox, SIGNAL("valueChanged(int)"), self.penChanged)
+        self.connect(self.penStyleComboBox, SIGNAL("activated(int)"), self.penChanged)
+        self.connect(self.penCapComboBox, SIGNAL("activated(int)"), self.penChanged)
+        self.connect(self.penJoinComboBox, SIGNAL("activated(int)"), self.penChanged)
+        self.connect(self.penColorButton, SIGNAL("clicked()"), self.getColor)
+
+        self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
+        self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
+        
+        self.penChanged()
+        self.setWindowTitle(self.tr("Border Properties"))
+
+    def getColor(self):
+        color = QColorDialog.getColor(self.penColorButton.color, self)
+        if color.isValid(): 
+            self.penColorButton.color = color
+            self.penChanged()
+
+    def penChanged(self):
+        width = self.penWidthSpinBox.value()
+        style = Qt.PenStyle(self.penStyleComboBox.itemData(self.penStyleComboBox.currentIndex(), Qt.UserRole).toInt()[0])
+        cap = Qt.PenCapStyle(self.penCapComboBox.itemData(self.penCapComboBox.currentIndex(), Qt.UserRole).toInt()[0])
+        join = Qt.PenJoinStyle(self.penJoinComboBox.itemData(self.penJoinComboBox.currentIndex(), Qt.UserRole).toInt()[0])
+        color = self.penColorButton.color
+        self.emit(SIGNAL("changed"), QPen(color, width, style, cap, join))
+        
+    def reject(self):
+        self.emit(SIGNAL("changed"), self.originalPen)
+        QDialog.reject(self)

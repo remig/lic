@@ -943,12 +943,20 @@ class TemplatePage(Page):
     filename = property(fget = __getFilename, fset = __setFilename)
 
     def postLoadInit(self, filename):
+        # TemplatePages are rarely instantiated directly - instead, they're regular Page
+        # instances promoted to TemplatePages by changing their __class__.  Doing that does
+        # *not* call TemplatePage.__init__, so, can explicitly call postLoadInit instead. 
 
         self.filename = filename
+        self.prevPage = lambda: None
+        self.nextPage = lambda: None
+        self.data = lambda index: self.dataText
+        
         step = self.steps[0]
         step.__class__ = TemplateStep  # Promote regular Step to TemplateStep subclass
+        step.callouts[0].__class__ = TemplateCallout  # Promote Callout too
         step.postLoadInit()
-        
+                
         self.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Page'))
         step.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Step'))
         self.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, self.numberItem)
@@ -1009,18 +1017,9 @@ class TemplatePage(Page):
         stack.push(SetItemFontsCommand(self, originalPage.steps[0].numberItem.font(), self.steps[0].numberItem.font(), 'Step'))
         stack.push(SetItemFontsCommand(self, originalPage.steps[0].pli.pliItems[0].numberItem.font(), self.steps[0].pli.pliItems[0].numberItem.font(), 'PLI Item'))
         stack.endMacro()
-    
-    def prevPage(self):
-        return None
-    
-    def nextPage(self):
-        return None
 
     def getStep(self, number):
         return self.steps[0] if number == 0 else None
-
-    def data(self, index):  # Need this to override Page.data
-        return self.dataText
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
@@ -1399,6 +1398,29 @@ class Callout(QGraphicsRectItem):
                 return step
         return None
 
+class TemplateCallout(Callout):
+
+    def postLoadInit(self):
+        self.data = lambda index: "Template Callout"
+        self.setFlags(NoMoveFlags)
+    
+    def contextMenuEvent(self, event):
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Format Border", self.formatBorder)
+        menu.exec_(event.screenPos())
+
+    def formatBorder(self):
+        self.setSelected(False)
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.PenDlg(parentWidget, self.pen())
+        #action = lambda pen: self.scene().undoStack.push(SetPageBackgroundBrushCommand(self, self.brush, QBrush(image)))
+        parentWidget.connect(dialog, SIGNAL("changed"), self.changePen)
+        dialog.exec_()
+    
+    def changePen(self, newPen):
+        self.setPen(newPen)
+        self.update()
+        
 class Step(QGraphicsRectItem):
     """ A single step in an Instruction book.  Contains one optional PLI and exactly one CSI. """
 
