@@ -150,9 +150,7 @@ Callout:
   int32 number
   bool showStepNumbers
   
-  QPointF pos
-  QRectF rect
-  QPen pen
+  RoundedRectItem pos, rect, pen, brush, cornerRadius
   
   QPointF callout.arrow.tipRect.point
   QPointF callout.arrow.baseRect.point
@@ -180,9 +178,7 @@ CSI:
   ... Part 0..n ...
 
 PLI:
-  QPointF pos
-  QRectF rect
-  QPen pen
+  RoundedRectItem pos, rect, pen, brush, cornerRadius
   int32 number of pliItems
   ... PLIItem 0..n ...
 
@@ -195,4 +191,11 @@ PLIItem:
   QPointF numberItem.pos
   QFont numberItem.font
   QPixmap pixmapItem.pixmap
+  
+RoundedRectItem:
+  QPointF pos
+  QRectF rect
+  QPen pen
+  QBrush brush
+  int16 cornerRadius
   

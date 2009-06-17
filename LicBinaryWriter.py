@@ -215,7 +215,7 @@ def __writeCallout(stream, callout):
     stream.writeInt32(callout.number)
     stream.writeBool(callout.showStepNumbers)
 
-    stream << callout.pos() << callout.rect() << callout.pen()
+    __writeRoundedRectItem(stream, callout)
     stream << callout.arrow.tipRect.point
     stream << callout.arrow.baseRect.point
     
@@ -244,7 +244,7 @@ def __writeCSI(stream, csi):
             __writePart(stream, part)
 
 def __writePLI(stream, pli):
-    stream << pli.pos() << pli.rect() << pli.pen()
+    __writeRoundedRectItem(stream, pli)
     stream.writeInt32(len(pli.pliItems))
     for item in pli.pliItems:
         __writePLIItem(stream, item)
@@ -255,3 +255,8 @@ def __writePLIItem(stream, pliItem):
     stream.writeInt32(pliItem.quantity)
     stream << pliItem.pos() << pliItem.rect()
     stream << pliItem.numberItem.pos() << pliItem.numberItem.font() << pliItem.pixmapItem.pixmap()
+
+def __writeRoundedRectItem(stream, parent):
+    stream << parent.pos() << parent.rect() << parent.pen() << parent.brush()
+    stream.writeInt16(parent.cornerRadius)
+

@@ -310,9 +310,7 @@ def __readStep(stream, parent):
 def __readCallout(stream, parent):
     
     callout = Callout(parent, stream.readInt32(), stream.readBool())
-    callout.setPos(stream.readQPointF())
-    callout.setRect(stream.readQRectF())
-    callout.setPen(stream.readQPen())
+    __readRoundedRectItem(stream, callout)
     
     callout.arrow.tipRect.point = stream.readQPointF()
     callout.arrow.baseRect.point = stream.readQPointF()
@@ -363,10 +361,8 @@ def __readCSI(stream, step):
 def __readPLI(stream, parentStep):
 
     pli = PLI(parentStep)
-    pli.setPos(stream.readQPointF())
-    pli.setRect(stream.readQRectF())
-    pli.setPen(stream.readQPen())
-
+    __readRoundedRectItem(stream, pli)
+    
     itemCount = stream.readInt32()
     for i in range(0, itemCount):
         pliItem = __readPLIItem(stream, pli)
@@ -395,6 +391,13 @@ def __readPLIItem(stream, pli):
     pliItem.pixmapItem.setPixmap(stream.readQPixmap())
     pliItem.numberItem.setZValue(pliItem.pixmapItem.zValue() + 1)
     return pliItem
+
+def __readRoundedRectItem(stream, parent):
+    parent.setPos(stream.readQPointF())
+    parent.setRect(stream.readQRectF())
+    parent.setPen(stream.readQPen())
+    parent.setBrush(stream.readQBrush())
+    parent.cornerRadius = stream.readInt16()
 
 def __linkModelPartNames(model):
 
