@@ -119,12 +119,17 @@ def genericGetPage(self):
     return self.parentItem().getPage()
 
 def roundRectItemPaint(self, painter, option, widget = None):
+    
     painter.setPen(self.pen())
-    if self.isSelected():
-        painter.setPen(Qt.DashLine)
     if self.cornerRadius:
         painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
     else:
+        painter.drawRect(self.rect())
+
+    if self.isSelected():
+        pen = QPen(Qt.DashLine)
+        pen.setColor(Qt.red)
+        painter.setPen(pen)
         painter.drawRect(self.rect())
 
 QGraphicsLineItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)

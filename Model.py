@@ -1057,10 +1057,14 @@ class TemplatePage(Page):
             QMessageBox.information(self, "Lic", "Cannot load " + filename)
             return
 
+        stack = self.scene().undoStack
         dialog = LicDialogs.BackgroundImagePropertiesDlg(parentWidget, image, self.color, self.brush, Page.PageSize)
-        action = lambda image: self.scene().undoStack.push(SetPageBackgroundBrushCommand(self, self.brush, QBrush(image)))
+        action = lambda image: stack.push(SetPageBackgroundBrushCommand(self, self.brush, QBrush(image)))
         parentWidget.connect(dialog, SIGNAL("changed"), action)
+
+        stack.beginMacro("change Page background")
         dialog.exec_()
+        stack.endMacro()
 
     def fontMenuEvent(self, event, item):
         menu = QMenu(self.scene().views()[0])
@@ -1410,17 +1414,22 @@ class TemplateCallout(Callout):
         menu.exec_(event.screenPos())
 
     def formatBorder(self):
-        self.setSelected(False)
+        
+        self.setSelected(False)  # Deselect to better see new border changes
         parentWidget = self.scene().views()[0]
+        stack = self.scene().undoStack
+        action = lambda newPen: stack.push(SetPenCommand(self.parent().parent(), self, self.pen(), newPen))
         dialog = LicDialogs.PenDlg(parentWidget, self.pen())
-        #action = lambda pen: self.scene().undoStack.push(SetPageBackgroundBrushCommand(self, self.brush, QBrush(image)))
-        parentWidget.connect(dialog, SIGNAL("changed"), self.changePen)
+        parentWidget.connect(dialog, SIGNAL("changed"), action)
+        
+        stack.beginMacro("change Border")
         dialog.exec_()
+        stack.endMacro()
     
     def changePen(self, newPen):
         self.setPen(newPen)
         self.update()
-        
+
 class Step(QGraphicsRectItem):
     """ A single step in an Instruction book.  Contains one optional PLI and exactly one CSI. """
 

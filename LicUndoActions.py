@@ -428,6 +428,24 @@ class SetPageBackgroundBrushCommand(QUndoCommand):
         for page in self.template.instructions.getPageList():
             page.brush = brush
             page.update()
+
+class SetPenCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, template, target, oldPen, newPen):
+        QUndoCommand.__init__(self, "change Border")
+        self.template, self.target, self.oldPen, self.newPen = template, target, oldPen, newPen
+
+    def doAction(self, redo):
+        pen = self.newPen if redo else self.oldPen
+        self.target.setPen(pen)
+        self.target.update()
+        for page in self.template.instructions.getPageList():
+            for step in page.steps:
+                for callout in step.callouts:
+                    callout.setPen(pen)
+                    callout.update()
     
 class SetItemFontsCommand(QUndoCommand):
 
