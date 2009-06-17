@@ -931,6 +931,7 @@ class Callout(CalloutTreeManager, Helpers.GraphicsRoundRectItem):
         self.setPos(0.0, 0.0)
         self.setRect(0.0, 0.0, 30.0, 30.0)
         self.setPen(QPen(Qt.black))
+        self.setBrush(QBrush(Qt.transparent))
         self.setFlags(AllFlags)
         
     def addBlankStep(self, useUndo = True):
@@ -1434,6 +1435,7 @@ class PLI(PLITreeManager, Helpers.GraphicsRoundRectItem):
         
         self.setPos(0, 0)
         self.setPen(QPen(Qt.black))
+        self.setBrush(QBrush(Qt.transparent))
         self.setFlags(AllFlags)
 
     def isEmpty(self):

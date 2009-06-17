@@ -433,9 +433,10 @@ class SetPenCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, template, target, oldPen, newPen):
+    def __init__(self, target, oldPen, newPen):
         QUndoCommand.__init__(self, "change Border")
-        self.template, self.target, self.oldPen, self.newPen = template, target, oldPen, newPen
+        self.target, self.oldPen, self.newPen = target, oldPen, newPen
+        self.template = target.getPage()
 
     def doAction(self, redo):
         pen = self.newPen if redo else self.oldPen
@@ -445,6 +446,25 @@ class SetPenCommand(QUndoCommand):
             for child in page.getAllChildItems():
                 if type(self.target) == type(child) or issubclass(type(self.target), type(child)):
                     child.setPen(pen)
+                    child.update()
+
+class SetBrushCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, target, oldBrush, newBrush):
+        QUndoCommand.__init__(self, "change Border")
+        self.target, self.oldBrush, self.newBrush = target, oldBrush, newBrush
+        self.template = target.getPage()
+
+    def doAction(self, redo):
+        brush = self.newBrush if redo else self.oldBrush
+        self.target.setBrush(brush)
+        self.target.update()
+        for page in self.template.instructions.getPageList():
+            for child in page.getAllChildItems():
+                if type(self.target) == type(child) or issubclass(type(self.target), type(child)):
+                    child.setBrush(brush)
                     child.update()
     
 class SetItemFontsCommand(QUndoCommand):

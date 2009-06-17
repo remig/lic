@@ -1,4 +1,5 @@
 from Model import *
+from LicUndoActions import *
 
 class TemplateRectItem(object):
     """ Encapsulates functionality common to all template GraphicItems, like formatting border & fill""" 
@@ -10,6 +11,9 @@ class TemplateRectItem(object):
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Format Border", self.formatBorder)
+        menu.addAction("Background Color", self.setBackgroundColor)
+        menu.addAction("Background Gradient", self.setBackgroundGradient)
+        menu.addAction("Background None", self.setBackgroundNone)
         menu.exec_(event.screenPos())
 
     def formatBorder(self):
@@ -17,7 +21,7 @@ class TemplateRectItem(object):
         self.setSelected(False)  # Deselect to better see new border changes
         parentWidget = self.scene().views()[0]
         stack = self.scene().undoStack
-        action = lambda newPen: stack.push(SetPenCommand(self.getPage(), self, self.pen(), newPen))
+        action = lambda newPen: stack.push(SetPenCommand(self, self.pen(), newPen))
         dialog = LicDialogs.PenDlg(parentWidget, self.pen())
         parentWidget.connect(dialog, SIGNAL("changed"), action)
         
@@ -28,6 +32,22 @@ class TemplateRectItem(object):
     def changePen(self, newPen):
         self.setPen(newPen)
         self.update()
+
+    def setBackgroundColor(self):
+        color, value = QColorDialog.getRgba(self.brush().color().rgba(), self.scene().views()[0])
+        tmpColor = QColor()   # Work around for buggy QColor(rgba)
+        tmpColor.setRgba(color)
+        if t.isValid():
+            self.scene().undoStack.push(SetBrushCommand(self, self.brush(), QBrush(tmpColor)))
+    
+    def setBackgroundNone(self):
+        self.scene().undoStack.push(SetBrushCommand(self, self.brush(), QBrush(Qt.transparent)))
+        
+    def setBackgroundGradient(self):
+        g = self.brush().gradient()
+        dialog = GradientDialog.GradientDialog(self.scene().views()[0], self.rect().size().toSize(), g)
+        if dialog.exec_():
+            self.scene().undoStack.push(SetBrushCommand(self, self.brush(), QBrush(dialog.getGradient())))
 
 class TemplatePage(Page):
 

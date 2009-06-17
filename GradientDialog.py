@@ -404,6 +404,8 @@ class GradientRenderer(QWidget):
         self.m_spread = QGradient.PadSpread
         self.m_gradientType = QGradient.LinearGradient
         self.m_stops = []
+        self.setMaximumSize(self.pageSize)
+        self.setMinimumSize(self.pageSize)
 
     def sizeHint(self):
         return self.pageSize

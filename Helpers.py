@@ -112,6 +112,7 @@ class GraphicsRoundRectItem(QGraphicsRectItem):
     def paint(self, painter, option, widget = None):
         
         painter.setPen(self.pen())
+        painter.setBrush(self.brush())
         if self.cornerRadius:
             painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
         else:
@@ -121,6 +122,7 @@ class GraphicsRoundRectItem(QGraphicsRectItem):
             pen = QPen(Qt.DashLine)
             pen.setColor(Qt.red)
             painter.setPen(pen)
+            painter.setBrush(Qt.transparent)
             painter.drawRect(self.rect())
 
     def pen(self):
