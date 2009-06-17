@@ -35,10 +35,9 @@ class TemplateRectItem(object):
 
     def setBackgroundColor(self):
         color, value = QColorDialog.getRgba(self.brush().color().rgba(), self.scene().views()[0])
-        tmpColor = QColor()   # Work around for buggy QColor(rgba)
-        tmpColor.setRgba(color)
-        if t.isValid():
-            self.scene().undoStack.push(SetBrushCommand(self, self.brush(), QBrush(tmpColor)))
+        color = QColor.fromRgba(color)
+        if color.isValid():
+            self.scene().undoStack.push(SetBrushCommand(self, self.brush(), QBrush(color)))
     
     def setBackgroundNone(self):
         self.scene().undoStack.push(SetBrushCommand(self, self.brush(), QBrush(Qt.transparent)))
