@@ -1,6 +1,7 @@
 from PyQt4.QtCore import *
 
 from Model import *
+from LicTemplate import *
 import Layout
 
 def ro(self, targetType):
