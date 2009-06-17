@@ -9,6 +9,7 @@ from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
 
 from LicUndoActions import *
+from LicTreeModel import *
 import GLHelpers
 import l3p
 import povray
@@ -140,144 +141,6 @@ class LicTreeView(QTreeView):
         if type(item) in [Part, Step, Page, Callout, CSI]:
             return item.contextMenuEvent(event)
 
-class LicTreeModel(QAbstractItemModel):
-
-    def __init__(self, parent):
-        QAbstractItemModel.__init__(self, parent)
-        
-        self.root = None
-        self.templatePage = None
-
-    def setTemplatePage(self, templatePage):
-        self.templatePage = templatePage
-        self.root.incrementRows(1)
-    
-    def data(self, index, role = Qt.DisplayRole):
-        if role != Qt.DisplayRole:
-            return QVariant()
-
-        item = index.internalPointer()
-        return QVariant(item.data(0))
-
-    def rowCount(self, parent):
-
-        if not parent.isValid():
-            offset = 1 if self.templatePage else 0
-            return offset + self.root.rowCount() if self.root else 0
-
-        item = parent.internalPointer()
-        if hasattr(item, "rowCount"):
-            return item.rowCount()
-        return 0
-
-    def columnCount(self, parent):
-        return 1  # Every single item in the tree has exactly 1 column
-
-    def supportedDropActions(self):
-        return Qt.MoveAction
-    
-    def mimeTypes(self):
-        return ["application/x-rowlist"]
-    
-    def mimeData(self, indexes):
-        data = ""
-        for index in [i for i in indexes if i.isValid()]:
-            data += str(index.row())
-            parent = index.parent()
-            while parent.isValid():
-                data += ',' + str(parent.row())
-                parent = parent.parent()
-            data += '|'
-        data = data[:-1]  # Remove trailing '|'
-                
-        mimeData = QMimeData()
-        mimeData.setData("application/x-rowlist", data)
-        return mimeData
-        
-    def dropMimeData(self, data, action, row, column, parent):
-        if action == Qt.IgnoreAction:
-            return True
-        
-        if not data.hasFormat("application/x-rowlist") or column > 0:
-            return False
-
-        targetItem = parent.internalPointer()  # item that dragged items were dropped on
-        #target = self.index(row, column, parent) if row > 0 else parent  # TODO: Handle row argument
-        
-        dragItems = []
-        stringData = str(data.data("application/x-rowlist"))
-        
-        # Build list of items that were dragged
-        for rowList in stringData.split('|'):
-            rowList = [int(x) for x in rowList.split(',')]
-            rowList.reverse()
-            
-            parentIndex = QModelIndex()
-            for r in rowList:
-                parentIndex = self.index(r, 0, parentIndex)
-            dragItems.append(parentIndex.internalPointer())
-
-        parts = [p for p in dragItems if isinstance(p, Part)]
-        if isinstance(targetItem, Step):
-            command = MovePartsToStepCommand(parts, parts[0].getStep(), targetItem)
-            targetItem.scene().undoStack.push(command)
-            return True
-        
-        return False
-    
-    def removeRows(self, row, count, parent = None):
-        pass  # Needed because otherwise the super gets called, but we handle all in dropMimeData
-        
-    def flags(self, index):
-        if not index.isValid():
-            return Qt.ItemIsEnabled
-
-        item = index.internalPointer()
-        #if hasattr(item, 'flags'):
-        #    return item.flags()
-
-        if isinstance(item, Part):
-            return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled
-        if isinstance(item, Step):
-            return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDropEnabled
-        return Qt.ItemIsEnabled | Qt.ItemIsSelectable
-
-    def index(self, row, column, parent):
-        if row < 0 or column < 0:
-            return QModelIndex()
-        
-        if not parent.isValid() and self.templatePage and row == 0:
-            return self.createIndex(row, column, self.templatePage)
-
-        if parent.isValid():
-            parentItem = parent.internalPointer()
-        else:
-            parentItem = self.root
-
-        if not hasattr(parentItem, "child"):
-            return QModelIndex()
-
-        childItem = parentItem.child(row)
-        if childItem:
-            return self.createIndex(row, column, childItem)
-        else:
-            return QModelIndex()
-
-    def parent(self, index):
-        if not index.isValid():
-            return QModelIndex()
-
-        childItem = index.internalPointer()
-        parentItem = childItem.parent()
-
-        if parentItem is self.root:
-            return QModelIndex()
-
-        return self.createIndex(parentItem.row(), 0, parentItem)
-
-    def headerData(self, section, orientation, role = Qt.DisplayRole):
-        return QVariant("Instruction Book")
-    
 class Instructions(QObject):
 
     def __init__(self, parent, scene, glWidget, filename = None):
@@ -538,7 +401,7 @@ class Instructions(QObject):
         self.initCSIPixmaps()
         self.initPLIPixmaps()
 
-class Page(QGraphicsRectItem):
+class Page(PageTreeManager, QGraphicsRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
 
     PageSize = QSize(800, 600)  # Always pixels
@@ -588,29 +451,6 @@ class Page(QGraphicsRectItem):
         return self._number
 
     number = property(fget = _getNumber, fset = _setNumber)
-
-    def parent(self):
-        return self.subModel
-
-    def child(self, row):
-        if row < 0 or row >= len(self.children):
-            return None
-        return self.children[row]
-
-    def rowCount(self):
-        return len(self.children)
-
-    def setRow(self, row):
-        self._row = row
-        
-    def row(self):
-        return self._row
-
-    def getChildRow(self, child):
-        return self.children.index(child)
-    
-    def data(self, index):
-        return "Page %d" % self._number
 
     def getAllChildItems(self):
 
@@ -1109,7 +949,7 @@ class CalloutArrowEndItem(QGraphicsRectItem):
         QGraphicsItem.mouseReleaseEvent(self, event)
         self.scene().undoStack.push(CalloutArrowMoveCommand(self, self.oldPoint, self.point))
 
-class CalloutArrow(QGraphicsRectItem):
+class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
     
     arrowTipLength = 22.0
     arrowTipHeight = 5.0
@@ -1128,12 +968,6 @@ class CalloutArrow(QGraphicsRectItem):
         
         self.tipRect = CalloutArrowEndItem(self, 32, 32, "Arrow Tip", 0)
         self.baseRect = CalloutArrowEndItem(self, 20, 20, "Arrow Base", 1)
-
-    def child(self, row):
-        return self.tipRect if row == 0 else self.baseRect
-
-    def rowCount(self):
-        return 2
 
     def initializeEndPoints(self):
         # Find two target rects, both in *LOCAL* coordinates
@@ -1233,7 +1067,7 @@ class CalloutArrow(QGraphicsRectItem):
         else:
             self.setRect(r.adjusted(-self.arrowTipHeight - 2, 0.0, self.arrowTipHeight + 2, 0.0))
 
-class Callout(Helpers.GraphicsRoundRectItem):
+class Callout(CalloutTreeManager, Helpers.GraphicsRoundRectItem):
 
     margin = QPointF(15, 15)
 
@@ -1253,30 +1087,6 @@ class Callout(Helpers.GraphicsRoundRectItem):
         self.setPen(QPen(Qt.black))
         self.setFlags(AllFlags)
         
-    def child(self, row):
-        if row == 0:
-            return self.arrow
-        if row == 1 and self.qtyLabel:
-            return self.qtyLabel
-        offset = 2 if self.qtyLabel else 1
-        return self.steps[row - offset]
-
-    def rowCount(self):
-        offset = 1 if self.qtyLabel else 0
-        return 1 + len(self.steps) + offset
-
-    def getChildRow(self, child):
-        if isinstance(child, CalloutArrow):
-            return 0
-        if isinstance(child, QGraphicsSimpleTextItem):
-            return 1
-        if child in self.steps:
-            offset = 2 if self.qtyLabel else 1
-            return self.steps.index(child) + offset
-
-    def data(self, index):
-        return "Callout %d - %d step%s" % (self.number, len(self.steps), 's' if len(self.steps) > 1 else '')
-
     def addBlankStep(self, useUndo = True):
         lastNum = self.steps[-1].number + 1 if self.steps else 1
         step = Step(self, lastNum, False, self.showStepNumbers)
@@ -1437,7 +1247,7 @@ class TemplateRectItem(object):
 class TemplateCallout(TemplateRectItem, Callout):
     pass
 
-class Step(QGraphicsRectItem):
+class Step(StepTreeManager, QGraphicsRectItem):
     """ A single step in an Instruction book.  Contains one optional PLI and exactly one CSI. """
 
     def __init__(self, parentPage, number, hasPLI = True, hasNumberItem = True):
@@ -1482,40 +1292,6 @@ class Step(QGraphicsRectItem):
         self._hasPLI = False
         self.pli.hide()
     
-    def child(self, row):
-        if row == 0:
-            return self.csi
-        if row == 1:
-            if self.hasPLI():
-                return self.pli
-            if self.numberItem:
-                return self.numberItem
-        if row == 2:
-            if self.numberItem:
-                return self.numberItem
-
-        offset = row - 1 - (1 if self.hasPLI() else 0) - (1 if self.numberItem else 0)
-        if offset < len(self.callouts):
-                return self.callouts[offset]
-
-        return None
-
-    def rowCount(self):
-        return 1 + (1 if self.hasPLI() else 0) + (1 if self.numberItem else 0) + len(self.callouts)
-
-    def data(self, index):
-        return "Step %d" % self._number
-
-    def getChildRow(self, child):
-        if isinstance(child, CSI):
-            return 0
-        if isinstance(child, PLI):
-            return 1
-        if isinstance(child, QGraphicsSimpleTextItem):
-            return 2 if self.hasPLI() else 1
-        if child in self.callouts:
-            return self.callouts.index(child) + 1 + (1 if self.hasPLI() else 0) + (1 if self.numberItem else 0)
-        
     def addPart(self, part):
         self.csi.addPart(part)
         if self.pli:  # Visibility here is irrelevant
@@ -1744,7 +1520,7 @@ class TemplateStep(Step):
     def formatBackground(self):
         pass
     
-class PLIItem(QGraphicsRectItem):
+class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
     """ Represents one part inside a PLI along with its quantity label. """
 
     def __init__(self, parent, partOGL, color, quantity = 0):
@@ -1785,18 +1561,6 @@ class PLIItem(QGraphicsRectItem):
             # PLIItem is now empty - kill it
             self.parentItem().pliItems.remove(self)
             self.scene().removeItem(self)
-
-    def child(self, row):
-        return self.numberItem if row == 0 else None
-
-    def rowCount(self):
-        return 1
-
-    def row(self):
-        return self.parentItem().pliItems.index(self)
-
-    def data(self, index):
-        return "%s - %s" % (self.partOGL.name, LDrawColors.getColorName(self.color))
 
     def resetRect(self):
         self.setRect(self.childrenBoundingRect())
@@ -1863,7 +1627,7 @@ class PLIItem(QGraphicsRectItem):
         pngFile = povray.createPngFromPov(povFile, part.width, part.height, part.center, PLI.scale, isPLIItem = True)
         self.pngImage = QImage(pngFile)
 
-class PLI(Helpers.GraphicsRoundRectItem):
+class PLI(PLITreeManager, Helpers.GraphicsRoundRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
 
     scale = 1.0
@@ -1880,15 +1644,6 @@ class PLI(Helpers.GraphicsRoundRectItem):
         self.setPos(0, 0)
         self.setPen(QPen(Qt.black))
         self.setFlags(AllFlags)
-
-    def child(self, row):
-        if row < 0 or row >= len(self.pliItems):
-            print "ERROR: Looking up invalid row in PLI Tree"
-            return None
-        return self.pliItems[row] 
-
-    def rowCount(self):
-        return len(self.pliItems)
 
     def isEmpty(self):
         return True if len(self.pliItems) == 0 else False
@@ -2003,7 +1758,7 @@ class PLI(Helpers.GraphicsRoundRectItem):
 class TemplatePLI(TemplateRectItem, PLI):
     pass
 
-class CSI(QGraphicsPixmapItem):
+class CSI(CSITreeManager, QGraphicsPixmapItem):
     """
     Construction Step Image.  Includes border and positional info.
     """
@@ -2023,14 +1778,6 @@ class CSI(QGraphicsPixmapItem):
         
         self.parts = []
         self.arrows = []
-
-    def child(self, row):
-        if row < 0 or row >= len(self.parts):
-            return None
-        return self.parts[row]
-
-    def rowCount(self):
-        return len(self.parts)
 
     def getPartList(self):
         partList = []
@@ -2554,7 +2301,7 @@ class BoundingBox(object):
     def zSize(self):
         return (abs(self.z1) + abs(self.z2)) / 2.0
     
-class Submodel(PartOGL):
+class Submodel(SubmodelTreeManager, PartOGL):
     """ A Submodel is just a PartOGL that also has pages & steps, and can be inserted into a tree. """
 
     def __init__(self, parent = None, instructions = None, filename = "", lineArray = None):
@@ -2574,36 +2321,6 @@ class Submodel(PartOGL):
     def setSelected(self, selected):
         self.pages[0].setSelected(selected)
         
-    def parent(self):
-        return self._parent
-
-    def child(self, row):
-        for page in self.pages:
-            if page._row == row:
-                return page
-        for submodel in self.submodels:
-            if submodel._row == row:
-                return submodel
-        return None
-
-    def setRow(self, row):
-        self._row = row
-        
-    def row(self):
-        return self._row
-
-    def incrementRows(self, increment):
-        for page in self.pages:
-            page._row += increment
-        for submodel in self.submodels:
-            submodel._row += increment
-
-    def rowCount(self):
-        return len(self.pages) + len(self.submodels)
-
-    def data(self, index):
-        return self.filename
-
     def importModel(self):
         """ Reads in an LDraw model file and populates this submodel with the info. """
 
@@ -2858,46 +2575,29 @@ class Submodel(PartOGL):
         pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, PLI.scale, isPLIItem = False)
         self.pngImage = QImage(pngFile)
 
-class PartTreeItem(QGraphicsRectItem):
+class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
 
     def __init__(self, parent, name):
         QGraphicsPixmapItem.__init__(self, parent)
         self.name = name
         self.parts = []
+        self._dataString = None  # Cache data string for tree
         self.setFlags(AllFlags)
-        self.__dataString = None  # Cache data string for tree
-        
-    def child(self, row):
-        if row < 0 or row >= len(self.parts):
-            return None
-        return self.parts[row]
-
-    def row(self):
-        return self.parentItem().parts.index(self)
-
-    def rowCount(self):
-        return len(self.parts)
-    
-    def data(self, index):
-        if self.__dataString:
-            return self.__dataString
-        self.__dataString = "%s - x%d" % (self.name, len(self.parts))
-        return self.__dataString
         
     def setSelected(self, selected):
         self.parts[0].setSelected(selected)
 
     def addPart(self, part):
         part.setParentItem(self)
-        self.__dataString = None
+        self._dataString = None
         self.parts.append(part)
         
     def removePart(self, part):
         if part in self.parts:
             self.parts.remove(part)
-            self.__dataString = None
+            self._dataString = None
 
-class Part(QGraphicsRectItem):
+class Part(PartTreeManager, QGraphicsRectItem):
     """
     Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough
     info to draw that abstract part in context of a model, ie color, positional 
@@ -2914,7 +2614,7 @@ class Part(QGraphicsRectItem):
         self.matrix = matrix
         self.inverted = invert
         self.partOGL = None
-        self.__dataString = None  # Cache data string for tree
+        self._dataString = None  # Cache data string for tree
 
         self.displacement = []
         self.displaceDirection = None
@@ -2944,17 +2644,6 @@ class Part(QGraphicsRectItem):
         det = Helpers.determinant3x3([self.matrix[0:3], self.matrix[4:7], self.matrix[8:11]])
         self.inverted = (True if det < 0 else False) ^ invert
         
-    def row(self):
-        return self.parentItem().parts.index(self)
-
-    def data(self, index):
-        if self.__dataString:
-            return self.__dataString
-        x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
-        color = LDrawColors.getColorName(self.color)
-        self.__dataString = "%s - (%.1f, %.1f, %.1f)" % (color, x, y, z)
-        return self.__dataString
-     
     def getXYZSortOrder(self):
         x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
         return (-y, -z, x)

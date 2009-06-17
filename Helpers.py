@@ -100,21 +100,6 @@ def genericMouseReleaseEvent(className):
 
     return _tmp
                 
-def genericItemParent(self):
-    return self.parentItem()
-
-def genericItemData(self, index):
-    return self.dataText
-
-def genericRow(self):
-    if hasattr(self, '_row'):
-        return self._row
-    if hasattr(self, 'parentItem'):
-        parent = self.parentItem()
-        if hasattr(parent, 'getChildRow'):
-            return parent.getChildRow(self)
-    return 0
-
 def genericGetPage(self):
     return self.parentItem().getPage()
 
@@ -155,27 +140,18 @@ QGraphicsRectItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShap
 QGraphicsRectItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)
 QGraphicsRectItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
-QGraphicsRectItem.parent = genericItemParent
-QGraphicsRectItem.data = genericItemData
-QGraphicsRectItem.row = genericRow
 QGraphicsRectItem.getPage = genericGetPage
 
 QGraphicsSimpleTextItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
 QGraphicsSimpleTextItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)
 QGraphicsSimpleTextItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
-QGraphicsSimpleTextItem.parent = genericItemParent
-QGraphicsSimpleTextItem.data = genericItemData
-QGraphicsSimpleTextItem.row = genericRow
 QGraphicsSimpleTextItem.getPage = genericGetPage
 
 QGraphicsPixmapItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
 QGraphicsPixmapItem.mouseMoveEvent = genericMouseMoveEvent(QGraphicsItem)
 QGraphicsPixmapItem.mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsItem)
 
-QGraphicsPixmapItem.parent = genericItemParent
-QGraphicsPixmapItem.data = genericItemData
-QGraphicsPixmapItem.row = genericRow
 QGraphicsPixmapItem.getPage = genericGetPage
 
 def printRect(rect, text = ""):

@@ -9,6 +9,7 @@ from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
 
 from Model import *
+import LicTreeModel
 import LicBinaryReader
 import LicBinaryWriter
 import config
@@ -422,7 +423,7 @@ class LicWindow(QMainWindow):
         self.initToolBars()
 
         self.instructions = Instructions(self, self.scene, self.glWidget)
-        self.treeModel = LicTreeModel(self.treeView)
+        self.treeModel = LicTreeModel.LicTreeModel(self.treeView)
         
         self.treeView.scene = self.scene
         self.treeView.setModel(self.treeModel)
