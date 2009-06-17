@@ -442,10 +442,10 @@ class SetPenCommand(QUndoCommand):
         self.target.setPen(pen)
         self.target.update()
         for page in self.template.instructions.getPageList():
-            for step in page.steps:
-                for callout in step.callouts:
-                    callout.setPen(pen)
-                    callout.update()
+            for child in page.getAllChildItems():
+                if type(self.target) == type(child) or issubclass(type(self.target), type(child)):
+                    child.setPen(pen)
+                    child.update()
     
 class SetItemFontsCommand(QUndoCommand):
 

@@ -751,10 +751,11 @@ class Page(QGraphicsRectItem):
             print "Error: could not create a pixmap for page %d's submodel image" % self._number
             return
 
-        self.submodelItem = QGraphicsRectItem(self)
+        self.submodelItem = Helpers.GraphicsRoundRectItem(self)
         self.submodelItem.dataText = "Submodel Preview"
         self.submodelItem.setPos(Page.margin)
         self.submodelItem.setFlags(AllFlags)
+        self.submodelItem.cornerRadius = 10
         
         self.pixmapItem = QGraphicsPixmapItem(self.submodelItem)
         self.pixmapItem.setPixmap(pixmap)
@@ -953,9 +954,12 @@ class TemplatePage(Page):
         self.data = lambda index: self.dataText
         
         step = self.steps[0]
-        step.__class__ = TemplateStep  # Promote regular Step to TemplateStep subclass
-        step.callouts[0].__class__ = TemplateCallout  # Promote Callout too
+        
+        # Promote page members to appropriate Template subclasses, and initialize if necessary
+        step.__class__ = TemplateStep
         step.postLoadInit()
+        step.callouts[0].__class__ = TemplateCallout
+        step.pli.__class__ = TemplatePLI
                 
         self.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Page'))
         step.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Step'))
@@ -1229,12 +1233,12 @@ class CalloutArrow(QGraphicsRectItem):
         else:
             self.setRect(r.adjusted(-self.arrowTipHeight - 2, 0.0, self.arrowTipHeight + 2, 0.0))
 
-class Callout(QGraphicsRectItem):
+class Callout(Helpers.GraphicsRoundRectItem):
 
     margin = QPointF(15, 15)
 
     def __init__(self, parent, number = 1, showStepNumbers = False):
-        QGraphicsRectItem.__init__(self, parent)
+        Helpers.GraphicsRoundRectItem.__init__(self, parent)
 
         self.arrow = CalloutArrow(self, self.parentItem().csi)
         self.steps = []
@@ -1242,13 +1246,12 @@ class Callout(QGraphicsRectItem):
         self.qtyLabel = None
         self.showStepNumbers = showStepNumbers
         self.layout = Layout.GridLayout()
+        self.cornerRadius = 10
         
         self.setPos(0.0, 0.0)
         self.setRect(0.0, 0.0, 30.0, 30.0)
         self.setPen(QPen(Qt.black))
         self.setFlags(AllFlags)
-        
-        self.cornerRadius = 10
         
     def child(self, row):
         if row == 0:
@@ -1402,10 +1405,11 @@ class Callout(QGraphicsRectItem):
                 return step
         return None
 
-class TemplateCallout(Callout):
+class TemplateRectItem(object):
+    """ Encapsulates functionality common to all template GraphicItems, like formatting border & fill""" 
 
-    def postLoadInit(self):
-        self.data = lambda index: "Template Callout"
+    def postLoadInit(self, dataText):
+        self.data = lambda index: dataText
         self.setFlags(NoMoveFlags)
     
     def contextMenuEvent(self, event):
@@ -1418,7 +1422,7 @@ class TemplateCallout(Callout):
         self.setSelected(False)  # Deselect to better see new border changes
         parentWidget = self.scene().views()[0]
         stack = self.scene().undoStack
-        action = lambda newPen: stack.push(SetPenCommand(self.parent().parent(), self, self.pen(), newPen))
+        action = lambda newPen: stack.push(SetPenCommand(self.getPage(), self, self.pen(), newPen))
         dialog = LicDialogs.PenDlg(parentWidget, self.pen())
         parentWidget.connect(dialog, SIGNAL("changed"), action)
         
@@ -1429,6 +1433,9 @@ class TemplateCallout(Callout):
     def changePen(self, newPen):
         self.setPen(newPen)
         self.update()
+
+class TemplateCallout(TemplateRectItem, Callout):
+    pass
 
 class Step(QGraphicsRectItem):
     """ A single step in an Instruction book.  Contains one optional PLI and exactly one CSI. """
@@ -1856,14 +1863,14 @@ class PLIItem(QGraphicsRectItem):
         pngFile = povray.createPngFromPov(povFile, part.width, part.height, part.center, PLI.scale, isPLIItem = True)
         self.pngImage = QImage(pngFile)
 
-class PLI(QGraphicsRectItem):
+class PLI(Helpers.GraphicsRoundRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
 
     scale = 1.0
     margin = QPointF(15, 15)
 
     def __init__(self, parent):
-        QGraphicsRectItem.__init__(self, parent)
+        Helpers.GraphicsRoundRectItem.__init__(self, parent)
 
         self.pliItems = []  # {(part filename, color): PLIItem instance}
 
@@ -1992,6 +1999,9 @@ class PLI(QGraphicsRectItem):
             pliBox.setHeight(maxY)
             self.setRect(pliBox)
             prevItem = item
+
+class TemplatePLI(TemplateRectItem, PLI):
+    pass
 
 class CSI(QGraphicsPixmapItem):
     """

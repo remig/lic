@@ -118,20 +118,36 @@ def genericRow(self):
 def genericGetPage(self):
     return self.parentItem().getPage()
 
-def roundRectItemPaint(self, painter, option, widget = None):
+class GraphicsRoundRectItem(QGraphicsRectItem):
     
-    painter.setPen(self.pen())
-    if self.cornerRadius:
-        painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
-    else:
-        painter.drawRect(self.rect())
+    def __init__(self, parent):
+        QGraphicsRectItem.__init__(self, parent)
+        self.cornerRadius = 0
+       
+    def paint(self, painter, option, widget = None):
+        
+        painter.setPen(self.pen())
+        if self.cornerRadius:
+            painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
+        else:
+            painter.drawRect(self.rect())
+    
+        if self.isSelected():
+            pen = QPen(Qt.DashLine)
+            pen.setColor(Qt.red)
+            painter.setPen(pen)
+            painter.drawRect(self.rect())
 
-    if self.isSelected():
-        pen = QPen(Qt.DashLine)
-        pen.setColor(Qt.red)
-        painter.setPen(pen)
-        painter.drawRect(self.rect())
+    def pen(self):
+        pen = QGraphicsRectItem.pen(self)
+        pen.cornerRadius = self.cornerRadius
+        return pen
 
+    def setPen(self, newPen):
+        QGraphicsRectItem.setPen(self, newPen)
+        if hasattr(newPen, "cornerRadius"):  # Need this check because some setPen() calls come from Qt directly
+            self.cornerRadius = newPen.cornerRadius
+        
 QGraphicsLineItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
 QGraphicsLineItem.mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsItem)
 
@@ -142,10 +158,7 @@ QGraphicsRectItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphics
 QGraphicsRectItem.parent = genericItemParent
 QGraphicsRectItem.data = genericItemData
 QGraphicsRectItem.row = genericRow
-
 QGraphicsRectItem.getPage = genericGetPage
-QGraphicsRectItem.cornerRadius = 0.0
-QGraphicsRectItem.paint = roundRectItemPaint
 
 QGraphicsSimpleTextItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
 QGraphicsSimpleTextItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)

@@ -252,6 +252,13 @@ class PenDlg(QDialog):
         self.setAttribute(Qt.WA_DeleteOnClose)
 
         self.originalPen = originalPen
+
+        self.cornerRadiusSpinBox = QSpinBox()
+        self.cornerRadiusSpinBox.setRange(0, 50)
+        self.cornerRadiusSpinBox.setValue(originalPen.cornerRadius)
+
+        self.cornerRadiusLabel = QLabel(self.tr("Corner &Radius:"))
+        self.cornerRadiusLabel.setBuddy(self.cornerRadiusSpinBox)
         
         self.penWidthSpinBox = QSpinBox()
         self.penWidthSpinBox.setRange(0, 20)
@@ -305,18 +312,21 @@ class PenDlg(QDialog):
         buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
         
         mainLayout = QGridLayout()
-        mainLayout.addWidget(self.penWidthLabel, 0, 0)
-        mainLayout.addWidget(self.penWidthSpinBox, 0, 1)
-        mainLayout.addWidget(self.penStyleLabel, 1, 0)
-        mainLayout.addWidget(self.penStyleComboBox, 1, 1)
-        mainLayout.addWidget(self.penCapLabel, 2, 0)
-        mainLayout.addWidget(self.penCapComboBox, 2, 1)
-        mainLayout.addWidget(self.penJoinLabel, 3, 0)
-        mainLayout.addWidget(self.penJoinComboBox, 3, 1)
-        mainLayout.addWidget(self.penColorButton, 4, 0, 1, 2)
-        mainLayout.addWidget(buttonBox, 5, 0, 1, 2)
+        mainLayout.addWidget(self.cornerRadiusLabel, 0, 0)
+        mainLayout.addWidget(self.cornerRadiusSpinBox, 0, 1)
+        mainLayout.addWidget(self.penWidthLabel, 1, 0)
+        mainLayout.addWidget(self.penWidthSpinBox, 1, 1)
+        mainLayout.addWidget(self.penStyleLabel, 2, 0)
+        mainLayout.addWidget(self.penStyleComboBox, 2, 1)
+        mainLayout.addWidget(self.penCapLabel, 3, 0)
+        mainLayout.addWidget(self.penCapComboBox, 3, 1)
+        mainLayout.addWidget(self.penJoinLabel, 4, 0)
+        mainLayout.addWidget(self.penJoinComboBox, 4, 1)
+        mainLayout.addWidget(self.penColorButton, 5, 0, 1, 2)
+        mainLayout.addWidget(buttonBox, 6, 0, 1, 2)
         self.setLayout(mainLayout)
 
+        self.connect(self.cornerRadiusSpinBox, SIGNAL("valueChanged(int)"), self.penChanged)
         self.connect(self.penWidthSpinBox, SIGNAL("valueChanged(int)"), self.penChanged)
         self.connect(self.penStyleComboBox, SIGNAL("activated(int)"), self.penChanged)
         self.connect(self.penCapComboBox, SIGNAL("activated(int)"), self.penChanged)
@@ -341,7 +351,9 @@ class PenDlg(QDialog):
         cap = Qt.PenCapStyle(self.penCapComboBox.itemData(self.penCapComboBox.currentIndex(), Qt.UserRole).toInt()[0])
         join = Qt.PenJoinStyle(self.penJoinComboBox.itemData(self.penJoinComboBox.currentIndex(), Qt.UserRole).toInt()[0])
         color = self.penColorButton.color
-        self.emit(SIGNAL("changed"), QPen(color, width, style, cap, join))
+        pen = QPen(color, width, style, cap, join)
+        pen.cornerRadius = self.cornerRadiusSpinBox.value()
+        self.emit(SIGNAL("changed"), pen)
         
     def reject(self):
         self.emit(SIGNAL("changed"), self.originalPen)
