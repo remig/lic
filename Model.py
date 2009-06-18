@@ -799,8 +799,9 @@ class CalloutArrowEndItem(QGraphicsRectItem):
         self._row = row
         
         self.point = QPointF()
+        self.mousePoint = QPointF()
         self.setFlags(AllFlags)
-        self.setPen(QPen(Qt.NoPen))
+        self.setPen(parent.pen())
     
     def mousePressEvent(self, event):
         if event.button() == Qt.RightButton:
@@ -811,6 +812,7 @@ class CalloutArrowEndItem(QGraphicsRectItem):
     def mouseMoveEvent(self, event):
         QGraphicsRectItem.mouseMoveEvent(self, event)
         self.point -= event.lastScenePos() - event.scenePos()
+        self.mousePoint = event.pos()
         
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.RightButton:
@@ -818,9 +820,17 @@ class CalloutArrowEndItem(QGraphicsRectItem):
         QGraphicsItem.mouseReleaseEvent(self, event)
         self.scene().undoStack.push(CalloutArrowMoveCommand(self, self.oldPoint, self.point))
 
+    def paint(self, painter, option, widget = None):
+        if self.isSelected():
+            pen = QPen(Qt.DashLine)
+            pen.setColor(Qt.red)
+            painter.setPen(pen)
+            painter.drawRect(self.rect())
+
 class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
     itemClassName = "CalloutArrow"
     
+    defaultPen = QPen(Qt.black)
     arrowTipLength = 22.0
     arrowTipHeight = 5.0
     arrowHead = QPolygonF([QPointF(),
@@ -833,7 +843,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         self.dataText = "Callout Arrow"
 
         self.csi = csi
-        self.setPen(QPen(Qt.NoPen))
+        self.setPen(self.defaultPen)
         self.setFlags(NoMoveFlags)
         
         self.tipRect = CalloutArrowEndItem(self, 32, 32, "Arrow Tip", 0)
@@ -864,7 +874,6 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         self.tipRect.point = self.mapToItem(self.csi, self.tipRect.point)  # Store tip point in CSI space
         
     def paint(self, painter, option, widget = None):
-        QGraphicsRectItem.paint(self, painter, option, widget)
         
         # Find two target rects, both in *LOCAL* coordinates
         callout = self.parentItem()
@@ -907,28 +916,37 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
             mid1 = QPointF(tip.x(), midY)
             mid2 = QPointF(end.x(), midY)
 
-        x, y = end.x(), end.y()   # Make sure end point still touches Callout bounding box
-        if x < calloutRect.right() and x > calloutRect.left():  # Clamp y
-            if y <= calloutRect.center().y():
-                end.setY(calloutRect.top())
+        l, r, t, b = calloutRect.left(), calloutRect.right(), calloutRect.top(), calloutRect.bottom()
+        mp = self.mapFromItem(self.baseRect, self.baseRect.mousePoint)
+        mx, my = mp.x(), mp.y()
+
+        if mx > l and mx < r and my > t and my < b:  # cursor inside callout - lock to closest edge
+            if min(mx - l, r - mx) < min(my - t, b - my):
+                end.setX(l if (mx - l) < (r - mx) else r)  # lock to x
             else:
-                end.setY(calloutRect.bottom())
-        else:  # Clamp x
-            end.setY(min(calloutRect.bottom(), max(y, calloutRect.top())))
-            if x <= calloutRect.center().x():
-                end.setX(calloutRect.left())
-            else:
-                end.setX(calloutRect.right())
-            
+                end.setY(t if (my - t) < (b - my) else b)  # lock to y
+        else:
+            if mx < l:
+                end.setX(l)
+            elif mx > r:
+                end.setX(r)
+            if my < t:
+                end.setY(t)
+            elif my > b:
+                end.setY(b)
+
         # Draw step line
         line = QPolygonF([tip + offset, mid1, mid2, end])
-        painter.setPen(QPen(Qt.black))
+        painter.setPen(self.pen())
+        painter.setBrush(self.brush())
         painter.drawPolyline(line)
 
         # Draw arrow head
+        painter.save()
         painter.translate(tip)
         painter.rotate(rotation)
         painter.drawPolygon(self.arrowHead)
+        painter.restore()
 
         # Widen / heighten bounding rect to include tip and end line
         r = QRectF(tip, end).normalized()
@@ -936,6 +954,14 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
             self.setRect(r.adjusted(0.0, -self.arrowTipHeight - 2, 0.0, self.arrowTipHeight + 2))
         else:
             self.setRect(r.adjusted(-self.arrowTipHeight - 2, 0.0, self.arrowTipHeight + 2, 0.0))
+
+        # Draw selection box, if selected
+        if self.isSelected():
+            pen = QPen(Qt.DashLine)
+            pen.setColor(Qt.red)
+            painter.setPen(pen)
+            painter.setBrush(QBrush(Qt.transparent))
+            painter.drawRect(self.rect())
 
 class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 

@@ -1,7 +1,31 @@
 from Model import *
 from LicUndoActions import *
 
-class TemplateRectItem(object):
+class TemplateLineItem(object):
+
+    def contextMenuEvent(self, event):
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Format Border", self.formatBorder)
+        menu.exec_(event.screenPos())
+
+    def formatBorder(self):
+        
+        self.setSelected(False)  # Deselect to better see new border changes
+        parentWidget = self.scene().views()[0]
+        stack = self.scene().undoStack
+        action = lambda newPen: stack.push(SetPenCommand(self, self.pen(), newPen))
+        dialog = LicDialogs.PenDlg(parentWidget, self.pen(), hasattr(self, 'cornerRadius'))
+        parentWidget.connect(dialog, SIGNAL("changed"), action)
+        
+        stack.beginMacro("change Border")
+        dialog.exec_()
+        stack.endMacro()
+    
+    def changePen(self, newPen):
+        self.setPen(newPen)
+        self.update()
+
+class TemplateRectItem(TemplateLineItem):
     """ Encapsulates functionality common to all template GraphicItems, like formatting border & fill""" 
 
     def postLoadInit(self, dataText):
@@ -15,23 +39,6 @@ class TemplateRectItem(object):
         menu.addAction("Background Gradient", self.setBackgroundGradient)
         menu.addAction("Background None", self.setBackgroundNone)
         menu.exec_(event.screenPos())
-
-    def formatBorder(self):
-        
-        self.setSelected(False)  # Deselect to better see new border changes
-        parentWidget = self.scene().views()[0]
-        stack = self.scene().undoStack
-        action = lambda newPen: stack.push(SetPenCommand(self, self.pen(), newPen))
-        dialog = LicDialogs.PenDlg(parentWidget, self.pen())
-        parentWidget.connect(dialog, SIGNAL("changed"), action)
-        
-        stack.beginMacro("change Border")
-        dialog.exec_()
-        stack.endMacro()
-    
-    def changePen(self, newPen):
-        self.setPen(newPen)
-        self.update()
 
     def setBackgroundColor(self):
         color, value = QColorDialog.getRgba(self.brush().color().rgba(), self.scene().views()[0])
@@ -84,6 +91,7 @@ class TemplatePage(Page):
             self.submodelItem.__class__ = TemplateSubmodelPreview
         if step.callouts:
             step.callouts[0].__class__ = TemplateCallout
+            step.callouts[0].arrow.__class__ = TemplateCalloutArrow
                 
         self.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Page'))
         step.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Step'))
@@ -236,6 +244,16 @@ class TemplatePage(Page):
         if ok:
             item.setAllFonts(oldFont, newFont)
 
+class TemplateCalloutArrow(TemplateLineItem, CalloutArrow):
+    
+    def contextMenuEvent(self, event):
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Format Border", self.formatBorder)
+        self.fillArrow = menu.addAction("Fill Arrow")
+        self.fillArrow.setCheckable(True)
+        self.fillArrow.setChecked(True)
+        menu.exec_(event.screenPos())
+        
 class TemplateCallout(TemplateRectItem, Callout):
     
     def setPen(self, newPen):

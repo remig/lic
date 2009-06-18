@@ -273,7 +273,7 @@ class LicGraphicsScene(QGraphicsScene):
         # menu of the item that was *right-clicked on*, not the menu of the selected items
         # TODO: need to handle this better: What if a page and a step are selected?
         for item in self.selectedItems():
-            for t in [Part, Arrow, Step, Page, Callout, CSI, PLI, SubmodelPreview, QGraphicsSimpleTextItem]:
+            for t in [Part, Arrow, Step, Page, Callout, CalloutArrow, CSI, PLI, SubmodelPreview, QGraphicsSimpleTextItem]:
                 if isinstance(item, t) or issubclass(type(item), t):
                     return item.contextMenuEvent(event)
 
