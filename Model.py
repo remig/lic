@@ -141,6 +141,43 @@ class LicTreeView(QTreeView):
         if type(item) in [Part, Step, Page, Callout, CSI]:
             return item.contextMenuEvent(event)
 
+class GraphicsRoundRectItem(QGraphicsRectItem):
+    
+    defaultPen = QPen(Qt.black)
+    defaultBrush = QBrush(Qt.transparent)
+    
+    def __init__(self, parent):
+        QGraphicsRectItem.__init__(self, parent)
+        self.cornerRadius = 10
+        self.setPen(self.defaultPen)
+        self.setBrush(self.defaultBrush)
+       
+    def paint(self, painter, option, widget = None):
+        
+        painter.setPen(self.pen())
+        painter.setBrush(self.brush())
+        if self.cornerRadius:
+            painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
+        else:
+            painter.drawRect(self.rect())
+    
+        if self.isSelected():
+            pen = QPen(Qt.DashLine)
+            pen.setColor(Qt.red)
+            painter.setPen(pen)
+            painter.setBrush(Qt.transparent)
+            painter.drawRect(self.rect())
+
+    def pen(self):
+        pen = QGraphicsRectItem.pen(self)
+        pen.cornerRadius = self.cornerRadius
+        return pen
+
+    def setPen(self, newPen):
+        QGraphicsRectItem.setPen(self, newPen)
+        if hasattr(newPen, "cornerRadius"):  # Need this check because some setPen() calls come from Qt directly
+            self.cornerRadius = newPen.cornerRadius
+
 class Instructions(QObject):
     itemClassName = "Instructions"
 
@@ -563,6 +600,7 @@ class Page(PageTreeManager, QGraphicsRectItem):
         s = QGraphicsRectItem(self)
         s.setRect(rect if rect else QRectF(0, 0, 1, 1))
         s.setFlags(AllFlags)
+        s.itemClassName = "Separator"
         s.dataText = "Step Separator"
         self.separators.append(s)
         self.addChild(index, s)
@@ -589,10 +627,11 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.steps.remove(step)
         self.children.remove(step)
 
-    def addSubmodelImage(self, childRow = None):
+    def addSubmodelImage(self):
         self.submodelItem = SubmodelPreview(self)
         self.submodelItem.setPos(Page.margin)
         self.resetSubmodelImage()
+        self.children.append(self.submodelItem)
         
     def resetSubmodelImage(self):
         
@@ -2091,43 +2130,6 @@ class BoundingBox(object):
     def zSize(self):
         return (abs(self.z1) + abs(self.z2)) / 2.0
     
-class GraphicsRoundRectItem(QGraphicsRectItem):
-    
-    defaultPen = QPen(Qt.black)
-    defaultBrush = QBrush(Qt.transparent)
-    
-    def __init__(self, parent):
-        QGraphicsRectItem.__init__(self, parent)
-        self.cornerRadius = 10
-        self.setPen(self.defaultPen)
-        self.setBrush(self.defaultBrush)
-       
-    def paint(self, painter, option, widget = None):
-        
-        painter.setPen(self.pen())
-        painter.setBrush(self.brush())
-        if self.cornerRadius:
-            painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
-        else:
-            painter.drawRect(self.rect())
-    
-        if self.isSelected():
-            pen = QPen(Qt.DashLine)
-            pen.setColor(Qt.red)
-            painter.setPen(pen)
-            painter.setBrush(Qt.transparent)
-            painter.drawRect(self.rect())
-
-    def pen(self):
-        pen = QGraphicsRectItem.pen(self)
-        pen.cornerRadius = self.cornerRadius
-        return pen
-
-    def setPen(self, newPen):
-        QGraphicsRectItem.setPen(self, newPen)
-        if hasattr(newPen, "cornerRadius"):  # Need this check because some setPen() calls come from Qt directly
-            self.cornerRadius = newPen.cornerRadius
-
 class Submodel(SubmodelTreeManager, PartOGL):
     """ A Submodel is just a PartOGL that also has pages & steps, and can be inserted into a tree. """
     itemClassName = "Submodel"
@@ -2262,20 +2264,30 @@ class Submodel(SubmodelTreeManager, PartOGL):
     
     def addPage(self, page):
         
-        for p in self.pages[page._row : ]:
-            p._row += 1
+        for p in self.pages:
+            if p._row >= page._row: 
+                p._row += 1
+
+        for s in self.submodels:
+            if s._row >= page._row: 
+                s._row += 1
 
         page.subModel = self
         self.instructions.updatePageNumbers(page.number)
         self.pages.insert(page._row, page)
         if page in self.instructions.scene.items():
             self.instructions.scene.removeItem(page)  # Need to re-add page to trigger scene page layout
-            self.instructions.scene.addItem(page)
+        self.instructions.scene.addItem(page)
 
     def deletePage(self, page):
 
-        for p in self.pages[page._row + 1 : ]:
-            p._row -= 1
+        for p in self.pages:
+            if p._row > page._row: 
+                p._row -= 1
+
+        for s in self.submodels:
+            if s._row > page._row: 
+                s._row -= 1
 
         page.scene().removeItem(page)
         self.pages.remove(page)
