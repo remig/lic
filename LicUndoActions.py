@@ -444,7 +444,7 @@ class SetPenCommand(QUndoCommand):
         self.target.update()
         for page in self.template.instructions.getPageList():
             for child in page.getAllChildItems():
-                if type(self.target) == type(child) or issubclass(type(self.target), type(child)):
+                if self.target.itemClassName == child.itemClassName:
                     child.setPen(pen)
                     child.update()
 
@@ -463,7 +463,7 @@ class SetBrushCommand(QUndoCommand):
         self.target.update()
         for page in self.template.instructions.getPageList():
             for child in page.getAllChildItems():
-                if type(self.target) == type(child) or issubclass(type(self.target), type(child)):
+                if self.target.itemClassName == child.itemClassName:
                     child.setBrush(brush)
                     child.update()
     

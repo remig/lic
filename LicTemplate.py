@@ -73,14 +73,17 @@ class TemplatePage(Page):
         self.prevPage = lambda: None
         self.nextPage = lambda: None
         self.data = lambda index: self.dataText
-        
-        step = self.steps[0]
-        
+
         # Promote page members to appropriate Template subclasses, and initialize if necessary
+        step = self.steps[0]
         step.__class__ = TemplateStep
         step.postLoadInit()
-        step.callouts[0].__class__ = TemplateCallout
-        step.pli.__class__ = TemplatePLI
+        if step.pli:
+            step.pli.__class__ = TemplatePLI
+        if self.submodelItem:
+            self.submodelItem.__class__ = TemplateSubmodelPreview
+        if step.callouts:
+            step.callouts[0].__class__ = TemplateCallout
                 
         self.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Page'))
         step.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Step'))
@@ -96,7 +99,7 @@ class TemplatePage(Page):
         for item in self.getAllChildItems():
             item.setFlags(NoMoveFlags)
 
-    def createBlankTemplate(self):
+    def createBlankTemplate(self, glContext):
         step = Step(self, 0)
         step.data = lambda index: "Template Step"
         self.addStep(step)
@@ -105,30 +108,28 @@ class TemplatePage(Page):
             step.addPart(part.duplicate())
         
         step.csi.createOGLDisplayList()
-        self.initCSIDimension()
+        self.initCSIDimension(glContext)
         step.csi.createPixmap()
-        
+        self.addSubmodelImage()
         self.initLayout()
-        self.postLoadInit()
+        self.postLoadInit("dynamic_template.lit")
 
-    def initCSIDimension(self):
-        global GlobalGLContext
-        GlobalGLContext.makeCurrent()
+    def initCSIDimension(self, glContext):
 
         csi = self.steps[0].csi
         sizes = [512, 1024, 2048]
+        glContext.makeCurrent()
 
         for size in sizes:
-
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, getGLFormat(), GlobalGLContext)
+            pBuffer = QGLPixelBuffer(size, size, getGLFormat(), glContext)
             pBuffer.makeCurrent()
 
             # Render CSI and calculate its size
             if csi.initSize(size, pBuffer):
                 break
 
-        GlobalGLContext.makeCurrent()
+        glContext.makeCurrent()
         
     def applyFullTemplate(self):
         
@@ -141,6 +142,16 @@ class TemplatePage(Page):
         stack.push(SetItemFontsCommand(self, originalPage.numberItem.font(), self.numberItem.font(), 'Page'))
         stack.push(SetItemFontsCommand(self, originalPage.steps[0].numberItem.font(), self.steps[0].numberItem.font(), 'Step'))
         stack.push(SetItemFontsCommand(self, originalPage.steps[0].pli.pliItems[0].numberItem.font(), self.steps[0].pli.pliItems[0].numberItem.font(), 'PLI Item'))
+
+        step = self.steps[0]
+        if step.pli:
+            stack.push(SetPenCommand(step.pli, originalPage.steps[0].pli.pen(), step.pli.pen()))
+            stack.push(SetBrushCommand(step.pli, originalPage.steps[0].pli.brush(), step.pli.brush()))
+        
+        if self.submodelItem:
+            stack.push(SetPenCommand(self.submodelItem, originalPage.submodelItem.pen(), self.submodelItem.pen()))
+            stack.push(SetBrushCommand(self.submodelItem, originalPage.submodelItem.brush(), self.submodelItem.brush()))
+
         stack.endMacro()
 
     def getStep(self, number):
@@ -208,6 +219,9 @@ class TemplateCallout(TemplateRectItem, Callout):
 class TemplatePLI(TemplateRectItem, PLI):
     pass
 
+class TemplateSubmodelPreview(TemplateRectItem, SubmodelPreview):
+    pass
+
 class TemplateStep(Step):
     
     def postLoadInit(self):
@@ -230,4 +244,5 @@ class TemplateStep(Step):
     
     def formatBackground(self):
         pass
+    
     

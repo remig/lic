@@ -145,7 +145,7 @@ def __writePart(stream, part):
     for point in part.matrix:
         stream.writeFloat(point)
         
-    if part.displacement:
+    if part.displacement and part.displaceDirection:
         stream.writeBool(True)
         stream.writeFloat(part.displacement[0])
         stream.writeFloat(part.displacement[1])
@@ -181,7 +181,7 @@ def __writePage(stream, page):
         item = page.submodelItem
         stream.writeInt32(item.row())
         stream << item.pos() << item.rect() << item.pen() 
-        stream << item.children()[0].pixmap()
+        stream << item.pixmapItem.pixmap()
     else:
         stream.writeBool(False)
 

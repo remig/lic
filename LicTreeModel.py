@@ -126,8 +126,6 @@ class LicTreeModel(QAbstractItemModel):
             return QModelIndex()
 
         childItem = index.internalPointer()
-        if not hasattr(childItem, "parent"):
-            x = 10
         parentItem = childItem.parent()
 
         if parentItem is self.root:

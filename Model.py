@@ -142,6 +142,7 @@ class LicTreeView(QTreeView):
             return item.contextMenuEvent(event)
 
 class Instructions(QObject):
+    itemClassName = "Instructions"
 
     def __init__(self, parent, scene, glWidget, filename = None):
         QObject.__init__(self, parent)
@@ -404,6 +405,7 @@ class Instructions(QObject):
 class Page(PageTreeManager, QGraphicsRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
 
+    itemClassName = "Page"
     PageSize = QSize(800, 600)  # Always pixels
     Resolution = 72.0           # Always pixels / inch
     margin = QPointF(15, 15)
@@ -432,6 +434,7 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
         self.numberItem.setFont(QFont("Arial", 15))
         self.numberItem.dataText = "Page Number Label"
+        self.numberItem.itemClassName = "Page Number"
         self.children.append(self.numberItem)
 
         # Position page number in bottom right page corner
@@ -585,40 +588,18 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.children.remove(step)
 
     def addSubmodelImage(self, childRow = None):
-
-        pixmap = self.subModel.getPixmap()
-        if not pixmap:
-            print "Error: could not create a pixmap for page %d's submodel image" % self._number
-            return
-
-        self.submodelItem = Helpers.GraphicsRoundRectItem(self)
-        self.submodelItem.dataText = "Submodel Preview"
+        self.submodelItem = SubmodelPreview(self)
         self.submodelItem.setPos(Page.margin)
-        self.submodelItem.setFlags(AllFlags)
-        self.submodelItem.cornerRadius = 10
-        
-        self.pixmapItem = QGraphicsPixmapItem(self.submodelItem)
-        self.pixmapItem.setPixmap(pixmap)
-        self.pixmapItem.setPos(PLI.margin)
-        
-        self.submodelItem.setRect(0, 0, pixmap.width() + PLI.margin.x() * 2, pixmap.height() + PLI.margin.y() * 2)
-
-        if childRow:
-            self.addChild(childRow, self.submodelItem)
-        else:
-            self.children.append(self.submodelItem)
+        self.resetSubmodelImage()
         
     def resetSubmodelImage(self):
         
-        pixmap = self.subModel.getPixmap()
+        pixmap = self.subModel.pixmap()
         if not pixmap:
             print "Error: could not create a pixmap for page %d's submodel image" % self._number
             return
 
-        self.pixmapItem.setPixmap(pixmap)
-        self.pixmapItem.setPos(PLI.margin)
-
-        self.submodelItem.setRect(0, 0, pixmap.width() + PLI.margin.x() * 2, pixmap.height() + PLI.margin.y() * 2)
+        self.submodelItem.setPixmap(pixmap)
 
     def checkForLayoutOverlaps(self):
         for step in self.steps:
@@ -768,6 +749,7 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.scene().undoStack.push(AddRemovePageCommand(newPage, True))
 
 class CalloutArrowEndItem(QGraphicsRectItem):
+    itemClassName = "CalloutArrowEndItem"
     
     def __init__(self, parent, width, height, dataText, row):
         QGraphicsRectItem.__init__(self, parent)
@@ -796,6 +778,7 @@ class CalloutArrowEndItem(QGraphicsRectItem):
         self.scene().undoStack.push(CalloutArrowMoveCommand(self, self.oldPoint, self.point))
 
 class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
+    itemClassName = "CalloutArrow"
     
     arrowTipLength = 22.0
     arrowTipHeight = 5.0
@@ -914,6 +897,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
             self.setRect(r.adjusted(-self.arrowTipHeight - 2, 0.0, self.arrowTipHeight + 2, 0.0))
 
 class Callout(CalloutTreeManager, Helpers.GraphicsRoundRectItem):
+    itemClassName = "Callout"
 
     margin = QPointF(15, 15)
 
@@ -1022,6 +1006,7 @@ class Callout(CalloutTreeManager, Helpers.GraphicsRoundRectItem):
 
     def addQuantityLabel(self, pos = None, font = None):
         self.qtyLabel = QGraphicsSimpleTextItem("1x", self)
+        self.qtyLabel.itemClassName = "Callout Quantity"
         self.qtyLabel.setPos(pos if pos else QPointF(0, 0))
         self.qtyLabel.setFont(font if font else QFont("Arial", 15))
         self.qtyLabel.setFlags(AllFlags)
@@ -1064,6 +1049,7 @@ class Callout(CalloutTreeManager, Helpers.GraphicsRoundRectItem):
 
 class Step(StepTreeManager, QGraphicsRectItem):
     """ A single step in an Instruction book.  Contains one optional PLI and exactly one CSI. """
+    itemClassName = "Step"
 
     def __init__(self, parentPage, number, hasPLI = True, hasNumberItem = True):
         QGraphicsRectItem.__init__(self, parentPage)
@@ -1140,6 +1126,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
     def enableNumberItem(self):
         self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
+        self.numberItem.itemClassName = "Step Number"
         self.numberItem.setPos(0, 0)
         self.numberItem.setFont(QFont("Arial", 15))
         self.numberItem.setFlags(AllFlags)
@@ -1312,8 +1299,23 @@ class Step(StepTreeManager, QGraphicsRectItem):
         a = MovePartsToStepCommand(self.csi.getPartList(), self, step)
         self.scene().undoStack.push(a)
 
+class SubmodelPreview(Helpers.GraphicsRoundRectItem):
+    itemClassName = "SubmodelPreview"
+    
+    def __init__(self, parent):
+        Helpers.GraphicsRoundRectItem.__init__(self, parent)
+        self.dataText = "Submodel Preview"
+        self.cornerRadius = 10
+        self.setFlags(AllFlags)
+        
+    def setPixmap(self, pixmap):
+        self.pixmapItem = QGraphicsPixmapItem(pixmap, self)
+        self.pixmapItem.setPos(PLI.margin)
+        self.setRect(0, 0, pixmap.width() + PLI.margin.x() * 2, pixmap.height() + PLI.margin.y() * 2)
+
 class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
     """ Represents one part inside a PLI along with its quantity label. """
+    itemClassName = "PLIItem"
 
     def __init__(self, parent, partOGL, color, quantity = 0):
         QGraphicsRectItem.__init__(self, parent)
@@ -1331,6 +1333,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
 
         # Initialize the quantity label (position set in initLayout)
         self.numberItem = QGraphicsSimpleTextItem("0x", self)
+        self.numberItem.itemClassName = "PLIItem Quantity"
         self.numberItem.setFont(QFont("Arial", 10))
         self.numberItem.setFlags(AllFlags)        
         self.setQuantity(quantity)
@@ -1361,7 +1364,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
     def initLayout(self):
 
         if not self.pixmapItem.boundingRect().width():
-            pixmap = self.partOGL.getPixmap(self.color)
+            pixmap = self.partOGL.pixmap(self.color)
             self.pixmapItem.setPixmap(pixmap)
             self.pixmapItem.setPos(0, 0)
                 
@@ -1421,6 +1424,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
 
 class PLI(PLITreeManager, Helpers.GraphicsRoundRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
+    itemClassName = "PLI"
 
     scale = 1.0
     margin = QPointF(15, 15)
@@ -1549,9 +1553,8 @@ class PLI(PLITreeManager, Helpers.GraphicsRoundRectItem):
             prevItem = item
 
 class CSI(CSITreeManager, QGraphicsPixmapItem):
-    """
-    Construction Step Image.  Includes border and positional info.
-    """
+    """ Construction Step Image.  Includes border and positional info. """
+    itemClassName = "CSI"
 
     scale = 1.0
 
@@ -1980,7 +1983,7 @@ class PartOGL(object):
         self.width, self.height, self.center, self.leftInset, self.bottomInset = params
         return True
 
-    def getPixmap(self, color = None):
+    def pixmap(self, color = None):
         global GlobalGLContext
 
         if self.isPrimitive:
@@ -2093,6 +2096,7 @@ class BoundingBox(object):
     
 class Submodel(SubmodelTreeManager, PartOGL):
     """ A Submodel is just a PartOGL that also has pages & steps, and can be inserted into a tree. """
+    itemClassName = "Submodel"
 
     def __init__(self, parent = None, instructions = None, filename = "", lineArray = None):
         PartOGL.__init__(self, filename)
@@ -2396,6 +2400,8 @@ class Part(PartTreeManager, QGraphicsRectItem):
     in one LDraw FILE (5) command.
     """
 
+    itemClassName = "Part"
+
     def __init__(self, filename, color = 16, matrix = None, invert = False):
         QGraphicsRectItem.__init__(self)
 
@@ -2637,6 +2643,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.scene().undoStack.push(MovePartsToStepCommand(selectedParts, self.getStep(), destStep))
         
 class Arrow(Part):
+    itemClassName = "Arrow"
 
     def __init__(self, direction):
         Part.__init__(self, "arrow", 4, None, False)

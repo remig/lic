@@ -263,11 +263,12 @@ def __readPage(stream, parent, instructions, isTemplatePage = False):
     # Read in the optional submodel preview image
     hasSubmodelItem = stream.readBool()
     if hasSubmodelItem:
-        page.addSubmodelImage(stream.readInt32())
+        page.submodelItem = SubmodelPreview(page)
+        page.addChild(stream.readInt32(), page.submodelItem)
         page.submodelItem.setPos(stream.readQPointF())
         page.submodelItem.setRect(stream.readQRectF())
         page.submodelItem.setPen(stream.readQPen())
-        page.submodelItem.children()[0].setPixmap(stream.readQPixmap())
+        page.submodelItem.setPixmap(stream.readQPixmap())
 
     # Read in any page separator lines
     borderCount = stream.readInt32()

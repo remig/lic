@@ -12,6 +12,7 @@ from Model import *
 import LicTreeModel
 import LicBinaryReader
 import LicBinaryWriter
+import LicTemplate
 import config
 import l3p
 import povray
@@ -272,7 +273,7 @@ class LicGraphicsScene(QGraphicsScene):
         # menu of the item that was *right-clicked on*, not the menu of the selected items
         # TODO: need to handle this better: What if a page and a step are selected?
         for item in self.selectedItems():
-            for t in [Part, Arrow, Step, Page, Callout, CSI, PLI, QGraphicsSimpleTextItem]:
+            for t in [Part, Arrow, Step, Page, Callout, CSI, PLI, SubmodelPreview, QGraphicsSimpleTextItem]:
                 if isinstance(item, t) or issubclass(type(item), t):
                     return item.contextMenuEvent(event)
 
@@ -803,7 +804,10 @@ class LicWindow(QMainWindow):
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.treeModel.root = self.instructions.mainModel
 
-        templatePage = LicBinaryReader.loadLicTemplate(r"C:\lic\test_template_save.lit", self.instructions)
+        templatePage = LicBinaryReader.loadLicTemplate(r"C:\lic\dynamic_template.lit", self.instructions)
+        #templatePage = LicTemplate.TemplatePage(self.instructions.mainModel, self.instructions)
+        #templatePage.createBlankTemplate(self.glWidget)
+
         self.treeModel.setTemplatePage(templatePage)
         self.treeModel.templatePage.applyFullTemplate()
         
