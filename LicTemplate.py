@@ -154,6 +154,21 @@ class TemplatePage(Page):
 
         stack.endMacro()
 
+    def applyDefaults(self):
+        
+        step = self.steps[0]
+        Page.defaultColor = self.color
+        Page.defaultBrush = self.brush
+        if step.pli:
+            PLI.defaultPen = step.pli.pen()
+            PLI.defaultBrush = step.pli.brush()
+        if step.callouts:
+            Callout.defaultPen = step.callouts[0].pen()
+            Callout.defaultBrush = step.callouts[0].brush()
+        if self.submodelItem:
+            SubmodelPreview.defaultPen = self.submodelItem.pen()
+            SubmodelPreview.defaultBrush = self.submodelItem.brush()
+    
     def getStep(self, number):
         return self.steps[0] if number == 0 else None
 
@@ -166,6 +181,14 @@ class TemplatePage(Page):
         arrowMenu.addAction("None", self.setBackgroundNone)
         #menu.addSeparator()
         menu.exec_(event.screenPos())
+        
+    def setColor(self, color):
+        Page.defaultColor = color
+        self.color = color
+        
+    def setBrush(self, brush):
+        Page.defaultBrush = brush
+        self.brush = brush
         
     def setBackgroundColor(self):
         color = QColorDialog.getColor(self.color, self.scene().views()[0])
@@ -214,13 +237,34 @@ class TemplatePage(Page):
             item.setAllFonts(oldFont, newFont)
 
 class TemplateCallout(TemplateRectItem, Callout):
-    pass
+    
+    def setPen(self, newPen):
+        Callout.setPen(self, newPen)
+        Callout.defaultPen = newPen
+
+    def setBrush(self, newBrush):
+        Callout.setBrush(self, newBrush)
+        Callout.defaultBrush = newBrush
 
 class TemplatePLI(TemplateRectItem, PLI):
-    pass
+    
+    def setPen(self, newPen):
+        PLI.setPen(self, newPen)
+        PLI.defaultPen = newPen
+
+    def setBrush(self, newBrush):
+        PLI.setBrush(self, newBrush)
+        PLI.defaultBrush = newBrush
 
 class TemplateSubmodelPreview(TemplateRectItem, SubmodelPreview):
-    pass
+
+    def setPen(self, newPen):
+        SubmodelPreview.setPen(self, newPen)
+        SubmodelPreview.defaultPen = newPen
+
+    def setBrush(self, newBrush):
+        SubmodelPreview.setBrush(self, newBrush)
+        SubmodelPreview.defaultBrush = newBrush
 
 class TemplateStep(Step):
     

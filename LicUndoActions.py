@@ -407,7 +407,7 @@ class SetPageBackgroundColorCommand(QUndoCommand):
 
     def doAction(self, redo):
         color = self.newColor if redo else self.oldColor
-        self.template.color = color
+        self.template.setColor(color)
         self.template.update()
         for page in self.template.instructions.getPageList():
             page.color = color
@@ -423,7 +423,7 @@ class SetPageBackgroundBrushCommand(QUndoCommand):
 
     def doAction(self, redo):
         brush = self.newBrush if redo else self.oldBrush
-        self.template.brush = brush
+        self.template.setBrush(brush)
         self.template.update()
         for page in self.template.instructions.getPageList():
             page.brush = brush

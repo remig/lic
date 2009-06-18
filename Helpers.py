@@ -103,38 +103,6 @@ def genericMouseReleaseEvent(className):
 def genericGetPage(self):
     return self.parentItem().getPage()
 
-class GraphicsRoundRectItem(QGraphicsRectItem):
-    
-    def __init__(self, parent):
-        QGraphicsRectItem.__init__(self, parent)
-        self.cornerRadius = 0
-       
-    def paint(self, painter, option, widget = None):
-        
-        painter.setPen(self.pen())
-        painter.setBrush(self.brush())
-        if self.cornerRadius:
-            painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
-        else:
-            painter.drawRect(self.rect())
-    
-        if self.isSelected():
-            pen = QPen(Qt.DashLine)
-            pen.setColor(Qt.red)
-            painter.setPen(pen)
-            painter.setBrush(Qt.transparent)
-            painter.drawRect(self.rect())
-
-    def pen(self):
-        pen = QGraphicsRectItem.pen(self)
-        pen.cornerRadius = self.cornerRadius
-        return pen
-
-    def setPen(self, newPen):
-        QGraphicsRectItem.setPen(self, newPen)
-        if hasattr(newPen, "cornerRadius"):  # Need this check because some setPen() calls come from Qt directly
-            self.cornerRadius = newPen.cornerRadius
-        
 QGraphicsLineItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
 QGraphicsLineItem.mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsItem)
 

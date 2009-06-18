@@ -409,6 +409,8 @@ class Page(PageTreeManager, QGraphicsRectItem):
     PageSize = QSize(800, 600)  # Always pixels
     Resolution = 72.0           # Always pixels / inch
     margin = QPointF(15, 15)
+    defaultColor = QColor(Qt.white)
+    defaultBrush = None
 
     def __init__(self, subModel, instructions, number, row):
         QGraphicsRectItem.__init__(self)
@@ -427,8 +429,8 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.children = []
         self.submodelItem = None
         self.layout = Layout.GridLayout()
-        self.color = QColor(Qt.white)
-        self.brush = None
+        self.color = self.defaultColor
+        self.brush = self.defaultBrush
 
         # Setup this page's page number
         self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
@@ -896,13 +898,13 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         else:
             self.setRect(r.adjusted(-self.arrowTipHeight - 2, 0.0, self.arrowTipHeight + 2, 0.0))
 
-class Callout(CalloutTreeManager, Helpers.GraphicsRoundRectItem):
-    itemClassName = "Callout"
+class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
+    itemClassName = "Callout"
     margin = QPointF(15, 15)
 
     def __init__(self, parent, number = 1, showStepNumbers = False):
-        Helpers.GraphicsRoundRectItem.__init__(self, parent)
+        GraphicsRoundRectItem.__init__(self, parent)
 
         self.arrow = CalloutArrow(self, self.parentItem().csi)
         self.steps = []
@@ -910,12 +912,9 @@ class Callout(CalloutTreeManager, Helpers.GraphicsRoundRectItem):
         self.qtyLabel = None
         self.showStepNumbers = showStepNumbers
         self.layout = Layout.GridLayout()
-        self.cornerRadius = 10
         
         self.setPos(0.0, 0.0)
         self.setRect(0.0, 0.0, 30.0, 30.0)
-        self.setPen(QPen(Qt.black))
-        self.setBrush(QBrush(Qt.transparent))
         self.setFlags(AllFlags)
         
     def addBlankStep(self, useUndo = True):
@@ -1299,11 +1298,11 @@ class Step(StepTreeManager, QGraphicsRectItem):
         a = MovePartsToStepCommand(self.csi.getPartList(), self, step)
         self.scene().undoStack.push(a)
 
-class SubmodelPreview(Helpers.GraphicsRoundRectItem):
+class SubmodelPreview(GraphicsRoundRectItem):
     itemClassName = "SubmodelPreview"
     
     def __init__(self, parent):
-        Helpers.GraphicsRoundRectItem.__init__(self, parent)
+        GraphicsRoundRectItem.__init__(self, parent)
         self.dataText = "Submodel Preview"
         self.cornerRadius = 10
         self.setFlags(AllFlags)
@@ -1422,7 +1421,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
         pngFile = povray.createPngFromPov(povFile, part.width, part.height, part.center, PLI.scale, isPLIItem = True)
         self.pngImage = QImage(pngFile)
 
-class PLI(PLITreeManager, Helpers.GraphicsRoundRectItem):
+class PLI(PLITreeManager, GraphicsRoundRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
     itemClassName = "PLI"
 
@@ -1430,16 +1429,14 @@ class PLI(PLITreeManager, Helpers.GraphicsRoundRectItem):
     margin = QPointF(15, 15)
 
     def __init__(self, parent):
-        Helpers.GraphicsRoundRectItem.__init__(self, parent)
+        GraphicsRoundRectItem.__init__(self, parent)
 
         self.pliItems = []  # {(part filename, color): PLIItem instance}
 
         self.dataText = "PLI"  # String displayed in Tree - reimplement data(self, index) to override
         self._row = 1
         
-        self.setPos(0, 0)
-        self.setPen(QPen(Qt.black))
-        self.setBrush(QBrush(Qt.transparent))
+        self.setPos(0.0, 0.0)
         self.setFlags(AllFlags)
 
     def isEmpty(self):
@@ -2094,6 +2091,43 @@ class BoundingBox(object):
     def zSize(self):
         return (abs(self.z1) + abs(self.z2)) / 2.0
     
+class GraphicsRoundRectItem(QGraphicsRectItem):
+    
+    defaultPen = QPen(Qt.black)
+    defaultBrush = QBrush(Qt.transparent)
+    
+    def __init__(self, parent):
+        QGraphicsRectItem.__init__(self, parent)
+        self.cornerRadius = 10
+        self.setPen(self.defaultPen)
+        self.setBrush(self.defaultBrush)
+       
+    def paint(self, painter, option, widget = None):
+        
+        painter.setPen(self.pen())
+        painter.setBrush(self.brush())
+        if self.cornerRadius:
+            painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
+        else:
+            painter.drawRect(self.rect())
+    
+        if self.isSelected():
+            pen = QPen(Qt.DashLine)
+            pen.setColor(Qt.red)
+            painter.setPen(pen)
+            painter.setBrush(Qt.transparent)
+            painter.drawRect(self.rect())
+
+    def pen(self):
+        pen = QGraphicsRectItem.pen(self)
+        pen.cornerRadius = self.cornerRadius
+        return pen
+
+    def setPen(self, newPen):
+        QGraphicsRectItem.setPen(self, newPen)
+        if hasattr(newPen, "cornerRadius"):  # Need this check because some setPen() calls come from Qt directly
+            self.cornerRadius = newPen.cornerRadius
+
 class Submodel(SubmodelTreeManager, PartOGL):
     """ A Submodel is just a PartOGL that also has pages & steps, and can be inserted into a tree. """
     itemClassName = "Submodel"
