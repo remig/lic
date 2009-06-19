@@ -44,6 +44,13 @@ class LicGraphicsScene(QGraphicsScene):
                 part.setSelected(False, False)
             partList[-1].setSelected(False, True)
 
+    def clear(self):
+        QGraphicsScene.clear(self)
+        self.pagesToDisplay = 1
+        self.currentPage = None
+        self.pages = []
+        self.guides = []
+
     def pageUp(self):
         self.selectPage(max(1, self.currentPage._number - 1))
 
@@ -768,8 +775,12 @@ class LicWindow(QMainWindow):
         if filename is None:
             action = self.sender()
             filename = unicode(action.data().toString())
-            if not self.offerSave():
-                return
+
+        if not self.offerSave():
+            return
+        
+        if self.filename and filename != self.filename:
+            self.fileClose()
 
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         LicBinaryReader.loadLicFile(filename, self.instructions, self.treeModel)
