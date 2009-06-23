@@ -524,6 +524,7 @@ class LicWindow(QMainWindow):
         self.fileSaveAsAction.setEnabled(enabled)
         self.fileSaveTemplateAction.setEnabled(enabled)
         self.fileSaveTemplateAsAction.setEnabled(enabled)
+        self.fileLoadTemplateAction.setEnabled(enabled)
         self.pageMenu.setEnabled(enabled)
         self.viewMenu.setEnabled(enabled)
         self.exportMenu.setEnabled(enabled)
@@ -765,10 +766,13 @@ class LicWindow(QMainWindow):
         formats = ["*.mpd", "*.dat"]
         filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Import LDraw Model", dir, "LDraw Models (%s)" % " ".join(formats)))
         if filename:
-            self.fileClose()
-            self.importLDrawModel(filename)
-            self.statusBar().showMessage("LDraw Model imported: " + filename)
-            self.scene.setPagesToDisplay(self.pagesToDisplay)
+            QTimer.singleShot(50, lambda: self.importLDrawModelTimerAction(filename))
+
+    def importLDrawModelTimerAction(self, filename):
+        self.fileClose()
+        self.importLDrawModel(filename)
+        self.statusBar().showMessage("LDraw Model imported: " + filename)
+        self.scene.setPagesToDisplay(self.pagesToDisplay)
 
     def loadLicFile(self, filename = None):
         
@@ -792,18 +796,23 @@ class LicWindow(QMainWindow):
         self.scene.setPagesToDisplay(self.pagesToDisplay)
     
     def importLDrawModel(self, filename):
-        
-        loader = self.instructions.importLDrawModel(filename)
-        startValue = 0
-        stopValue, title = loader.next()
 
-        progress = QProgressDialog(title, "Cancel", startValue, stopValue, self)
+        progress = QProgressDialog(self)
         progress.setWindowModality(Qt.WindowModal)
         progress.setWindowTitle("Importing " + os.path.splitext(os.path.basename(filename))[0])
+        progress.setMinimumDuration(0)
+        progress.setCancelButtonText("Cancel")
+        progress.setRange(0, 10)
+        progress.setLabelText("Reading LDraw File")
+        progress.setValue(1)  # Force dialog to show up right away
+        
+        loader = self.instructions.importLDrawModel(filename)
+        stopValue, title = loader.next()  # First value yielded after load is # of progress steps
+        progress.setMaximum(stopValue)
         
         for step, label in loader:
-            progress.setValue(step)
             progress.setLabelText(label)
+            progress.setValue(step)
             
             if progress.wasCanceled():
                 loader.close()
@@ -830,6 +839,8 @@ class LicWindow(QMainWindow):
         self.statusBar().showMessage("Instruction book loaded")
         self.fileCloseAction.setEnabled(True)
         self.fileSaveAsAction.setEnabled(True)
+        self.fileSaveTemplateAsAction.setEnabled(True)
+        self.fileLoadTemplateAction.setEnabled(True)
         self.editMenu.setEnabled(True)
         self.pageMenu.setEnabled(True)
         self.viewMenu.setEnabled(True)
@@ -871,6 +882,7 @@ class LicWindow(QMainWindow):
         filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Safe Template As", f, "Lic Template files (*.lit)"))
         if filename:
             template.filename = filename
+            self.fileSaveTemplateAction.setEnabled(True)
             return self.fileSaveTemplate()
     
     def fileLoadTemplate(self):

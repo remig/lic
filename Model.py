@@ -222,26 +222,39 @@ class Instructions(QObject):
         self.mainModel.syncPageNumbers()
         self.mainModel.addInitialPagesAndSteps()
         
+        t1, partStepCount, t2 = self.getPartDimensionListAndCount() 
         pageList = self.mainModel.getPageList()
         pageList.sort(key = lambda x: x._number)
-        totalCount = (len(pageList) * 2) + 2
-        currentCount = 1
+        totalCount = (len(pageList) * 2) + 10 + partStepCount
+        currentCount = 2
+        
         yield (totalCount, "Initializing GL display lists")
+        yield (currentCount, "Initializing GL display lists")
 
         self.initGLDisplayLists()  # generate all part GL display lists on the general glWidget
+        currentCount += 1
         yield (currentCount, "Initializing Part Dimensions")
         
         for step, label in self.initPartDimensions(currentCount):  # Calculate width and height of each partOGL in the part dictionary
             currentCount = step
             yield (step, label)
 
+        currentCount += 1
+        yield (currentCount, "Initializing CSI Dimensions")
         for step, label in self.initCSIDimensions(currentCount):   # Calculate width and height of each CSI in this instruction book
             currentCount = step
             yield (step, label)
             
+        currentCount += 1
+        yield (currentCount, "Initializing CSI Pixmaps")
         self.initCSIPixmaps()
+        
+        currentCount += 1
+        yield (currentCount, "Initializing Submodel Images")
         self.mainModel.addSubmodelImages()
         
+        currentCount += 1
+        yield (currentCount, "Laying out Pages")
         for page in pageList:
             label = page.initLayout()
             currentCount += 1
@@ -277,7 +290,18 @@ class Instructions(QObject):
         for csi in csiList:
             csi.createOGLDisplayList()
 
-    def initPartDimensions(self, currentCount):
+    def getPartDimensionListAndCount(self):
+        
+        partList = [part for part in partDictionary.values() if (not part.isPrimitive) and (part.width == part.height == -1)]
+        submodelList = [submodel for submodel in submodelDictionary.values() if submodel.used]
+        partList += submodelList
+        partList.append(self.mainModel)
+
+        partDivCount = 50
+        partStepCount = int(len(partList) / partDivCount)
+        return (partList, partStepCount, partDivCount)
+    
+    def initPartDimensions(self, initialCurrentCount):
         """
         Calculates each uninitialized part's display width and height.
         Creates GL buffer to render a temp copy of each part, then uses those raw pixels to determine size.
@@ -285,10 +309,8 @@ class Instructions(QObject):
         """
         global GlobalGLContext
 
-        partList = [part for part in partDictionary.values() if (not part.isPrimitive) and (part.width == part.height == -1)]
-        submodelList = [submodel for submodel in submodelDictionary.values() if submodel.used]
-        partList += submodelList
-        partList.append(self.mainModel)
+        partList, partStepCount, partDivCount = self.getPartDimensionListAndCount()
+        currentPartCount = currentCount = 0
 
         if not partList:
             return    # If there's no parts to initialize, we're done here
@@ -296,10 +318,6 @@ class Instructions(QObject):
         partList2 = []
         lines = []
         sizes = [128, 256, 512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
-
-        partDivCount = 50
-        partCount = int(len(partList) / partDivCount)
-        currentPartCount = 0
 
         for size in sizes:
 
@@ -315,8 +333,9 @@ class Instructions(QObject):
                     currentPartCount += 1
                     if not currentPartCount % partDivCount:
                         currentPartCount = 0
-                        currentCount += 1
-                        yield (currentCount, "Initializing more Part Dimensions")
+                        initialCurrentCount += 1
+                        currentCount +=1
+                        yield (initialCurrentCount, "Initializing Part Dimensions (%d/%d)" % (currentCount, partStepCount))
                 else:
                     partList2.append(partOGL)
 
@@ -1237,10 +1256,10 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
     def initLayout(self, destRect = None):
 
-        if destRect:
-            self.maxRect = destRect
-        else:
+        if destRect is None:
             destRect = self.maxRect
+        else:
+            self.maxRect = destRect
 
         self.setPos(destRect.topLeft())
         self.setRect(0, 0, destRect.width(), destRect.height())
@@ -1695,11 +1714,8 @@ class CSI(CSITreeManager, QGraphicsPixmapItem):
         for a single display list giving a full model rendering up to this step.
         """
 
-        # If we've already created a list here; free it first
-        if self.oglDispID != UNINIT_GL_DISPID:
-            GL.glDeleteLists(self.oglDispID, 1)
-            
-        self.oglDispID = GL.glGenLists(1)
+        if self.oglDispID == UNINIT_GL_DISPID:
+            self.oglDispID = GL.glGenLists(1)
         GL.glNewList(self.oglDispID, GL.GL_COMPILE)
         #GLHelpers.drawCoordLines()
         self.__callPreviousOGLDisplayLists(True)
@@ -1728,7 +1744,7 @@ class CSI(CSITreeManager, QGraphicsPixmapItem):
         cX, cY, cZ = GLU.gluUnProject(maxX, maxY, 0.0)
         dX, dY, dZ = GLU.gluUnProject(maxX, minY, 0.0)
     
-    def updatePixmap(self, rebuildDisplayList = True):
+    def updatePixmap(self, rebuildDisplayList):
 
         if rebuildDisplayList or self.oglDispID == UNINIT_GL_DISPID:
             self.createOGLDisplayList()
@@ -1985,16 +2001,14 @@ class PartOGL(object):
         """ Initialize this part's display list."""
 
         #self.sortEdgesToBack()  # TODO: Fix this - necessary?
-        
-        if self.oglDispID != UNINIT_GL_DISPID:
-            GL.glDeleteLists(self.oglDispID, 1)
 
         # Ensure any parts in this part have been initialized
         for part in self.parts:
             if part.partOGL.oglDispID == UNINIT_GL_DISPID:
                 part.partOGL.createOGLDisplayList()
 
-        self.oglDispID = GL.glGenLists(1)
+        if self.oglDispID == UNINIT_GL_DISPID:
+            self.oglDispID = GL.glGenLists(1)
         GL.glNewList(self.oglDispID, GL.GL_COMPILE)
 
         for part in self.parts:
@@ -2534,7 +2548,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def setSelected(self, selected, updatePixmap = True):
         QGraphicsRectItem.setSelected(self, selected)
         if updatePixmap:
-            self.getCSI().updatePixmap()
+            self.getCSI().updatePixmap(True)
 
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
