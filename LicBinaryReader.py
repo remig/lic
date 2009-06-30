@@ -85,7 +85,10 @@ def __readTemplate(stream, instructions):
     for partOGL in partDictionary.values():
         if partOGL.oglDispID == UNINIT_GL_DISPID:
             partOGL.createOGLDisplayList()
-    template.steps[0].csi.createOGLDisplayList()
+       
+    for glItem in template.glItemIterator():
+        glItem.createOGLDisplayList()
+    
     template.postLoadInit(filename)
     return template
 

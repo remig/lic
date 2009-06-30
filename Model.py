@@ -755,14 +755,18 @@ class Page(PageTreeManager, QGraphicsRectItem):
         GLHelpers.adjustGLViewport(vx, vy, Page.PageSize.width(), Page.PageSize.height(), True)
         GL.glTranslatef(rect.x(), rect.y(), 0.0)
         
-        for step in self.steps:
-            step.csi.paintGL(painter, rect)
-            for callout in step.callouts:
-                for step2 in callout.steps:
-                    step2.csi.paintGL(painter, rect)
+        for glItem in self.glItemIterator():
+            glItem.paintGL()
             
         GLHelpers.popAllGLMatrices()
 
+    def glItemIterator(self):
+        for step in self.steps:
+            yield step.csi
+            for callout in step.callouts:
+                for step2 in callout.steps:
+                    yield step2.csi
+            
     def contextMenuEvent(self, event):
         
         menu = QMenu(self.scene().views()[0])
@@ -839,13 +843,6 @@ class CalloutArrowEndItem(QGraphicsRectItem):
             return
         QGraphicsItem.mouseReleaseEvent(self, event)
         self.scene().undoStack.push(CalloutArrowMoveCommand(self, self.oldPoint, self.point))
-
-    def paint(self, painter, option, widget = None):
-        if self.isSelected():
-            pen = QPen(Qt.DashLine)
-            pen.setColor(Qt.red)
-            painter.setPen(pen)
-            painter.drawRect(self.rect())
 
 class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
     itemClassName = "CalloutArrow"
@@ -977,10 +974,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
 
         # Draw selection box, if selected
         if self.isSelected():
-            pen = QPen(Qt.DashLine)
-            pen.setColor(Qt.red)
-            painter.setPen(pen)
-            painter.setBrush(QBrush(Qt.transparent))
+            painter.setPen(QPen(Qt.red))
             painter.drawRect(self.rect())
 
 class Callout(CalloutTreeManager, GraphicsRoundRectItem):
@@ -1671,8 +1665,12 @@ class CSI(CSITreeManager, QGraphicsRectItem):
     def data(self, index):
         return "CSI - %d parts" % self.partCount()
 
-    def paintGL(self, painter, rect):
-        
+    def paintGL(self):
+        """ 
+        Assumes a current GL context.  Assumes that context has been transformed so the
+        view runs from (0,0) to page width & height with (0,0) in the bottom left corner.
+        """
+         
         GLHelpers.pushAllGLMatrices()
         
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
