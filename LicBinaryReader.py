@@ -16,7 +16,6 @@ QDataStream.readQPen = lambda self: ro(self, QPen)
 QDataStream.readQRectF = lambda self: ro(self, QRectF)
 QDataStream.readQPointF = lambda self: ro(self, QPointF)
 QDataStream.readQString = lambda self: ro(self, QString)
-QDataStream.readQPixmap = lambda self: ro(self, QPixmap)
 
 def loadLicFile(filename, instructions, treeModel):
 
@@ -75,20 +74,24 @@ def __readTemplate(stream, instructions):
     __readPartDictionary(stream, partDictionary)
 
     template = __readPage(stream, instructions.mainModel, instructions, True)
+    template.subModelPart = __readSubmodel(stream, None)
 
     for part in template.steps[0].csi.getPartList():
-        if part.filename in partDictionary:
-            part.partOGL = partDictionary[part.filename]
-        else:
-            print "TEMPLATE LOAD ERROR: could not find a partOGL for part: " + part.filename
+        part.partOGL = partDictionary[part.filename]
+
+    for part in template.subModelPart.parts:
+        part.partOGL = partDictionary[part.filename]
 
     for partOGL in partDictionary.values():
         if partOGL.oglDispID == UNINIT_GL_DISPID:
             partOGL.createOGLDisplayList()
        
     for glItem in template.glItemIterator():
-        glItem.createOGLDisplayList()
-    
+        if hasattr(glItem, 'createOGLDisplayList'):
+            glItem.createOGLDisplayList()
+
+    template.subModelPart.createOGLDisplayList()
+    template.submodelItem.setPartOGL(template.subModelPart)
     template.postLoadInit(filename)
     return template
 
@@ -267,12 +270,11 @@ def __readPage(stream, parent, instructions, isTemplatePage = False):
     # Read in the optional submodel preview image
     hasSubmodelItem = stream.readBool()
     if hasSubmodelItem:
-        page.submodelItem = SubmodelPreview(page)
+        page.submodelItem = SubmodelPreview(page, page.subModel)
         page.addChild(stream.readInt32(), page.submodelItem)
         page.submodelItem.setPos(stream.readQPointF())
         page.submodelItem.setRect(stream.readQRectF())
         page.submodelItem.setPen(stream.readQPen())
-        page.submodelItem.setPixmap(stream.readQPixmap())
 
     # Read in any page separator lines
     borderCount = stream.readInt32()
@@ -391,8 +393,6 @@ def __readPLIItem(stream, pli):
 
     pliItem.numberItem.setPos(stream.readQPointF())
     pliItem.numberItem.setFont(stream.readQFont())
-    pliItem.pixmapItem.setPixmap(stream.readQPixmap())
-    pliItem.numberItem.setZValue(pliItem.pixmapItem.zValue() + 1)
     return pliItem
 
 def __readRoundedRectItem(stream, parent):

@@ -19,6 +19,7 @@ Template:
   QString filename
   partDictionary (from page.csi)
   Page templatePage
+  Submodel template.subModelPart
   
 Instructions:
   QString imported filename
@@ -126,7 +127,6 @@ SubmodelItem:
   QPointF pos
   QRectF rect
   QPen pen
-  QPixmap pixmap
 
 Step:
   int32 number
@@ -189,7 +189,6 @@ PLIItem:
   QRectF rect
   QPointF numberItem.pos
   QFont numberItem.font
-  QPixmap pixmapItem.pixmap
   
 RoundedRectItem:
   QPointF pos

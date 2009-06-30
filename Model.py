@@ -632,19 +632,12 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.children.remove(step)
 
     def addSubmodelImage(self):
-        self.submodelItem = SubmodelPreview(self)
+        self.submodelItem = SubmodelPreview(self, self.subModel)
         self.submodelItem.setPos(Page.margin)
-        self.resetSubmodelImage()
         self.children.append(self.submodelItem)
         
     def resetSubmodelImage(self):
-        
-        pixmap = self.subModel.pixmap()
-        if not pixmap:
-            print "Error: could not create a pixmap for page %d's submodel image" % self._number
-            return
-
-        self.submodelItem.setPixmap(pixmap)
+        self.submodelItem.setPartOGL(self.subModel)
 
     def checkForLayoutOverlaps(self):
         for step in self.steps:
@@ -761,8 +754,13 @@ class Page(PageTreeManager, QGraphicsRectItem):
         GLHelpers.popAllGLMatrices()
 
     def glItemIterator(self):
+        if self.submodelItem:
+            yield self.submodelItem
         for step in self.steps:
             yield step.csi
+            if step.pli:
+                for pliItem in step.pli.pliItems:
+                    yield pliItem
             for callout in step.callouts:
                 for step2 in callout.steps:
                     yield step2.csi
@@ -1380,17 +1378,23 @@ class Step(StepTreeManager, QGraphicsRectItem):
 class SubmodelPreview(GraphicsRoundRectItem):
     itemClassName = "SubmodelPreview"
     
-    def __init__(self, parent):
+    def __init__(self, parent, partOGL):
         GraphicsRoundRectItem.__init__(self, parent)
         self.dataText = "Submodel Preview"
         self.cornerRadius = 10
         self.setFlags(AllFlags)
+        self.setPartOGL(partOGL)
         
-    def setPixmap(self, pixmap):
-        self.pixmapItem = QGraphicsPixmapItem(pixmap, self)
-        self.pixmapItem.setPos(PLI.margin)
-        self.setRect(0, 0, pixmap.width() + PLI.margin.x() * 2, pixmap.height() + PLI.margin.y() * 2)
+    def setPartOGL(self, partOGL):
+        self.partOGL = partOGL
+        self.setRect(0, 0, partOGL.width + PLI.margin.x() * 2, partOGL.height + PLI.margin.y() * 2)
 
+    def paintGL(self):
+        pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
+        dx = pos.x() + (self.rect().width() / 2.0)
+        dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0)
+        self.partOGL.paintGL(dx, dy)
+    
 class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
     """ Represents one part inside a PLI along with its quantity label. """
     itemClassName = "PLIItem"
@@ -1404,10 +1408,6 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
 
         self.setPen(QPen(Qt.NoPen)) # QPen(Qt.black)
         self.setFlags(AllFlags)
-
-        # Stores a pixmap of the actual part
-        self.pixmapItem = QGraphicsPixmapItem(self)
-        self.pixmapItem.dataText = "Image"
 
         # Initialize the quantity label (position set in initLayout)
         self.numberItem = QGraphicsSimpleTextItem("0x", self)
@@ -1441,18 +1441,11 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
         
     def initLayout(self):
 
-        if not self.pixmapItem.boundingRect().width():
-            pixmap = self.partOGL.pixmap(self.color)
-            self.pixmapItem.setPixmap(pixmap)
-            self.pixmapItem.setPos(0, 0)
-                
         part = self.partOGL
 
         # Put label directly below part, left sides aligned
         # Label's implicit lower top right corner (from qty 'x'), means no padding needed
-        x = self.pixmapItem.pos().x()
-        y = self.pixmapItem.pos().y()
-        self.numberItem.setPos(x, y + (part.height * PLI.scale))  
+        self.numberItem.setPos(0.0, part.height * PLI.scale)  
        
         lblWidth = self.numberItem.boundingRect().width()
         lblHeight = self.numberItem.boundingRect().height()
@@ -1466,10 +1459,16 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
                 self.numberItem.moveBy(0, -dy)
 
         # Set this item to the union of its image and qty label rects
-        pixmapRect = self.pixmapItem.boundingRect().translated(self.pixmapItem.pos())
+        partRect = QRectF(0.0, 0.0, self.partOGL.width, self.partOGL.height)
         numberRect = self.numberItem.boundingRect().translated(self.numberItem.pos())
-        self.setRect(pixmapRect | numberRect)
+        self.setRect(partRect | numberRect)
         self.moveBy(-self.rect().x(), -self.rect().y())
+
+    def paintGL(self):
+        pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
+        dx = pos.x() + (self.partOGL.width / 2.0)
+        dy = -Page.PageSize.height() + pos.y() + (self.partOGL.height / 2.0)
+        self.partOGL.paintGL(dx, dy, self.color)
 
     """
     def paint(self, painter, option, widget = None):
@@ -1917,7 +1916,6 @@ class PartOGL(object):
         self.isPrimitive = False  # primitive here means any file in 'P'
         self.isSubmodel = False
         self.__boundingBox = None
-        self.__pixmapDict = {}  # cache pixmaps, keyed by LDraw color code
 
         self.width = self.height = -1
         self.leftInset = self.bottomInset = -1
@@ -2023,9 +2021,6 @@ class PartOGL(object):
 
         GL.glEndList()
 
-    def draw(self):
-        GL.glCallList(self.oglDispID)
-
     def buildSubPartOGLDict(self, partDict):
             
         for part in self.parts:
@@ -2063,48 +2058,31 @@ class PartOGL(object):
         self.width, self.height, self.center, self.leftInset, self.bottomInset = params
         return True
 
-    def pixmap(self, color = None):
-        global GlobalGLContext
-
+    def paintGL(self, dx, dy, color = None):
+         
         if self.isPrimitive:
-            return None  # Do not generate pixmaps for primitives
+            return # Do not draw primitives directly
 
-        # Check if we've already generated a pixmap for this part
-        if color is not None and color in self.__pixmapDict:
-            return self.__pixmapDict[color]
+        GLHelpers.pushAllGLMatrices()
 
-        w = self.width * PLI.scale
-        h = self.height * PLI.scale
-        x = self.center.x() * PLI.scale
-        y = self.center.y() * PLI.scale
-
-        pBuffer = QGLPixelBuffer(w, h, getGLFormat(), GlobalGLContext)
-        pBuffer.makeCurrent()
-
-        GLHelpers.initFreshContext(True)
-        GLHelpers.adjustGLViewport(0, 0, w, h)
+        dx += self.center.x() * PLI.scale
+        dy += self.center.y() * PLI.scale
+        
         if self.isSubmodel:
-            GLHelpers.rotateToDefaultView(x, y, 0.0, PLI.scale)
+            GLHelpers.rotateToDefaultView(dx, dy, 0.0, CSI.scale)
         else:
-            GLHelpers.rotateToPLIView(x, y, 0.0, PLI.scale)
-
+            GLHelpers.rotateToPLIView(dx, dy, 0.0, CSI.scale)
+        
         if color is not None:
             colorRGB = LDrawColors.convertToRGBA(color)
             if colorRGB == LDrawColors.CurrentColor:
                 colorRGB = LDrawColors.colors[2][:4]
             GL.glColor4fv(colorRGB)
 
-        self.draw()
+        GL.glCallList(self.oglDispID)
+        #self.calculateGLSize()
+        GLHelpers.popAllGLMatrices()
 
-        image = pBuffer.toImage()
-        self.__pixmapDict[color] = QPixmap.fromImage(image)
-        
-        #if image:
-        #    image.save("C:\\lic\\tmp\\part_buffer_%s.png" % self.filename, None)
-
-        GlobalGLContext.makeCurrent()
-        return self.__pixmapDict[color]
-    
     def getBoundingBox(self):
         if self.__boundingBox:
             return self.__boundingBox
@@ -2462,7 +2440,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
 
     def __init__(self, parent, name):
-        QGraphicsPixmapItem.__init__(self, parent)
+        QGraphicsRectItem.__init__(self, parent)
         self.name = name
         self.parts = []
         self._dataString = None  # Cache data string for tree

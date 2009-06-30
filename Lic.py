@@ -952,8 +952,10 @@ def main():
     filename = ""
     #filename = unicode("C:\\lic\\6x10_x.lic")
     #filename = unicode("C:\\lic\\viper_short.lic")
+    #filename = unicode("C:\\lic\\viper.mpd")
     #filename = unicode("C:\\lic\\6x10.lic")
     filename = unicode("C:\\lic\\6x10.dat")
+    #filename = unicode("C:\\lic\\template.dat")
     if filename:
         QTimer.singleShot(50, lambda: loadFile(window, filename))
 
@@ -961,7 +963,7 @@ def main():
 
 def loadFile(window, filename):
 
-    if filename[-3:] == 'dat':
+    if filename[-3:] == 'dat' or filename[-3:] == 'mpd':
         window.importLDrawModelTimerAction(filename)
     elif filename[-3:] == 'lic':
         window.loadLicFile(filename)

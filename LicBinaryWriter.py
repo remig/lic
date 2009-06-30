@@ -54,6 +54,7 @@ def __writeTemplate(stream, template):
     stream << QString(template.filename)
     __writePartDictionary(stream, partDictionary)
     __writePage(stream, template)
+    __writeSubmodel(stream, template.subModelPart)
 
 def __writeInstructions(stream, instructions):
 
@@ -181,7 +182,6 @@ def __writePage(stream, page):
         item = page.submodelItem
         stream.writeInt32(item.row())
         stream << item.pos() << item.rect() << item.pen() 
-        stream << item.pixmapItem.pixmap()
     else:
         stream.writeBool(False)
 
@@ -254,7 +254,7 @@ def __writePLIItem(stream, pliItem):
     stream.writeInt32(pliItem.color)
     stream.writeInt32(pliItem.quantity)
     stream << pliItem.pos() << pliItem.rect()
-    stream << pliItem.numberItem.pos() << pliItem.numberItem.font() << pliItem.pixmapItem.pixmap()
+    stream << pliItem.numberItem.pos() << pliItem.numberItem.font()
 
 def __writeRoundedRectItem(stream, parent):
     stream << parent.pos() << parent.rect() << parent.pen() << parent.brush()

@@ -61,6 +61,7 @@ class TemplatePage(Page):
         Page.__init__(self, subModel, instructions, 0, 0)
         self.__filename = None
         self.dataText = "Template Page"
+        self.subModelPart = None
 
     def __getFilename(self):
         return self.__filename
@@ -112,30 +113,34 @@ class TemplatePage(Page):
         step.data = lambda index: "Template Step"
         self.addStep(step)
         
+        self.subModelPart = Submodel()
         for part in self.subModel.parts[:5]:
             step.addPart(part.duplicate())
+            self.subModelPart.parts.append(part)
+
+        self.subModelPart.createOGLDisplayList()
+        self.initOGLDimension(self.subModelPart, glContext)
         
         step.csi.createOGLDisplayList()
-        self.initCSIDimension(glContext)
+        self.initOGLDimension(step.csi, glContext)
+
         self.addSubmodelImage()
+        self.submodelItem.setPartOGL(self.subModelPart)
+        
         self.initLayout()
         self.postLoadInit("dynamic_template.lit")
 
-    def initCSIDimension(self, glContext):
+    def initOGLDimension(self, part, glContext):
 
-        csi = self.steps[0].csi
-        sizes = [512, 1024, 2048]
         glContext.makeCurrent()
-
-        for size in sizes:
+        for size in [512, 1024, 2048]:
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
             pBuffer = QGLPixelBuffer(size, size, getGLFormat(), glContext)
             pBuffer.makeCurrent()
 
             # Render CSI and calculate its size
-            if csi.initSize(size, pBuffer):
+            if part.initSize(size, pBuffer):
                 break
-
         glContext.makeCurrent()
         
     def applyFullTemplate(self):
