@@ -749,9 +749,11 @@ class Page(PageTreeManager, QGraphicsRectItem):
 
     def drawGLItems(self, painter, rect):
         
-        GLHelpers.initFreshContext(False)
         GLHelpers.pushAllGLMatrices()
-        GLHelpers.adjustGLViewport(self.pos().x(), self.pos().y(), Page.PageSize.width(), Page.PageSize.height())
+        vx = self.pos().x() - rect.x()
+        vy = rect.height() + rect.y() - Page.PageSize.height() - self.pos().y() + 1
+        GLHelpers.adjustGLViewport(vx, vy, Page.PageSize.width(), Page.PageSize.height(), True)
+        GL.glTranslatef(rect.x(), rect.y(), 0.0)
         
         for step in self.steps:
             step.csi.paintGL(painter, rect)
@@ -1674,8 +1676,8 @@ class CSI(CSITreeManager, QGraphicsRectItem):
         GLHelpers.pushAllGLMatrices()
         
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
-        dx = pos.x() + (self.rect().width() / 2.0) - (Page.PageSize.width() / 2.0) + self.center.x() 
-        dy = pos.y() + (self.rect().height() / 2.0) - (Page.PageSize.height() / 2.0) + self.center.y()
+        dx = pos.x() + (self.rect().width() / 2.0) + self.center.x()
+        dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0) + self.center.y()
         GLHelpers.rotateToDefaultView(dx, dy, 0.0, CSI.scale)
         
         if self.rotation:

@@ -73,7 +73,7 @@ def initFreshContext(doClear):
     glEnable(GL_DEPTH_TEST)
     glEnable(GL_NORMALIZE)
         
-def adjustGLViewport(x, y, width, height):
+def adjustGLViewport(x, y, width, height, altOrtho = False):
     x = int(x)
     y = int(y)
     width = int(width)
@@ -81,11 +81,15 @@ def adjustGLViewport(x, y, width, height):
     glViewport(x, y, width, height)
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
-    width = max(1, width / 2)
-    height = max(1, height / 2)
 
     # Viewing box (left, right) (bottom, top), (near, far)
-    glOrtho( -width, width, -height, height, -3000, 3000 )
+    if altOrtho:
+        glOrtho(0, width, 0, height, -3000, 3000 )
+    else:
+        width = max(1, width / 2)
+        height = max(1, height / 2)
+        glOrtho(-width, width, -height, height, -3000, 3000 )
+        
     glMatrixMode(GL_MODELVIEW)
 
 def rotateView(x, y, z):

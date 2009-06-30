@@ -19,6 +19,7 @@ import povray
 import LicDialogs
 import LicUndoActions
 import Layout
+import GLHelpers
 
 __version__ = 0.1
 
@@ -52,8 +53,10 @@ class LicGraphicsScene(QGraphicsScene):
         self.guides = []
 
     def drawForeground(self, painter, rect):
-        if self.currentPage:
-            self.currentPage.drawGLItems(painter, rect)
+        GLHelpers.initFreshContext(False)
+        for page in self.pages:
+            if page.isVisible():
+                page.drawGLItems(painter, rect)
     
     def pageUp(self):
         self.selectPage(max(1, self.currentPage._number - 1))
@@ -67,16 +70,12 @@ class LicGraphicsScene(QGraphicsScene):
     def selectLastPage(self):
         self.selectPage(self.pages[-1]._number)
 
-    def selectCurrentPage(self):
-        if self.currentPage:
-            self.selectPage(self.currentPage._number)
-        
     def selectPage(self, pageNumber):
         for page in self.pages:
             if self.pagesToDisplay == 1 and page._number == pageNumber:
                 w = (self.width() - Page.PageSize.width()) / 2.0
                 h = (self.height() - Page.PageSize.height()) / 2.0
-                page.setPos(w, h)
+                page.setPos(0, 0)
                 page.show()
                 self.currentPage = page
             elif self.pagesToDisplay == 2 and page._number == pageNumber:
@@ -114,6 +113,7 @@ class LicGraphicsScene(QGraphicsScene):
         
     def showOnePage(self):
         self.pagesToDisplay = 1
+        self.setSceneRect(0, 0, Page.PageSize.width(), Page.PageSize.height())
         for page in self.pages:
             page.hide()
             page.setPos(0.0, 0.0)
@@ -396,12 +396,6 @@ class LicGraphicsView(QGraphicsView):
         self.setRenderHint(QPainter.Antialiasing)
         self.setRenderHint(QPainter.TextAntialiasing)
         self.setBackgroundBrush(QBrush(Qt.gray))
-
-    def resizeEvent(self, event):
-        if self.scene():
-            self.scene().setSceneRect(0.0, 0.0, event.size().width(), event.size().height())
-            self.scene().selectCurrentPage()
-        QGraphicsView.resizeEvent(self, event)
 
     def scaleView(self, scaleFactor):
         factor = self.matrix().scale(scaleFactor, scaleFactor).mapRect(QRectF(0, 0, 1, 1)).width()
