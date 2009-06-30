@@ -51,6 +51,10 @@ class LicGraphicsScene(QGraphicsScene):
         self.pages = []
         self.guides = []
 
+    def drawForeground(self, painter, rect):
+        if self.currentPage:
+            self.currentPage.drawGLItems(painter, rect)
+    
     def pageUp(self):
         self.selectPage(max(1, self.currentPage._number - 1))
 
@@ -63,10 +67,16 @@ class LicGraphicsScene(QGraphicsScene):
     def selectLastPage(self):
         self.selectPage(self.pages[-1]._number)
 
+    def selectCurrentPage(self):
+        if self.currentPage:
+            self.selectPage(self.currentPage._number)
+        
     def selectPage(self, pageNumber):
         for page in self.pages:
             if self.pagesToDisplay == 1 and page._number == pageNumber:
-                page.setPos(0, 0)
+                w = (self.width() - Page.PageSize.width()) / 2.0
+                h = (self.height() - Page.PageSize.height()) / 2.0
+                page.setPos(w, h)
                 page.show()
                 self.currentPage = page
             elif self.pagesToDisplay == 2 and page._number == pageNumber:
@@ -104,7 +114,6 @@ class LicGraphicsScene(QGraphicsScene):
         
     def showOnePage(self):
         self.pagesToDisplay = 1
-        self.setSceneRect(0, 0, Page.PageSize.width(), Page.PageSize.height())
         for page in self.pages:
             page.hide()
             page.setPos(0.0, 0.0)
@@ -387,7 +396,13 @@ class LicGraphicsView(QGraphicsView):
         self.setRenderHint(QPainter.Antialiasing)
         self.setRenderHint(QPainter.TextAntialiasing)
         self.setBackgroundBrush(QBrush(Qt.gray))
-    
+
+    def resizeEvent(self, event):
+        if self.scene():
+            self.scene().setSceneRect(0.0, 0.0, event.size().width(), event.size().height())
+            self.scene().selectCurrentPage()
+        QGraphicsView.resizeEvent(self, event)
+
     def scaleView(self, scaleFactor):
         factor = self.matrix().scale(scaleFactor, scaleFactor).mapRect(QRectF(0, 0, 1, 1)).width()
 
@@ -414,9 +429,9 @@ class LicWindow(QMainWindow):
         self.scene.undoStack = self.undoStack  # Make undo stack easy to find for everything
 
         self.graphicsView = LicGraphicsView(self)
-        self.graphicsView.setScene(self.scene)
         self.graphicsView.setViewport(self.glWidget)
         self.graphicsView.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
+        self.graphicsView.setScene(self.scene)
         self.scene.setSceneRect(0, 0, Page.PageSize.width(), Page.PageSize.height())
         
         self.createUndoSignals()
@@ -944,14 +959,26 @@ def main():
     #filename = unicode("C:\\lic\\6x10_x.lic")
     #filename = unicode("C:\\lic\\viper_short.lic")
     #filename = unicode("C:\\lic\\6x10.lic")
+    filename = unicode("C:\\lic\\6x10.dat")
     if filename:
         QTimer.singleShot(50, lambda: loadFile(window, filename))
 
     sys.exit(app.exec_())
 
-def loadFile(window, filename):    
-    window.loadLicFile(filename)
-    window.scene.selectPage(0)
+def loadFile(window, filename):
+
+    if filename[-3:] == 'dat':
+        window.importLDrawModelTimerAction(filename)
+    elif filename[-3:] == 'lic':
+        window.loadLicFile(filename)
+    else:
+        print "Bad file extension: " + filename
+        return
+
+    window.scene.selectPage(1)
     
 if __name__ == '__main__':
+    #import cProfile
+    #cProfile.run('main()', 'profile_run')
     main()
+

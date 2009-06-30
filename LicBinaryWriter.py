@@ -230,9 +230,9 @@ def __writeCallout(stream, callout):
     
 def __writeCSI(stream, csi):
     stream << csi.pos()
-    stream.writeInt32(csi.width)
-    stream.writeInt32(csi.height)
-    stream << csi.center << csi.pixmap()
+    stream.writeInt32(csi.rect().width())
+    stream.writeInt32(csi.rect().height())
+    stream << csi.center
     
     rotation = csi.rotation if csi.rotation else [0.0, 0.0, 0.0]
     for i in rotation:

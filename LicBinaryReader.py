@@ -333,10 +333,8 @@ def __readCSI(stream, step):
     csi = CSI(step)
     csi.setPos(stream.readQPointF())
 
-    csi.width = stream.readInt32()
-    csi.height = stream.readInt32()
+    csi.setRect(0.0, 0.0, stream.readInt32(), stream.readInt32())
     csi.center = stream.readQPointF()
-    csi.setPixmap(stream.readQPixmap())
 
     x, y, z = stream.readFloat(), stream.readFloat(), stream.readFloat()
     if (x != 0.0) and (y != 0.0) and (z != 0.0):

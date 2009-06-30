@@ -117,7 +117,6 @@ class TemplatePage(Page):
         
         step.csi.createOGLDisplayList()
         self.initCSIDimension(glContext)
-        step.csi.createPixmap()
         self.addSubmodelImage()
         self.initLayout()
         self.postLoadInit("dynamic_template.lit")

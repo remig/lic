@@ -165,10 +165,9 @@ Callout:
   
 CSI:
   QPointF pos
-  int32 width
-  int32 height
+  int32 rect.width
+  int32 rect.height
   QPointF center
-  QPixmap pixmap
 
   float rotation x
   float rotation y

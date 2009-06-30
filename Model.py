@@ -162,10 +162,7 @@ class GraphicsRoundRectItem(QGraphicsRectItem):
             painter.drawRect(self.rect())
     
         if self.isSelected():
-            pen = QPen(Qt.DashLine)
-            pen.setColor(Qt.red)
-            painter.setPen(pen)
-            painter.setBrush(Qt.transparent)
+            painter.setPen(QPen(Qt.red))
             painter.drawRect(self.rect())
 
     def pen(self):
@@ -245,10 +242,6 @@ class Instructions(QObject):
             currentCount = step
             yield (step, label)
             
-        currentCount += 1
-        yield (currentCount, "Initializing CSI Pixmaps")
-        self.initCSIPixmaps()
-        
         currentCount += 1
         yield (currentCount, "Initializing Submodel Images")
         self.mainModel.addSubmodelImages()
@@ -389,11 +382,6 @@ class Instructions(QObject):
 
         GlobalGLContext.makeCurrent()
         
-    def initCSIPixmaps(self):
-        for csi in self.mainModel.getCSIList():
-            if csi.width > 0 and csi.height > 0:
-                csi.createPixmap()
-        
     def initPLIPixmaps(self):
         for page in self.mainModel.pages:
             page.scaleImages()
@@ -436,7 +424,6 @@ class Instructions(QObject):
         
         if newCSISize != CSI.scale:
             CSI.scale = newCSISize
-            self.initCSIPixmaps()
 
         if newPLISize != PLI.scale:
             PLI.scale = newPLISize
@@ -449,13 +436,11 @@ class Instructions(QObject):
     def enlargePixmaps(self):
         CSI.scale += 0.5
         PLI.scale += 0.5
-        self.initCSIPixmaps()
         self.initPLIPixmaps()
     
     def shrinkPixmaps(self):
         CSI.scale -= 0.5
         PLI.scale -= 0.5
-        self.initCSIPixmaps()
         self.initPLIPixmaps()
 
 class Page(PageTreeManager, QGraphicsRectItem):
@@ -762,6 +747,20 @@ class Page(PageTreeManager, QGraphicsRectItem):
             painter.setBrush(self.brush)
             painter.drawRect(self.rect())
 
+    def drawGLItems(self, painter, rect):
+        
+        GLHelpers.initFreshContext(False)
+        GLHelpers.pushAllGLMatrices()
+        GLHelpers.adjustGLViewport(self.pos().x(), self.pos().y(), Page.PageSize.width(), Page.PageSize.height())
+        
+        for step in self.steps:
+            step.csi.paintGL(painter, rect)
+            for callout in step.callouts:
+                for step2 in callout.steps:
+                    step2.csi.paintGL(painter, rect)
+            
+        GLHelpers.popAllGLMatrices()
+
     def contextMenuEvent(self, event):
         
         menu = QMenu(self.scene().views()[0])
@@ -872,7 +871,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         # Find two target rects, both in *LOCAL* coordinates
         callout = self.parentItem()
         calloutRect = self.mapFromItem(callout, callout.rect()).boundingRect()
-        csiRect = self.mapFromItem(self.csi, self.csi.boundingRect()).boundingRect()
+        csiRect = self.mapFromItem(self.csi, self.csi.rect()).boundingRect()
 
         if csiRect.right() < calloutRect.left():  # Callout right of CSI
             self.tipRect.point = csiRect.topRight() + QPointF(0.0, csiRect.height() / 2.0)
@@ -897,7 +896,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         # Find two target rects, both in *LOCAL* coordinates
         callout = self.parentItem()
         calloutRect = self.mapFromItem(callout, callout.rect()).boundingRect()
-        csiRect = self.mapFromItem(self.csi, self.csi.boundingRect()).boundingRect()
+        csiRect = self.mapFromItem(self.csi, self.csi.rect()).boundingRect()
 
         tip = self.mapFromItem(self.csi, self.tipRect.point)
         end = self.baseRect.point
@@ -1241,7 +1240,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
             return True
         if self.csi.pos().y() < self.pli.rect().top():
             return True
-        if self.csi.boundingRect().width() > self.rect().width():
+        if self.csi.rect().width() > self.rect().width():
             return True
         if self.pli.rect().width() > self.rect().width():
             return True
@@ -1282,8 +1281,8 @@ class Step(StepTreeManager, QGraphicsRectItem):
         if self.hasPLI():
             r.setTop(self.pli.rect().height())
 
-        csiWidth = self.csi.width * CSI.scale
-        csiHeight = self.csi.height * CSI.scale
+        csiWidth = self.csi.rect().width() * CSI.scale
+        csiHeight = self.csi.rect().height() * CSI.scale
 
         if not self.callouts:
             
@@ -1633,22 +1632,24 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
             self.setRect(pliBox)
             prevItem = item
 
-class CSI(CSITreeManager, QGraphicsPixmapItem):
+class CSI(CSITreeManager, QGraphicsRectItem):
     """ Construction Step Image.  Includes border and positional info. """
     itemClassName = "CSI"
 
     scale = 1.0
 
     def __init__(self, step):
-        QGraphicsPixmapItem.__init__(self, step)
+        QGraphicsRectItem.__init__(self, step)
 
         self.center = QPointF()
-        self.width = self.height = 0
         self.oglDispID = UNINIT_GL_DISPID
         self.setFlags(AllFlags)
+        self.setPen(QPen(Qt.NoPen))
 
         self._row = 0
         self.rotation = None
+        
+        self.__boxPoints = None
         
         self.parts = []
         self.arrows = []
@@ -1668,6 +1669,22 @@ class CSI(CSITreeManager, QGraphicsPixmapItem):
     def data(self, index):
         return "CSI - %d parts" % self.partCount()
 
+    def paintGL(self, painter, rect):
+        
+        GLHelpers.pushAllGLMatrices()
+        
+        pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
+        dx = pos.x() + (self.rect().width() / 2.0) - (Page.PageSize.width() / 2.0) + self.center.x() 
+        dy = pos.y() + (self.rect().height() / 2.0) - (Page.PageSize.height() / 2.0) + self.center.y()
+        GLHelpers.rotateToDefaultView(dx, dy, 0.0, CSI.scale)
+        
+        if self.rotation:
+            GLHelpers.rotateView(*self.rotation)
+
+        GL.glCallList(self.oglDispID)
+        #self.calculateGLSize()
+        GLHelpers.popAllGLMatrices()
+    
     def addPart(self, part):
         for p in self.parts:
             if p.name == part.partOGL.name:
@@ -1722,48 +1739,62 @@ class CSI(CSITreeManager, QGraphicsPixmapItem):
         GL.glEndList()
 
     def calculateGLSize(self):
-        # TODO: If the pixmap & FBO solution gets too slow, try a pure GL solution (see project.py)
-        minX, minY = 150, 150
-        maxX, maxY = 0, 0
         
-        for partItem in self.parts:
-            for part in partItem.parts:
-                for v in part.vertexIterator():
-                    res = GLU.gluProject(v[0], v[1], v[2])
-                    maxX = max(res[0], maxX)
-                    maxY = max(res[1], maxY)
-                
-                    minX = min(res[0], minX)
-                    minY = min(res[1], minY)
-                
-        print "x min: %f, max: %f" % (minX, maxX)
-        print "y min: %f, max: %f" % (minY, maxY)
+        # TODO: This works, but its actually *slower* than the current image buffer solution.
+        # If possible, try to speed it up, since there's way more room for optimization here
+        # than the image buffer way (plus we can then ditch FBOs).
+        if self.__boxPoints is None:
+
+            minX, minY = 100000, 100000
+            maxX, maxY = 0, 0
+            i = 0
+            
+            for partItem in self.parts:
+                for part in partItem.parts:
+                    for v in part.vertexIterator(True):
+                        i+=1
+                        resX, resY, resZ = GLU.gluProject(v[0], v[1], v[2])
+                        maxX = max(resX, maxX)
+                        maxY = max(resY, maxY)
+                    
+                        minX = min(resX, minX)
+                        minY = min(resY, minY)
+                    
+            print "x min: %f, max: %f" % (minX, maxX)
+            print "y min: %f, max: %f" % (minY, maxY)
+            print "vertex count: %d" % i
         
-        aX, aY, aZ = GLU.gluUnProject(minX, minY, 0.0)
-        bX, bY, bZ = GLU.gluUnProject(minX, maxY, 0.0)
-        cX, cY, cZ = GLU.gluUnProject(maxX, maxY, 0.0)
-        dX, dY, dZ = GLU.gluUnProject(maxX, minY, 0.0)
+            aX, aY, aZ = GLU.gluUnProject(minX, minY, 0.0)
+            bX, bY, bZ = GLU.gluUnProject(minX, maxY, 0.0)
+            cX, cY, cZ = GLU.gluUnProject(maxX, maxY, 0.0)
+            dX, dY, dZ = GLU.gluUnProject(maxX, minY, 0.0)
+            
+            self.__boxPoints = [[aX, aY, aZ], [bX, bY, bZ], [cX, cY, cZ], [dX, dY, dZ]]
+
+        GL.glPushAttrib(GL.GL_CURRENT_BIT)
+        GL.glColor4fv([1.0, 0.0, 0.0, 1.0])
+        
+        GL.glBegin(GL.GL_LINE_LOOP)
+        GL.glVertex3fv(self.__boxPoints[0])
+        GL.glVertex3fv(self.__boxPoints[1])
+        GL.glVertex3fv(self.__boxPoints[2])
+        GL.glVertex3fv(self.__boxPoints[3])
+        GL.glEnd()
     
-    def updatePixmap(self, rebuildDisplayList):
-
-        if rebuildDisplayList or self.oglDispID == UNINIT_GL_DISPID:
-            self.createOGLDisplayList()
-        self.createPixmap()
-
+        GL.glPopAttrib()
+    
     def resetPixmap(self):
         global GlobalGLContext
         
         if not self.parts:
             self.center = QPointF()
-            self.width = self.height = 0
+            self.setRect(QRectF())
             self.oglDispID = UNINIT_GL_DISPID
-            self.setPixmap(QPixmap())
             return  # No parts = reset pixmap
         
         # Temporarily enlarge CSI, in case recent changes pushed image out of existing bounds.
-        oldWidth, oldHeight = self.width, self.height
-        self.width = Page.PageSize.width()
-        self.height = Page.PageSize.height()
+        oldWidth, oldHeight = self.rect().width(), self.rect().height()
+        self.setRect(0.0, 0.0, Page.PageSize.width(), Page.PageSize.height())
         
         GlobalGLContext.makeCurrent()
         self.createOGLDisplayList()
@@ -1778,11 +1809,9 @@ class CSI(CSITreeManager, QGraphicsPixmapItem):
             if self.initSize(size, pBuffer):
                 break
 
-        self.updatePixmap(False)
-        
         # Move CSI so its new center matches its old
-        dx = (self.width - oldWidth) / 2.0
-        dy = (self.height - oldHeight) / 2.0
+        dx = (self.rect().width() - oldWidth) / 2.0
+        dy = (self.rect().height() - oldHeight) / 2.0
         self.moveBy(-dx, -dy)
 
         GlobalGLContext.makeCurrent()
@@ -1819,37 +1848,9 @@ class CSI(CSITreeManager, QGraphicsPixmapItem):
         if params is None:
             return False
 
-        self.width, self.height, self.center, x, y = params  # x & y are just ignored place-holders
+        w, h, self.center, x, y = params  # x & y are just ignored place-holders
+        self.setRect(0.0, 0.0, w, h)
         return result
-
-    def createPixmap(self):
-        global GlobalGLContext
-        GlobalGLContext.makeCurrent()
-        
-        pBuffer = QGLPixelBuffer(self.width * CSI.scale, self.height * CSI.scale, getGLFormat(), GlobalGLContext)
-        pBuffer.makeCurrent()
-        self.createPixmapFromBuffer(pBuffer)
-
-        GlobalGLContext.makeCurrent()
-    
-    def createPixmapFromBuffer(self, pBuffer):
-        """ Requires a current GL Context, either the global one or a local PixelBuffer """
-
-        GLHelpers.initFreshContext()
-        w = self.width * CSI.scale
-        h = self.height * CSI.scale
-        x = self.center.x() * CSI.scale
-        y = self.center.y() * CSI.scale
-        GLHelpers.adjustGLViewport(0, 0, w, h)
-        GLHelpers.rotateToDefaultView(x, y, 0.0, CSI.scale)
-        if self.rotation:
-            GLHelpers.rotateView(*self.rotation)
-
-        GL.glCallList(self.oglDispID)
-
-        image = pBuffer.toImage()
-        self.setPixmap(QPixmap.fromImage(image))
-        #image.save("C:\\lic\\tmp\\glrender.png")
 
     def createPng(self):
 
@@ -1862,7 +1863,7 @@ class CSI(CSITreeManager, QGraphicsPixmapItem):
             fh.close()
             
         povFile = l3p.createPovFromDat(datFile)
-        pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, CSI.scale, isPLIItem = False)
+        pngFile = povray.createPngFromPov(povFile, self.rect().width(), self.rect().height(), self.center, CSI.scale, isPLIItem = False)
         self.pngImage = QImage(pngFile)
         
     def exportToLDrawFile(self, fh):
@@ -1948,8 +1949,6 @@ class PartOGL(object):
 
             self._loadOneLDrawLineCommand(line)
 
-        #self.sortEdgesToBack()  # TODO: Fix this - necessary?
-
     def _loadOneLDrawLineCommand(self, line):
 
         if isValidPartLine(line):
@@ -1990,17 +1989,22 @@ class PartOGL(object):
         self.primitives.append(primitive)
 
     def vertexIterator(self):
+
+        prevVertex = None
         for primitive in self.primitives:
-            for vertex in primitive.vertexIterator():
-                yield vertex
+            if primitive.type == GL.GL_LINES:
+                v1, v2 = primitive.vertexIterator()
+                if v1 != prevVertex:
+                    yield v1
+                prevVertex = v2
+                yield v2
+                
         for part in self.parts:
             for vertex in part.vertexIterator():
                 yield vertex
 
     def createOGLDisplayList(self):
         """ Initialize this part's display list."""
-
-        #self.sortEdgesToBack()  # TODO: Fix this - necessary?
 
         # Ensure any parts in this part have been initialized
         for part in self.parts:
@@ -2077,7 +2081,7 @@ class PartOGL(object):
         pBuffer = QGLPixelBuffer(w, h, getGLFormat(), GlobalGLContext)
         pBuffer.makeCurrent()
 
-        GLHelpers.initFreshContext()
+        GLHelpers.initFreshContext(True)
         GLHelpers.adjustGLViewport(0, 0, w, h)
         if self.isSubmodel:
             GLHelpers.rotateToDefaultView(x, y, 0.0, PLI.scale)
@@ -2548,7 +2552,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def setSelected(self, selected, updatePixmap = True):
         QGraphicsRectItem.setSelected(self, selected)
         if updatePixmap:
-            self.getCSI().updatePixmap(True)
+            self.getCSI().createOGLDisplayList()
 
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
@@ -2897,12 +2901,7 @@ class Primitive(object):
 
     def vertexIterator(self):
         p = self.points
-        yield (p[0], p[1], p[2])
-        yield (p[3], p[4], p[5])
-        if self.type != GL.GL_LINES:
-            yield (p[6], p[7], p[8])
-            if self.type == GL.GL_QUADS:
-                yield (p[9], p[10], p[11])
+        return (p[0], p[1], p[2]), (p[3], p[4], p[5])
 
     # TODO: using numpy for all this would probably work a lot better
     def addNormal(self, p1, p2, p3):

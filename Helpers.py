@@ -103,6 +103,13 @@ def genericMouseReleaseEvent(className):
 def genericGetPage(self):
     return self.parentItem().getPage()
 
+def graphicsRectPaint(self, painter, option, widget = None):
+
+    # Trying to draw a dashed line interferes very strangely with GL foreground rendering...
+    if self.isSelected():
+        painter.setPen(QPen(Qt.red))
+        painter.drawRect(self.rect())
+    
 QGraphicsLineItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
 QGraphicsLineItem.mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsItem)
 
@@ -110,6 +117,7 @@ QGraphicsRectItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShap
 QGraphicsRectItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)
 QGraphicsRectItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
+QGraphicsRectItem.paint = graphicsRectPaint
 QGraphicsRectItem.getPage = genericGetPage
 
 QGraphicsSimpleTextItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)

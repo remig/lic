@@ -55,7 +55,7 @@ def setupMaterial():
     glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
     glEnable(GL_COLOR_MATERIAL)
 
-def initFreshContext():
+def initFreshContext(doClear):
     
     glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 0)
     glShadeModel(GL_SMOOTH)
@@ -66,9 +66,11 @@ def initFreshContext():
     setupLighting()
     setupMaterial()
     
+    if doClear:
+        glClearColor(0.0, 0.0, 0.0, 0.0)
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+
     glEnable(GL_DEPTH_TEST)
-    glClearColor(0.0, 0.0, 0.0, 0.0)
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glEnable(GL_NORMALIZE)
         
 def adjustGLViewport(x, y, width, height):
