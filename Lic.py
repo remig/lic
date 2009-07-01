@@ -55,7 +55,7 @@ class LicGraphicsScene(QGraphicsScene):
     def drawForeground(self, painter, rect):
         GLHelpers.initFreshContext(False)
         for page in self.pages:
-            if page.isVisible():
+            if page.isVisible() and rect.intersects(page.rect().translated(page.pos())):
                 page.drawGLItems(painter, rect)
     
     def pageUp(self):
@@ -954,7 +954,7 @@ def main():
     #filename = unicode("C:\\lic\\viper_short.lic")
     #filename = unicode("C:\\lic\\viper.mpd")
     #filename = unicode("C:\\lic\\6x10.lic")
-    filename = unicode("C:\\lic\\6x10.dat")
+    #filename = unicode("C:\\lic\\6x10.dat")
     #filename = unicode("C:\\lic\\template.dat")
     if filename:
         QTimer.singleShot(50, lambda: loadFile(window, filename))

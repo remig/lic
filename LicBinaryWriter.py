@@ -53,8 +53,8 @@ def __writeTemplate(stream, template):
 
     stream << QString(template.filename)
     __writePartDictionary(stream, partDictionary)
-    __writePage(stream, template)
     __writeSubmodel(stream, template.subModelPart)
+    __writePage(stream, template)
 
 def __writeInstructions(stream, instructions):
 

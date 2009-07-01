@@ -73,8 +73,9 @@ def __readTemplate(stream, instructions):
     partDictionary, submodelDictionary = {}, {}
     __readPartDictionary(stream, partDictionary)
 
-    template = __readPage(stream, instructions.mainModel, instructions, True)
-    template.subModelPart = __readSubmodel(stream, None)
+    subModelPart = __readSubmodel(stream, None)
+    template = __readPage(stream, instructions.mainModel, instructions, subModelPart)
+    template.subModelPart = subModelPart
 
     for part in template.steps[0].csi.getPartList():
         part.partOGL = partDictionary[part.filename]
@@ -242,13 +243,15 @@ def __readPart(stream):
 
     return part
 
-def __readPage(stream, parent, instructions, isTemplatePage = False):
+def __readPage(stream, parent, instructions, templateModel = None):
 
     number = stream.readInt32()
     row = stream.readInt32()
     
-    if isTemplatePage:
+    if templateModel:
         page = TemplatePage(parent, instructions)
+        if page.subModel is None:
+            page.subModel = templateModel
     else:
         page = Page(parent, instructions, number, row)
 

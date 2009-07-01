@@ -749,7 +749,8 @@ class Page(PageTreeManager, QGraphicsRectItem):
         GL.glTranslatef(rect.x(), rect.y(), 0.0)
         
         for glItem in self.glItemIterator():
-            glItem.paintGL()
+            if rect.intersects(glItem.mapToScene(glItem.rect()).boundingRect()):
+                glItem.paintGL()
             
         GLHelpers.popAllGLMatrices()
 
