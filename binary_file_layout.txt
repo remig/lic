@@ -154,6 +154,8 @@ Callout:
   
   QPointF callout.arrow.tipRect.point
   QPointF callout.arrow.baseRect.point
+  QPen callout.arrow.pen
+  QBrush callout.arrow.brush
   
   bool hasQuantityLabel
   QPointF qtyLabel.pos, if hasQuantityLabel

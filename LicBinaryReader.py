@@ -324,6 +324,8 @@ def __readCallout(stream, parent):
     
     callout.arrow.tipRect.point = stream.readQPointF()
     callout.arrow.baseRect.point = stream.readQPointF()
+    callout.arrow.setPen(stream.readQPen())
+    callout.arrow.setBrush(stream.readQBrush())
 
     if stream.readBool():  # has quantity label
         callout.addQuantityLabel(stream.readQPointF(), stream.readQFont())

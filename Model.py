@@ -2413,6 +2413,9 @@ class Submodel(SubmodelTreeManager, PartOGL):
         for page in self.pages:
             for step in page.steps:
                 csiList.append(step.csi)
+                for callout in step.callouts:
+                    for step2 in callout.steps:
+                        csiList.append(step2.csi)
 
         for submodel in self.submodels:
             csiList += submodel.getCSIList()

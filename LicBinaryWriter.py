@@ -218,6 +218,7 @@ def __writeCallout(stream, callout):
     __writeRoundedRectItem(stream, callout)
     stream << callout.arrow.tipRect.point
     stream << callout.arrow.baseRect.point
+    stream << callout.arrow.pen() << callout.arrow.brush()
     
     stream.writeBool(True if callout.qtyLabel else False)
     if callout.qtyLabel:
