@@ -247,11 +247,11 @@ class BackgroundImagePropertiesDlg(QDialog):
 
 class PenDlg(QDialog):
     
-    def __init__(self, parent, originalPen, hasRadius):
+    def __init__(self, parent, originalPen, hasRadius, fillColor):
         QDialog.__init__(self, parent)
         self.setAttribute(Qt.WA_DeleteOnClose)
 
-        self.originalPen, self.hasRadius = originalPen, hasRadius
+        self.originalPen, self.hasRadius, self.fillColor = originalPen, hasRadius, fillColor
 
         self.penWidthSpinBox = QSpinBox()
         self.penWidthSpinBox.setRange(0, 20)
@@ -307,9 +307,14 @@ class PenDlg(QDialog):
     
             self.cornerRadiusLabel = QLabel(self.tr("Corner &Radius:"))
             self.cornerRadiusLabel.setBuddy(self.cornerRadiusSpinBox)
-
-        self.penColorButton = QPushButton(self.tr("C&olor"))
+            
+        self.penColorButton = QPushButton(self.tr("Border C&olor"))
         self.penColorButton.color = originalPen.color()
+
+        if self.fillColor:
+            self.fillColorButton = QPushButton(self.tr("Fill C&olor"))
+            self.fillColorButton.color = self.fillColor
+
         buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
         
         mainLayout = QGridLayout()
@@ -321,23 +326,31 @@ class PenDlg(QDialog):
         mainLayout.addWidget(self.penCapComboBox, 2, 1)
         mainLayout.addWidget(self.penJoinLabel, 3, 0)
         mainLayout.addWidget(self.penJoinComboBox, 3, 1)
+        
+        offset = 5
         if self.hasRadius:
+            offset += 1
             mainLayout.addWidget(self.cornerRadiusLabel, 4, 0)
             mainLayout.addWidget(self.cornerRadiusSpinBox, 4, 1)
-            mainLayout.addWidget(self.penColorButton, 5, 0, 1, 2)
-            mainLayout.addWidget(buttonBox, 6, 0, 1, 2)
-        else:
-            mainLayout.addWidget(self.penColorButton, 4, 0, 1, 2)
-            mainLayout.addWidget(buttonBox, 5, 0, 1, 2)
+            
+        mainLayout.addWidget(self.penColorButton, 5 if self.hasRadius else 4, 0, 1, 2)
+        
+        if self.fillColor:
+            offset += 1
+            mainLayout.addWidget(self.fillColorButton, 6 if self.hasRadius else 5, 0, 1, 2)
+
+        mainLayout.addWidget(buttonBox, offset, 0, 1, 2)
         self.setLayout(mainLayout)
 
-        if self.hasRadius:
-            self.connect(self.cornerRadiusSpinBox, SIGNAL("valueChanged(int)"), self.penChanged)
         self.connect(self.penWidthSpinBox, SIGNAL("valueChanged(int)"), self.penChanged)
         self.connect(self.penStyleComboBox, SIGNAL("activated(int)"), self.penChanged)
         self.connect(self.penCapComboBox, SIGNAL("activated(int)"), self.penChanged)
         self.connect(self.penJoinComboBox, SIGNAL("activated(int)"), self.penChanged)
+        if self.hasRadius:
+            self.connect(self.cornerRadiusSpinBox, SIGNAL("valueChanged(int)"), self.penChanged)
         self.connect(self.penColorButton, SIGNAL("clicked()"), self.getColor)
+        if self.fillColor:
+            self.connect(self.fillColorButton, SIGNAL("clicked()"), self.getFillColor)
 
         self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
@@ -346,11 +359,23 @@ class PenDlg(QDialog):
         self.setWindowTitle(self.tr("Border Properties"))
 
     def getColor(self):
-        color = QColorDialog.getColor(self.penColorButton.color, self)
+        color, value = QColorDialog.getRgba(self.penColorButton.color.rgba(), self)
+        color = QColor.fromRgba(color)
         if color.isValid(): 
             self.penColorButton.color = color
             self.penChanged()
 
+    def getFillColor(self):
+        color, value = QColorDialog.getRgba(self.fillColorButton.color.rgba(), self)
+        color = QColor.fromRgba(color)
+        if color.isValid(): 
+            self.fillColorButton.color = color
+            self.brushChanged()
+        
+    def brushChanged(self):
+        brush = QBrush(self.fillColorButton.color)
+        self.emit(SIGNAL("brushChanged"), brush)
+        
     def penChanged(self):
         width = self.penWidthSpinBox.value()
         style = Qt.PenStyle(self.penStyleComboBox.itemData(self.penStyleComboBox.currentIndex(), Qt.UserRole).toInt()[0])

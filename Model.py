@@ -1,5 +1,6 @@
 import math   # for sqrt
 import os     # for output path creation
+import time
 
 from OpenGL import GL
 from OpenGL import GLU
@@ -209,6 +210,7 @@ class Instructions(QObject):
         GlobalGLContext.makeCurrent()
 
     def importLDrawModel(self, filename):
+        #startTime = time.time()
         
         global currentModelFilename        
         currentModelFilename = filename
@@ -254,6 +256,9 @@ class Instructions(QObject):
             yield (currentCount, label)
 
         self.mainModel.mergeInitialPages()
+        #endTime = time.time()
+        #print "Total load time: %.2f" % (endTime - startTime)
+        
         yield (totalCount, "Import Complete!")
 
     def getModelName(self):
@@ -848,6 +853,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
     itemClassName = "CalloutArrow"
     
     defaultPen = QPen(Qt.black)
+    defaultBrush = QBrush(Qt.transparent)  # Fill arrow head
     arrowTipLength = 22.0
     arrowTipHeight = 5.0
     arrowHead = QPolygonF([QPointF(),
@@ -861,6 +867,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
 
         self.csi = csi
         self.setPen(self.defaultPen)
+        self.setBrush(self.defaultBrush)
         self.setFlags(NoMoveFlags)
         
         self.tipRect = CalloutArrowEndItem(self, 32, 32, "Arrow Tip", 0)
@@ -955,13 +962,13 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         # Draw step line
         line = QPolygonF([tip + offset, mid1, mid2, end])
         painter.setPen(self.pen())
-        painter.setBrush(self.brush())
         painter.drawPolyline(line)
 
         # Draw arrow head
         painter.save()
         painter.translate(tip)
         painter.rotate(rotation)
+        painter.setBrush(self.brush())
         painter.drawPolygon(self.arrowHead)
         painter.restore()
 

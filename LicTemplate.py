@@ -3,28 +3,28 @@ from LicUndoActions import *
 
 class TemplateLineItem(object):
 
-    def contextMenuEvent(self, event):
-        menu = QMenu(self.scene().views()[0])
-        menu.addAction("Format Border", self.formatBorder)
-        menu.exec_(event.screenPos())
-
-    def formatBorder(self):
+    def formatBorder(self, fillColor = False):
         
         self.setSelected(False)  # Deselect to better see new border changes
         parentWidget = self.scene().views()[0]
         stack = self.scene().undoStack
-        action = lambda newPen: stack.push(SetPenCommand(self, self.pen(), newPen))
-        dialog = LicDialogs.PenDlg(parentWidget, self.pen(), hasattr(self, 'cornerRadius'))
-        parentWidget.connect(dialog, SIGNAL("changed"), action)
+        dialog = LicDialogs.PenDlg(parentWidget, self.pen(), hasattr(self, 'cornerRadius'), fillColor)
         
+        penAction = lambda newPen: stack.push(SetPenCommand(self, self.pen(), newPen))
+        parentWidget.connect(dialog, SIGNAL("changed"), penAction)
+        
+        brushAction = lambda newBrush: stack.push(SetBrushCommand(self, self.brush(), newBrush))
+        parentWidget.connect(dialog, SIGNAL("brushChanged"), brushAction)
+        parentWidget.connect(dialog, SIGNAL("reset"), self.resetAction)
+        
+        # TODO: Try messing with the undo stack index to see if we can avoid the 'undo cancel' annoyance
         stack.beginMacro("change Border")
         dialog.exec_()
         stack.endMacro()
     
-    def changePen(self, newPen):
-        self.setPen(newPen)
-        self.update()
-
+    def resetAction(self):
+        pass
+    
 class TemplateRectItem(TemplateLineItem):
     """ Encapsulates functionality common to all template GraphicItems, like formatting border & fill""" 
 
@@ -252,11 +252,16 @@ class TemplateCalloutArrow(TemplateLineItem, CalloutArrow):
     
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
-        menu.addAction("Format Border", self.formatBorder)
-        self.fillArrow = menu.addAction("Fill Arrow")
-        self.fillArrow.setCheckable(True)
-        self.fillArrow.setChecked(True)
+        menu.addAction("Format Border", lambda: self.formatBorder(self.brush().color()))
         menu.exec_(event.screenPos())
+
+    def setPen(self, newPen):
+        CalloutArrow.setPen(self, newPen)
+        CalloutArrow.defaultPen = newPen
+
+    def setBrush(self, newBrush):
+        CalloutArrow.setBrush(self, newBrush)
+        CalloutArrow.defaultBrush = newBrush
         
 class TemplateCallout(TemplateRectItem, Callout):
     
