@@ -179,9 +179,8 @@ def __writePage(stream, page):
     # Write out the optional submodel preview image
     if page.submodelItem:
         stream.writeBool(True)
-        item = page.submodelItem
-        stream.writeInt32(item.row())
-        stream << item.pos() << item.rect() << item.pen() 
+        stream.writeInt32(page.submodelItem.row())
+        __writeRoundedRectItem(stream, page.submodelItem)
     else:
         stream.writeBool(False)
 

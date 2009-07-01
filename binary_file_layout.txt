@@ -124,9 +124,7 @@ Border:
 
 SubmodelItem:
   int32 child row
-  QPointF pos
-  QRectF rect
-  QPen pen
+  RoundedRectItem pos, rect, pen, brush, cornerRadius
 
 Step:
   int32 number

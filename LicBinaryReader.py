@@ -275,9 +275,7 @@ def __readPage(stream, parent, instructions, templateModel = None):
     if hasSubmodelItem:
         page.submodelItem = SubmodelPreview(page, page.subModel)
         page.addChild(stream.readInt32(), page.submodelItem)
-        page.submodelItem.setPos(stream.readQPointF())
-        page.submodelItem.setRect(stream.readQRectF())
-        page.submodelItem.setPen(stream.readQPen())
+        __readRoundedRectItem(stream, page.submodelItem)
 
     # Read in any page separator lines
     borderCount = stream.readInt32()
