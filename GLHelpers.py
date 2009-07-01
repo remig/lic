@@ -59,9 +59,7 @@ def initFreshContext(doClear):
     
     glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 0)
     glShadeModel(GL_SMOOTH)
-    glEnable(GL_CULL_FACE)
     glEnable(GL_MULTISAMPLE)
-    glFrontFace(GL_CCW)
     
     setupLighting()
     setupMaterial()
