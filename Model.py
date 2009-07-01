@@ -1438,7 +1438,8 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
             self.scene().removeItem(self)
 
     def resetRect(self):
-        self.setRect(self.childrenBoundingRect())
+        glRect = QRectF(0.0, 0.0, self.partOGL.width, self.partOGL.height)
+        self.setRect(self.childrenBoundingRect() | glRect)
         self.parentItem().resetRect()
         
     def initLayout(self):
@@ -1893,11 +1894,21 @@ class CSI(CSITreeManager, QGraphicsRectItem):
 
         menu = QMenu(self.scene().views()[0])
         stack = self.scene().undoStack
-        if not self.rotation:
-            self.rotation = [0.0, 0.0, 0.0]
-        menu.addAction("Rotate CSI", lambda: stack.push(RotateCSICommand(self, [60, 0, 0])))
+        menu.addAction("Rotate CSI", self.rotateSignal)
         menu.exec_(event.screenPos())
 
+    def rotateSignal(self):
+
+        parentWidget = self.scene().views()[0]
+        stack = self.scene().undoStack
+        action = lambda rotation: stack.push(RotateCSICommand(self, self.rotation, rotation))
+        dialog = LicDialogs.RotateCSIDialog(parentWidget, self.rotation)
+        parentWidget.connect(dialog, SIGNAL("changed"), action)
+        
+        stack.beginMacro("rotate CSI")
+        dialog.exec_()
+        stack.endMacro()
+    
 class PartOGL(object):
     """
     Represents one 'abstract' part.  Could be regular part, like 2x4 brick, could be a 

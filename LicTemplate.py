@@ -230,7 +230,7 @@ class TemplatePage(Page):
 
         stack = self.scene().undoStack
         dialog = LicDialogs.BackgroundImagePropertiesDlg(parentWidget, image, self.color, self.brush, Page.PageSize)
-        action = lambda image: stack.push(SetPageBackgroundBrushCommand(self, self.brush, QBrush(image)))
+        action = lambda image: stack.push(SetPageBackgroundBrushCommand(self, self.brush, QBrush(image) if image else None))
         parentWidget.connect(dialog, SIGNAL("changed"), action)
 
         stack.beginMacro("change Page background")

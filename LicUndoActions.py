@@ -381,20 +381,16 @@ class RotateCSICommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, csi, rotation):
+    def __init__(self, csi, oldRotation, newRotation):
         QUndoCommand.__init__(self, "CSI rotation")
-        self.csi, self.rotation = csi, rotation
+        self.csi, self.oldRotation, self.newRotation = csi, oldRotation, newRotation
 
     def undo(self):
-        self.csi.rotation[0] -= self.rotation[0]
-        self.csi.rotation[1] -= self.rotation[1]
-        self.csi.rotation[2] -= self.rotation[2]
+        self.csi.rotation = list(self.oldRotation)
         self.csi.resetPixmap()
 
     def redo(self):
-        self.csi.rotation[0] += self.rotation[0]
-        self.csi.rotation[1] += self.rotation[1]
-        self.csi.rotation[2] += self.rotation[2]
+        self.csi.rotation = list(self.newRotation)
         self.csi.resetPixmap()
         
 class SetPageBackgroundColorCommand(QUndoCommand):

@@ -125,12 +125,3 @@ QGraphicsSimpleTextItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphics
 QGraphicsSimpleTextItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
 QGraphicsSimpleTextItem.getPage = genericGetPage
-
-QGraphicsPixmapItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
-QGraphicsPixmapItem.mouseMoveEvent = genericMouseMoveEvent(QGraphicsItem)
-QGraphicsPixmapItem.mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsItem)
-
-QGraphicsPixmapItem.getPage = genericGetPage
-
-def printRect(rect, text = ""):
-    print text + ", l: %f, r: %f, t: %f, b: %f" % (rect.left(), rect.right(), rect.top(), rect.bottom())
