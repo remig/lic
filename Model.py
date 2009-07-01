@@ -745,7 +745,8 @@ class Page(PageTreeManager, QGraphicsRectItem):
         GLHelpers.pushAllGLMatrices()
         vx = self.pos().x() - rect.x()
         vy = rect.height() + rect.y() - Page.PageSize.height() - self.pos().y() + 1
-        GLHelpers.adjustGLViewport(vx, vy, Page.PageSize.width(), Page.PageSize.height(), True)
+        f = self.scene().scaleFactor
+        GLHelpers.adjustGLViewport(vx * f, vy * f, Page.PageSize.width() * f, Page.PageSize.height() * f, True)
         GL.glTranslatef(rect.x(), rect.y(), 0.0)
         
         for glItem in self.glItemIterator():

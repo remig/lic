@@ -30,6 +30,7 @@ class LicGraphicsScene(QGraphicsScene):
         
     def __init__(self, parent):
         QGraphicsScene.__init__(self, parent)
+        self.scaleFactor = 1.0
         self.pagesToDisplay = 1
         self.currentPage = None
         self.pages = []
@@ -398,12 +399,16 @@ class LicGraphicsView(QGraphicsView):
         self.setBackgroundBrush(QBrush(Qt.gray))
 
     def scaleView(self, scaleFactor):
-        factor = self.matrix().scale(scaleFactor, scaleFactor).mapRect(QRectF(0, 0, 1, 1)).width()
-
-        if factor < 0.07 or factor > 100:
-            return
-
-        self.scale(scaleFactor, scaleFactor)
+        
+        if scaleFactor == 1.0:
+            self.scene().scaleFactor = scaleFactor
+            self.resetTransform()
+        else:
+            factor = self.matrix().scale(scaleFactor, scaleFactor).mapRect(QRectF(0, 0, 1, 1)).width()
+    
+            if factor >= 0.15 and factor <= 5:
+                self.scene().scaleFactor = factor
+                self.scale(scaleFactor, scaleFactor)
 
 class LicWindow(QMainWindow):
 
@@ -624,14 +629,15 @@ class LicWindow(QMainWindow):
         addVGuide = self.createMenuAction("Add Vertical Guide", lambda: self.scene.addNewGuide(Layout.Vertical), None, "Add Guide")
         removeGuides = self.createMenuAction("Remove Guides", self.scene.removeAllGuides, None, "Add Guide")
 
-        zoomIn = self.createMenuAction("Zoom In", self.zoomIn, None, "Zoom In")
-        zoomOut = self.createMenuAction("Zoom Out", self.zoomOut, None, "Zoom Out")
+        zoom100 = self.createMenuAction("Zoom &100%", lambda: self.zoom(1.0), None, "Zoom 100%")
+        zoomIn = self.createMenuAction("Zoom &In", lambda: self.zoom(1.2), None, "Zoom In")
+        zoomOut = self.createMenuAction("Zoom &Out", lambda: self.zoom(1.0 / 1.2), None, "Zoom Out")
 
         onePage = self.createMenuAction("Show One Page", self.scene.showOnePage, None, "Show One Page")
         twoPages = self.createMenuAction("Show Two Pages", self.scene.showTwoPages, None, "Show Two Pages")
         continuous = self.createMenuAction("Continuous", self.scene.continuous, None, "Continuous")
         continuousFacing = self.createMenuAction("Continuous Facing", self.scene.continuousFacing, None, "Continuous Facing")
-        self.addActions(self.viewMenu, (addHGuide, addVGuide, removeGuides, None, zoomIn, zoomOut, onePage, twoPages, continuous, continuousFacing))
+        self.addActions(self.viewMenu, (addHGuide, addVGuide, removeGuides, None, zoom100, zoomIn, zoomOut, onePage, twoPages, continuous, continuousFacing))
 
         # Page Menu
         self.pageMenu = menu.addMenu("&Page")
@@ -658,12 +664,9 @@ class LicWindow(QMainWindow):
             self.scene.setSceneRect(0, 0, Page.PageSize.width(), Page.PageSize.height())
             self.instructions.setPageSize(Page.PageSize)
 
-    def zoomIn(self):
-        self.graphicsView.scaleView(1.2)
-    
-    def zoomOut(self):
-        self.graphicsView.scaleView(1.0 / 1.2)
-    
+    def zoom(self, factor):
+        self.graphicsView.scaleView(factor)
+        
     def updateFileMenu(self):
         self.fileMenu.clear()
         self.addActions(self.fileMenu, self.fileMenuActions[:-1])  # Don't add last Exit yet
