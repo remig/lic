@@ -749,7 +749,7 @@ class Page(PageTreeManager, QGraphicsRectItem):
         
         GLHelpers.pushAllGLMatrices()
         vx = self.pos().x() - rect.x()
-        vy = rect.height() + rect.y() - Page.PageSize.height() - self.pos().y() + 1
+        vy = rect.height() + rect.y() - Page.PageSize.height() - self.pos().y()
         f = self.scene().scaleFactor
         GLHelpers.adjustGLViewport(vx * f, vy * f, Page.PageSize.width() * f, Page.PageSize.height() * f, True)
         GL.glTranslatef(rect.x(), rect.y(), 0.0)
@@ -1853,7 +1853,7 @@ class CSI(CSITreeManager, QGraphicsRectItem):
         if not self.parts:
             return result  # A CSI with no parts is already initialized
 
-        params = GLHelpers.initImgSize(size, size, self.oglDispID, True, filename, self.rotation, pBuffer)
+        params = GLHelpers.initImgSize(size, self.oglDispID, True, filename, self.rotation, pBuffer)
         if params is None:
             return False
 
@@ -2071,7 +2071,7 @@ class PartOGL(object):
         if self.isPrimitive:
             return True  # Primitive parts need not be sized
 
-        params = GLHelpers.initImgSize(size, size, self.oglDispID, self.isSubmodel, self.filename, None, pBuffer)
+        params = GLHelpers.initImgSize(size, self.oglDispID, self.isSubmodel, self.filename, None, pBuffer)
         if params is None:
             return False
 

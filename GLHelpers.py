@@ -1,4 +1,4 @@
-import Image
+import Image, ImageChops
 import os
 
 from OpenGL.GL import *
@@ -134,54 +134,29 @@ def popAllGLMatrices():
     glPopMatrix()
     glPopAttrib()
 
-def _checkImgTouchingBounds(top, bottom, left, right, width, height, filename):
-    
-    if (top == 0) or (bottom == height-1):
-        if DEBUG and (filename) and (top == 0):
-            print "%s - top out of bounds" % (filename)
-        if DEBUG and (filename) and (bottom == height-1):
-            print "%s - bottom out of bounds" % (filename)
+def _checkImgBounds(top, bottom, left, right, size):
+    if (top == 0) or (bottom == size):
         return True
-    
-    if (left == 0) or (right == width-1):
-        if DEBUG and (filename) and (left == 0):
-            print "%s - left out of bounds" % (filename)
-        if DEBUG and (filename) and (right == width-1):
-            print "%s - right out of bounds" % (filename)
+    if (left == 0) or (right == size):
         return True
-    
     return False
 
 _imgWhite = (255, 255, 255)
-def _checkPixelsTop(data, width, height):
-    for i in range(0, height):
-        for j in range(0, width):
-            if (data[j, i] != _imgWhite):
-                return (i, j)
-    return (height, 0)
-
-def _checkPixelsBottom(data, width, height, top):
-    for i in range(height-1, top, -1):
-        for j in range(0, width):
-            if (data[j, i] != _imgWhite):
-                return i
+def _getLeftInset(data, width, top):
+    for x in range(0, width):
+        if (data[x, top] != _imgWhite):
+            return x
+    print "Error: left inset not found!! w: %d, t: %d" % (width, top)
     return 0
 
-def _checkPixelsLeft(data, width, height, top, bottom):
-    for i in range(0, width):
-        for j in range(top, bottom):
-            if (data[i, j] != _imgWhite):
-                return (i, j)
-    return (0, 0)
+def _getBottomInset(data, height, left):
+    for y in range(0, height):
+        if (data[left, y] != _imgWhite):
+            return y
+    print "Error: bottom inset not found!! h: %d, l: %d" % (height, left)
+    return 0
 
-def _checkPixelsRight(data, width, height, top, bottom, left):
-    for i in range(width-1, left, -1):
-        for j in range(top, bottom):
-            if (data[i, j] != _imgWhite):
-                return i
-    return width
-
-def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotation = None, pBuffer = None):
+def _getBounds(size, oglDispID, filename, isCSI, rotation, pBuffer):
     
     # Clear the drawing buffer with white
     glClearColor(1.0, 1.0, 1.0, 1.0)
@@ -190,40 +165,38 @@ def _initImgSize_getBounds(x, y, w, h, oglDispID, filename, isCSI = False, rotat
     # Draw the piece in black
     glLoadIdentity()
     glColor3f(0, 0, 0)
-    adjustGLViewport(0, 0, w, h)
+    adjustGLViewport(0, 0, size, size)
     if isCSI:
-        rotateToDefaultView(x, y, 0.0)
+        rotateToDefaultView()
         if rotation:
             rotateView(*rotation)
     else:
-        rotateToPLIView(x, y, 0.0)
+        rotateToPLIView()
 
     glCallList(oglDispID)
 
-#    if pBuffer and filename:
-#        rawFilename = os.path.splitext(os.path.basename(filename))[0]
-#        image = pBuffer.toImage()
-#        if image:
-#            image.save("C:\\Lic\\tmp\\pixbuf_%s_%dx%d.png" % (rawFilename, w, h), None)
+    # Use PIL to find the image's bounding box (sweet)
+    pixels = glReadPixels(0, 0, size, size, GL_RGB,  GL_UNSIGNED_BYTE)
+    img = Image.fromstring("RGB", (size, size), pixels)
+    bg = Image.new("RGB", img.size, (255, 255, 255))  # TODO: for more speed, cache this
+    diff = ImageChops.difference(img, bg)
+    bbox = diff.getbbox()
 
-    pixels = glReadPixels (0, 0, w, h, GL_RGB,  GL_UNSIGNED_BYTE)
-    img = Image.new("RGB", (w, h), (1, 1, 1))
-    img.fromstring(pixels)
+    if bbox is None:
+        return (0, 0, 0, 0, 0, 0)  # Rendered entirely out of frame
 
-    #img = img.transpose(Image.FLIP_TOP_BOTTOM)
     #if filename:
-    #    rawFilename = os.path.splitext(os.path.basename(filename))[0]
-    #    img.save("C:\\lic\\tmp\\%s_%dx%d.png" % (rawFilename, w, h))
-    
-    data = img.load()
-    top, leftInset = _checkPixelsTop(data, w, h)
-    bottom  = _checkPixelsBottom(data, w, h, top)
-    left, bottomInset = _checkPixelsLeft(data, w, h, top, bottom)
-    right = _checkPixelsRight(data, w, h, top, bottom, left)
-    
-    return (top, bottom, left, right, leftInset - left, bottomInset - top)
+        #rawFilename = os.path.splitext(os.path.basename(filename))[0]
+        #img.save("C:\\lic\\tmp\\%s_%dx%d.png" % (rawFilename, w, h))
+        #print fn + "box: " + str(bbox if bbox else "No box = shit")
 
-def initImgSize(width, height, oglDispID, isCSI, filename = None, rotation = None, pBuffer = None):
+    # Find the bottom left corner inset, used for placing PLIItem quantity labels
+    data = img.load()
+    leftInset = _getLeftInset(data, size, bbox[1])
+    bottomInset = _getBottomInset(data, size, bbox[0])
+    return bbox + (leftInset - bbox[0], bottomInset - bbox[1])
+    
+def initImgSize(size, oglDispID, isCSI, filename, rotation, pBuffer):
     """
     Draw this piece to the already initialized GL Frame Buffer Object, in order to calculate
     its displayed width and height.  These dimensions are required to properly lay out PLIs and CSIs.
@@ -233,26 +206,26 @@ def initImgSize(width, height, oglDispID, isCSI, filename = None, rotation = Non
         height: Height of buffer to render to, in pixels.
         oglDispID: The GL Display List ID to be rendered and dimensioned.
         isCSI: Need to do a few things differently if we're working with a CSI vs a PLI part.
-        filename: Optional string used for debugging.
-        rotation: An optional [x, y, z] rotation to use when rendering this part.
+        filename: String name of this thing to draw.
+        rotation: An [x, y, z] rotation to use when rendering this part, or None.
+        pBuffer: Target FrameBufferObject context to use for rendering GL calls.
     
     Returns:
         None, if the rendered image has been rendered partially or wholly out of frame.
-        If isCSI is True, returns the (width, height, centerPoint, displacementPoint) parameters of this image.
-        If isCSI is False, returns the (width, height, leftInset, bottomInset, centerPoint) parameters of this image.
+        Otherwise, returns the (width, height, centerPoint, leftInset, bottomInset) parameters of this image.
     """
     
     # Draw piece to frame buffer, then calculate bounding box
-    top, bottom, left, right, leftInset, bottomInset = _initImgSize_getBounds(0.0, 0.0, width, height, oglDispID, filename, isCSI, rotation, pBuffer)
+    left, top, right, bottom, leftInset, bottomInset = _getBounds(size, oglDispID, filename, isCSI, rotation, pBuffer)
     
-    if _checkImgTouchingBounds(top, bottom, left, right, width, height, filename):
-        return None  # Drew on edge out of bounds - try next size
+    if _checkImgBounds(top, bottom, left, right, size):
+        return None  # Drew at least one edge out of bounds - try next buffer size
     
     imgWidth = right - left + 1
-    imgHeight = bottom - top + 2
+    imgHeight = bottom - top
     
-    w = (left + (imgWidth/2)) - (width/2)
-    h = (top + (imgHeight/2)) - (height/2)
-    imgCenter = QPointF(-w, h)
+    w = (left + (imgWidth/2)) - (size/2)
+    h = (top + (imgHeight/2)) - (size/2)
+    imgCenter = QPointF(-w, h - 1)
 
     return (imgWidth, imgHeight, imgCenter, leftInset, bottomInset)
