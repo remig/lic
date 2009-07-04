@@ -395,15 +395,16 @@ class Instructions(QObject):
             for page in submodel.pages:
                 page.scaleImages()
     
-    def exportImages(self):
+    def exportImages(self, widget = None):
 
-        global submodelDictionary
-        for model in submodelDictionary.values():
-            if model.used:
-                model.createPng()
-        self.mainModel.createPng()
+        if widget is None:
+            global submodelDictionary
+            for model in submodelDictionary.values():
+                if model.used:
+                    model.createPng()
+            self.mainModel.createPng()
 
-        self.mainModel.exportImages()
+        self.mainModel.exportImages(widget)
 
     def getPartDictionary(self):
         global partDictionary
@@ -535,6 +536,9 @@ class Page(PageTreeManager, QGraphicsRectItem):
 
         return items
 
+    def getExportFilename(self):
+        return os.path.join(config.config['imgPath'], "Page_%d.png" % self._number)
+    
     def getPage(self):
         return self
     
@@ -682,8 +686,29 @@ class Page(PageTreeManager, QGraphicsRectItem):
             
         if self.submodelItem:
             self.resetSubmodelImage()
+
+    def renderFinalImageWithGL(self, widget):
+        scene = self.scene()
+        pagesToDisplay = scene.getPagesToDisplay()
+        currentPage = scene.getSelectedPage()
+        scene.setPagesToDisplay(1)
+        scene.selectPage(self._number)
         
-    def renderFinalImage(self):
+        view = scene.views()[0]
+        oldSize = view.size()
+        view.resize(Page.PageSize.width() + 4, Page.PageSize.height() + 4)
+        
+        widget.repaint()
+        image = widget.grabFrameBuffer(True)
+        image.save(self.getExportFilename())
+
+        scene.setPagesToDisplay(pagesToDisplay)
+        scene.selectPage(currentPage)
+        view.resize(oldSize)
+        widget.repaint()
+
+        
+    def renderFinalImageWithPov(self):
 
         for step in self.steps:
             step.csi.createPng()
@@ -722,10 +747,7 @@ class Page(PageTreeManager, QGraphicsRectItem):
             painter.drawImage(self.submodelItem.pos() + PLI.margin, self.subModel.pngImage)
 
         painter.end()
-        
-        imgName = os.path.join(config.config['imgPath'], "Page_%d.png" % self._number)
-        image.save(imgName, None)
-        
+        image.save(self.getExportFilename())
         self.setPos(oldPos)
                 
     def paint(self, painter, option, widget = None):
@@ -2439,12 +2461,15 @@ class Submodel(SubmodelTreeManager, PartOGL):
         for submodel in self.submodels:
             submodel.addSubmodelImages()
 
-    def exportImages(self):
+    def exportImages(self, widget = None):
         for page in self.pages:
-            page.renderFinalImage()
+            if widget:
+                page.renderFinalImageWithGL(widget)
+            else:
+                page.renderFinalImageWithPov()
 
         for submodel in self.submodels:
-            submodel.exportImages()
+            submodel.exportImages(widget)
 
     def createPng(self):
 

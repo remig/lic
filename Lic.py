@@ -65,6 +65,9 @@ class LicGraphicsScene(QGraphicsScene):
     def pageDown(self):
         self.selectPage(min(self.pages[-1]._number, self.currentPage._number + 1))
 
+    def getSelectedPage(self):
+        return self.currentPage._number
+    
     def selectFirstPage(self):
         self.selectPage(1)
 
@@ -182,6 +185,9 @@ class LicGraphicsScene(QGraphicsScene):
             y = (10 * ((i // 2) + 1)) + (ph * (i // 2))
             page.setPos(x, y)
             page.show()
+    
+    def getPagesToDisplay(self):
+        return self.pagesToDisplay
     
     def setPagesToDisplay(self, pagesToDisplay):
         if pagesToDisplay == self.PageViewContinuous:
@@ -648,8 +654,9 @@ class LicWindow(QMainWindow):
         
         # Export Menu
         self.exportMenu = menu.addMenu("E&xport")
-        self.exportImagesAction = self.createMenuAction("Generate Final Images", self.exportImages, None, "Generate final, high res images of each page in this Instruction book")
-        self.exportMenu.addAction(self.exportImagesAction)
+        self.exportImagesAction = self.createMenuAction("&Generate Final Images", lambda: self.exportImages(self.glWidget), None, "Generate final images of each page in this Instruction book")
+        self.exportRenderedImagesAction = self.createMenuAction("Generate Images with Pov-Ray", lambda: self.exportImages(), None, "Use Pov-Ray to generate final, ray-traced images of each page in this Instruction book")
+        self.addActions(self.exportMenu, (self.exportImagesAction, self.exportRenderedImagesAction))
 
     def changePageSizeAction(self):
         dialog = LicDialogs.PageSizeDlg(self, Page.PageSize, Page.Resolution)
@@ -929,8 +936,8 @@ class LicWindow(QMainWindow):
                 QMessageBox.warning(self, "Lic - Open Error", "Failed to open %s: %s" % (filename, e))
                 self.fileClose()
 
-    def exportImages(self):
-        self.instructions.exportImages()
+    def exportImages(self, widget = None):
+        self.instructions.exportImages(widget)
         print "\nExport complete"
 
 def main():
@@ -955,7 +962,9 @@ def main():
     filename = ""
     #filename = unicode("C:\\lic\\6x10_x.lic")
     #filename = unicode("C:\\lic\\viper_short.lic")
+    #filename = unicode("C:\\lic\\viper_short.mpd")
     #filename = unicode("C:\\lic\\viper.mpd")
+    #filename = unicode("C:\\lic\\Blaster.mpd")
     #filename = unicode("C:\\lic\\6x10.lic")
     #filename = unicode("C:\\lic\\6x10.dat")
     #filename = unicode("C:\\lic\\template.dat")

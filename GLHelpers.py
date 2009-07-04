@@ -156,6 +156,8 @@ def _getBottomInset(data, height, left):
     print "Error: bottom inset not found!! h: %d, l: %d" % (height, left)
     return 0
 
+bgCache = {}
+
 def _getBounds(size, oglDispID, filename, isCSI, rotation, pBuffer):
     
     # Clear the drawing buffer with white
@@ -178,11 +180,15 @@ def _getBounds(size, oglDispID, filename, isCSI, rotation, pBuffer):
     # Use PIL to find the image's bounding box (sweet)
     pixels = glReadPixels(0, 0, size, size, GL_RGB,  GL_UNSIGNED_BYTE)
     img = Image.fromstring("RGB", (size, size), pixels)
-    bg = Image.new("RGB", img.size, (255, 255, 255))  # TODO: for more speed, cache this
-    diff = ImageChops.difference(img, bg)
-    bbox = diff.getbbox()
+    
+    if size in bgCache:
+        bg = bgCache[size]
+    else:
+        bg = bgCache[size] = Image.new("RGB", img.size, (255, 255, 255))
+    dif = ImageChops.difference(img, bg)
+    box = dif.getbbox()
 
-    if bbox is None:
+    if box is None:
         return (0, 0, 0, 0, 0, 0)  # Rendered entirely out of frame
 
     #if filename:
@@ -192,9 +198,9 @@ def _getBounds(size, oglDispID, filename, isCSI, rotation, pBuffer):
 
     # Find the bottom left corner inset, used for placing PLIItem quantity labels
     data = img.load()
-    leftInset = _getLeftInset(data, size, bbox[1])
-    bottomInset = _getBottomInset(data, size, bbox[0])
-    return bbox + (leftInset - bbox[0], bottomInset - bbox[1])
+    leftInset = _getLeftInset(data, size, box[1])
+    bottomInset = _getBottomInset(data, size, box[0])
+    return box + (leftInset - box[0], bottomInset - box[1])
     
 def initImgSize(size, oglDispID, isCSI, filename, rotation, pBuffer):
     """
