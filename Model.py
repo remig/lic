@@ -155,17 +155,15 @@ class GraphicsRoundRectItem(QGraphicsRectItem):
        
     def paint(self, painter, option, widget = None):
         
-        painter.setPen(self.pen())
-        painter.setBrush(self.brush())
         if self.cornerRadius:
+            painter.setPen(self.pen())
+            painter.setBrush(self.brush())
             painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
+            if self.isSelected():
+                QGraphicsRectItem.paint(self, painter, option, widget)
         else:
-            painter.drawRect(self.rect())
+            QGraphicsRectItem.paint(self, painter, option, widget)
     
-        if self.isSelected():
-            painter.setPen(QPen(Qt.red))
-            painter.drawRect(self.rect())
-
     def pen(self):
         pen = QGraphicsRectItem.pen(self)
         pen.cornerRadius = self.cornerRadius
@@ -576,12 +574,12 @@ class Page(PageTreeManager, QGraphicsRectItem):
         if self.steps:
             return self.steps[-1].number + 1
         
-        for page in self.subModel.pages[self._row + 1 : ]:  # Look forward through pages
-            if page.steps:
+        for page in self.subModel.pages:  # Look forward through pages
+            if page._number > self._number and page.steps:
                 return page.steps[0].number
 
-        for page in reversed(self.subModel.pages[ : self._row]):  # Look back
-            if page.steps:
+        for page in reversed(self.subModel.pages):  # Look back
+            if page._number < self._number and page.steps:
                 return page.steps[-1].number + 1
 
         return 1
@@ -707,7 +705,6 @@ class Page(PageTreeManager, QGraphicsRectItem):
         view.resize(oldSize)
         widget.repaint()
 
-        
     def renderFinalImageWithPov(self):
 
         for step in self.steps:
@@ -853,6 +850,10 @@ class CalloutArrowEndItem(QGraphicsRectItem):
         self.mousePoint = QPointF()
         self.setFlags(AllFlags)
         self.setPen(parent.pen())
+        
+    def paint(self, painter, option, widget = None):
+        if self.isSelected():
+            QGraphicsRectItem.paint(self, painter, option, widget)
     
     def mousePressEvent(self, event):
         if event.button() == Qt.RightButton:
@@ -1003,8 +1004,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
 
         # Draw selection box, if selected
         if self.isSelected():
-            painter.setPen(QPen(Qt.red))
-            painter.drawRect(self.rect())
+            QGraphicsRectItem.paint(self, painter, option, widget)
 
 class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
