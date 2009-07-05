@@ -65,7 +65,7 @@ def __runCommand(d):
                 args.append(value)
     os.spawnv(os.P_WAIT, povray, args)
     
-# camera = [(x, 20), (y, 45), (y, -90)] - needs to be reversed before calling
+# camera = [('x', 20), ('y', 45), ('z', -90)]
 def __fixPovFile(filename, imgWidth, imgHeight, offset, camera):
 
     tmpFilename = filename + '.tmp'
@@ -151,19 +151,14 @@ def __fixPovFile(filename, imgWidth, imgHeight, offset, camera):
     copyFile.close()
     os.remove(tmpFilename)
 
-def createPngFromPov(povFile, width, height, offset, scale, isPLIItem = False):
+def createPngFromPov(povFile, width, height, offset, scale, rotation):
 
     rawFilename = os.path.splitext(os.path.basename(povFile))[0]
     pngFile = os.path.join(config.config['pngPath'], rawFilename)
     pngFile = "%s.png" % pngFile
     
     if not os.path.isfile(pngFile):
-        
-        if isPLIItem:
-            camera = GLHelpers.getPLICamera()            
-        else:
-            camera = GLHelpers.getDefaultCamera()
-            
+        camera = [('x', rotation[0]), ('y', rotation[1]), ('z', rotation[2])]
         __fixPovFile(povFile, width, height, offset, camera)
         povCommand = __getDefaultCommand()
         povCommand['inFile'] = povFile

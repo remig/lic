@@ -95,31 +95,14 @@ def rotateView(x, y, z):
     glRotatef(y, 0.0, 1.0, 0.0)
     glRotatef(z, 0.0, 0.0, 1.0)
 
-def rotateToDefaultView(x = 0.0, y = 0.0, z = 0.0, scale = 1.0):
+def rotateToView(rotation, x = 0.0, y = 0.0, z = 0.0, scale = 1.0):
     # position (x,y,z), look at (x,y,z), up vector (x,y,z)
     gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
     glRotatef(180.0, 0.0, 0.0, 1.0)
     glScalef(scale, scale, scale)
     
-    # Rotate model into something approximating the generic ortho view
-    glRotatef(20.0, 1.0, 0.0, 0.0)
-    glRotatef(45.0, 0.0, 1.0, 0.0)
-    
-def getDefaultCamera():
-    return [('y', 45.0), ('x', 20)]
-
-def rotateToPLIView(x = 0.0, y = 0.0, z = 0.0, scale = 1.0):
-    # position (x,y,z), look at (x,y,z), up vector (x,y,z)
-    gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
-    glRotatef(180.0, 0.0, 0.0, 1.0)
-    glScalef(scale, scale, scale)
-    
-    # Rotate model into something approximating the ortho view as seen in Lego PLIs
-    glRotatef(20.0, 1.0, 0.0, 0.0)
-    glRotatef(-45.0, 0.0, 1.0, 0.0)
-
-def getPLICamera():
-    return [('y', -45.0), ('x', 20)]
+    # Rotate model into the requested csi / pli / submodel view 
+    rotateView(*rotation)
 
 def pushAllGLMatrices():
     glPushAttrib(GL_TRANSFORM_BIT | GL_VIEWPORT_BIT)
@@ -158,7 +141,7 @@ def _getBottomInset(data, height, left):
 
 bgCache = {}
 
-def _getBounds(size, oglDispID, filename, isCSI, rotation, pBuffer):
+def _getBounds(size, oglDispID, filename, defaultRotation, partRotation, pBuffer):
     
     # Clear the drawing buffer with white
     glClearColor(1.0, 1.0, 1.0, 1.0)
@@ -168,12 +151,9 @@ def _getBounds(size, oglDispID, filename, isCSI, rotation, pBuffer):
     glLoadIdentity()
     glColor3f(0, 0, 0)
     adjustGLViewport(0, 0, size, size)
-    if isCSI:
-        rotateToDefaultView()
-        if rotation:
-            rotateView(*rotation)
-    else:
-        rotateToPLIView()
+    rotateToView(defaultRotation)
+    if partRotation:
+        rotateView(*partRotation)
 
     glCallList(oglDispID)
 
@@ -202,7 +182,7 @@ def _getBounds(size, oglDispID, filename, isCSI, rotation, pBuffer):
     bottomInset = _getBottomInset(data, size, box[0])
     return box + (leftInset - box[0], bottomInset - box[1])
     
-def initImgSize(size, oglDispID, isCSI, filename, rotation, pBuffer):
+def initImgSize(size, oglDispID, filename, defaultRotation, partRotation, pBuffer):
     """
     Draw this piece to the already initialized GL Frame Buffer Object, in order to calculate
     its displayed width and height.  These dimensions are required to properly lay out PLIs and CSIs.
@@ -211,9 +191,9 @@ def initImgSize(size, oglDispID, isCSI, filename, rotation, pBuffer):
         width: Width of buffer to render to, in pixels.
         height: Height of buffer to render to, in pixels.
         oglDispID: The GL Display List ID to be rendered and dimensioned.
-        isCSI: Need to do a few things differently if we're working with a CSI vs a PLI part.
         filename: String name of this thing to draw.
-        rotation: An [x, y, z] rotation to use when rendering this part, or None.
+        defaultRotation: An [x, y, z] rotation to use for this rendering's default rotation
+        partRotation: An extra [x, y, z] rotation to use when rendering this part, or None.
         pBuffer: Target FrameBufferObject context to use for rendering GL calls.
     
     Returns:
@@ -222,7 +202,7 @@ def initImgSize(size, oglDispID, isCSI, filename, rotation, pBuffer):
     """
     
     # Draw piece to frame buffer, then calculate bounding box
-    left, top, right, bottom, leftInset, bottomInset = _getBounds(size, oglDispID, filename, isCSI, rotation, pBuffer)
+    left, top, right, bottom, leftInset, bottomInset = _getBounds(size, oglDispID, filename, defaultRotation, partRotation, pBuffer)
     
     if _checkImgBounds(top, bottom, left, right, size):
         return None  # Drew at least one edge out of bounds - try next buffer size

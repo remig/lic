@@ -107,6 +107,11 @@ def __readInstructions(stream, instructions):
 
     CSI.scale = stream.readFloat()
     PLI.scale = stream.readFloat()
+    SubmodelPreview.scale = stream.readFloat()
+    
+    CSI.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+    PLI.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+    SubmodelPreview.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
 
     __readPartDictionary(stream, partDictionary)
     

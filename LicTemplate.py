@@ -86,6 +86,7 @@ class TemplatePage(Page):
         step = self.steps[0]
         step.__class__ = TemplateStep
         step.postLoadInit()
+        step.csi.__class__ = TemplateCSI
         if step.pli:
             step.pli.__class__ = TemplatePLI
         if self.submodelItem:
@@ -292,6 +293,32 @@ class TemplateSubmodelPreview(TemplateRectItem, SubmodelPreview):
     def setBrush(self, newBrush):
         SubmodelPreview.setBrush(self, newBrush)
         SubmodelPreview.defaultBrush = newBrush
+
+class TemplateCSI(CSI):
+    
+    def contextMenuEvent(self, event):
+
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Change Default CSI Rotation", self.rotateSignal)
+        menu.exec_(event.screenPos())
+
+    def rotateSignal(self):
+
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.RotateCSIDialog(parentWidget, CSI.defaultRotation)
+        parentWidget.connect(dialog, SIGNAL("changed"), self.changeRotation)
+        parentWidget.connect(dialog, SIGNAL("accept"), self.accept)
+        
+        dialog.exec_()
+        
+    def changeRotation(self, rotation):
+        CSI.defaultRotation= list(rotation)
+        self.resetPixmap()
+        
+    def accept(self, oldRotation):
+        instructions = self.getPage().instructions
+        action = RotateDefaultCSICommand(CSI, instructions, oldRotation, CSI.defaultRotation)
+        self.scene().undoStack.push(action)
 
 class TemplateStep(Step):
     

@@ -438,6 +438,10 @@ class RotateCSIDialog(QDialog):
         z = self.zSpinBox.value()
         self.emit(SIGNAL("changed"), [x, y, z])
         
+    def accept(self):
+        self.emit(SIGNAL("accept"), self.rotation)
+        QDialog.accept(self)
+        
     def reject(self):
         self.emit(SIGNAL("changed"), self.rotation)
         QDialog.reject(self)

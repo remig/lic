@@ -351,7 +351,7 @@ class Instructions(QObject):
             f.close()
         """
 
-    def initCSIDimensions(self, currentCount):
+    def initCSIDimensions(self, currentCount, repositionCSI = False):
         global GlobalGLContext
         GlobalGLContext.makeCurrent()
 
@@ -370,12 +370,18 @@ class Instructions(QObject):
             # Render each CSI and calculate its size
             for csi in csiList:
                 pBuffer.makeCurrent()
+                oldRect = csi.rect()
                 result = csi.initSize(size, pBuffer)
-                if not result:
-                        csiList2.append(csi)
-                else:
+                if result:
                     currentCount += 1
                     yield (currentCount, result)
+                    if repositionCSI:
+                        newRect = csi.rect()
+                        dx = oldRect.width() - newRect.width()
+                        dy = oldRect.height() - newRect.height()
+                        csi.moveBy(dx / 2.0, dy / 2.0)
+                else:
+                    csiList2.append(csi)
 
             if len(csiList2) < 1:
                 break  # All images initialized successfully
@@ -1269,6 +1275,8 @@ class Step(StepTreeManager, QGraphicsRectItem):
             return True
         if self.pli.rect().width() > self.rect().width():
             return True
+        if (self.csi.pos().y() + self.csi.rect().height()) > self.rect().height():
+            return True
         page = self.getPage()
         topLeft = self.mapToItem(page, self.rect().topLeft())
         botRight = self.mapToItem(page, self.rect().bottomRight())
@@ -1409,6 +1417,9 @@ class Step(StepTreeManager, QGraphicsRectItem):
 class SubmodelPreview(GraphicsRoundRectItem):
     itemClassName = "SubmodelPreview"
     
+    scale = 1.0
+    defaultRotation = [20.0, 45.0, 0.0]
+    
     def __init__(self, parent, partOGL):
         GraphicsRoundRectItem.__init__(self, parent)
         self.dataText = "Submodel Preview"
@@ -1536,6 +1547,7 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
     itemClassName = "PLI"
 
     scale = 1.0
+    defaultRotation = [20.0, -45.0, 0.0]
     margin = QPointF(15, 15)
 
     def __init__(self, parent):
@@ -1664,6 +1676,7 @@ class CSI(CSITreeManager, QGraphicsRectItem):
     itemClassName = "CSI"
 
     scale = 1.0
+    defaultRotation = [20.0, 45.0, 0.0]
 
     def __init__(self, step):
         QGraphicsRectItem.__init__(self, step)
@@ -1707,7 +1720,7 @@ class CSI(CSITreeManager, QGraphicsRectItem):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.rect().width() / 2.0) + self.center.x()
         dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0) + self.center.y()
-        GLHelpers.rotateToDefaultView(dx, dy, 0.0, CSI.scale)
+        GLHelpers.rotateToView(CSI.defaultRotation, dx, dy, 0.0, CSI.scale)
         
         if self.rotation:
             GLHelpers.rotateView(*self.rotation)
@@ -1875,7 +1888,7 @@ class CSI(CSITreeManager, QGraphicsRectItem):
         if not self.parts:
             return result  # A CSI with no parts is already initialized
 
-        params = GLHelpers.initImgSize(size, self.oglDispID, True, filename, self.rotation, pBuffer)
+        params = GLHelpers.initImgSize(size, self.oglDispID, filename, CSI.defaultRotation, self.rotation, pBuffer)
         if params is None:
             return False
 
@@ -2093,7 +2106,8 @@ class PartOGL(object):
         if self.isPrimitive:
             return True  # Primitive parts need not be sized
 
-        params = GLHelpers.initImgSize(size, self.oglDispID, self.isSubmodel, self.filename, None, pBuffer)
+        rotation = SubmodelPreview.defaultRotation if self.isSubmodel else PLI.defaultRotation
+        params = GLHelpers.initImgSize(size, self.oglDispID, self.filename, rotation, None, pBuffer)
         if params is None:
             return False
 
@@ -2111,9 +2125,9 @@ class PartOGL(object):
         dy += self.center.y() * PLI.scale
         
         if self.isSubmodel:
-            GLHelpers.rotateToDefaultView(dx, dy, 0.0, CSI.scale)
+            GLHelpers.rotateToView(SubmodelPreview.defaultRotation, dx, dy, 0.0, SubmodelPreview.scale)
         else:
-            GLHelpers.rotateToPLIView(dx, dy, 0.0, CSI.scale)
+            GLHelpers.rotateToView(PLI.defaultRotation, dx, dy, 0.0, PLI.scale)
         
         if color is not None:
             colorRGB = LDrawColors.convertToRGBA(color)

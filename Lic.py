@@ -77,8 +77,6 @@ class LicGraphicsScene(QGraphicsScene):
     def selectPage(self, pageNumber):
         for page in self.pages:
             if self.pagesToDisplay == 1 and page._number == pageNumber:
-                w = (self.width() - Page.PageSize.width()) / 2.0
-                h = (self.height() - Page.PageSize.height()) / 2.0
                 page.setPos(0, 0)
                 page.show()
                 self.currentPage = page
@@ -164,12 +162,12 @@ class LicGraphicsScene(QGraphicsScene):
             page.show()
     
     def continuousFacing(self):
-        if len(self.pages) < 2:
+        if len(self.pages) < 3:
             return self.continuous()
         self.pagesToDisplay = self.PageViewContinuousFacing
         pw = Page.PageSize.width()
         ph = Page.PageSize.height()
-        rows = sum(divmod(len(self.pages), 2))
+        rows = sum(divmod(len(self.pages) - 1, 2)) + 1
         width = pw + pw + 30
         height = (10 * (rows + 1)) + (ph * rows)
         self.setSceneRect(0, 0, width, height)
@@ -180,7 +178,11 @@ class LicGraphicsScene(QGraphicsScene):
             else:
                 guide.setLength(width)
             
-        for i, page in enumerate(self.pages):
+        self.pages[0].setPos(10, 10)  # Template page first
+        self.pages[0].show()
+        
+        for i, page in enumerate(self.pages[1:]):
+            i += 2
             x = 10 + ((pw + 10) * (i % 2))
             y = (10 * ((i // 2) + 1)) + (ph * (i // 2))
             page.setPos(x, y)
@@ -938,6 +940,14 @@ class LicWindow(QMainWindow):
 
     def exportImages(self, widget = None):
         self.instructions.exportImages(widget)
+        
+        #image = QImage(1000, 800, QImage.Format_ARGB32)
+        #painter = QPainter()
+        #painter.begin(image)
+        #self.scene.render(painter, QRectF(0, 0, 1000, 800), QRectF(400, 100, 1000, 800))
+        #painter.end()
+        #image.save(r"c:\lic\tmp\widget.png")
+        
         print "\nExport complete"
 
 def main():
@@ -960,7 +970,10 @@ def main():
 
     window.show()
     filename = ""
+    #filename = unicode("C:\\lic\\tardis.mpd")
+    #filename = unicode("C:\\lic\\tardis.lic")
     #filename = unicode("C:\\lic\\6x10_x.lic")
+    #filename = unicode("C:\\lic\\viper_wing.lic")
     #filename = unicode("C:\\lic\\viper_short.lic")
     #filename = unicode("C:\\lic\\viper_short.mpd")
     #filename = unicode("C:\\lic\\viper.mpd")

@@ -62,6 +62,19 @@ def __writeInstructions(stream, instructions):
 
     stream.writeFloat(CSI.scale)
     stream.writeFloat(PLI.scale)
+    stream.writeFloat(SubmodelPreview.scale)
+    
+    stream.writeFloat(CSI.defaultRotation[0])
+    stream.writeFloat(CSI.defaultRotation[1])
+    stream.writeFloat(CSI.defaultRotation[2])
+        
+    stream.writeFloat(PLI.defaultRotation[0])
+    stream.writeFloat(PLI.defaultRotation[1])
+    stream.writeFloat(PLI.defaultRotation[2])
+
+    stream.writeFloat(SubmodelPreview.defaultRotation[0])
+    stream.writeFloat(SubmodelPreview.defaultRotation[1])
+    stream.writeFloat(SubmodelPreview.defaultRotation[2])
 
     partDictionary = instructions.getPartDictionary()
     __writePartDictionary(stream, partDictionary)

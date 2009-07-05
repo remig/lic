@@ -25,7 +25,12 @@ Instructions:
   QString imported filename
   float CSI.scale
   float PLI.scale
+  float SubmodelPreview.scale
 
+  float CSI.defaultRotation x, y, z
+  float PLI.defaultRotation x, y, z
+  float SubmodelPreview.defaultRotation x, y, z
+  
   partDictionary (global)
  
   int32 length of submodel dictionary
