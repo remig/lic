@@ -390,7 +390,7 @@ class PenDlg(QDialog):
         self.emit(SIGNAL("changed"), self.originalPen)
         QDialog.reject(self)
 
-class RotateCSIDialog(QDialog):
+class RotationDialog(QDialog):
     
     def __init__(self, parent, rotation):
         QDialog.__init__(self, parent)
@@ -426,7 +426,7 @@ class RotateCSIDialog(QDialog):
 
     def makeLabelSpinBox(self, text, value):
         spinBox = QSpinBox()
-        spinBox.setRange(0, 360)
+        spinBox.setRange(-360, 360)
         spinBox.setValue(value)
         lbl = QLabel(self.tr(text))
         lbl.setBuddy(spinBox)

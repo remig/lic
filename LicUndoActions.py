@@ -393,19 +393,34 @@ class RotateCSICommand(QUndoCommand):
         self.csi.rotation = list(self.newRotation) if self.newRotation else None
         self.csi.resetPixmap()
 
-class RotateDefaultCSICommand(QUndoCommand):
+class RotateDefaultItemCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, csi, instructions, oldRotation, newRotation):
-        QUndoCommand.__init__(self, "Change default CSI rotation")
-        self.csi, self.instructions = csi, instructions
+    def __init__(self, target, name, template, oldRotation, newRotation):
+        QUndoCommand.__init__(self, "Change default %s rotation" % name)
+        self.target, self.name, self.template = target, name, template
         self.oldRotation, self.newRotation = oldRotation, newRotation
 
     def doAction(self, redo):
-        self.csi.defaultRotation = list(self.newRotation) if redo else list(self.oldRotation)
-        for s, l in self.instructions.initCSIDimensions(0, True):
-            pass  # Don't care about yielded items here
+        instructions = self.template.getPage().instructions
+        self.target.defaultRotation = list(self.newRotation) if redo else list(self.oldRotation)
+
+        if self.name == "CSI":
+            self.template.resetPixmap()
+            for s, l in instructions.initCSIDimensions(0, True):
+                pass  # Don't care about yielded items here
+
+        elif self.name == "PLI":
+            self.template.resetPLIItems()
+            for s, l in instructions.initPartDimensions(0, True):
+                pass  # Don't care about yielded items here
+            instructions.initAllPLILayouts()
+
+        elif self.name == "Submodel":
+            self.template.partOGL.resetPixmap()
+            self.template.setPartOGL(self.template.partOGL)
+            instructions.initSubmodelImages()
         
 class SetPageBackgroundColorCommand(QUndoCommand):
 

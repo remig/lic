@@ -286,9 +286,12 @@ class Instructions(QObject):
         for csi in csiList:
             csi.createOGLDisplayList()
 
-    def getPartDimensionListAndCount(self):
+    def getPartDimensionListAndCount(self, reset = False):
         
-        partList = [part for part in partDictionary.values() if (not part.isPrimitive) and (part.width == part.height == -1)]
+        if reset:
+            partList = [part for part in partDictionary.values() if (not part.isPrimitive)]
+        else:
+            partList = [part for part in partDictionary.values() if (not part.isPrimitive) and (part.width == part.height == -1)]
         submodelList = [submodel for submodel in submodelDictionary.values() if submodel.used]
         partList += submodelList
         partList.append(self.mainModel)
@@ -297,7 +300,7 @@ class Instructions(QObject):
         partStepCount = int(len(partList) / partDivCount)
         return (partList, partStepCount, partDivCount)
     
-    def initPartDimensions(self, initialCurrentCount):
+    def initPartDimensions(self, initialCurrentCount, reset = False):
         """
         Calculates each uninitialized part's display width and height.
         Creates GL buffer to render a temp copy of each part, then uses those raw pixels to determine size.
@@ -305,7 +308,7 @@ class Instructions(QObject):
         """
         global GlobalGLContext
 
-        partList, partStepCount, partDivCount = self.getPartDimensionListAndCount()
+        partList, partStepCount, partDivCount = self.getPartDimensionListAndCount(reset)
         currentPartCount = currentCount = 0
 
         if not partList:
@@ -390,6 +393,19 @@ class Instructions(QObject):
                 csiList2 = []
 
         GlobalGLContext.makeCurrent()
+
+    def initAllPLILayouts(self):
+        
+        for page in self.mainModel.pages:
+            for step in page.steps:
+                if step.pli:
+                    step.pli.initLayout()
+        
+        for submodel in submodelDictionary.values():
+            for page in submodel.pages:
+                for step in page.steps:
+                    if step.pli:
+                        step.pli.initLayout()
         
     def initPLIPixmaps(self):
         for page in self.mainModel.pages:
@@ -399,6 +415,14 @@ class Instructions(QObject):
             for page in submodel.pages:
                 page.scaleImages()
     
+    def initSubmodelImages(self):
+        for page in self.mainModel.pages:
+            page.resetSubmodelImage()
+                
+        for submodel in submodelDictionary.values():
+            for page in submodel.pages:
+                page.resetSubmodelImage()
+            
     def exportImages(self, widget = None):
 
         if widget is None:
@@ -609,8 +633,9 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.children.insert(index, child)
 
         # Adjust the z-order of all children: first child has highest z value
+        length = len(self.children)
         for i, item in enumerate(self.children):
-            item.setZValue(len(self.children) - i)
+            item.setZValue(length - i)
 
     def addStepSeparator(self, index, rect = None):
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
@@ -650,7 +675,9 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.children.append(self.submodelItem)
         
     def resetSubmodelImage(self):
-        self.submodelItem.setPartOGL(self.subModel)
+        if self.submodelItem:
+            self.subModel.resetPixmap()
+            self.submodelItem.setPartOGL(self.subModel)
 
     def checkForLayoutOverlaps(self):
         for step in self.steps:
@@ -1586,6 +1613,17 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
             if pliItem.color == part.color and pliItem.partOGL.filename == part.partOGL.filename:
                 return pliItem.removePart()
 
+    def resetPLIItems(self):
+        
+        resetItems = []
+        for item in self.pliItems:
+            if item.partOGL in resetItems:
+                continue
+            item.partOGL.resetPixmap()
+            resetItems.append(item.partOGL)
+            
+        self.initLayout()
+    
     def initLayout(self):
         """
         Allocate space for all parts in this PLI, and choose a decent layout.
@@ -1944,7 +1982,7 @@ class CSI(CSITreeManager, QGraphicsRectItem):
         parentWidget = self.scene().views()[0]
         stack = self.scene().undoStack
         action = lambda rotation: stack.push(RotateCSICommand(self, self.rotation, rotation))
-        dialog = LicDialogs.RotateCSIDialog(parentWidget, self.rotation)
+        dialog = LicDialogs.RotationDialog(parentWidget, self.rotation)
         parentWidget.connect(dialog, SIGNAL("changed"), action)
         
         stack.beginMacro("rotate CSI")
@@ -2088,6 +2126,25 @@ class PartOGL(object):
             return ""
         return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x(), self.center.y(), self.leftInset, self.bottomInset)
 
+    def resetPixmap(self):
+        
+        global GlobalGLContext
+        GlobalGLContext.makeCurrent()
+        self.createOGLDisplayList()
+        sizes = [128, 256, 512, 1024, 2048]
+        self.width, self.height, self.center, self.leftInset, self.bottomInset = [0] * 5
+
+        for size in sizes:
+
+            # Create a new buffer tied to the existing GLWidget, to get access to its display lists
+            pBuffer = QGLPixelBuffer(size, size, getGLFormat(), GlobalGLContext)
+            pBuffer.makeCurrent()
+
+            if self.initSize(size, pBuffer):
+                break
+
+        GlobalGLContext.makeCurrent()
+
     def initSize(self, size, pBuffer):
         """
         Initialize this part's display width, height, empty corner insets and center point.
@@ -2103,9 +2160,6 @@ class PartOGL(object):
         """
 
         # TODO: If a part is rendered at a size > 256, draw it smaller in the PLI - this sounds like a great way to know when to shrink a PLI image...
-        if self.isPrimitive:
-            return True  # Primitive parts need not be sized
-
         rotation = SubmodelPreview.defaultRotation if self.isSubmodel else PLI.defaultRotation
         params = GLHelpers.initImgSize(size, self.oglDispID, self.filename, rotation, None, pBuffer)
         if params is None:
@@ -2116,9 +2170,6 @@ class PartOGL(object):
 
     def paintGL(self, dx, dy, color = None):
          
-        if self.isPrimitive:
-            return # Do not draw primitives directly
-
         GLHelpers.pushAllGLMatrices()
 
         dx += self.center.x() * PLI.scale

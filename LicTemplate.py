@@ -32,12 +32,20 @@ class TemplateRectItem(TemplateLineItem):
         self.data = lambda index: dataText
         self.setFlags(NoMoveFlags)
     
-    def contextMenuEvent(self, event):
+    def getContextMenu(self, prependActions = []):
         menu = QMenu(self.scene().views()[0])
+        for action in prependActions:
+            menu.addAction(action[0], action[1])
+        if prependActions:
+            menu.addSeparator()
         menu.addAction("Format Border", self.formatBorder)
         menu.addAction("Background Color", self.setBackgroundColor)
         menu.addAction("Background Gradient", self.setBackgroundGradient)
         menu.addAction("Background None", self.setBackgroundNone)
+        return menu
+        
+    def contextMenuEvent(self, event):
+        menu = self.getContextMenu()
         menu.exec_(event.screenPos())
 
     def setBackgroundColor(self):
@@ -275,7 +283,27 @@ class TemplateCallout(TemplateRectItem, Callout):
         Callout.defaultBrush = newBrush
 
 class TemplatePLI(TemplateRectItem, PLI):
+
+    def contextMenuEvent(self, event):
+        actions = [["Change Default PLI Rotation", self.rotateSignal]]
+        menu = TemplateRectItem.getContextMenu(self, actions)
+        menu.exec_(event.screenPos())
     
+    def rotateSignal(self):
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.RotationDialog(parentWidget, PLI.defaultRotation)
+        parentWidget.connect(dialog, SIGNAL("changed"), self.changeRotation)
+        parentWidget.connect(dialog, SIGNAL("accept"), self.accept)
+        dialog.exec_()
+        
+    def changeRotation(self, rotation):
+        PLI.defaultRotation = list(rotation)
+        self.resetPLIItems()
+        
+    def accept(self, oldRotation):
+        action = RotateDefaultItemCommand(PLI, "PLI", self, oldRotation, PLI.defaultRotation)
+        self.scene().undoStack.push(action)
+
     def setPen(self, newPen):
         PLI.setPen(self, newPen)
         PLI.defaultPen = newPen
@@ -285,6 +313,27 @@ class TemplatePLI(TemplateRectItem, PLI):
         PLI.defaultBrush = newBrush
 
 class TemplateSubmodelPreview(TemplateRectItem, SubmodelPreview):
+
+    def contextMenuEvent(self, event):
+        actions = [["Change Default Submodel Rotation", self.rotateSignal]]
+        menu = TemplateRectItem.getContextMenu(self, actions)
+        menu.exec_(event.screenPos())
+        
+    def rotateSignal(self):
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.RotationDialog(parentWidget, SubmodelPreview.defaultRotation)
+        parentWidget.connect(dialog, SIGNAL("changed"), self.changeRotation)
+        parentWidget.connect(dialog, SIGNAL("accept"), self.accept)
+        dialog.exec_()
+        
+    def changeRotation(self, rotation):
+        SubmodelPreview.defaultRotation = list(rotation)
+        self.partOGL.resetPixmap()
+        self.setPartOGL(self.partOGL)
+        
+    def accept(self, oldRotation):
+        action = RotateDefaultItemCommand(SubmodelPreview, "Submodel", self, oldRotation, SubmodelPreview.defaultRotation)
+        self.scene().undoStack.push(action)
 
     def setPen(self, newPen):
         SubmodelPreview.setPen(self, newPen)
@@ -297,27 +346,24 @@ class TemplateSubmodelPreview(TemplateRectItem, SubmodelPreview):
 class TemplateCSI(CSI):
     
     def contextMenuEvent(self, event):
-
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Change Default CSI Rotation", self.rotateSignal)
         menu.exec_(event.screenPos())
 
     def rotateSignal(self):
-
         parentWidget = self.scene().views()[0]
-        dialog = LicDialogs.RotateCSIDialog(parentWidget, CSI.defaultRotation)
+        dialog = LicDialogs.RotationDialog(parentWidget, CSI.defaultRotation)
         parentWidget.connect(dialog, SIGNAL("changed"), self.changeRotation)
         parentWidget.connect(dialog, SIGNAL("accept"), self.accept)
         
         dialog.exec_()
         
     def changeRotation(self, rotation):
-        CSI.defaultRotation= list(rotation)
+        CSI.defaultRotation = list(rotation)
         self.resetPixmap()
         
     def accept(self, oldRotation):
-        instructions = self.getPage().instructions
-        action = RotateDefaultCSICommand(CSI, instructions, oldRotation, CSI.defaultRotation)
+        action = RotateDefaultItemCommand(CSI, "CSI", self, oldRotation, CSI.defaultRotation)
         self.scene().undoStack.push(action)
 
 class TemplateStep(Step):
