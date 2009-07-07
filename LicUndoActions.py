@@ -412,21 +412,21 @@ class ScaleItemCommand(QUndoCommand):
         self.csi.scale = self.newScale
         self.csi.resetPixmap()
     
-class RotateCSICommand(QUndoCommand):
+class RotateItemCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, csi, oldRotation, newRotation):
+    def __init__(self, target, oldRotation, newRotation):
         QUndoCommand.__init__(self, "CSI rotation")
-        self.csi, self.oldRotation, self.newRotation = csi, oldRotation, newRotation
+        self.target, self.oldRotation, self.newRotation = target, oldRotation, newRotation
 
     def undo(self):
-        self.csi.rotation = list(self.oldRotation)
-        self.csi.resetPixmap() 
+        self.target.rotation = list(self.oldRotation)
+        self.target.resetPixmap() 
 
     def redo(self):
-        self.csi.rotation = list(self.newRotation)
-        self.csi.resetPixmap()
+        self.target.rotation = list(self.newRotation)
+        self.target.resetPixmap()
 
 class ScaleDefaultItemCommand(QUndoCommand):
 

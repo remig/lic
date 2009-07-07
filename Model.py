@@ -1443,7 +1443,39 @@ class Step(StepTreeManager, QGraphicsRectItem):
         a = MovePartsToStepCommand(self.csi.getPartList(), self, step)
         self.scene().undoStack.push(a)
 
-class SubmodelPreview(GraphicsRoundRectItem):
+class RotateScaleSignalItem(QObject):
+    
+    def rotateSignal(self):
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.RotationDialog(parentWidget, self.rotation)
+        parentWidget.connect(dialog, SIGNAL("changeRotation"), self.changeRotation)
+        parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.acceptRotation)
+        dialog.exec_()
+
+    def changeRotation(self, rotation):
+        self.rotation = list(rotation)
+        self.resetPixmap()
+        
+    def acceptRotation(self, oldRotation):
+        action = RotateItemCommand(self, oldRotation, self.rotation)
+        self.scene().undoStack.push(action)
+    
+    def scaleSignal(self):
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.ScaleDlg(parentWidget, self.scale)
+        parentWidget.connect(dialog, SIGNAL("changeScale"), self.changeScale)
+        parentWidget.connect(dialog, SIGNAL("acceptScale"), self.acceptScale)
+        dialog.exec_()
+
+    def changeScale(self, newScale):
+        self.scale = newScale
+        self.resetPixmap()
+        
+    def acceptScale(self, oldScale):
+        action = ScaleItemCommand(self, oldScale, self.scale)
+        self.scene().undoStack.push(action)
+
+class SubmodelPreview(GraphicsRoundRectItem, RotateScaleSignalItem):
     itemClassName = "SubmodelPreview"
     
     defaultScale = 1.0
@@ -1459,7 +1491,7 @@ class SubmodelPreview(GraphicsRoundRectItem):
         self.setPartOGL(partOGL)
         
     def resetPixmap(self):
-        self.partOGL.resetPixmap()
+        self.partOGL.resetPixmap(self.rotation, self.scale)
         self.setPartOGL(self.partOGL)
         
     def setPartOGL(self, partOGL):
@@ -1470,7 +1502,14 @@ class SubmodelPreview(GraphicsRoundRectItem):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.rect().width() / 2.0)
         dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0)
-        self.partOGL.paintGL(dx, dy)
+        self.partOGL.paintGL(dx, dy, rotation = self.rotation, scale = self.scale)
+
+    def contextMenuEvent(self, event):
+        menu = QMenu(self.scene().views()[0])
+        stack = self.scene().undoStack
+        menu.addAction("Rotate Submodel Image", self.rotateSignal)
+        menu.addAction("Scale Submodel Image", self.scaleSignal)
+        menu.exec_(event.screenPos())
     
 class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
     """ Represents one part inside a PLI along with its quantity label. """
@@ -1717,42 +1756,7 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
             self.setRect(pliBox)
             prevItem = item
 
-class RotateScaleSignalItem(QObject):
-    
-    def __init__(self):
-        pass
-
-    def rotateSignal(self):
-        parentWidget = self.scene().views()[0]
-        dialog = LicDialogs.RotationDialog(parentWidget, self.rotation)
-        parentWidget.connect(dialog, SIGNAL("changeRotation"), self.changeRotation)
-        parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.acceptRotation)
-        dialog.exec_()
-
-    def changeRotation(self, rotation):
-        self.rotation = list(rotation)
-        self.resetPixmap()
-        
-    def acceptRotation(self, oldRotation):
-        action = RotateCSICommand(self, oldRotation, self.rotation)
-        self.scene().undoStack.push(action)
-    
-    def scaleSignal(self):
-        parentWidget = self.scene().views()[0]
-        dialog = LicDialogs.ScaleDlg(parentWidget, self.scale)
-        parentWidget.connect(dialog, SIGNAL("changeScale"), self.changeScale)
-        parentWidget.connect(dialog, SIGNAL("acceptScale"), self.acceptScale)
-        dialog.exec_()
-
-    def changeScale(self, newScale):
-        self.scale = newScale
-        self.resetPixmap()
-        
-    def acceptScale(self, oldScale):
-        action = ScaleItemCommand(self, oldScale, self.scale)
-        self.scene().undoStack.push(action)
-    
-class CSI(CSITreeManager, QGraphicsRectItem):
+class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     """ Construction Step Image.  Includes border and positional info. """
     itemClassName = "CSI"
 
@@ -2019,36 +2023,6 @@ class CSI(CSITreeManager, QGraphicsRectItem):
         menu.addAction("Scale CSI", self.scaleSignal)
         menu.exec_(event.screenPos())
 
-    def rotateSignal(self):
-        parentWidget = self.scene().views()[0]
-        dialog = LicDialogs.RotationDialog(parentWidget, self.rotation)
-        parentWidget.connect(dialog, SIGNAL("changeRotation"), self.changeRotation)
-        parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.acceptRotation)
-        dialog.exec_()
-
-    def changeRotation(self, rotation):
-        self.rotation = list(rotation)
-        self.resetPixmap()
-        
-    def acceptRotation(self, oldRotation):
-        action = RotateCSICommand(self, oldRotation, self.rotation)
-        self.scene().undoStack.push(action)
-    
-    def scaleSignal(self):
-        parentWidget = self.scene().views()[0]
-        dialog = LicDialogs.ScaleDlg(parentWidget, self.scale)
-        parentWidget.connect(dialog, SIGNAL("changeScale"), self.changeScale)
-        parentWidget.connect(dialog, SIGNAL("acceptScale"), self.acceptScale)
-        dialog.exec_()
-
-    def changeScale(self, newScale):
-        self.scale = newScale
-        self.resetPixmap()
-        
-    def acceptScale(self, oldScale):
-        action = ScaleItemCommand(self, oldScale, self.scale)
-        self.scene().undoStack.push(action)
-    
 class PartOGL(object):
     """
     Represents one 'abstract' part.  Could be regular part, like 2x4 brick, could be a 
@@ -2186,7 +2160,7 @@ class PartOGL(object):
             return ""
         return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x(), self.center.y(), self.leftInset, self.bottomInset)
 
-    def resetPixmap(self):
+    def resetPixmap(self, extraRotation = [0.0, 0.0, 0.0], extraScale = 1.0):
         
         global GlobalGLContext
         GlobalGLContext.makeCurrent()
@@ -2200,12 +2174,12 @@ class PartOGL(object):
             pBuffer = QGLPixelBuffer(size, size, getGLFormat(), GlobalGLContext)
             pBuffer.makeCurrent()
 
-            if self.initSize(size, pBuffer):
+            if self.initSize(size, pBuffer, extraRotation, extraScale):
                 break
 
         GlobalGLContext.makeCurrent()
 
-    def initSize(self, size, pBuffer):
+    def initSize(self, size, pBuffer, extraRotation = [0.0, 0.0, 0.0], extraScale = 1.0):
         """
         Initialize this part's display width, height, empty corner insets and center point.
         To do this, draw this part to the already initialized GL buffer.
@@ -2222,14 +2196,14 @@ class PartOGL(object):
         # TODO: If a part is rendered at a size > 256, draw it smaller in the PLI - this sounds like a great way to know when to shrink a PLI image...
         rotation = SubmodelPreview.defaultRotation if self.isSubmodel else PLI.defaultRotation
         scale = SubmodelPreview.defaultScale if self.isSubmodel else PLI.defaultScale
-        params = GLHelpers.initImgSize(size, self.oglDispID, self.filename, scale, rotation, None, pBuffer)
+        params = GLHelpers.initImgSize(size, self.oglDispID, self.filename, scale * extraScale, rotation, extraRotation, pBuffer)
         if params is None:
             return False
 
         self.width, self.height, self.center, self.leftInset, self.bottomInset = params
         return True
 
-    def paintGL(self, dx, dy, color = None):
+    def paintGL(self, dx, dy, color = None, rotation = [0.0, 0.0, 0.0], scale = 1.0):
          
         GLHelpers.pushAllGLMatrices()
 
@@ -2237,9 +2211,10 @@ class PartOGL(object):
         dy += self.center.y() * PLI.defaultScale
         
         if self.isSubmodel:
-            GLHelpers.rotateToView(SubmodelPreview.defaultRotation, SubmodelPreview.defaultScale, dx, dy, 0.0)
+            GLHelpers.rotateToView(SubmodelPreview.defaultRotation, SubmodelPreview.defaultScale * scale, dx, dy, 0.0)
         else:
-            GLHelpers.rotateToView(PLI.defaultRotation, PLI.defaultScale, dx, dy, 0.0)
+            GLHelpers.rotateToView(PLI.defaultRotation, PLI.defaultScale * scale, dx, dy, 0.0)
+        GLHelpers.rotateView(*rotation)
         
         if color is not None:
             colorRGB = LDrawColors.convertToRGBA(color)
