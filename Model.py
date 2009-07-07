@@ -204,7 +204,10 @@ class Instructions(QObject):
         partDictionary = {}
         submodelDictionary = {}
         currentModelFilename = ""
-        CSI.scale = PLI.scale = 1.0
+        CSI.defaultScale = PLI.defaultScale = SubmodelPreview.defaultScale = 1.0
+        CSI.defaultRotation = [20.0, 45.0, 0.0]
+        PLI.defaultRotation = [20.0, -45.0, 0.0]
+        SubmodelPreview.defaultRotation = [20.0, 45.0, 0.0]
         GlobalGLContext.makeCurrent()
 
     def importLDrawModel(self, filename):
@@ -453,14 +456,14 @@ class Instructions(QObject):
     def setCSIPLISize(self, newCSISize, newPLISize):
 
         print "Setting size to: %d, %d" % (newCSISize, newPLISize)
-        oldCSISize = CSI.scale
-        oldPLISize = PLI.scale
+        oldCSISize = CSI.defaultScale
+        oldPLISize = PLI.defaultScale
         
-        if newCSISize != CSI.scale:
-            CSI.scale = newCSISize
+        if newCSISize != CSI.defaultScale:
+            CSI.defaultScale = newCSISize
 
-        if newPLISize != PLI.scale:
-            PLI.scale = newPLISize
+        if newPLISize != PLI.defaultScale:
+            PLI.defaultScale = newPLISize
             self.initPLIPixmaps()
             
         if newCSISize != oldCSISize or newPLISize != oldPLISize:
@@ -468,13 +471,13 @@ class Instructions(QObject):
         return None
 
     def enlargePixmaps(self):
-        CSI.scale += 0.5
-        PLI.scale += 0.5
+        CSI.defaultScale += 0.5
+        PLI.defaultScale += 0.5
         self.initPLIPixmaps()
     
     def shrinkPixmaps(self):
-        CSI.scale -= 0.5
-        PLI.scale -= 0.5
+        CSI.defaultScale -= 0.5
+        PLI.defaultScale -= 0.5
         self.initPLIPixmaps()
 
 class Page(PageTreeManager, QGraphicsRectItem):
@@ -1341,8 +1344,8 @@ class Step(StepTreeManager, QGraphicsRectItem):
         if self.hasPLI():
             r.setTop(self.pli.rect().height())
 
-        csiWidth = self.csi.rect().width() * CSI.scale
-        csiHeight = self.csi.rect().height() * CSI.scale
+        csiWidth = self.csi.rect().width() * CSI.defaultScale
+        csiHeight = self.csi.rect().height() * CSI.defaultScale
 
         if not self.callouts:
             
@@ -1444,7 +1447,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
 class SubmodelPreview(GraphicsRoundRectItem):
     itemClassName = "SubmodelPreview"
     
-    scale = 1.0
+    defaultScale = 1.0
     defaultRotation = [20.0, 45.0, 0.0]
     
     def __init__(self, parent, partOGL):
@@ -1515,7 +1518,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
 
         # Put label directly below part, left sides aligned
         # Label's implicit lower top right corner (from qty 'x'), means no padding needed
-        self.numberItem.setPos(0.0, part.height * PLI.scale)  
+        self.numberItem.setPos(0.0, part.height * PLI.defaultScale)  
        
         lblWidth = self.numberItem.boundingRect().width()
         lblHeight = self.numberItem.boundingRect().height()
@@ -1523,8 +1526,8 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
             if part.bottomInset > lblHeight:
                 self.numberItem.moveBy(0, -lblHeight)  # Label fits entirely under part: bottom left corners now match
             else:
-                li = part.leftInset * PLI.scale   # Move label up until top right corner intersects bottom left inset line
-                slope = (part.bottomInset * PLI.scale) / float(li)
+                li = part.leftInset * PLI.defaultScale   # Move label up until top right corner intersects bottom left inset line
+                slope = (part.bottomInset * PLI.defaultScale) / float(li)
                 dy = slope * (li - lblWidth)
                 self.numberItem.moveBy(0, -dy)
 
@@ -1566,14 +1569,14 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
                         return
 
         povFile = l3p.createPovFromDat(datFile, self.color)
-        pngFile = povray.createPngFromPov(povFile, part.width, part.height, part.center, PLI.scale, isPLIItem = True)
+        pngFile = povray.createPngFromPov(povFile, part.width, part.height, part.center, PLI.defaultScale, isPLIItem = True)
         self.pngImage = QImage(pngFile)
 
 class PLI(PLITreeManager, GraphicsRoundRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
     itemClassName = "PLI"
 
-    scale = 1.0
+    defaultScale = 1.0
     defaultRotation = [20.0, -45.0, 0.0]
     margin = QPointF(15, 15)
 
@@ -1713,7 +1716,7 @@ class CSI(CSITreeManager, QGraphicsRectItem):
     """ Construction Step Image.  Includes border and positional info. """
     itemClassName = "CSI"
 
-    scale = 1.0
+    defaultScale = 1.0
     defaultRotation = [20.0, 45.0, 0.0]
 
     def __init__(self, step):
@@ -1758,7 +1761,7 @@ class CSI(CSITreeManager, QGraphicsRectItem):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.rect().width() / 2.0) + self.center.x()
         dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0) + self.center.y()
-        GLHelpers.rotateToView(CSI.defaultRotation, dx, dy, 0.0, CSI.scale)
+        GLHelpers.rotateToView(CSI.defaultRotation, CSI.defaultScale, dx, dy, 0.0)
         
         if self.rotation:
             GLHelpers.rotateView(*self.rotation)
@@ -1926,7 +1929,7 @@ class CSI(CSITreeManager, QGraphicsRectItem):
         if not self.parts:
             return result  # A CSI with no parts is already initialized
 
-        params = GLHelpers.initImgSize(size, self.oglDispID, filename, CSI.defaultRotation, self.rotation, pBuffer)
+        params = GLHelpers.initImgSize(size, self.oglDispID, filename, CSI.defaultScale, CSI.defaultRotation, self.rotation, pBuffer)
         if params is None:
             return False
 
@@ -1945,7 +1948,7 @@ class CSI(CSITreeManager, QGraphicsRectItem):
             fh.close()
             
         povFile = l3p.createPovFromDat(datFile)
-        pngFile = povray.createPngFromPov(povFile, self.rect().width(), self.rect().height(), self.center, CSI.scale, isPLIItem = False)
+        pngFile = povray.createPngFromPov(povFile, self.rect().width(), self.rect().height(), self.center, CSI.defaultScale, isPLIItem = False)
         self.pngImage = QImage(pngFile)
         
     def exportToLDrawFile(self, fh):
@@ -1971,23 +1974,25 @@ class CSI(CSITreeManager, QGraphicsRectItem):
         return (page.number, step.number)
 
     def contextMenuEvent(self, event):
-
         menu = QMenu(self.scene().views()[0])
         stack = self.scene().undoStack
         menu.addAction("Rotate CSI", self.rotateSignal)
         menu.exec_(event.screenPos())
 
     def rotateSignal(self):
-
         parentWidget = self.scene().views()[0]
-        stack = self.scene().undoStack
-        action = lambda rotation: stack.push(RotateCSICommand(self, self.rotation, rotation))
         dialog = LicDialogs.RotationDialog(parentWidget, self.rotation)
-        parentWidget.connect(dialog, SIGNAL("changed"), action)
-        
-        stack.beginMacro("rotate CSI")
+        parentWidget.connect(dialog, SIGNAL("changeRotation"), self.changeRotation)
+        parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.accept)
         dialog.exec_()
-        stack.endMacro()
+
+    def changeRotation(self, rotation):
+        self.rotation = list(rotation)
+        self.resetPixmap()
+        
+    def accept(self, oldRotation):
+        action = RotateCSICommand(self, oldRotation, self.rotation)
+        self.scene().undoStack.push(action)
     
 class PartOGL(object):
     """
@@ -2161,7 +2166,7 @@ class PartOGL(object):
 
         # TODO: If a part is rendered at a size > 256, draw it smaller in the PLI - this sounds like a great way to know when to shrink a PLI image...
         rotation = SubmodelPreview.defaultRotation if self.isSubmodel else PLI.defaultRotation
-        params = GLHelpers.initImgSize(size, self.oglDispID, self.filename, rotation, None, pBuffer)
+        params = GLHelpers.initImgSize(size, self.oglDispID, self.filename, PLI.defaultScale, rotation, None, pBuffer)
         if params is None:
             return False
 
@@ -2172,13 +2177,13 @@ class PartOGL(object):
          
         GLHelpers.pushAllGLMatrices()
 
-        dx += self.center.x() * PLI.scale
-        dy += self.center.y() * PLI.scale
+        dx += self.center.x() * PLI.defaultScale
+        dy += self.center.y() * PLI.defaultScale
         
         if self.isSubmodel:
-            GLHelpers.rotateToView(SubmodelPreview.defaultRotation, dx, dy, 0.0, SubmodelPreview.scale)
+            GLHelpers.rotateToView(SubmodelPreview.defaultRotation, SubmodelPreview.defaultScale, dx, dy, 0.0)
         else:
-            GLHelpers.rotateToView(PLI.defaultRotation, dx, dy, 0.0, PLI.scale)
+            GLHelpers.rotateToView(PLI.defaultRotation, PLI.defaultScale, dx, dy, 0.0)
         
         if color is not None:
             colorRGB = LDrawColors.convertToRGBA(color)
@@ -2547,7 +2552,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
             fh.close()
 
         povFile = l3p.createPovFromDat(datFile)
-        pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, PLI.scale, isPLIItem = False)
+        pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, PLI.defaultScale, isPLIItem = False)
         self.pngImage = QImage(pngFile)
 
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):

@@ -95,13 +95,11 @@ def rotateView(x, y, z):
     glRotatef(y, 0.0, 1.0, 0.0)
     glRotatef(z, 0.0, 0.0, 1.0)
 
-def rotateToView(rotation, x = 0.0, y = 0.0, z = 0.0, scale = 1.0):
+def rotateToView(rotation, scale, x = 0.0, y = 0.0, z = 0.0):
     # position (x,y,z), look at (x,y,z), up vector (x,y,z)
     gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
     glRotatef(180.0, 0.0, 0.0, 1.0)
     glScalef(scale, scale, scale)
-    
-    # Rotate model into the requested csi / pli / submodel view 
     rotateView(*rotation)
 
 def pushAllGLMatrices():
@@ -141,7 +139,7 @@ def _getBottomInset(data, height, left):
 
 bgCache = {}
 
-def _getBounds(size, oglDispID, filename, defaultRotation, partRotation, pBuffer):
+def _getBounds(size, oglDispID, filename, defaultScale, defaultRotation, partRotation, pBuffer):
     
     # Clear the drawing buffer with white
     glClearColor(1.0, 1.0, 1.0, 1.0)
@@ -151,7 +149,7 @@ def _getBounds(size, oglDispID, filename, defaultRotation, partRotation, pBuffer
     glLoadIdentity()
     glColor3f(0, 0, 0)
     adjustGLViewport(0, 0, size, size)
-    rotateToView(defaultRotation)
+    rotateToView(defaultRotation, defaultScale)
     if partRotation:
         rotateView(*partRotation)
 
@@ -182,7 +180,7 @@ def _getBounds(size, oglDispID, filename, defaultRotation, partRotation, pBuffer
     bottomInset = _getBottomInset(data, size, box[0])
     return box + (leftInset - box[0], bottomInset - box[1])
     
-def initImgSize(size, oglDispID, filename, defaultRotation, partRotation, pBuffer):
+def initImgSize(size, oglDispID, filename, defaultScale, defaultRotation, partRotation, pBuffer):
     """
     Draw this piece to the already initialized GL Frame Buffer Object, in order to calculate
     its displayed width and height.  These dimensions are required to properly lay out PLIs and CSIs.
@@ -202,7 +200,7 @@ def initImgSize(size, oglDispID, filename, defaultRotation, partRotation, pBuffe
     """
     
     # Draw piece to frame buffer, then calculate bounding box
-    left, top, right, bottom, leftInset, bottomInset = _getBounds(size, oglDispID, filename, defaultRotation, partRotation, pBuffer)
+    left, top, right, bottom, leftInset, bottomInset = _getBounds(size, oglDispID, filename, defaultScale, defaultRotation, partRotation, pBuffer)
     
     if _checkImgBounds(top, bottom, left, right, size):
         return None  # Drew at least one edge out of bounds - try next buffer size

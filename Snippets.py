@@ -17,7 +17,7 @@ def paint(self, painter, option, widget = None):
 
     GLHelpers.initFreshContext()
     GLHelpers.adjustGLViewport(0, 0, 80, 80)
-    GLHelpers.rotateToDefaultView(100.0, 100.0, 0.0, PLI.scale)
+    GLHelpers.rotateToDefaultView(100.0, 100.0, 0.0, PLI.defaultScale)
     
     b = self.partOGL.getBoundingBox()
     

@@ -1,6 +1,20 @@
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
+def makeLabelSpinBox(self, text, value, min, max, percent = False):
+    if percent:
+        spinBox = QDoubleSpinBox()
+        spinBox.setSuffix(" %")
+    else:
+        spinBox = QSpinBox()
+    spinBox.setRange(min, max)
+    spinBox.setValue(value)
+    lbl = QLabel(self.tr(text))
+    lbl.setBuddy(spinBox)
+    return lbl, spinBox
+
+QDialog.makeLabelSpinBox = makeLabelSpinBox
+
 class CSIPLIImageSizeDlg(QDialog):
 
     def __init__(self, parent, currentCSISize, currentPLISize):
@@ -390,29 +404,64 @@ class PenDlg(QDialog):
         self.emit(SIGNAL("changed"), self.originalPen)
         QDialog.reject(self)
 
+class ScaleDlg(QDialog):
+
+    def __init__(self, parent, originalSize):
+        QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle("Set Size")
+        self.originalSize = originalSize
+
+        sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox("&Size:", originalSize * 100.0, 0.1, 1000, True)
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
+
+        grid = QGridLayout()
+        grid.addWidget(sizeLabel, 0, 0)
+        grid.addWidget(self.sizeSpinBox, 0, 1)
+        grid.addWidget(buttonBox, 2, 0, 1, 2)
+        self.setLayout(grid)
+
+        self.connect(self.sizeSpinBox, SIGNAL("valueChanged(double)"), self.sizeChanged)
+        self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
+        self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
+        
+    def sizeChanged(self):
+        newSize = self.sizeSpinBox.value() / 100.0
+        self.emit(SIGNAL("changeScale"), newSize)
+    
+    def accept(self):
+        self.emit(SIGNAL("acceptScale"), self.originalSize)
+        QDialog.accept(self)
+        
+    def reject(self):
+        self.emit(SIGNAL("changeScale"), self.originalSize)
+        QDialog.reject(self)
+
 class RotationDialog(QDialog):
     
     def __init__(self, parent, rotation):
-        QDialog.__init__(self, parent)
+        QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
         self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle(self.tr("Change Rotation"))
+        #self.setWindowOpacity(0.8)
         
         self.rotation = list(rotation) if rotation else [0.0, 0.0, 0.0]
 
-        self.xLabel, self.xSpinBox = self.makeLabelSpinBox("X:", self.rotation[0])
-        self.yLabel, self.ySpinBox = self.makeLabelSpinBox("Y:", self.rotation[1])
-        self.zLabel, self.zSpinBox = self.makeLabelSpinBox("Z:", self.rotation[2])
+        self.xLabel, self.xSpinBox = self.makeLabelSpinBox("X:", self.rotation[0], -360, 360, False)
+        self.yLabel, self.ySpinBox = self.makeLabelSpinBox("Y:", self.rotation[1], -360, 360, False)
+        self.zLabel, self.zSpinBox = self.makeLabelSpinBox("Z:", self.rotation[2], -360, 360, False)
 
         buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
         
-        mainLayout = QGridLayout()
-        mainLayout.addWidget(self.xLabel, 0, 0, Qt.AlignRight)
-        mainLayout.addWidget(self.xSpinBox, 0, 1)
-        mainLayout.addWidget(self.yLabel, 1, 0, Qt.AlignRight)
-        mainLayout.addWidget(self.ySpinBox, 1, 1)
-        mainLayout.addWidget(self.zLabel, 2, 0, Qt.AlignRight)
-        mainLayout.addWidget(self.zSpinBox, 2, 1)
-        mainLayout.addWidget(buttonBox, 3, 0, 1, 2)
-        self.setLayout(mainLayout)
+        grid = QGridLayout()
+        grid.addWidget(self.xLabel, 0, 0, Qt.AlignRight)
+        grid.addWidget(self.xSpinBox, 0, 1)
+        grid.addWidget(self.yLabel, 1, 0, Qt.AlignRight)
+        grid.addWidget(self.ySpinBox, 1, 1)
+        grid.addWidget(self.zLabel, 2, 0, Qt.AlignRight)
+        grid.addWidget(self.zSpinBox, 2, 1)
+        grid.addWidget(buttonBox, 3, 0, 1, 2)
+        self.setLayout(grid)
 
         self.connect(self.xSpinBox, SIGNAL("valueChanged(int)"), self.rotationChanged)
         self.connect(self.ySpinBox, SIGNAL("valueChanged(int)"), self.rotationChanged)
@@ -422,26 +471,17 @@ class RotationDialog(QDialog):
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
         
         self.rotationChanged()
-        self.setWindowTitle(self.tr("Rotate CSI"))
 
-    def makeLabelSpinBox(self, text, value):
-        spinBox = QSpinBox()
-        spinBox.setRange(-360, 360)
-        spinBox.setValue(value)
-        lbl = QLabel(self.tr(text))
-        lbl.setBuddy(spinBox)
-        return lbl, spinBox
-        
     def rotationChanged(self):
         x = self.xSpinBox.value()
         y = self.ySpinBox.value()
         z = self.zSpinBox.value()
-        self.emit(SIGNAL("changed"), [x, y, z])
+        self.emit(SIGNAL("changeRotation"), [x, y, z])
         
     def accept(self):
-        self.emit(SIGNAL("accept"), self.rotation)
+        self.emit(SIGNAL("acceptRotation"), self.rotation)
         QDialog.accept(self)
         
     def reject(self):
-        self.emit(SIGNAL("changed"), self.rotation)
+        self.emit(SIGNAL("changeRotation"), self.rotation)
         QDialog.reject(self)

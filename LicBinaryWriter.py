@@ -60,9 +60,9 @@ def __writeInstructions(stream, instructions):
 
     stream << QString(instructions.mainModel.filename)
 
-    stream.writeFloat(CSI.scale)
-    stream.writeFloat(PLI.scale)
-    stream.writeFloat(SubmodelPreview.scale)
+    stream.writeFloat(CSI.defaultScale)
+    stream.writeFloat(PLI.defaultScale)
+    stream.writeFloat(SubmodelPreview.defaultScale)
     
     stream.writeFloat(CSI.defaultRotation[0])
     stream.writeFloat(CSI.defaultRotation[1])

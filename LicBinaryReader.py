@@ -105,9 +105,9 @@ def __readInstructions(stream, instructions):
     filename = str(stream.readQString())
     instructions.filename = filename
 
-    CSI.scale = stream.readFloat()
-    PLI.scale = stream.readFloat()
-    SubmodelPreview.scale = stream.readFloat()
+    CSI.defaultScale = stream.readFloat()
+    PLI.defaultScale = stream.readFloat()
+    SubmodelPreview.defaultScale = stream.readFloat()
     
     CSI.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
     PLI.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]

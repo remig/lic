@@ -715,13 +715,13 @@ class LicWindow(QMainWindow):
             pageSize = dialog.pageSize()
     
     def changeCSIPLISizeAction(self):
-        dialog = LicDialogs.CSIPLIImageSizeDlg(self, CSI.scale, PLI.scale)
+        dialog = LicDialogs.CSIPLIImageSizeDlg(self, CSI.defaultScale, PLI.defaultScale)
         self.connect(dialog, SIGNAL("newCSIPLISize"), self.setCSIPLISize)
         dialog.show()
 
     def setCSIPLISize(self, newCSISize, newPLISize):
-        if newCSISize != CSI.scale or newPLISize != PLI.scale:
-            sizes = ((CSI.scale, newCSISize), (PLI.scale, newPLISize))
+        if newCSISize != CSI.defaultScale or newPLISize != PLI.defaultScale:
+            sizes = ((CSI.defaultScale, newCSISize), (PLI.defaultScale, newPLISize))
             self.undoStack.push(LicUndoActions.ResizeCSIPLICommand(self.instructions, sizes))
 
     def addActions(self, target, actions):
@@ -972,7 +972,6 @@ def main():
     filename = ""
     #filename = unicode("C:\\lic\\tardis.mpd")
     #filename = unicode("C:\\lic\\tardis.lic")
-    #filename = unicode("C:\\lic\\6x10_x.lic")
     #filename = unicode("C:\\lic\\viper_wing.lic")
     #filename = unicode("C:\\lic\\viper_short.lic")
     #filename = unicode("C:\\lic\\viper_short.mpd")

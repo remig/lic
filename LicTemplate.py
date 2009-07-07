@@ -292,8 +292,8 @@ class TemplatePLI(TemplateRectItem, PLI):
     def rotateSignal(self):
         parentWidget = self.scene().views()[0]
         dialog = LicDialogs.RotationDialog(parentWidget, PLI.defaultRotation)
-        parentWidget.connect(dialog, SIGNAL("changed"), self.changeRotation)
-        parentWidget.connect(dialog, SIGNAL("accept"), self.accept)
+        parentWidget.connect(dialog, SIGNAL("changeRotation"), self.changeRotation)
+        parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.accept)
         dialog.exec_()
         
     def changeRotation(self, rotation):
@@ -322,8 +322,8 @@ class TemplateSubmodelPreview(TemplateRectItem, SubmodelPreview):
     def rotateSignal(self):
         parentWidget = self.scene().views()[0]
         dialog = LicDialogs.RotationDialog(parentWidget, SubmodelPreview.defaultRotation)
-        parentWidget.connect(dialog, SIGNAL("changed"), self.changeRotation)
-        parentWidget.connect(dialog, SIGNAL("accept"), self.accept)
+        parentWidget.connect(dialog, SIGNAL("changeRotation"), self.changeRotation)
+        parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.accept)
         dialog.exec_()
         
     def changeRotation(self, rotation):
@@ -348,14 +348,14 @@ class TemplateCSI(CSI):
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Change Default CSI Rotation", self.rotateSignal)
+        menu.addAction("Change Default CSI Size", self.sizeSignal)
         menu.exec_(event.screenPos())
 
     def rotateSignal(self):
         parentWidget = self.scene().views()[0]
         dialog = LicDialogs.RotationDialog(parentWidget, CSI.defaultRotation)
-        parentWidget.connect(dialog, SIGNAL("changed"), self.changeRotation)
-        parentWidget.connect(dialog, SIGNAL("accept"), self.accept)
-        
+        parentWidget.connect(dialog, SIGNAL("changeRotation"), self.changeRotation)
+        parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.accept)
         dialog.exec_()
         
     def changeRotation(self, rotation):
@@ -365,7 +365,22 @@ class TemplateCSI(CSI):
     def accept(self, oldRotation):
         action = RotateDefaultItemCommand(CSI, "CSI", self, oldRotation, CSI.defaultRotation)
         self.scene().undoStack.push(action)
-
+        
+    def sizeSignal(self):
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.ScaleDlg(parentWidget, CSI.defaultScale)
+        parentWidget.connect(dialog, SIGNAL("changeScale"), self.changeScale)
+        parentWidget.connect(dialog, SIGNAL("acceptScale"), self.acceptScale)
+        dialog.exec_()
+        
+    def changeScale(self, newScale):
+        CSI.defaultScale = newScale
+        self.resetPixmap()
+    
+    def acceptScale(self, originalScale):
+        action = ScaleDefaultItemCommand(CSI, "CSI", self, originalScale, CSI.defaultScale)
+        self.scene().undoStack.push(action)
+    
 class TemplateStep(Step):
     
     def postLoadInit(self):

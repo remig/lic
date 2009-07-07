@@ -393,6 +393,35 @@ class RotateCSICommand(QUndoCommand):
         self.csi.rotation = list(self.newRotation) if self.newRotation else None
         self.csi.resetPixmap()
 
+class ScaleDefaultItemCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, target, name, template, oldScale, newScale):
+        QUndoCommand.__init__(self, "Change default %s Scale" % name)
+        self.target, self.name, self.template = target, name, template
+        self.oldScale, self.newScale = oldScale, newScale
+
+    def doAction(self, redo):
+        instructions = self.template.getPage().instructions
+        self.target.defaultScale = self.newScale if redo else self.oldScale
+
+        if self.name == "CSI":
+            self.template.resetPixmap()
+            for s, l in instructions.initCSIDimensions(0, True):
+                pass  # Don't care about yielded items here
+
+        elif self.name == "PLI":
+            self.template.resetPLIItems()
+            for s, l in instructions.initPartDimensions(0, True):
+                pass  # Don't care about yielded items here
+            instructions.initAllPLILayouts()
+
+        elif self.name == "Submodel":
+            self.template.partOGL.resetPixmap()
+            self.template.setPartOGL(self.template.partOGL)
+            instructions.initSubmodelImages()
+            
 class RotateDefaultItemCommand(QUndoCommand):
 
     _id = getNewCommandID()
