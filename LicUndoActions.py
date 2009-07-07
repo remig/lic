@@ -421,11 +421,11 @@ class RotateCSICommand(QUndoCommand):
         self.csi, self.oldRotation, self.newRotation = csi, oldRotation, newRotation
 
     def undo(self):
-        self.csi.rotation = list(self.oldRotation) if self.oldRotation else None
+        self.csi.rotation = list(self.oldRotation)
         self.csi.resetPixmap() 
 
     def redo(self):
-        self.csi.rotation = list(self.newRotation) if self.newRotation else None
+        self.csi.rotation = list(self.newRotation)
         self.csi.resetPixmap()
 
 class ScaleDefaultItemCommand(QUndoCommand):

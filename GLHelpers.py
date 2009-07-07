@@ -150,8 +150,7 @@ def _getBounds(size, oglDispID, filename, defaultScale, defaultRotation, partRot
     glColor3f(0, 0, 0)
     adjustGLViewport(0, 0, size, size)
     rotateToView(defaultRotation, defaultScale)
-    if partRotation:
-        rotateView(*partRotation)
+    rotateView(*partRotation)
 
     glCallList(oglDispID)
 

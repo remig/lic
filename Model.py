@@ -1453,6 +1453,8 @@ class SubmodelPreview(GraphicsRoundRectItem):
         GraphicsRoundRectItem.__init__(self, parent)
         self.dataText = "Submodel Preview"
         self.cornerRadius = 10
+        self.rotation = [0.0, 0.0, 0.0]
+        self.scale = 1.0
         self.setFlags(AllFlags)
         self.setPartOGL(partOGL)
         
@@ -1715,6 +1717,41 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
             self.setRect(pliBox)
             prevItem = item
 
+class RotateScaleSignalItem(QObject):
+    
+    def __init__(self):
+        pass
+
+    def rotateSignal(self):
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.RotationDialog(parentWidget, self.rotation)
+        parentWidget.connect(dialog, SIGNAL("changeRotation"), self.changeRotation)
+        parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.acceptRotation)
+        dialog.exec_()
+
+    def changeRotation(self, rotation):
+        self.rotation = list(rotation)
+        self.resetPixmap()
+        
+    def acceptRotation(self, oldRotation):
+        action = RotateCSICommand(self, oldRotation, self.rotation)
+        self.scene().undoStack.push(action)
+    
+    def scaleSignal(self):
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.ScaleDlg(parentWidget, self.scale)
+        parentWidget.connect(dialog, SIGNAL("changeScale"), self.changeScale)
+        parentWidget.connect(dialog, SIGNAL("acceptScale"), self.acceptScale)
+        dialog.exec_()
+
+    def changeScale(self, newScale):
+        self.scale = newScale
+        self.resetPixmap()
+        
+    def acceptScale(self, oldScale):
+        action = ScaleItemCommand(self, oldScale, self.scale)
+        self.scene().undoStack.push(action)
+    
 class CSI(CSITreeManager, QGraphicsRectItem):
     """ Construction Step Image.  Includes border and positional info. """
     itemClassName = "CSI"
@@ -1731,7 +1768,7 @@ class CSI(CSITreeManager, QGraphicsRectItem):
         self.setPen(QPen(Qt.NoPen))
 
         self._row = 0
-        self.rotation = None
+        self.rotation = [0.0, 0.0, 0.0]
         self.scale = 1.0
         
         self.__boxPoints = None
@@ -1766,9 +1803,7 @@ class CSI(CSITreeManager, QGraphicsRectItem):
         dx = pos.x() + (self.rect().width() / 2.0) + self.center.x()
         dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0) + self.center.y()
         GLHelpers.rotateToView(CSI.defaultRotation, CSI.defaultScale * self.scale, dx, dy, 0.0)
-        
-        if self.rotation:
-            GLHelpers.rotateView(*self.rotation)
+        GLHelpers.rotateView(*self.rotation)
 
         GL.glCallList(self.oglDispID)
         #self.calculateGLSize()

@@ -282,7 +282,7 @@ class TemplateCallout(TemplateRectItem, Callout):
         Callout.setBrush(self, newBrush)
         Callout.defaultBrush = newBrush
 
-class RotateScaleSignalItem(QObject):
+class TemplateRotateScaleSignalItem(QObject):
     
     def rotateDefaultSignal(self):
         parentWidget = self.scene().views()[0]
@@ -314,7 +314,7 @@ class RotateScaleSignalItem(QObject):
         action = ScaleDefaultItemCommand(self.target, self.name, self, originalScale, self.target.defaultScale)
         self.scene().undoStack.push(action)
     
-class TemplatePLI(TemplateRectItem, PLI, RotateScaleSignalItem):
+class TemplatePLI(TemplateRectItem, PLI, TemplateRotateScaleSignalItem):
     
     def contextMenuEvent(self, event):
         self.target, self.name = PLI, "PLI"
@@ -331,7 +331,7 @@ class TemplatePLI(TemplateRectItem, PLI, RotateScaleSignalItem):
         PLI.setBrush(self, newBrush)
         PLI.defaultBrush = newBrush
 
-class TemplateSubmodelPreview(TemplateRectItem, SubmodelPreview, RotateScaleSignalItem):
+class TemplateSubmodelPreview(TemplateRectItem, SubmodelPreview, TemplateRotateScaleSignalItem):
 
     def contextMenuEvent(self, event):
         self.target, self.name = SubmodelPreview, "Submodel"
@@ -348,7 +348,7 @@ class TemplateSubmodelPreview(TemplateRectItem, SubmodelPreview, RotateScaleSign
         SubmodelPreview.setBrush(self, newBrush)
         SubmodelPreview.defaultBrush = newBrush
 
-class TemplateCSI(CSI, RotateScaleSignalItem):
+class TemplateCSI(CSI, TemplateRotateScaleSignalItem):
     
     def contextMenuEvent(self, event):
         self.target, self.name = CSI, "CSI"

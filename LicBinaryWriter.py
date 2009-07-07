@@ -248,10 +248,9 @@ def __writeCSI(stream, csi):
     stream << csi.center
     
     stream.writeFloat(csi.scale)
-    rotation = csi.rotation if csi.rotation else [0.0, 0.0, 0.0]
-    stream.writeFloat(rotation[0])
-    stream.writeFloat(rotation[1])
-    stream.writeFloat(rotation[2])
+    stream.writeFloat(csi.rotation[0])
+    stream.writeFloat(csi.rotation[1])
+    stream.writeFloat(csi.rotation[2])
 
     stream.writeInt32(csi.partCount())
     for partItem in csi.parts:

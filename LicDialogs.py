@@ -445,7 +445,7 @@ class RotationDialog(QDialog):
         self.setWindowTitle(self.tr("Change Rotation"))
         #self.setWindowOpacity(0.8)
         
-        self.rotation = list(rotation) if rotation else [0.0, 0.0, 0.0]
+        self.rotation = list(rotation)
 
         self.xLabel, self.xSpinBox = self.makeLabelSpinBox("X:", self.rotation[0], -360, 360, False)
         self.yLabel, self.ySpinBox = self.makeLabelSpinBox("Y:", self.rotation[1], -360, 360, False)
