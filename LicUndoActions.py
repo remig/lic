@@ -418,9 +418,10 @@ class ScaleDefaultItemCommand(QUndoCommand):
             instructions.initAllPLILayouts()
 
         elif self.name == "Submodel":
-            self.template.partOGL.resetPixmap()
-            self.template.setPartOGL(self.template.partOGL)
+            self.template.resetPixmap()
             instructions.initSubmodelImages()
+            
+        instructions.scene.update()  # Need this to force full redraw
             
 class RotateDefaultItemCommand(QUndoCommand):
 
@@ -447,8 +448,7 @@ class RotateDefaultItemCommand(QUndoCommand):
             instructions.initAllPLILayouts()
 
         elif self.name == "Submodel":
-            self.template.partOGL.resetPixmap()
-            self.template.setPartOGL(self.template.partOGL)
+            self.template.resetPixmap()
             instructions.initSubmodelImages()
         
 class SetPageBackgroundColorCommand(QUndoCommand):

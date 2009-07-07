@@ -679,8 +679,7 @@ class Page(PageTreeManager, QGraphicsRectItem):
         
     def resetSubmodelImage(self):
         if self.submodelItem:
-            self.subModel.resetPixmap()
-            self.submodelItem.setPartOGL(self.subModel)
+            self.subModelItem.resetPixmap()
 
     def checkForLayoutOverlaps(self):
         for step in self.steps:
@@ -1457,6 +1456,10 @@ class SubmodelPreview(GraphicsRoundRectItem):
         self.setFlags(AllFlags)
         self.setPartOGL(partOGL)
         
+    def resetPixmap(self):
+        self.partOGL.resetPixmap()
+        self.setPartOGL(self.partOGL)
+        
     def setPartOGL(self, partOGL):
         self.partOGL = partOGL
         self.setRect(0, 0, partOGL.width + PLI.margin.x() * 2, partOGL.height + PLI.margin.y() * 2)
@@ -1518,7 +1521,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
 
         # Put label directly below part, left sides aligned
         # Label's implicit lower top right corner (from qty 'x'), means no padding needed
-        self.numberItem.setPos(0.0, part.height * PLI.defaultScale)  
+        self.numberItem.setPos(0.0, part.height)  
        
         lblWidth = self.numberItem.boundingRect().width()
         lblHeight = self.numberItem.boundingRect().height()
@@ -1526,8 +1529,8 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
             if part.bottomInset > lblHeight:
                 self.numberItem.moveBy(0, -lblHeight)  # Label fits entirely under part: bottom left corners now match
             else:
-                li = part.leftInset * PLI.defaultScale   # Move label up until top right corner intersects bottom left inset line
-                slope = (part.bottomInset * PLI.defaultScale) / float(li)
+                li = part.leftInset   # Move label up until top right corner intersects bottom left inset line
+                slope = part.bottomInset / float(li)
                 dy = slope * (li - lblWidth)
                 self.numberItem.moveBy(0, -dy)
 
@@ -2166,7 +2169,8 @@ class PartOGL(object):
 
         # TODO: If a part is rendered at a size > 256, draw it smaller in the PLI - this sounds like a great way to know when to shrink a PLI image...
         rotation = SubmodelPreview.defaultRotation if self.isSubmodel else PLI.defaultRotation
-        params = GLHelpers.initImgSize(size, self.oglDispID, self.filename, PLI.defaultScale, rotation, None, pBuffer)
+        scale = SubmodelPreview.defaultScale if self.isSubmodel else PLI.defaultScale
+        params = GLHelpers.initImgSize(size, self.oglDispID, self.filename, scale, rotation, None, pBuffer)
         if params is None:
             return False
 

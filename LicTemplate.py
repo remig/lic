@@ -285,7 +285,8 @@ class TemplateCallout(TemplateRectItem, Callout):
 class TemplatePLI(TemplateRectItem, PLI):
 
     def contextMenuEvent(self, event):
-        actions = [["Change Default PLI Rotation", self.rotateSignal]]
+        actions = [["Change Default PLI Rotation", self.rotateSignal],
+                   ["Change Default PLI Scale", self.scaleSignal]]
         menu = TemplateRectItem.getContextMenu(self, actions)
         menu.exec_(event.screenPos())
     
@@ -293,17 +294,32 @@ class TemplatePLI(TemplateRectItem, PLI):
         parentWidget = self.scene().views()[0]
         dialog = LicDialogs.RotationDialog(parentWidget, PLI.defaultRotation)
         parentWidget.connect(dialog, SIGNAL("changeRotation"), self.changeRotation)
-        parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.accept)
+        parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.acceptRotation)
         dialog.exec_()
         
     def changeRotation(self, rotation):
         PLI.defaultRotation = list(rotation)
         self.resetPLIItems()
         
-    def accept(self, oldRotation):
+    def acceptRotation(self, oldRotation):
         action = RotateDefaultItemCommand(PLI, "PLI", self, oldRotation, PLI.defaultRotation)
         self.scene().undoStack.push(action)
 
+    def scaleSignal(self):
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.ScaleDlg(parentWidget, PLI.defaultScale)
+        parentWidget.connect(dialog, SIGNAL("changeScale"), self.changeScale)
+        parentWidget.connect(dialog, SIGNAL("acceptScale"), self.acceptScale)
+        dialog.exec_()
+    
+    def changeScale(self, newScale):
+        PLI.defaultScale = newScale
+        self.resetPLIItems()
+    
+    def acceptScale(self, originalScale):
+        action = ScaleDefaultItemCommand(PLI, "PLI", self, originalScale, PLI.defaultScale)
+        self.scene().undoStack.push(action)
+    
     def setPen(self, newPen):
         PLI.setPen(self, newPen)
         PLI.defaultPen = newPen
@@ -315,7 +331,8 @@ class TemplatePLI(TemplateRectItem, PLI):
 class TemplateSubmodelPreview(TemplateRectItem, SubmodelPreview):
 
     def contextMenuEvent(self, event):
-        actions = [["Change Default Submodel Rotation", self.rotateSignal]]
+        actions = [["Change Default Submodel Rotation", self.rotateSignal],
+                   ["Change Default Submodel Scale", self.scaleSignal]]
         menu = TemplateRectItem.getContextMenu(self, actions)
         menu.exec_(event.screenPos())
         
@@ -323,18 +340,32 @@ class TemplateSubmodelPreview(TemplateRectItem, SubmodelPreview):
         parentWidget = self.scene().views()[0]
         dialog = LicDialogs.RotationDialog(parentWidget, SubmodelPreview.defaultRotation)
         parentWidget.connect(dialog, SIGNAL("changeRotation"), self.changeRotation)
-        parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.accept)
+        parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.acceptRotation)
         dialog.exec_()
         
     def changeRotation(self, rotation):
         SubmodelPreview.defaultRotation = list(rotation)
-        self.partOGL.resetPixmap()
-        self.setPartOGL(self.partOGL)
+        self.resetPixmap()
         
-    def accept(self, oldRotation):
+    def acceptRotation(self, oldRotation):
         action = RotateDefaultItemCommand(SubmodelPreview, "Submodel", self, oldRotation, SubmodelPreview.defaultRotation)
         self.scene().undoStack.push(action)
 
+    def scaleSignal(self):
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.ScaleDlg(parentWidget, SubmodelPreview.defaultScale)
+        parentWidget.connect(dialog, SIGNAL("changeScale"), self.changeScale)
+        parentWidget.connect(dialog, SIGNAL("acceptScale"), self.acceptScale)
+        dialog.exec_()
+    
+    def changeScale(self, newScale):
+        SubmodelPreview.defaultScale = newScale
+        self.resetPixmap()
+    
+    def acceptScale(self, originalScale):
+        action = ScaleDefaultItemCommand(SubmodelPreview, "Submodel", self, originalScale, SubmodelPreview.defaultScale)
+        self.scene().undoStack.push(action)
+    
     def setPen(self, newPen):
         SubmodelPreview.setPen(self, newPen)
         SubmodelPreview.defaultPen = newPen
@@ -348,7 +379,7 @@ class TemplateCSI(CSI):
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Change Default CSI Rotation", self.rotateSignal)
-        menu.addAction("Change Default CSI Size", self.sizeSignal)
+        menu.addAction("Change Default CSI Size", self.scaleSignal)
         menu.exec_(event.screenPos())
 
     def rotateSignal(self):
@@ -366,7 +397,7 @@ class TemplateCSI(CSI):
         action = RotateDefaultItemCommand(CSI, "CSI", self, oldRotation, CSI.defaultRotation)
         self.scene().undoStack.push(action)
         
-    def sizeSignal(self):
+    def scaleSignal(self):
         parentWidget = self.scene().views()[0]
         dialog = LicDialogs.ScaleDlg(parentWidget, CSI.defaultScale)
         parentWidget.connect(dialog, SIGNAL("changeScale"), self.changeScale)
