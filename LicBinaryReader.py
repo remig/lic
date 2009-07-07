@@ -349,6 +349,7 @@ def __readCSI(stream, step):
     csi.setRect(0.0, 0.0, stream.readInt32(), stream.readInt32())
     csi.center = stream.readQPointF()
 
+    csi.scale = stream.readFloat()
     x, y, z = stream.readFloat(), stream.readFloat(), stream.readFloat()
     if (x != 0.0) and (y != 0.0) and (z != 0.0):
         csi.rotation = [x, y, z]

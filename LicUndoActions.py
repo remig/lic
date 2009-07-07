@@ -396,6 +396,22 @@ class AdjustArrowLength(QUndoCommand):
         self.arrow.adjustLength(self.offset)
         self.arrow.getCSI().resetPixmap()
 
+class ScaleItemCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, csi, oldScale, newScale):
+        QUndoCommand.__init__(self, "CSI Scale")
+        self.csi, self.oldScale, self.newScale = csi, oldScale, newScale
+
+    def undo(self):
+        self.csi.scale = self.oldScale
+        self.csi.resetPixmap() 
+
+    def redo(self):
+        self.csi.scale = self.newScale
+        self.csi.resetPixmap()
+    
 class RotateCSICommand(QUndoCommand):
 
     _id = getNewCommandID()

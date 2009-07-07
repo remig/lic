@@ -1343,8 +1343,8 @@ class Step(StepTreeManager, QGraphicsRectItem):
         if self.hasPLI():
             r.setTop(self.pli.rect().height())
 
-        csiWidth = self.csi.rect().width() * CSI.defaultScale
-        csiHeight = self.csi.rect().height() * CSI.defaultScale
+        csiWidth = self.csi.rect().width()
+        csiHeight = self.csi.rect().height()
 
         if not self.callouts:
             
@@ -1732,6 +1732,7 @@ class CSI(CSITreeManager, QGraphicsRectItem):
 
         self._row = 0
         self.rotation = None
+        self.scale = 1.0
         
         self.__boxPoints = None
         
@@ -1764,7 +1765,7 @@ class CSI(CSITreeManager, QGraphicsRectItem):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.rect().width() / 2.0) + self.center.x()
         dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0) + self.center.y()
-        GLHelpers.rotateToView(CSI.defaultRotation, CSI.defaultScale, dx, dy, 0.0)
+        GLHelpers.rotateToView(CSI.defaultRotation, CSI.defaultScale * self.scale, dx, dy, 0.0)
         
         if self.rotation:
             GLHelpers.rotateView(*self.rotation)
@@ -1932,7 +1933,7 @@ class CSI(CSITreeManager, QGraphicsRectItem):
         if not self.parts:
             return result  # A CSI with no parts is already initialized
 
-        params = GLHelpers.initImgSize(size, self.oglDispID, filename, CSI.defaultScale, CSI.defaultRotation, self.rotation, pBuffer)
+        params = GLHelpers.initImgSize(size, self.oglDispID, filename, CSI.defaultScale * self.scale, CSI.defaultRotation, self.rotation, pBuffer)
         if params is None:
             return False
 
@@ -1951,7 +1952,7 @@ class CSI(CSITreeManager, QGraphicsRectItem):
             fh.close()
             
         povFile = l3p.createPovFromDat(datFile)
-        pngFile = povray.createPngFromPov(povFile, self.rect().width(), self.rect().height(), self.center, CSI.defaultScale, isPLIItem = False)
+        pngFile = povray.createPngFromPov(povFile, self.rect().width(), self.rect().height(), self.center, CSI.defaultScale * self.scale, isPLIItem = False)
         self.pngImage = QImage(pngFile)
         
     def exportToLDrawFile(self, fh):
@@ -1980,21 +1981,37 @@ class CSI(CSITreeManager, QGraphicsRectItem):
         menu = QMenu(self.scene().views()[0])
         stack = self.scene().undoStack
         menu.addAction("Rotate CSI", self.rotateSignal)
+        menu.addAction("Scale CSI", self.scaleSignal)
         menu.exec_(event.screenPos())
 
     def rotateSignal(self):
         parentWidget = self.scene().views()[0]
         dialog = LicDialogs.RotationDialog(parentWidget, self.rotation)
         parentWidget.connect(dialog, SIGNAL("changeRotation"), self.changeRotation)
-        parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.accept)
+        parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.acceptRotation)
         dialog.exec_()
 
     def changeRotation(self, rotation):
         self.rotation = list(rotation)
         self.resetPixmap()
         
-    def accept(self, oldRotation):
+    def acceptRotation(self, oldRotation):
         action = RotateCSICommand(self, oldRotation, self.rotation)
+        self.scene().undoStack.push(action)
+    
+    def scaleSignal(self):
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.ScaleDlg(parentWidget, self.scale)
+        parentWidget.connect(dialog, SIGNAL("changeScale"), self.changeScale)
+        parentWidget.connect(dialog, SIGNAL("acceptScale"), self.acceptScale)
+        dialog.exec_()
+
+    def changeScale(self, newScale):
+        self.scale = newScale
+        self.resetPixmap()
+        
+    def acceptScale(self, oldScale):
+        action = ScaleItemCommand(self, oldScale, self.scale)
         self.scene().undoStack.push(action)
     
 class PartOGL(object):
