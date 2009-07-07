@@ -3,6 +3,24 @@ from PyQt4.QtCore import SIGNAL
 
 import Helpers
 
+def resetGLItem(self, name, template):
+    instructions = template.getPage().instructions
+
+    if name == "CSI":
+        template.resetPixmap()
+        for s, l in instructions.initCSIDimensions(0, True):
+            pass  # Don't care about yielded items here
+
+    elif name == "PLI":
+        template.resetPixmap()
+        for s, l in instructions.initPartDimensions(0, True):
+            pass  # Don't care about yielded items here
+        instructions.initAllPLILayouts()
+
+    elif name == "Submodel":
+        template.resetPixmap()
+        instructions.initSubmodelImages()
+
 NextCommandID = 122
 def getNewCommandID():
     global NextCommandID
@@ -12,6 +30,7 @@ def getNewCommandID():
 QUndoCommand.id = lambda self: self._id
 QUndoCommand.undo = lambda self: self.doAction(False)
 QUndoCommand.redo = lambda self: self.doAction(True)
+QUndoCommand.resetGLItem = resetGLItem
 
 class MoveCommand(QUndoCommand):
 
@@ -403,25 +422,9 @@ class ScaleDefaultItemCommand(QUndoCommand):
         self.oldScale, self.newScale = oldScale, newScale
 
     def doAction(self, redo):
-        instructions = self.template.getPage().instructions
         self.target.defaultScale = self.newScale if redo else self.oldScale
-
-        if self.name == "CSI":
-            self.template.resetPixmap()
-            for s, l in instructions.initCSIDimensions(0, True):
-                pass  # Don't care about yielded items here
-
-        elif self.name == "PLI":
-            self.template.resetPLIItems()
-            for s, l in instructions.initPartDimensions(0, True):
-                pass  # Don't care about yielded items here
-            instructions.initAllPLILayouts()
-
-        elif self.name == "Submodel":
-            self.template.resetPixmap()
-            instructions.initSubmodelImages()
-            
-        instructions.scene.update()  # Need this to force full redraw
+        self.resetGLItem(self.name, self.template)
+        self.template.scene().update()  # Need this to force full redraw
             
 class RotateDefaultItemCommand(QUndoCommand):
 
@@ -433,23 +436,8 @@ class RotateDefaultItemCommand(QUndoCommand):
         self.oldRotation, self.newRotation = oldRotation, newRotation
 
     def doAction(self, redo):
-        instructions = self.template.getPage().instructions
         self.target.defaultRotation = list(self.newRotation) if redo else list(self.oldRotation)
-
-        if self.name == "CSI":
-            self.template.resetPixmap()
-            for s, l in instructions.initCSIDimensions(0, True):
-                pass  # Don't care about yielded items here
-
-        elif self.name == "PLI":
-            self.template.resetPLIItems()
-            for s, l in instructions.initPartDimensions(0, True):
-                pass  # Don't care about yielded items here
-            instructions.initAllPLILayouts()
-
-        elif self.name == "Submodel":
-            self.template.resetPixmap()
-            instructions.initSubmodelImages()
+        self.resetGLItem(self.name, self.template)
         
 class SetPageBackgroundColorCommand(QUndoCommand):
 

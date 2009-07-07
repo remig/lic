@@ -679,7 +679,7 @@ class Page(PageTreeManager, QGraphicsRectItem):
         
     def resetSubmodelImage(self):
         if self.submodelItem:
-            self.subModelItem.resetPixmap()
+            self.submodelItem.resetPixmap()
 
     def checkForLayoutOverlaps(self):
         for step in self.steps:
@@ -1619,7 +1619,7 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
             if pliItem.color == part.color and pliItem.partOGL.filename == part.partOGL.filename:
                 return pliItem.removePart()
 
-    def resetPLIItems(self):
+    def resetPixmap(self):
         
         resetItems = []
         for item in self.pliItems:
