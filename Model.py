@@ -2042,7 +2042,7 @@ class PartOGL(object):
         self.oglDispID = UNINIT_GL_DISPID
         self.isPrimitive = False  # primitive here means any file in 'P'
         self.isSubmodel = False
-        self.__boundingBox = None
+        self._boundingBox = None
 
         self.width = self.height = -1
         self.leftInset = self.bottomInset = -1
@@ -2227,8 +2227,8 @@ class PartOGL(object):
         GLHelpers.popAllGLMatrices()
 
     def getBoundingBox(self):
-        if self.__boundingBox:
-            return self.__boundingBox
+        if self._boundingBox:
+            return self._boundingBox
         
         box = None
         for primitive in self.primitives:
@@ -2237,25 +2237,25 @@ class PartOGL(object):
                 if box:
                     box.growByBoudingBox(p)
                 else:
-                    box = p
+                    box = p.copy()
             
         for part in self.parts:
             p = part.partOGL.getBoundingBox()
             if p:
                 if box:
-                    box.growByBoudingBox(p)
+                    box.growByBoudingBox(p, part.matrix)
                 else:
-                    box = p
+                    box = p.copy(part.matrix)
 
-        self.__boundingBox = box
+        self._boundingBox = box
         return box
 
     def resetBoundingBox(self):
-        self.__boundingBox = None
         for primitive in self.primitives:
             primitive.resetBoundingBox()
         for part in self.parts:
             part.partOGL.resetBoundingBox()
+        self._boundingBox = None
 
 class BoundingBox(object):
     
@@ -2264,6 +2264,18 @@ class BoundingBox(object):
         self.y1 = self.y2 = y
         self.z1 = self.z2 = z
 
+    def copy(self, matrix = None):
+        b = BoundingBox()
+        if matrix:
+            b.x1, b.y1, b.z1 = self.transformPoint(matrix,self.x1, self.y1, self.z1)
+            b.x2, b.y2, b.z2 = self.transformPoint(matrix,self.x2, self.y2, self.z2)
+            if matrix[5] < 0:
+                b.y1, b.y2 = b.y2, b.y1
+        else:
+            b.x1, b.y1, b.z1 = self.x1, self.y1, self.z1
+            b.x2, b.y2, b.z2 = self.x2, self.y2, self.z2
+        return b
+        
     def vertices(self):
         yield (self.x1, self.y1, self.z1)
         yield (self.x1, self.y1, self.z2)
@@ -2282,18 +2294,32 @@ class BoundingBox(object):
         self.z1 = min(z, self.z1)
         self.z2 = max(z, self.z2)
         
-    def growByBoudingBox(self, box):
-        self.growByPoints(box.x1, box.y1, box.z1)
-        self.growByPoints(box.x2, box.y2, box.z2)
+    def growByBoudingBox(self, box, matrix = None):
+        if matrix:
+            if matrix[5] < 0:
+                self.growByPoints(*self.transformPoint(matrix, box.x1, box.y2, box.z1))
+                self.growByPoints(*self.transformPoint(matrix, box.x2, box.y1, box.z2))
+            else:
+                self.growByPoints(*self.transformPoint(matrix, box.x1, box.y1, box.z1))
+                self.growByPoints(*self.transformPoint(matrix, box.x2, box.y2, box.z2))
+        else:
+            self.growByPoints(box.x1, box.y1, box.z1)
+            self.growByPoints(box.x2, box.y2, box.z2)
 
+    def transformPoint(self, matrix, x, y, z):
+        x2 = (matrix[0] * x) + (matrix[1] * y) + (matrix[2] * z) + matrix[12]
+        y2 = (matrix[4] * x) + (matrix[5] * y) + (matrix[6] * z) + matrix[13]
+        z2 = (matrix[8] * x) + (matrix[9] * y) + (matrix[10] * z) + matrix[14]
+        return (x2, y2, z2)
+    
     def xSize(self):
-        return (abs(self.x1) + abs(self.x2)) / 2.0
+        return abs(self.x2 - self.x1)
 
     def ySize(self):
-        return (abs(self.y1) + abs(self.y2)) / 2.0
+        return abs(self.y2 - self.y1)
 
     def zSize(self):
-        return (abs(self.z1) + abs(self.z2)) / 2.0
+        return abs(self.z2 - self.z1)
     
 class Submodel(SubmodelTreeManager, PartOGL):
     """ A Submodel is just a PartOGL that also has pages & steps, and can be inserted into a tree. """
@@ -2352,16 +2378,42 @@ class Submodel(SubmodelTreeManager, PartOGL):
             submodel.addInitialPagesAndSteps()
 
         csi  = self.pages[0].steps[0].csi
-        while csi.partCount() > PARTS_PER_STEP_MAX:
+        while csi.partCount() > 0:
+            
+            partList = csi.getPartList()
+            partList.sort(key = lambda x: x.getXYZSortOrder())
+            
+            currentPart = 0
+            y, dy = partList[currentPart].y(), partList[currentPart].ySize()
+            currentPart = 1
+            
+            if len(partList) > 1:
+                nextPart = partList[currentPart]
+                while y == nextPart.y() and dy == nextPart.ySize():
+                    currentPart += 1
+                    if currentPart >= len(partList):
+                        break
+                    nextPart = partList[currentPart]
+                    
+                if currentPart > PARTS_PER_STEP_MAX:
+                    partCounts = {}
+                    for part in partList[:currentPart]:
+                        if part.partOGL.name in partCounts:
+                            partCounts[part.partOGL.name] += 1
+                        else:
+                            partCounts[part.partOGL.name] = 1
+                    popularPartName = max(partCounts, key = partCounts.get)
+                    partList = [x for x in partList[:currentPart] if x.partOGL.name != popularPartName] + partList[currentPart:]
+                    currentPart = 0
+            
+            if len(partList[currentPart: ]) == 0:
+                break
             
             newPage = Page(self, self.instructions, self.pages[-1]._number + 1, self.pages[-1]._row + 1)
             newPage.addBlankStep()
             self.addPage(newPage)
-
-            partList = csi.getPartList()
-            partList.sort(key = lambda x: x.getXYZSortOrder())
             
-            for part in partList[PARTS_PER_STEP_MAX : ]:  # Move all but the first 5 parts to next step
+            for part in partList[currentPart: ]:  # Move all but the first x parts to next step
                 part.getStep().removePart(part)
                 newPage.steps[-1].addPart(part)
 
@@ -2661,6 +2713,9 @@ class Part(PartTreeManager, QGraphicsRectItem):
         x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
         return (-y, -z, x)
 
+    def getXYZ(self):
+        return [self.matrix[12], self.matrix[13], self.matrix[14]]
+    
     def x(self):
         return self.matrix[12]
     
@@ -2670,6 +2725,18 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def z(self):
         return self.matrix[14]
 
+    def getXYZSize(self):
+        return [self.xSize(), self.ySize(), self.zSize()]
+    
+    def xSize(self):
+        return self.partOGL.getBoundingBox().xSize()
+
+    def ySize(self):
+        return self.partOGL.getBoundingBox().ySize()
+
+    def zSize(self):
+        return self.partOGL.getBoundingBox().zSize()
+    
     def getCSI(self):
         return self.parentItem().parentItem()
     
@@ -2725,7 +2792,10 @@ class Part(PartTreeManager, QGraphicsRectItem):
             GL.glMultMatrixf(matrix)
 
         if self.isSelected():
+            GL.glPushAttrib(GL.GL_CURRENT_BIT)
+            GL.glColor4f(1.0, 0.0, 0.0, 1.0)
             self.drawGLBoundingBox()
+            GL.glPopAttrib()
 
         GL.glCallList(self.partOGL.oglDispID)
 
@@ -3006,11 +3076,11 @@ class Primitive(object):
         self.type = type
         self.points = points
         self.winding = winding
-        self.__boundingBox = None
+        self._boundingBox = None
 
     def getBoundingBox(self):
-        if self.__boundingBox:
-            return self.__boundingBox
+        if self._boundingBox:
+            return self._boundingBox
         
         p = self.points
         box = BoundingBox(p[0], p[1], p[2])
@@ -3020,11 +3090,11 @@ class Primitive(object):
             if self.type == GL.GL_QUADS:
                 box.growByPoints(p[9], p[10], p[11])
                 
-        self.__boundingBox = box
+        self._boundingBox = box
         return box
 
     def resetBoundingBox(self):
-        self.__boundingBox = None
+        self._boundingBox = None
 
     def vertexIterator(self):
         p = self.points
