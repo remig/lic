@@ -2264,6 +2264,10 @@ class BoundingBox(object):
         self.y1 = self.y2 = y
         self.z1 = self.z2 = z
 
+    def __str__(self):
+        #return "x1: %.2f, x2: %.2f,  y1: %.2f, y2: %.2f,  z1: %.2f, z2: %.2f" % (self.x1, self.x2, self.y1, self.y2, self.z1, self.z2)
+        return "%.0f %.0f | %.0f %.0f | %.0f %.0f" % (self.x1, self.x2, self.y1, self.y2, self.z1, self.z2)
+    
     def copy(self, matrix = None):
         b = BoundingBox()
         if matrix:
@@ -2307,9 +2311,9 @@ class BoundingBox(object):
             self.growByPoints(box.x2, box.y2, box.z2)
 
     def transformPoint(self, matrix, x, y, z):
-        x2 = (matrix[0] * x) + (matrix[1] * y) + (matrix[2] * z) + matrix[12]
-        y2 = (matrix[4] * x) + (matrix[5] * y) + (matrix[6] * z) + matrix[13]
-        z2 = (matrix[8] * x) + (matrix[9] * y) + (matrix[10] * z) + matrix[14]
+        x2 = (matrix[0] * x) + (matrix[4] * y) + (matrix[8] * z) + matrix[12]
+        y2 = (matrix[1] * x) + (matrix[5] * y) + (matrix[9] * z) + matrix[13]
+        z2 = (matrix[2] * x) + (matrix[6] * y) + (matrix[10] * z) + matrix[14]
         return (x2, y2, z2)
     
     def xSize(self):
@@ -2384,12 +2388,17 @@ class Submodel(SubmodelTreeManager, PartOGL):
             partList.sort(key = lambda x: x.getXYZSortOrder())
             
             currentPart = 0
-            y, dy = partList[currentPart].y(), partList[currentPart].ySize()
+            p = partList[currentPart]
+            
+            #print "%s, color: %s, y: %.2f, dy: %.2f" % (p.partOGL.name, LDrawColors.getColorName(p.color), p.by(), p.ySize())
+            #print "%s, color: %s, " % (p.partOGL.name, LDrawColors.getColorName(p.color)) + str(p.getPartBoundingBox())
+            
+            y, dy = p.by(), p.ySize()
             currentPart = 1
             
             if len(partList) > 1:
                 nextPart = partList[currentPart]
-                while y == nextPart.y() and dy == nextPart.ySize():
+                while y == nextPart.by() and abs(dy - nextPart.ySize()) <= 4.0:
                     currentPart += 1
                     if currentPart >= len(partList):
                         break
@@ -2710,11 +2719,23 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.inverted = (True if det < 0 else False) ^ invert
         
     def getXYZSortOrder(self):
-        x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
-        return (-y, -z, x)
+        b = self.getPartBoundingBox()
+        return (-b.y2, -b.z1, b.x1)
 
+    def getPartBoundingBox(self):
+        return self.partOGL.getBoundingBox().copy(self.matrix)
+    
     def getXYZ(self):
         return [self.matrix[12], self.matrix[13], self.matrix[14]]
+    
+    def bx(self):
+        return self.getPartBoundingBox().x1
+
+    def by(self):
+        return self.getPartBoundingBox().y2
+
+    def bz(self):
+        return self.getPartBoundingBox().z1
     
     def x(self):
         return self.matrix[12]
@@ -2729,13 +2750,13 @@ class Part(PartTreeManager, QGraphicsRectItem):
         return [self.xSize(), self.ySize(), self.zSize()]
     
     def xSize(self):
-        return self.partOGL.getBoundingBox().xSize()
+        return self.getPartBoundingBox().xSize()
 
     def ySize(self):
-        return self.partOGL.getBoundingBox().ySize()
+        return self.getPartBoundingBox().ySize()
 
     def zSize(self):
-        return self.partOGL.getBoundingBox().zSize()
+        return self.getPartBoundingBox().zSize()
     
     def getCSI(self):
         return self.parentItem().parentItem()
