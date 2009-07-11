@@ -2954,15 +2954,16 @@ class Part(PartTreeManager, QGraphicsRectItem):
         if self.displacement:
             menu.addAction("&Increase displacement", lambda: self.displaceSignal(self.displaceDirection))
             menu.addAction("&Decrease displacement", lambda: self.displaceSignal(Helpers.getOppositeDirection(self.displaceDirection)))
+            menu.addAction("&Remove displacement", lambda: self.displaceSignal(None))
         else:
             s = self.scene().undoStack
             arrowMenu = menu.addMenu("Displace With &Arrow")
-            arrowMenu.addAction("Move Up", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_PageUp)))
-            arrowMenu.addAction("Move Down", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_PageDown)))
-            arrowMenu.addAction("Move Forward", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_Down)))
-            arrowMenu.addAction("Move Back", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_Up)))
-            arrowMenu.addAction("Move Left", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_Left)))
-            arrowMenu.addAction("Move Right", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_Right)))
+            arrowMenu.addAction("Move Up", lambda: s.push(BeginEndDisplacementCommand(self, Qt.Key_PageUp)))
+            arrowMenu.addAction("Move Down", lambda: s.push(BeginEndDisplacementCommand(self, Qt.Key_PageDown)))
+            arrowMenu.addAction("Move Forward", lambda: s.push(BeginEndDisplacementCommand(self, Qt.Key_Down)))
+            arrowMenu.addAction("Move Back", lambda: s.push(BeginEndDisplacementCommand(self, Qt.Key_Up)))
+            arrowMenu.addAction("Move Left", lambda: s.push(BeginEndDisplacementCommand(self, Qt.Key_Left)))
+            arrowMenu.addAction("Move Right", lambda: s.push(BeginEndDisplacementCommand(self, Qt.Key_Right)))
             
         menu.exec_(event.screenPos())
 
@@ -2989,11 +2990,15 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.displaceSignal(direction)
 
     def displaceSignal(self, direction):
-        displacement = Helpers.getDisplacementOffset(direction, False, self.partOGL.getBoundingBox())
-        if displacement:
-            oldPos = self.displacement if self.displacement else [0.0, 0.0, 0.0]
-            newPos = [oldPos[0] + displacement[0], oldPos[1] + displacement[1], oldPos[2] + displacement[2]]
-            self.scene().undoStack.push(DisplacePartCommand(self, oldPos, newPos))
+        if direction:
+            displacement = Helpers.getDisplacementOffset(direction, False, self.partOGL.getBoundingBox())
+            if displacement:
+                oldPos = self.displacement if self.displacement else [0.0, 0.0, 0.0]
+                newPos = [oldPos[0] + displacement[0], oldPos[1] + displacement[1], oldPos[2] + displacement[2]]
+                self.scene().undoStack.push(DisplacePartCommand(self, oldPos, newPos))
+        else:
+            # Remove any displacement
+            self.scene().undoStack.push(BeginEndDisplacementCommand(self, self.displaceDirection, end = True))
 
     def moveToStepSignal(self, destStep):
         selectedParts = []

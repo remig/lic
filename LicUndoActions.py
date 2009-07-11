@@ -93,12 +93,16 @@ class DisplacePartCommand(QUndoCommand):
         self.part.displacement = list(self.newDisp)
         self.part.getCSI().resetPixmap()
 
-class BeginDisplacementCommand(QUndoCommand):
+class BeginEndDisplacementCommand(QUndoCommand):
     
     _id = getNewCommandID()
 
-    def __init__(self, part, direction):
-        QUndoCommand.__init__(self, "Begin Part displacement")
+    def __init__(self, part, direction, end = False):
+        if end:
+            QUndoCommand.__init__(self, "Remove Part displacement")
+            self.undo, self.redo = self.redo, self.undo
+        else:
+            QUndoCommand.__init__(self, "Begin Part displacement")
         self.part, self.direction = part, direction
 
     def undo(self):
