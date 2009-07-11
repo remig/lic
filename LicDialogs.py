@@ -490,12 +490,16 @@ class DisplaceDlg(QDialog):
     def __init__(self, parent, displacement, direction):
         QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
         self.setAttribute(Qt.WA_DeleteOnClose)
-        self.setWindowTitle(self.tr("Set Displacement"))
+        self.setWindowTitle(self.tr("Change Displacement"))
         self.originalDisplacement, self.direction = displacement, direction
 
         distance = Helpers.displacementToDistance(displacement, direction)
         sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, 0, 500, False, self.sizeChanged)
         
+        self.arrowCheckBox = QCheckBox(self.tr("&Adjust Arrow (NYI)"))
+        self.arrowCheckBox.setChecked(False)
+        self.arrowCheckBox.setCheckable(False)
+
         self.moreButton = QPushButton(self.tr("X - Y - Z "))
         self.moreButton.setCheckable(True)
         self.moreButton.setAutoDefault(False)
@@ -527,9 +531,10 @@ class DisplaceDlg(QDialog):
         mainLayout.setSizeConstraint(QLayout.SetFixedSize)
         mainLayout.addWidget(sizeLabel, 0, 0)
         mainLayout.addWidget(self.sizeSpinBox, 0, 1)
-        mainLayout.addWidget(self.moreButton, 1, 0, 1, 2)
-        mainLayout.addWidget(self.extension, 2, 0, 1, 2)
-        mainLayout.addWidget(buttonBox, 3, 0, 1, 2)
+        mainLayout.addWidget(self.arrowCheckBox, 1, 0, 1, 2)
+        mainLayout.addWidget(self.moreButton, 2, 0, 1, 2)
+        mainLayout.addWidget(self.extension, 3, 0, 1, 2)
+        mainLayout.addWidget(buttonBox, 4, 0, 1, 2)
         self.setLayout(mainLayout)
 
         self.extension.hide()
@@ -537,16 +542,16 @@ class DisplaceDlg(QDialog):
     def sizeChanged(self):
         newSize = self.sizeSpinBox.value()
         displacement = Helpers.distanceToDisplacement(newSize, self.direction)
-        self.emit(SIGNAL("changeDisplacement"), displacement)
+        self.emit(SIGNAL("changeDisplacement"), displacement, self.arrowCheckBox.isChecked())
         
     def displacementChanged(self):
         displacement = [self.xSpinBox.value(), self.ySpinBox.value(), self.zSpinBox.value()]
-        self.emit(SIGNAL("changeDisplacement"), displacement)
+        self.emit(SIGNAL("changeDisplacement"), displacement, self.arrowCheckBox.isChecked())
     
     def accept(self):
-        self.emit(SIGNAL("acceptDisplacement"), self.originalDisplacement)
+        self.emit(SIGNAL("acceptDisplacement"), self.originalDisplacement, self.arrowCheckBox.isChecked())
         QDialog.accept(self)
         
     def reject(self):
-        self.emit(SIGNAL("changeDisplacement"), self.originalDisplacement)
+        self.emit(SIGNAL("changeDisplacement"), self.originalDisplacement, self.arrowCheckBox.isChecked())
         QDialog.reject(self)

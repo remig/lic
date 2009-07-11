@@ -2021,7 +2021,26 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         stack = self.scene().undoStack
         menu.addAction("Rotate CSI", self.rotateSignal)
         menu.addAction("Scale CSI", self.scaleSignal)
+        menu.addSeparator()
+        
+        arrowMenu = menu.addMenu("Select Part")
+        for part in self.getPartList():
+            text = "%s - %s" % (part.partOGL.name, LDrawColors.getColorName(part.color))
+            arrowMenu.addAction(text, lambda p = part: self.selectPart(p))
+        arrowMenu.addAction("Select All", self.selectAllParts)
+        
         menu.exec_(event.screenPos())
+        
+    def selectPart(self, part):
+        self.scene().clearSelectedParts()
+        self.scene().clearSelection()
+        part.setSelected(True)
+        
+    def selectAllParts(self):
+        self.scene().clearSelectedParts()
+        self.scene().clearSelection()
+        for part in self.getPartList():
+            part.setSelected(True)
 
 class PartOGL(object):
     """
@@ -2954,7 +2973,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         if self.displacement:
             menu.addAction("&Increase displacement", lambda: self.displaceSignal(self.displaceDirection))
             menu.addAction("&Decrease displacement", lambda: self.displaceSignal(Helpers.getOppositeDirection(self.displaceDirection)))
-            menu.addAction("&Adjust displacement", self.adjustDisplaceSignal)
+            menu.addAction("&Change displacement", self.adjustDisplaceSignal)
             menu.addAction("&Remove displacement", lambda: self.displaceSignal(None))
         else:
             s = self.scene().undoStack
@@ -3009,11 +3028,11 @@ class Part(PartTreeManager, QGraphicsRectItem):
         parentWidget.connect(dialog, SIGNAL("acceptDisplacement"), self.acceptDisplacement)
         dialog.exec_()
         
-    def changeDisplacement(self, displacement):
+    def changeDisplacement(self, displacement, changeArrow):
         self.displacement = displacement
         self.getCSI().resetPixmap()
 
-    def acceptDisplacement(self, oldDisplacement):
+    def acceptDisplacement(self, oldDisplacement, changeArrow):
         self.scene().undoStack.push(DisplacePartCommand(self, oldDisplacement, self.displacement))
 
     def moveToStepSignal(self, destStep):
