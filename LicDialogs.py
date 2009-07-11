@@ -1,6 +1,8 @@
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
+import Helpers
+
 def makeLabelSpinBox(self, text, value, min, max, percent = False):
     if percent:
         spinBox = QDoubleSpinBox()
@@ -484,4 +486,39 @@ class RotationDialog(QDialog):
         
     def reject(self):
         self.emit(SIGNAL("changeRotation"), self.rotation)
+        QDialog.reject(self)
+
+class DisplaceDlg(QDialog):
+
+    def __init__(self, parent, originalDisplacement, direction):
+        QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle("Set Displacement")
+        self.originalDisplacement, self.direction = originalDisplacement, direction
+
+        distance = Helpers.displacementToDistance(originalDisplacement, direction)
+        sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox("&Distance:", distance, 0, 500, False)
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
+
+        grid = QGridLayout()
+        grid.addWidget(sizeLabel, 0, 0)
+        grid.addWidget(self.sizeSpinBox, 0, 1)
+        grid.addWidget(buttonBox, 2, 0, 1, 2)
+        self.setLayout(grid)
+
+        self.connect(self.sizeSpinBox, SIGNAL("valueChanged(int)"), self.sizeChanged)
+        self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
+        self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
+        
+    def sizeChanged(self):
+        newSize = self.sizeSpinBox.value()
+        displacement = Helpers.distanceToDisplacement(newSize, self.direction)
+        self.emit(SIGNAL("changeDisplacement"), displacement)
+    
+    def accept(self):
+        self.emit(SIGNAL("acceptDisplacement"), self.originalDisplacement)
+        QDialog.accept(self)
+        
+    def reject(self):
+        self.emit(SIGNAL("changeDisplacement"), self.originalDisplacement)
         QDialog.reject(self)

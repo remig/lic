@@ -2954,6 +2954,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         if self.displacement:
             menu.addAction("&Increase displacement", lambda: self.displaceSignal(self.displaceDirection))
             menu.addAction("&Decrease displacement", lambda: self.displaceSignal(Helpers.getOppositeDirection(self.displaceDirection)))
+            menu.addAction("&Adjust displacement", self.adjustDisplaceSignal)
             menu.addAction("&Remove displacement", lambda: self.displaceSignal(None))
         else:
             s = self.scene().undoStack
@@ -2999,6 +3000,21 @@ class Part(PartTreeManager, QGraphicsRectItem):
         else:
             # Remove any displacement
             self.scene().undoStack.push(BeginEndDisplacementCommand(self, self.displaceDirection, end = True))
+
+    def adjustDisplaceSignal(self):
+            
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.DisplaceDlg(parentWidget, self.displacement, self.displaceDirection)
+        parentWidget.connect(dialog, SIGNAL("changeDisplacement"), self.changeDisplacement)
+        parentWidget.connect(dialog, SIGNAL("acceptDisplacement"), self.acceptDisplacement)
+        dialog.exec_()
+        
+    def changeDisplacement(self, displacement):
+        self.displacement = displacement
+        self.getCSI().resetPixmap()
+
+    def acceptDisplacement(self, oldDisplacement):
+        self.scene().undoStack.push(DisplacePartCommand(self, oldDisplacement, self.displacement))
 
     def moveToStepSignal(self, destStep):
         selectedParts = []
