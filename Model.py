@@ -257,6 +257,9 @@ class Instructions(QObject):
             yield (currentCount, label)
 
         self.mainModel.mergeInitialPages()
+        self.mainModel.reOrderSubmodelPages()
+        self.mainModel.syncPageNumbers()
+
         #endTime = time.time()
         #print "Total load time: %.2f" % (endTime - startTime)
         
@@ -2500,6 +2503,27 @@ class Submodel(SubmodelTreeManager, PartOGL):
             if nextPage is None:  # At last page - all done
                 return
 
+    def reOrderSubmodelPages(self):
+        """ Reorder the tree so a submodel is right before the page it's used on """
+        for submodel in self.submodels:
+            page = self.findSubmodelPage(submodel)
+            if page is None:
+                continue  # submodel not used
+            
+            self.incrementRows(-1) 
+            submodel._row = page._row
+            for page in [p for p in self.pages if p._row >= submodel._row]:
+                page._row += 1
+            for s in [p for p in self.submodels if p._row > submodel._row]:
+                s._row += 1
+
+    def findSubmodelPage(self, submodel):
+        for page in self.pages:
+            for step in page.steps:
+                if submodel in [part.partOGL for part in step.csi.getPartList()]:
+                    return page
+        return None
+     
     def syncPageNumbers(self, firstPageNumber = 1):
 
         rowList = self.pages + self.submodels
