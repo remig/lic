@@ -2388,15 +2388,13 @@ class Submodel(SubmodelTreeManager, PartOGL):
             partList.sort(key = lambda x: x.getXYZSortOrder())
             
             currentPart = 0
-            p = partList[currentPart]
-            
-            #print "%s, color: %s, y: %.2f, dy: %.2f" % (p.partOGL.name, LDrawColors.getColorName(p.color), p.by(), p.ySize())
-            #print "%s, color: %s, " % (p.partOGL.name, LDrawColors.getColorName(p.color)) + str(p.getPartBoundingBox())
-            
-            y, dy = p.by(), p.ySize()
+            part = partList[currentPart]
+            y, dy = part.by(), part.ySize()
             currentPart = 1
             
             if len(partList) > 1:
+                
+                # Advance part list splice point forward until we find the next 'layer' of parts
                 nextPart = partList[currentPart]
                 while y == nextPart.by() and abs(dy - nextPart.ySize()) <= 4.0:
                     currentPart += 1
@@ -2405,6 +2403,8 @@ class Submodel(SubmodelTreeManager, PartOGL):
                     nextPart = partList[currentPart]
                     
                 if currentPart > PARTS_PER_STEP_MAX:
+                    
+                    # Have lots of parts in this layer: keep most popular part here, bump rest to next step
                     partCounts = {}
                     for part in partList[:currentPart]:
                         if part.partOGL.name in partCounts:
@@ -2414,10 +2414,31 @@ class Submodel(SubmodelTreeManager, PartOGL):
                     popularPartName = max(partCounts, key = partCounts.get)
                     partList = [x for x in partList[:currentPart] if x.partOGL.name != popularPartName] + partList[currentPart:]
                     currentPart = 0
+                    
+                elif currentPart == 1:
+                    
+                    # Have only one part in this layer: search forward until we hit a layer with several parts
+                    part = partList[0]
+                    nextPart = partList[1]
+                    while (abs(part.by2() - nextPart.by()) <= 4.0) and \
+                          (currentPart < PARTS_PER_STEP_MAX - 1) and \
+                          (currentPart < len(partList) - 1):
+                        part = partList[currentPart]
+                        nextPart = partList[currentPart + 1]
+                        currentPart += 1
+                        
+                    # Add an up displacement to last part, if it's basically above previous part
+                    p1 = partList[currentPart - 1]
+                    p2 = partList[currentPart]
+                    px1, pz1, px2, pz2 = p1.x(), p1.z(), p2.x(), p2.z()
+                    if abs(px1 - px2) < 2 and abs(pz1 - pz2) < 2:
+                        p2.addNewDisplacement(Qt.Key_PageUp)
+                    currentPart += 1
             
             if len(partList[currentPart: ]) == 0:
-                break
-            
+                break  # All done
+
+            # Create a new page, give it a step, then push all remaining parts to that step
             newPage = Page(self, self.instructions, self.pages[-1]._number + 1, self.pages[-1]._row + 1)
             newPage.addBlankStep()
             self.addPage(newPage)
@@ -2723,7 +2744,13 @@ class Part(PartTreeManager, QGraphicsRectItem):
         return (-b.y2, -b.z1, b.x1)
 
     def getPartBoundingBox(self):
-        return self.partOGL.getBoundingBox().copy(self.matrix)
+        m = list(self.matrix)
+        if self.displacement:
+            m[12] += self.displacement[0]
+            m[13] += self.displacement[1]
+            m[14] += self.displacement[2]
+
+        return self.partOGL.getBoundingBox().copy(m)
     
     def getXYZ(self):
         return [self.matrix[12], self.matrix[13], self.matrix[14]]
@@ -2736,7 +2763,16 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
     def bz(self):
         return self.getPartBoundingBox().z1
-    
+
+    def bx2(self):
+        return self.getPartBoundingBox().x2
+
+    def by2(self):
+        return self.getPartBoundingBox().y1
+
+    def bz2(self):
+        return self.getPartBoundingBox().z2
+
     def x(self):
         return self.matrix[12]
     
@@ -2769,6 +2805,23 @@ class Part(PartTreeManager, QGraphicsRectItem):
         if updatePixmap:
             self.getCSI().createOGLDisplayList()
 
+    def addNewDisplacement(self, direction):
+        
+        self.displaceDirection = direction
+        self.displacement = Helpers.getDisplacementOffset(direction, True, self.partOGL.getBoundingBox())
+        
+        self.displaceArrow = Arrow(direction)
+        self.displaceArrow.setPosition(*Helpers.GLMatrixToXYZ(self.matrix))
+        self.displaceArrow.setLength(Helpers.getOffsetFromPart(self))
+        self.getCSI().addArrow(self.displaceArrow)
+        self._dataString = None
+    
+    def removeDisplacement(self):
+        self.displaceDirection = None
+        self.displacement = []
+        self.getCSI().removeArrow(self.displaceArrow)
+        self._dataString = None
+        
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
 
@@ -2904,12 +2957,12 @@ class Part(PartTreeManager, QGraphicsRectItem):
         else:
             s = self.scene().undoStack
             arrowMenu = menu.addMenu("Displace With &Arrow")
-            arrowMenu.addAction("Move Up", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_PageUp, Arrow(Qt.Key_PageUp))))
-            arrowMenu.addAction("Move Down", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_PageDown, Arrow(Qt.Key_PageDown))))
-            arrowMenu.addAction("Move Forward", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_Down, Arrow(Qt.Key_Down))))
-            arrowMenu.addAction("Move Back", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_Up, Arrow(Qt.Key_Up))))
-            arrowMenu.addAction("Move Left", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_Left, Arrow(Qt.Key_Left))))
-            arrowMenu.addAction("Move Right", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_Right, Arrow(Qt.Key_Right))))
+            arrowMenu.addAction("Move Up", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_PageUp)))
+            arrowMenu.addAction("Move Down", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_PageDown)))
+            arrowMenu.addAction("Move Forward", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_Down)))
+            arrowMenu.addAction("Move Back", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_Up)))
+            arrowMenu.addAction("Move Left", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_Left)))
+            arrowMenu.addAction("Move Right", lambda: s.push(BeginDisplacementCommand(self, Qt.Key_Right)))
             
         menu.exec_(event.screenPos())
 
@@ -3066,10 +3119,11 @@ class Arrow(Part):
 
     def setLength(self, length):
         p = self.partOGL.primitives[-1]
-        p.points[3] = length 
+        p.points[3] = length
         p.points[6] = length
         self.partOGL.resetBoundingBox()
         self.partOGL.createOGLDisplayList()
+        self._dataString = None
     
     def adjustLength(self, offset):
         self.setLength(self.getLength() + offset)

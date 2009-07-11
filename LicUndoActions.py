@@ -97,27 +97,21 @@ class BeginDisplacementCommand(QUndoCommand):
     
     _id = getNewCommandID()
 
-    def __init__(self, part, direction, arrow):
+    def __init__(self, part, direction):
         QUndoCommand.__init__(self, "Begin Part displacement")
-        self.part, self.direction, self.arrow = part, direction, arrow
+        self.part, self.direction = part, direction
 
     def undo(self):
         part = self.part
-        part.displaceDirection = None
-        part.displacement = []
         part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        part.getCSI().removeArrow(self.arrow)
+        part.removeDisplacement()
         part.scene().emit(SIGNAL("layoutChanged()"))
         part.getCSI().resetPixmap()
 
     def redo(self):
         part = self.part
-        part.displaceDirection = self.direction
-        part.displacement = Helpers.getDisplacementOffset(self.direction, True, part.partOGL.getBoundingBox())
-        self.arrow.setPosition(*Helpers.GLMatrixToXYZ(part.matrix))
-        self.arrow.adjustLength(Helpers.getOffsetFromBox(self.direction, part.partOGL.getBoundingBox()))
         part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        part.getCSI().addArrow(self.arrow)
+        part.addNewDisplacement(self.direction)
         part.scene().emit(SIGNAL("layoutChanged()"))
         part.getCSI().resetPixmap()
     
