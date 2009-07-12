@@ -645,6 +645,9 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.scene().removeItem(step)
         self.subModel.updateStepNumbers(step.number, -1)
 
+    def isLocked(self):
+        return self.lockIcon.isLocked
+
     def lock(self, isLocked):
         for child in self.getAllChildItems():
             child.setFlags(NoMoveFlags if isLocked else AllFlags)
@@ -1134,7 +1137,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         
         self.setPos(0.0, 0.0)
         self.setRect(0.0, 0.0, 30.0, 30.0)
-        self.setFlags(AllFlags)
+        self.setFlags(NoMoveFlags if self.getPage().isLocked() else AllFlags)
         
     def addBlankStep(self, useUndo = True):
         lastNum = self.steps[-1].number + 1 if self.steps else 1
@@ -1155,6 +1158,12 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         self.scene().removeItem(step)
         if len(self.steps) <= 1:
             self.disableStepNumbers()
+
+    def getStep(self, number):
+        for step in self.steps:
+            if step.number == number:
+                return step
+        return None
 
     def addPart(self, part):
         self.steps[-1].addPart(part)
@@ -1205,13 +1214,10 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         self.resetRect()
         
         if self.qtyLabel:
-            r = self.qtyLabel.boundingRect()
-            r.moveBottomRight(self.rect().bottomRight() - Page.margin)
-            self.qtyLabel.setPos(r.topLeft())
+            self.positionQtyLabel()
             
-        self.parentItem().initLayout()
         self.arrow.initializeEndPoints()
-
+        
     def enableStepNumbers(self):
         for step in self.steps:
             step.enableNumberItem()
@@ -1227,29 +1233,31 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         self.qtyLabel.itemClassName = "Callout Quantity"
         self.qtyLabel.setPos(pos if pos else QPointF(0, 0))
         self.qtyLabel.setFont(font if font else QFont("Arial", 15))
-        self.qtyLabel.setFlags(AllFlags)
+        self.qtyLabel.setFlags(NoMoveFlags if self.getPage().isLocked() else AllFlags)
         self.qtyLabel.dataText = "Quantity Label"
             
     def removeQuantityLabel(self):
         self.scene().removeItem(self.qtyLabel)
         self.qtyLabel = None
-    
-    def increaseQuantityLabel(self):
-        self.setQuantity(int(self.qtyLabel.text()[:-1]) + 1)
-    
-    def decreaseQuantityLabel(self):
-        self.setQuantity(int(self.qtyLabel.text()[:-1]) - 1)
+
+    def getQuantity(self):
+        return int(self.qtyLabel.text()[:-1])
 
     def setQuantity(self, qty):
         self.qtyLabel.setText("%dx" % qty)
-        
+        self.positionQtyLabel()
+
+    def positionQtyLabel(self):
+        r = self.qtyLabel.boundingRect()
+        r.moveBottomRight(self.rect().bottomRight() - Page.margin)
+        self.qtyLabel.setPos(r.topLeft())
+
     def contextMenuEvent(self, event):
         stack = self.scene().undoStack
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Add blank Step", self.addBlankStep)
         if self.qtyLabel:
-            menu.addAction("Increase Quantity", self.increaseQuantityLabel)
-            menu.addAction("Decrease Quantity", self.decreaseQuantityLabel)
+            menu.addAction("Change Quantity", self.setQuantitySignal)
             menu.addAction("Remove Quantity Label", lambda: stack.push(ToggleCalloutQtyCommand(self, False)))
         else:
             menu.addAction("Add Quantity Label", lambda: stack.push(ToggleCalloutQtyCommand(self, True)))
@@ -1259,12 +1267,13 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             menu.addAction("Show Step numbers", lambda: stack.push(ToggleStepNumbersCommand(self, True)))
         menu.exec_(event.screenPos())
 
-    def getStep(self, number):
-        for step in self.steps:
-            if step.number == number:
-                return step
-        return None
-
+    def setQuantitySignal(self):
+        parentWidget = self.scene().views()[0]
+        qty, ok = QInputDialog.getInteger(parentWidget, "Callout Quantity", "Quantity:", self.getQuantity(),
+                                           0, 999, 1, Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        if ok:
+            self.scene().undoStack.push(ChangeCalloutQtyCommand(self, qty))
+    
 class Step(StepTreeManager, QGraphicsRectItem):
     """ A single step in an Instruction book.  Contains one optional PLI and exactly one CSI. """
     itemClassName = "Step"
@@ -1393,6 +1402,9 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
     def initLayout(self, destRect = None):
 
+        if self.getPage().isLocked():
+            return  # Don't layout stuff on locked pages
+         
         if destRect is None:
             destRect = self.maxRect
         else:
@@ -3090,6 +3102,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         step = self.getStep()
         step.addBlankCalloutSignal()
         self.moveToCalloutSignal(step.callouts[-1])
+        step.initLayout()
         self.scene().undoStack.endMacro()
         
     def moveToCalloutSignal(self, callout):
