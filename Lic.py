@@ -996,9 +996,15 @@ def loadFile(window, filename):
         return
 
     window.scene.selectPage(1)
+
+def recompileResources():
+    import os
+    ret = os.spawnl(os.P_WAIT, r"C:\Python25\Lib\site-packages\PyQt4\pyrcc4.exe", "pyrcc4.exe", "-o", r"c:\lic\resources.py", r"c:\lic\resources.qrc")
+    print ret
     
 if __name__ == '__main__':
     #import cProfile
     #cProfile.run('main()', 'profile_run')
     main()
+    #recompileResources()
 

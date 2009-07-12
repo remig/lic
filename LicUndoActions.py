@@ -8,17 +8,20 @@ def resetGLItem(self, name, template):
 
     if name == "CSI":
         template.resetPixmap()
+        template.getPage().initLayout()
         for s, l in instructions.initCSIDimensions(0, True):
             pass  # Don't care about yielded items here
 
     elif name == "PLI":
         template.resetPixmap()
+        template.getPage().initLayout()
         for s, l in instructions.initPartDimensions(0, True):
             pass  # Don't care about yielded items here
         instructions.initAllPLILayouts()
 
     elif name == "Submodel":
         template.resetPixmap()
+        template.getPage().initLayout()
         instructions.initSubmodelImages()
 
 NextCommandID = 122

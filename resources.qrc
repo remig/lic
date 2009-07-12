@@ -1,0 +1,8 @@
+<!DOCTYPE RCC><RCC version = "1.0">
+<qresource>
+  <file alias = "lock_open">images/lock_open.png</file>
+  <file alias = "lock_close">images/lock_close.png</file>
+  <file alias = "lock_grey_open">images/lock_grey_open.png</file>
+  <file alias = "lock_grey_close">images/lock_grey_close.png</file>
+</qresource>
+</RCC>

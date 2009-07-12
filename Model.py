@@ -19,6 +19,7 @@ import Helpers
 import Layout
 import LicDialogs
 import GradientDialog
+import resources
 
 from LDrawFileFormat import *
 
@@ -406,12 +407,14 @@ class Instructions(QObject):
             for step in page.steps:
                 if step.pli:
                     step.pli.initLayout()
+            page.initLayout()
         
         for submodel in submodelDictionary.values():
             for page in submodel.pages:
                 for step in page.steps:
                     if step.pli:
                         step.pli.initLayout()
+                page.initLayout()
         
     def initPLIPixmaps(self):
         for page in self.mainModel.pages:
@@ -424,10 +427,12 @@ class Instructions(QObject):
     def initSubmodelImages(self):
         for page in self.mainModel.pages:
             page.resetSubmodelImage()
+            page.initLayout()
                 
         for submodel in submodelDictionary.values():
             for page in submodel.pages:
                 page.resetSubmodelImage()
+                page.initLayout()
             
     def exportImages(self, widget = None):
 
@@ -519,6 +524,9 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.numberItem.dataText = "Page Number Label"
         self.numberItem.itemClassName = "Page Number"
         self.children.append(self.numberItem)
+        
+        # Setup this page's layout lock icon
+        self.lockIcon = LockIcon(self)
 
         # Position page number in bottom right page corner
         rect = self.numberItem.boundingRect()
@@ -642,6 +650,7 @@ class Page(PageTreeManager, QGraphicsRectItem):
         length = len(self.children)
         for i, item in enumerate(self.children):
             item.setZValue(length - i)
+        self.lockIcon.setZValue(len(self.children) + 1)
 
     def addStepSeparator(self, index, rect = None):
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
@@ -875,6 +884,44 @@ class Page(PageTreeManager, QGraphicsRectItem):
         newPage = Page(self.subModel, self.instructions, self.number + 1, self._row + 1)
         self.scene().undoStack.push(AddRemovePageCommand(newPage, True))
 
+class LockIcon(QGraphicsPixmapItem):
+
+    loaded = False
+    activeOpenIcon = None
+    activeCloseIcon = None
+    deactiveOpenIcon = None
+    deactiveCloseIcon = None
+    
+    def __init__(self, parent):
+        QGraphicsPixmapItem.__init__(self, parent)
+        
+        if not LockIcon.loaded:
+            LockIcon.activeOpenIcon = QPixmap(":/lock_open")
+            LockIcon.activeCloseIcon = QPixmap(":/lock_close")
+            LockIcon.deactiveOpenIcon = QPixmap(":/lock_grey_open")
+            LockIcon.deactiveCloseIcon = QPixmap(":/lock_grey_close")
+            LockIcon.loaded = True
+        
+        self.setPixmap(LockIcon.deactiveOpenIcon)
+        self.setPos(Page.margin.x(), Page.PageSize.height() - self.boundingRect().height() - Page.margin.y())
+        self.setFlags(NoMoveFlags)
+        self.setAcceptHoverEvents(True)
+        self.hoverEnterEvent = lambda event: self.changeIcon(True)
+        self.hoverLeaveEvent = lambda event: self.changeIcon(False)
+        
+        self.isLocked = False
+    
+    def changeIcon(self, active):
+        if active:
+            self.setPixmap(LockIcon.activeCloseIcon if self.isLocked else LockIcon.activeOpenIcon)
+        else:
+            self.setPixmap(LockIcon.deactiveCloseIcon if self.isLocked else LockIcon.deactiveOpenIcon)
+            
+    def mousePressEvent(self, event):
+        self.isLocked = not self.isLocked
+        self.changeIcon(True)
+        event.ignore()
+    
 class CalloutArrowEndItem(QGraphicsRectItem):
     itemClassName = "CalloutArrowEndItem"
     
@@ -2228,14 +2275,14 @@ class PartOGL(object):
     def paintGL(self, dx, dy, color = None, rotation = [0.0, 0.0, 0.0], scale = 1.0):
          
         GLHelpers.pushAllGLMatrices()
-
-        dx += self.center.x() * PLI.defaultScale
-        dy += self.center.y() * PLI.defaultScale
         
-        if self.isSubmodel:
-            GLHelpers.rotateToView(SubmodelPreview.defaultRotation, SubmodelPreview.defaultScale * scale, dx, dy, 0.0)
-        else:
-            GLHelpers.rotateToView(PLI.defaultRotation, PLI.defaultScale * scale, dx, dy, 0.0)
+        ds = SubmodelPreview.defaultScale if self.isSubmodel else PLI.defaultScale
+        dr = SubmodelPreview.defaultRotation if self.isSubmodel else PLI.defaultRotation
+
+        dx += self.center.x() * ds
+        dy += self.center.y() * ds
+        
+        GLHelpers.rotateToView(dr, ds * scale, dx, dy, 0.0)
         GLHelpers.rotateView(*rotation)
         
         if color is not None:
