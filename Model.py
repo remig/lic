@@ -2381,7 +2381,7 @@ class BoundingBox(object):
         if matrix:
             b.x1, b.y1, b.z1 = self.transformPoint(matrix,self.x1, self.y1, self.z1)
             b.x2, b.y2, b.z2 = self.transformPoint(matrix,self.x2, self.y2, self.z2)
-            if matrix[5] < 0:
+            if b.y1 > b.y2:
                 b.y1, b.y2 = b.y2, b.y1
         else:
             b.x1, b.y1, b.z1 = self.x1, self.y1, self.z1
@@ -2493,7 +2493,8 @@ class Submodel(SubmodelTreeManager, PartOGL):
         while csi.partCount() > 0:
             
             partList = csi.getPartList()
-            partList.sort(key = lambda x: x.getXYZSortOrder())
+            #partList.sort(key = lambda x: x.getXYZSortOrder())
+            partList.sort(cmp = Helpers.compareParts)
             
             currentPart = 0
             part = partList[currentPart]
@@ -2535,13 +2536,14 @@ class Submodel(SubmodelTreeManager, PartOGL):
                         nextPart = partList[currentPart + 1]
                         currentPart += 1
                         
-                    # Add an up displacement to last part, if it's basically above previous part
-                    p1 = partList[currentPart - 1]
-                    p2 = partList[currentPart]
-                    px1, pz1, px2, pz2 = p1.x(), p1.z(), p2.x(), p2.z()
-                    if abs(px1 - px2) < 2 and abs(pz1 - pz2) < 2:
-                        p2.addNewDisplacement(Qt.Key_PageUp)
-                    currentPart += 1
+                    if currentPart > 1:
+                        # Add an up displacement to last part, if it's basically above previous part
+                        p1 = partList[currentPart - 1]
+                        p2 = partList[currentPart]
+                        px1, pz1, px2, pz2 = p1.x(), p1.z(), p2.x(), p2.z()
+                        if abs(px1 - px2) < 2 and abs(pz1 - pz2) < 2:
+                            p2.addNewDisplacement(Qt.Key_PageUp)
+                        currentPart += 1
             
             if len(partList[currentPart: ]) == 0:
                 break  # All done
@@ -2870,7 +2872,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         
     def getXYZSortOrder(self):
         b = self.getPartBoundingBox()
-        return (-b.y2, -b.z1, b.x1)
+        return (-b.y1, b.ySize(), -b.z1, b.x1)
 
     def getPartBoundingBox(self):
         m = list(self.matrix)

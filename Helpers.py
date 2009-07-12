@@ -18,6 +18,23 @@ def determinant3x3(m):
 def GLMatrixToXYZ(matrix):
     return [matrix[12], matrix[13], matrix[14]]
 
+def compareParts(p1, p2):
+    b1 = p1.getPartBoundingBox()
+    b2 = p2.getPartBoundingBox()
+    
+    if abs(b1.y1 - b2.y1) < 6.0:  # tops equal enough - 6 to handle technic pins in holes
+        
+        if abs(b1.y2 - b2.y2) < 4.0:  # bottoms equal enough too
+            return cmp((-b1.z1, b1.x1), (-b2.z1, b2.x1))  # back to front, left to right
+        
+        if b1.y2 < b2.y2:  # compare bottoms
+            return 1
+        return -1
+        
+    if b1.y1 < b2.y1:  # compare tops
+        return 1
+    return -1
+
 def getOffsetFromBox(direction, box):
 
     if direction == Qt.Key_Up or direction == Qt.Key_Down:
