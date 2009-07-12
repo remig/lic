@@ -385,40 +385,37 @@ class AdjustArrowLength(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, arrow, offset):
+    def __init__(self, arrow, oldLength, newLength):
         QUndoCommand.__init__(self, "arrow length change")
-        self.arrow, self.offset = arrow, offset
+        self.arrow, self.oldLength, self.newLength = arrow, oldLength, newLength
 
     def undo(self):
-        self.arrow.adjustLength(-self.offset)
+        self.arrow.setLength(self.oldLength)
         self.arrow.getCSI().resetPixmap()
 
     def redo(self):
-        self.arrow.adjustLength(self.offset)
+        self.arrow.setLength(self.newLength)
         self.arrow.getCSI().resetPixmap()
 
 class ScaleItemCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, csi, oldScale, newScale):
-        QUndoCommand.__init__(self, "CSI Scale")
-        self.csi, self.oldScale, self.newScale = csi, oldScale, newScale
+    def __init__(self, target, oldScale, newScale):
+        QUndoCommand.__init__(self, "Item Scale")
+        self.target, self.oldScale, self.newScale = target, oldScale, newScale
 
-    def undo(self):
-        self.csi.scale = self.oldScale
-        self.csi.resetPixmap() 
-
-    def redo(self):
-        self.csi.scale = self.newScale
-        self.csi.resetPixmap()
+    def doAction(self, redo):
+        self.target.scale = self.newScale if redo else self.oldScale
+        self.target.resetPixmap() 
+        self.target.getPage().initLayout()
     
 class RotateItemCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
     def __init__(self, target, oldRotation, newRotation):
-        QUndoCommand.__init__(self, "CSI rotation")
+        QUndoCommand.__init__(self, "Item rotation")
         self.target, self.oldRotation, self.newRotation = target, oldRotation, newRotation
 
     def undo(self):

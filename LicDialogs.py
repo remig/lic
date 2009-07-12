@@ -429,6 +429,7 @@ class ScaleDlg(QDialog):
 
         self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
+        self.sizeSpinBox.selectAll()
         
     def sizeChanged(self):
         newSize = self.sizeSpinBox.value() / 100.0
@@ -472,6 +473,7 @@ class RotationDialog(QDialog):
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
         
         self.rotationChanged()
+        self.xSpinBox.selectAll()
 
     def rotationChanged(self):
         rotation = [self.xSpinBox.value(), self.ySpinBox.value(), self.zSpinBox.value()]
@@ -500,7 +502,7 @@ class DisplaceDlg(QDialog):
         self.arrowCheckBox.setChecked(False)
         self.arrowCheckBox.setCheckable(False)
 
-        self.moreButton = QPushButton(self.tr("X - Y - Z "))
+        self.moreButton = QPushButton(self.tr("X - Y - Z"))
         self.moreButton.setCheckable(True)
         self.moreButton.setAutoDefault(False)
         
@@ -538,6 +540,7 @@ class DisplaceDlg(QDialog):
         self.setLayout(mainLayout)
 
         self.extension.hide()
+        self.sizeSpinBox.selectAll()
         
     def sizeChanged(self):
         newSize = self.sizeSpinBox.value()
@@ -554,4 +557,93 @@ class DisplaceDlg(QDialog):
         
     def reject(self):
         self.emit(SIGNAL("changeDisplacement"), self.originalDisplacement, self.arrowCheckBox.isChecked())
+        QDialog.reject(self)
+
+class ArrowDisplaceDlg(QDialog):
+
+    def __init__(self, parent, arrow):
+        QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle(self.tr("Change Arrow"))
+        self.arrow = arrow
+        self.originalDisplacement, self.originalLength = arrow.displacement, arrow.getLength()
+
+        displacement = arrow.displacement
+        distance = Helpers.displacementToDistance(displacement, arrow.displaceDirection)
+        sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, 0, 500, False, self.sizeChanged)
+        lengthLabel, self.lengthSpinBox = self.makeLabelSpinBox(self.tr("&Length:"), arrow.getLength(), 0, 500, False, self.lengthChanged)
+        
+        self.moreButton = QPushButton(self.tr("X - Y - Z (NYI)"))
+        self.moreButton.setCheckable(True)
+        self.moreButton.setAutoDefault(False)
+        
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
+
+        self.extension = QWidget()
+
+        xLabel, self.xSpinBox = self.makeLabelSpinBox("tip X:", displacement[0], -500, 500, False, self.displacementChanged)
+        yLabel, self.ySpinBox = self.makeLabelSpinBox("tip Y:", displacement[1], -500, 500, False, self.displacementChanged)
+        zLabel, self.zSpinBox = self.makeLabelSpinBox("tip Z:", displacement[2], -500, 500, False, self.displacementChanged)
+
+        xEndLabel, self.xEndSpinBox = self.makeLabelSpinBox("end X:", displacement[0], -500, 500, False, self.displacementChanged)
+        yEndLabel, self.yEndSpinBox = self.makeLabelSpinBox("end Y:", displacement[1], -500, 500, False, self.displacementChanged)
+        zEndLabel, self.zEndSpinBox = self.makeLabelSpinBox("end Z:", displacement[2], -500, 500, False, self.displacementChanged)
+
+        self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
+        self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
+
+        self.connect(self.moreButton, SIGNAL("toggled(bool)"), self.extension, SLOT("setVisible(bool)"))
+
+        grid = QGridLayout()
+        grid.setMargin(0)
+        grid.addWidget(xLabel, 0, 0, Qt.AlignRight)
+        grid.addWidget(self.xSpinBox, 0, 1)
+        grid.addWidget(yLabel, 1, 0, Qt.AlignRight)
+        grid.addWidget(self.ySpinBox, 1, 1)
+        grid.addWidget(zLabel, 2, 0, Qt.AlignRight)
+        grid.addWidget(self.zSpinBox, 2, 1)
+
+        grid.addWidget(xEndLabel, 3, 0, Qt.AlignRight)
+        grid.addWidget(self.xEndSpinBox, 3, 1)
+        grid.addWidget(yEndLabel, 4, 0, Qt.AlignRight)
+        grid.addWidget(self.yEndSpinBox, 4, 1)
+        grid.addWidget(zEndLabel, 5, 0, Qt.AlignRight)
+        grid.addWidget(self.zEndSpinBox, 5, 1)
+        
+        self.extension.setLayout(grid)
+
+        mainLayout = QGridLayout()
+        mainLayout.setSizeConstraint(QLayout.SetFixedSize)
+        mainLayout.addWidget(sizeLabel, 0, 0)
+        mainLayout.addWidget(self.sizeSpinBox, 0, 1)
+        mainLayout.addWidget(lengthLabel, 1, 0)
+        mainLayout.addWidget(self.lengthSpinBox, 1, 1)
+        mainLayout.addWidget(self.moreButton, 2, 0, 1, 2)
+        mainLayout.addWidget(self.extension, 3, 0, 1, 2)
+        mainLayout.addWidget(buttonBox, 4, 0, 1, 2)
+        self.setLayout(mainLayout)
+
+        self.extension.hide()
+        self.sizeSpinBox.selectAll()
+        
+    def sizeChanged(self):
+        newSize = self.sizeSpinBox.value()
+        displacement = Helpers.distanceToDisplacement(newSize, self.arrow.displaceDirection)
+        self.emit(SIGNAL("changeDisplacement"), displacement)
+        
+    def lengthChanged(self):
+        newLength = self.lengthSpinBox.value()
+        self.emit(SIGNAL("changeLength"), newLength)
+    
+    def displacementChanged(self):
+        displacement = [self.xSpinBox.value(), self.ySpinBox.value(), self.zSpinBox.value()]
+        self.emit(SIGNAL("changeDisplacement"), displacement, self.arrowCheckBox.isChecked())
+    
+    def accept(self):
+        self.emit(SIGNAL("accept"), self.originalDisplacement, self.originalLength)
+        QDialog.accept(self)
+        
+    def reject(self):
+        self.emit(SIGNAL("changeDisplacement"), self.originalDisplacement)
+        self.emit(SIGNAL("changeLength"), self.originalLength)
         QDialog.reject(self)

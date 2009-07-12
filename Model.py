@@ -260,6 +260,9 @@ class Instructions(QObject):
         self.mainModel.mergeInitialPages()
         self.mainModel.reOrderSubmodelPages()
         self.mainModel.syncPageNumbers()
+        
+        for page in self.mainModel.getPageList():
+            page.adjustSubmodelImages()
 
         #endTime = time.time()
         #print "Total load time: %.2f" % (endTime - startTime)
@@ -642,6 +645,10 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.scene().removeItem(step)
         self.subModel.updateStepNumbers(step.number, -1)
 
+    def lock(self, isLocked):
+        for child in self.getAllChildItems():
+            child.setFlags(NoMoveFlags if isLocked else AllFlags)
+    
     def addChild(self, index, child):
 
         self.children.insert(index, child)
@@ -701,6 +708,9 @@ class Page(PageTreeManager, QGraphicsRectItem):
     
     def initLayout(self):
 
+        if self.lockIcon.isLocked:
+            return  # Don't make any layout changes to locked pages
+
         # Remove any separators; we'll re-add them in the appropriate place later
         self.removeAllSeparators()
 
@@ -724,6 +734,18 @@ class Page(PageTreeManager, QGraphicsRectItem):
         
         return label
 
+    def adjustSubmodelImages(self):
+
+        # Check if we should shrink submodel image
+        if self.submodelItem and self.submodelItem.scale > 0.5 and self.checkForLayoutOverlaps():
+            
+            # Scale submodel down and try again
+            newScale = self.submodelItem.scale - 0.2
+            self.submodelItem.changeScale(newScale)
+            print "scaling page %d submodel down to %.2f" % (self._number, newScale)
+            self.initLayout()
+            self.adjustSubmodelImages()
+    
     def scaleImages(self):
         for step in self.steps:
             if step.hasPLI():
@@ -841,6 +863,9 @@ class Page(PageTreeManager, QGraphicsRectItem):
     def contextMenuEvent(self, event):
         
         menu = QMenu(self.scene().views()[0])
+        menu.addAction("Auto Layout", self.initLayout)
+        menu.addAction("Check for Overlaps", self.checkForLayoutOverlaps)
+        menu.addSeparator()
         menu.addAction("Prepend blank Page", self.addPageBeforeSignal)
         menu.addAction("Append blank Page", self.addPageAfterSignal)
         menu.addSeparator()
@@ -901,9 +926,9 @@ class LockIcon(QGraphicsPixmapItem):
             LockIcon.deactiveOpenIcon = QPixmap(":/lock_grey_open")
             LockIcon.deactiveCloseIcon = QPixmap(":/lock_grey_close")
             LockIcon.loaded = True
-        
+
         self.setPixmap(LockIcon.deactiveOpenIcon)
-        self.setPos(Page.margin.x(), Page.PageSize.height() - self.boundingRect().height() - Page.margin.y())
+        self.setPos(5, Page.PageSize.height() - self.boundingRect().height() - 5)
         self.setFlags(NoMoveFlags)
         self.setAcceptHoverEvents(True)
         self.hoverEnterEvent = lambda event: self.changeIcon(True)
@@ -919,6 +944,7 @@ class LockIcon(QGraphicsPixmapItem):
             
     def mousePressEvent(self, event):
         self.isLocked = not self.isLocked
+        self.parentItem().lock(self.isLocked)
         self.changeIcon(True)
         event.ignore()
     
@@ -1543,6 +1569,7 @@ class SubmodelPreview(GraphicsRoundRectItem, RotateScaleSignalItem):
     def resetPixmap(self):
         self.partOGL.resetPixmap(self.rotation, self.scale)
         self.setPartOGL(self.partOGL)
+        self.partOGL.resetPixmap()  # Restore partOGL - otherwise all pliItems screwed
         
     def setPartOGL(self, partOGL):
         self.partOGL = partOGL
@@ -2276,11 +2303,11 @@ class PartOGL(object):
          
         GLHelpers.pushAllGLMatrices()
         
-        ds = SubmodelPreview.defaultScale if self.isSubmodel else PLI.defaultScale
         dr = SubmodelPreview.defaultRotation if self.isSubmodel else PLI.defaultRotation
+        ds = SubmodelPreview.defaultScale if self.isSubmodel else PLI.defaultScale
 
-        dx += self.center.x() * ds
-        dy += self.center.y() * ds
+        dx += self.center.x() * scale
+        dy += self.center.y() * scale
         
         GLHelpers.rotateToView(dr, ds * scale, dx, dy, 0.0)
         GLHelpers.rotateView(*rotation)
@@ -3244,12 +3271,37 @@ class Arrow(Part):
         menu = QMenu(self.scene().views()[0])
         stack = self.scene().undoStack
         
-        menu.addAction("Move &Forward", lambda: self.displaceSignal(Helpers.getOppositeDirection(self.displaceDirection)))
-        menu.addAction("Move &Back", lambda: self.displaceSignal(self.displaceDirection))
-        menu.addAction("&Longer", lambda: stack.push(AdjustArrowLength(self, 20)))
-        menu.addAction("&Shorter", lambda: stack.push(AdjustArrowLength(self, -20)))
+        #menu.addAction("Move &Forward", lambda: self.displaceSignal(Helpers.getOppositeDirection(self.displaceDirection)))
+        #menu.addAction("Move &Back", lambda: self.displaceSignal(self.displaceDirection))
+        #menu.addAction("&Longer", lambda: stack.push(AdjustArrowLength(self, 20)))
+        #menu.addAction("&Shorter", lambda: stack.push(AdjustArrowLength(self, -20)))
+        menu.addAction("&Change Position & Length", self.adjustDisplaceSignal)
 
         menu.exec_(event.screenPos())
+
+    def adjustDisplaceSignal(self):
+            
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.ArrowDisplaceDlg(parentWidget, self)
+        parentWidget.connect(dialog, SIGNAL("changeDisplacement"), self.changeDisplacement)
+        parentWidget.connect(dialog, SIGNAL("changeLength"), self.changeLength)
+        parentWidget.connect(dialog, SIGNAL("accept"), self.accept)
+        dialog.exec_()
+        
+    def changeDisplacement(self, displacement):
+        self.displacement = displacement
+        self.getCSI().resetPixmap()
+
+    def changeLength(self, length):
+        self.setLength(length)
+        self.getCSI().resetPixmap()
+
+    def accept(self, oldDisplacement, oldLength):
+        stack = self.scene().undoStack
+        stack.beginMacro("Change Arrow Position")
+        self.scene().undoStack.push(DisplacePartCommand(self, oldDisplacement, self.displacement))
+        self.scene().undoStack.push(AdjustArrowLength(self, oldLength, self.getLength()))
+        stack.endMacro()
 
 class Primitive(object):
     """
