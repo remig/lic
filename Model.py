@@ -449,33 +449,6 @@ class Instructions(QObject):
         if self.mainModel:
             self.mainModel.setPageSize(newPageSize)
 
-    def setCSIPLISize(self, newCSISize, newPLISize):
-
-        print "Setting size to: %d, %d" % (newCSISize, newPLISize)
-        oldCSISize = CSI.defaultScale
-        oldPLISize = PLI.defaultScale
-        
-        if newCSISize != CSI.defaultScale:
-            CSI.defaultScale = newCSISize
-
-        if newPLISize != PLI.defaultScale:
-            PLI.defaultScale = newPLISize
-            self.initPLIPixmaps()
-            
-        if newCSISize != oldCSISize or newPLISize != oldPLISize:
-            return ((oldCSISize, newCSISize), (oldPLISize, newPLISize))
-        return None
-
-    def enlargePixmaps(self):
-        CSI.defaultScale += 0.5
-        PLI.defaultScale += 0.5
-        self.initPLIPixmaps()
-    
-    def shrinkPixmaps(self):
-        CSI.defaultScale -= 0.5
-        PLI.defaultScale -= 0.5
-        self.initPLIPixmaps()
-
 class Page(PageTreeManager, QGraphicsRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
 

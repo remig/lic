@@ -2,51 +2,47 @@ Lic TODO:
 
 Thoughts on displacing parts:
 
-- For context menus: could add a 'Reposition...' menu, which has options like 'Center
-  CSI Vertically in page', etc.  Or just use guides with snap-to?
-
-- Ye Gods, so very much possibility, so very much still to do...
-
-- Look into GraphViz for some seriously heavy duty auto-layout options. GraphViz's plain-ext output
-  mode could work wonders, especially when creating an entire book from scratch.
-
 - Generate images at any arbitrary size
 - Need to give user a way to specify:
   - Instruction image size
   - Paths to required apps (LDraw, L3P, Pov-Ray)
 
-- Surround 3rd party imports in try...catch blocks
+- Surround optional 3rd party imports in try...catch blocks
 
-Eventually:
 - Fix part cache to be one global cache file, based on default rendered image size, not model
   - Add parts to that one global cache, so cache can be shared by all renderings of that size
   - Not a priority, since calculating part sizes is usually only a few seconds, at most
-
-- Remove all the annoying as hell '?' from all the small dialog title bars.
 
 - Only create config paths when a file is about to be exported.  No sense creating them on model import!
 
 - Still need to handle submodels that are not embedded in the main model file.
 
-- Have a small problem where if you click on a submodel, its node is expanded automatically and its first page is selected, which is fine.  But if you then use arrow keys to move up or left, selection is automatically forced back to the first page.  Kinda unnatural.  To fix, when a submodel is selected, do not automatically select the first page, select the submodel itself, and just draw its first page.
-
-- Should have separate scale settings for submodel images?
-
-- Need to try and reduce the amount of work done on each scale resize, since it can take several seconds to process a size change, even on really small models.  Could possibly provide a preview of one page, scale that, then apply those changes, once finalized by the user, to the full document...
-
-- If it's gonna take a while to scale CSIs | PLIs, let the user know, by greying out the Scale CSI | PLI dialog buttons or a progress bar or something.
-
-- Any changes on any particular page apply to that one selected item.
-
-- Provide one 'default' instruction page, as a sample page, where the user can
-set all the defaults for the overall document.
-
-- Model.py: 1737: maybe possibly do not pass comment / unrecognized lines to PartOGL._loadOneLDrawLineCommand
-
-- Inspect why viper.mpd page 1 & 2 take so long to import
+- Have a small problem where if you click on a submodel, its node is expanded automatically 
+  and its first page is selected, which is fine.  But if you then use arrow keys to move up or left, 
+  selection is automatically forced back to the first page.  Kinda unnatural.  
+  To fix, when a submodel is selected, do not automatically select the first page, select the submodel itself, and just draw its first page.
 
 - Add status indicator to file->open operation
 
-- On initial import, try adding new steps to current page, until CSI & PLIs overlap
 
-- step.setSelected(True) selects step in graphics view but not tree view (InsertStepCommand)
+For 2.0:
+
+- Title page
+
+- Bill of Materials
+
+- Callouts within callouts
+
+- non-rectangluar callouts
+
+- Step borders / fills
+
+- multiple steps per rect
+
+- multiple GL arrows on part displacement
+
+- Look into GraphViz for some seriously heavy duty auto-layout options. GraphViz's plain-ext output
+  mode could work wonders, especially when creating an entire book from scratch.
+
+- Try snap-to other page items, like in Flex Builder
+

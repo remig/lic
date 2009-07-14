@@ -121,38 +121,6 @@ class BeginEndDisplacementCommand(QUndoCommand):
         part.addNewDisplacement(self.direction)
         part.scene().emit(SIGNAL("layoutChanged()"))
         part.getCSI().resetPixmap()
-    
-class ResizeCSIPLICommand(QUndoCommand):
-
-    """
-    ResizeCSIPLICommand stores a list of old / new image size pairs:
-    sizes = ((oldCSISize, newCSISize), (oldPLISize, newPLISize))
-    """
-
-    _id = getNewCommandID()
-
-    def __init__(self, instructions, sizes):
-        QUndoCommand.__init__(self, "CSI | PLI resize")
-        
-        self.instructions = instructions
-        csiSizes, pliSizes = sizes
-        self.oldCSISize, self.newCSISize = csiSizes
-        self.oldPLISize, self.newPLISize = pliSizes
-        
-    def undo(self):
-        self.instructions.setCSIPLISize(self.oldCSISize, self.oldPLISize)
-    
-    def redo(self):
-        self.instructions.setCSIPLISize(self.newCSISize, self.newPLISize)
-    
-    def mergeWith(self, command):
-        
-        if command.id() != self.id():
-            return False
-        
-        self.newCSISize = command.newCSISize
-        self.newPLISize = command.newPLISize
-        return True
 
 class ResizePageCommand(QUndoCommand):
 

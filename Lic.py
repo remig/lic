@@ -495,17 +495,6 @@ class LicWindow(QMainWindow):
         settings.setValue("SplitterSizes", QVariant(self.mainSplitter.saveState()))
         settings.setValue("PageView", QVariant(str(self.scene.pagesToDisplay)))
     
-    def keyReleaseEvent(self, event):
-        pass
-        key = event.key()
-        
-        if key == Qt.Key_Plus:
-            self.instructions.enlargePixmaps()
-        elif key == Qt.Key_Minus:
-            self.instructions.shrinkPixmaps()
-        else:
-            event.ignore()
-    
     def _setWindowModified(self, bool):
         # This is tied to the undo stack's cleanChanged signal.  Problem with that signal 
         # is it sends the *opposite* bool to what we need to pass to setWindowModified,
@@ -648,8 +637,7 @@ class LicWindow(QMainWindow):
         self.pageMenu = menu.addMenu("&Page")
 
         pageSizeAction = self.createMenuAction("Page Size...", self.changePageSizeAction, None, "Change the overall size of all Pages in this Instruction book")       
-        csipliSizeAction = self.createMenuAction("CSI | PLI Image Size...", self.changeCSIPLISizeAction, None, "Change the relative size of all CSIs and PLIs throughout Instruction book")
-        self.addActions(self.pageMenu, (pageSizeAction, csipliSizeAction))
+        self.addActions(self.pageMenu, (pageSizeAction,))
         
         # Export Menu
         self.exportMenu = menu.addMenu("E&xport")
@@ -711,16 +699,6 @@ class LicWindow(QMainWindow):
         if dialog.exec_():
             pageSize = dialog.pageSize()
     
-    def changeCSIPLISizeAction(self):
-        dialog = LicDialogs.CSIPLIImageSizeDlg(self, CSI.defaultScale, PLI.defaultScale)
-        self.connect(dialog, SIGNAL("newCSIPLISize"), self.setCSIPLISize)
-        dialog.show()
-
-    def setCSIPLISize(self, newCSISize, newPLISize):
-        if newCSISize != CSI.defaultScale or newPLISize != PLI.defaultScale:
-            sizes = ((CSI.defaultScale, newCSISize), (PLI.defaultScale, newPLISize))
-            self.undoStack.push(LicUndoActions.ResizeCSIPLICommand(self.instructions, sizes))
-
     def addActions(self, target, actions):
         for action in actions:
             if action is None:
