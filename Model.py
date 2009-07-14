@@ -50,32 +50,17 @@ class LicTreeView(QTreeView):
         self.setDragEnabled(True)
         self.scene = None
 
-    """
-    def keyReleaseEvent(self, event):
-        #TODO: This is totally broken, and doesn't make sense: arrow keys in tree should move selection.
+    def keyPressEvent(self, event):
+        
         key = event.key()
-        moved = False
-        if key == Qt.Key_Left:
-            moved = True
-        elif key == Qt.Key_Right:
-            moved = True
-        elif key == Qt.Key_Up:
-            moved = True
-        elif key == Qt.Key_Down:
-            moved = True
-        elif key == Qt.Key_PageUp:
-            moved = True
+        if key == Qt.Key_PageUp:
+            self.scene.pageUp()
         elif key == Qt.Key_PageDown:
-            moved = True
+            self.scene.pageDown()
         else:
-            event.ignore()
-            return
-
-        if moved:
-            QTreeView.keyReleaseEvent(self, event)
+            QTreeView.keyPressEvent(self, event)
             self.clicked(self.currentIndex())
-    """
-
+    
     def updateTreeSelection(self):
         """ This is called whenever the graphics scene's selection changes """
         
@@ -760,7 +745,7 @@ class Page(PageTreeManager, QGraphicsRectItem):
     def renderFinalImageWithGL(self, widget):
         scene = self.scene()
         pagesToDisplay = scene.getPagesToDisplay()
-        currentPage = scene.getSelectedPage()
+        currentPage = scene.currentPage._number
         scene.setPagesToDisplay(1)
         scene.selectPage(self._number)
         

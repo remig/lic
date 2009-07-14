@@ -60,21 +60,23 @@ class LicGraphicsScene(QGraphicsScene):
                 page.drawGLItems(painter, rect)
     
     def pageUp(self):
-        self.selectPage(max(1, self.currentPage._number - 1))
+        self.selectPage(max(self.currentPage._number - 1, self.pages[0]._number))
+        self.currentPage.setSelected(True)
 
     def pageDown(self):
         self.selectPage(min(self.pages[-1]._number, self.currentPage._number + 1))
+        self.currentPage.setSelected(True)
 
-    def getSelectedPage(self):
-        return self.currentPage._number
-    
     def selectFirstPage(self):
         self.selectPage(1)
+        self.currentPage.setSelected(True)
 
     def selectLastPage(self):
         self.selectPage(self.pages[-1]._number)
+        self.currentPage.setSelected(True)
 
     def selectPage(self, pageNumber):
+        # Don't call currentPage.setSelected() from here!  Must be done later
         for page in self.pages:
             if self.pagesToDisplay == 1 and page._number == pageNumber:
                 page.setPos(0, 0)
@@ -323,16 +325,16 @@ class LicGraphicsScene(QGraphicsScene):
             offset = 20 if event.modifiers() & Qt.ControlModifier else 5
 
         if key == Qt.Key_PageUp:
-            self.emit(SIGNAL("pageUp"))
+            self.pageUp()
             return
         if key == Qt.Key_PageDown:
-            self.emit(SIGNAL("pageDown"))
+            self.pageDown()
             return
         if key == Qt.Key_Home:
-            self.emit(SIGNAL("home"))
+            self.selectFirstPage()
             return
         if key == Qt.Key_End:
-            self.emit(SIGNAL("end"))
+            self.selectLastPage()
             return
 
         if key == Qt.Key_Left:
@@ -463,11 +465,6 @@ class LicWindow(QMainWindow):
         self.treeView.connect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateTreeSelection)
         self.scene.connect(self.scene, SIGNAL("selectionChanged()"), self.scene.selectionChanged)
 
-        self.connect(self.scene, SIGNAL("pageUp"), self.scene.pageUp)
-        self.connect(self.scene, SIGNAL("pageDown"), self.scene.pageDown)
-        self.connect(self.scene, SIGNAL("home"), self.scene.selectFirstPage)
-        self.connect(self.scene, SIGNAL("end"), self.scene.selectLastPage)
-        
         # Allow the graphics scene and instructions to emit the layoutAboutToBeChanged and layoutChanged 
         # signals, for easy notification of layout changes everywhere
         self.connect(self.scene, SIGNAL("layoutAboutToBeChanged()"), self.treeModel, SIGNAL("layoutAboutToBeChanged()"))
@@ -815,6 +812,7 @@ class LicWindow(QMainWindow):
         self.filename = filename
         self.addRecentFile(filename)
         self.scene.setPagesToDisplay(self.pagesToDisplay)
+        self.scene.selectPage(1)
     
     def importLDrawModel(self, filename):
 
@@ -980,6 +978,12 @@ def main():
     #filename = unicode("C:\\lic\\6x10.lic")
     #filename = unicode("C:\\lic\\6x10.dat")
     #filename = unicode("C:\\lic\\template.dat")
+    #filename = unicode("C:\\lic\\pins.ldr")
+    #filename = unicode("C:\\lic\\stack.dat")
+    #filename = unicode("C:\\lic\\1x1x2.dat")
+    #filename = unicode("C:\\lic\\headlight_simple.dat")
+    #filename = unicode("C:\\lic\\headlight.dat")
+    #filename = unicode("C:\\lic\\displace.lic")
     if filename:
         QTimer.singleShot(50, lambda: loadFile(window, filename))
 
@@ -987,7 +991,7 @@ def main():
 
 def loadFile(window, filename):
 
-    if filename[-3:] == 'dat' or filename[-3:] == 'mpd':
+    if filename[-3:] == 'dat' or filename[-3:] == 'mpd' or filename[-3:] == 'ldr':
         window.importLDrawModelTimerAction(filename)
     elif filename[-3:] == 'lic':
         window.loadLicFile(filename)

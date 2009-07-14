@@ -30,7 +30,6 @@ def loadLicFile(filename, instructions, treeModel):
         treeModel.templatePage.subModel = instructions.mainModel
 
     treeModel.templatePage.applyDefaults()
-    instructions.scene.selectPage(1)
 
     if fh is not None:
         fh.close()
