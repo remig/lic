@@ -2696,7 +2696,6 @@ class Submodel(SubmodelTreeManager, PartOGL):
     def setPageSize(self, newPageSize):
         
         for page in self.pages:
-            page.setPos(0, 0)
             page.setRect(0, 0, newPageSize.width(), newPageSize.height())
             
         for submodel in self.submodels:

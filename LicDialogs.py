@@ -24,39 +24,34 @@ QDialog.makeLabelSpinBox = makeLabelSpinBox
 class PageSizeDlg(QDialog):
 
     def __init__(self, parent, pageSize, resolution):
-        QDialog.__init__(self, parent)
+        QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        self.setWindowTitle("Page Size")
+        self.originalPageSize = pageSize
 
-        pixelWidthLabel, self.pixelWidthEditBox, pixelWidthComboBox = self.createLabelEditComboWidgets("&Width:")
-        pixelHeightLabel, self.pixelHeightEditBox, pixelHeightComboBox = self.createLabelEditComboWidgets("&Height:")
+        pixelWidthLabel, self.pixelWidthSpinBox, = self.makeLabelSpinBox("&Width:", pageSize.width(), 1, 10000)
+        pixelHeightLabel, self.pixelHeightSpinBox  = self.makeLabelSpinBox("&Height:", pageSize.height(), 1, 10000)
 
-        self.pixelWidthEditBox.setText(str(pageSize.width()))
-        self.pixelWidthEditBox.setValidator(QIntValidator(1, 10000, self))
-        self.connect(self.pixelWidthEditBox, SIGNAL("textEdited(const QString &)"), self.updatePixelWidth)
-        
-        self.pixelHeightEditBox.setText(str(pageSize.height()))
-        self.pixelHeightEditBox.setValidator(QIntValidator(1, 10000, self))
-        self.connect(self.pixelHeightEditBox, SIGNAL("textEdited(const QString &)"), self.updatePixelHeight)
+        self.pixelFormatComboBox = QComboBox()
+        self.pixelFormatComboBox.addItems(["pixels", "percent"])
+
+        self.connect(self.pixelWidthSpinBox, SIGNAL("valueChanged(int)"), self.pixelWidthChanged)
+        self.connect(self.pixelHeightSpinBox, SIGNAL("valueChanged(int)"), self.pixelHeightChanged)
+        self.connect(self.pixelFormatComboBox, SIGNAL("currentIndexChanged(int)"), lambda index: self.pixelComboChange(index))
 
         grid = QGridLayout()
-        self.addWidgetsToGrid(grid, 0, pixelWidthLabel, self.pixelWidthEditBox, pixelWidthComboBox)
-        self.addWidgetsToGrid(grid, 1, pixelHeightLabel, self.pixelHeightEditBox, pixelHeightComboBox)
+        grid.addWidget(pixelWidthLabel, 0, 0, Qt.AlignRight)
+        grid.addWidget(self.pixelWidthSpinBox, 0, 1)
+        grid.addWidget(pixelHeightLabel, 1, 0, Qt.AlignRight)
+        grid.addWidget(self.pixelHeightSpinBox, 1, 1)
+        grid.addWidget(self.pixelFormatComboBox, 0, 2, 2, 1, Qt.AlignVCenter)
         self.setGridSize(grid)
         
-        pixelGroupBox = QGroupBox("Pixel Dimensions:", self)
+        pixelGroupBox = QGroupBox("Image Size (pixels):", self)
         pixelGroupBox.setLayout(grid)
 
-        docWidthLabel, docWidthEditBox, docWidthComboBox = self.createLabelEditComboWidgets("Wi&dth:", "inches")
-        docHeightLabel, docHeightEditBox, docHeightComboBox = self.createLabelEditComboWidgets("Hei&ght:", "inches")
-        resLabel, self.resEditBox, resComboBox = self.createLabelEditComboWidgets("&Resolution:", "pixels/inch", "pixels/cm")
-
-        docWidthEditBox.setText("%.2f" % (pageSize.width() / resolution))
-        docWidthEditBox.setValidator(QDoubleValidator(1.0, 10000.0, 4, self))
-
-        docHeightEditBox.setText("%.2f" % (pageSize.height() / resolution))
-        docHeightEditBox.setValidator(QDoubleValidator(1.0, 10000.0, 4, self))
-
-        self.resEditBox.setText(str(resolution))
-        self.resEditBox.setValidator(QDoubleValidator(1.0, 10000.0, 4, self))
+        docWidthLabel, docWidthEditBox, docWidthComboBox = self.createLabelEditComboWidgets("Wi&dth:", pageSize.width() / resolution, 1.0, 10000.0, True, "inches")
+        docHeightLabel, docHeightEditBox, docHeightComboBox = self.createLabelEditComboWidgets("Hei&ght:", pageSize.height() / resolution, 1.0, 10000.0, True, "inches")
+        resLabel, self.resEditBox, resComboBox = self.createLabelEditComboWidgets("&Resolution:", resolution, 1.0, 10000.0, True, "pixels/inch", "pixels/cm")
         
         grid = QGridLayout()
         self.addWidgetsToGrid(grid, 0, docWidthLabel, docWidthEditBox, docWidthComboBox)
@@ -64,11 +59,11 @@ class PageSizeDlg(QDialog):
         self.addWidgetsToGrid(grid, 2, resLabel, self.resEditBox, resComboBox)        
         self.setGridSize(grid)
         
-        docGroupBox = QGroupBox("Document Size:")
+        docGroupBox = QGroupBox("Printed Document Size (inches) (NYI):")
         docGroupBox.setLayout(grid)
         
-        self.constrainCheckBox = QCheckBox("&Constrain Page Proportions")
-        resampleCheckBox = QCheckBox("Rescale all &Page Elements on Resize")
+        self.constrainCheckBox = QCheckBox("&Keep Page Aspect Ratio")
+        resampleCheckBox = QCheckBox("Rescale all &Page Elements")
         
         layout = QVBoxLayout()
         layout.addWidget(pixelGroupBox)
@@ -85,52 +80,59 @@ class PageSizeDlg(QDialog):
 
         self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
-        self.setWindowTitle("Set Page Size")
         
-    def updatePixelWidth(self, text):
+    def getPageSize(self):
+        if self.pixelFormatComboBox.currentIndex() == 0:  # pixel value
+            width = self.pixelWidthSpinBox.value()
+            height = self.pixelHeightSpinBox.value()
+        else:  # percent value
+            width = self.originalPageSize.width() * self.pixelWidthSpinBox.value() / 100
+            height = self.originalPageSize.height() * self.pixelHeightSpinBox.value() / 100
+
+        return QSize(width, height)
         
-        if not text or not self.pixelWidthEditBox.hasAcceptableInput():
-            return
+    def getResolution(self):
+        return 72.0
+
+    def pixelComboChange(self, index):
         
-        newPageWidth = float(text)
-        oldPageWidth = float(self.pixelWidthEditBox.text())
-        pageHeight = float(self.pixelHeightEditBox.text())
+        oldWidth, oldHeight = self.originalPageSize.width(), self.originalPageSize.height()
+         
+        if index == 0:  # to pixel
+            self.pixelWidthSpinBox.setValue(oldWidth * self.pixelWidthSpinBox.value() / 100)
+            self.pixelHeightSpinBox.setValue(oldHeight * self.pixelHeightSpinBox.value() / 100)
+            self.pixelWidthSpinBox.setSuffix("")
+            self.pixelHeightSpinBox.setSuffix("")
+        else:  # to percent
+            self.pixelWidthSpinBox.setValue(int(float(self.pixelWidthSpinBox.value()) / oldWidth * 100.0))
+            self.pixelHeightSpinBox.setValue(int(float(self.pixelHeightSpinBox.value()) / oldHeight * 100.0))
+            self.pixelWidthSpinBox.setSuffix("%")
+            self.pixelHeightSpinBox.setSuffix("%")
+    
+    def pixelWidthChanged(self, newPageWidth):
         if self.constrainCheckBox.isChecked():
+            oldPageWidth = self.pixelWidthSpinBox.value()
+            pageHeight = self.pixelHeightSpinBox.value()
             aspect = pageHeight / oldPageWidth
             pageHeight = int(newPageWidth * aspect)
-            self.pixelHeightEditBox.setText(str(pageHeight))
+            self.pixelHeightSpinBox.setValue(pageHeight)
 
-    def updatePixelHeight(self, text):
-        
-        if not text or not self.pixelHeightEditBox.hasAcceptableInput():
-            return
-        
-        newPageHeight = float(text)
-        oldPageHeight = float(self.pixelHeightEditBox.text())
-        pageWidth = float(self.pixelWidthEditBox.text())
+    def pixelHeightChanged(self, newPageHeight):
         if self.constrainCheckBox.isChecked():
+            oldPageHeight = self.pixelHeightSpinBox.value()
+            pageWidth = self.pixelWidthSpinBox.value()
             aspect = pageWidth / oldPageHeight
             pageWidth = int(newPageHeight * aspect)
-            self.pixelWidthEditBox.setText(str(pageWidth))
+            self.pixelWidthSpinBox.setValue(pageWidth)
             
-    def isValid(self):
-        if not self.pixelWidthEditBox.hasAcceptableInput():
-            return False
-        if not self.pixelHeightEditBox.hasAcceptableInput():
-            return False
-        if not self.resEditBox.hasAcceptableInput():
-            return False
-        return True
-    
-    def createLabelEditComboWidgets(self, labelStr, comboStr1 = "pixels", comboStr2 = "percent"):
+    def createLabelEditComboWidgets(self, labelStr, value = 0, min = 0, max = 0, percent = False, comboStr1 = "pixels", comboStr2 = "percent"):
         
-        label = QLabel(labelStr)
-        editBox = QLineEdit()
-        label.setBuddy(editBox)
+        label, spinbox = self.makeLabelSpinBox(labelStr, value, min, max, percent)
+        
         comboBox = QComboBox()
         comboBox.addItem(comboStr1)
         comboBox.addItem(comboStr2)
-        return (label, editBox, comboBox)
+        return (label, spinbox, comboBox)
 
     def setGridSize(self, grid):
         
@@ -139,30 +141,12 @@ class PageSizeDlg(QDialog):
         grid.setColumnMinimumWidth(2, 80)
         grid.setHorizontalSpacing(10)        
 
-    def addWidgetsToGrid(self, grid, row, label, editBox, comboBox):
+    def addWidgetsToGrid(self, grid, row, label, spinBox, comboBox):
         
         grid.addWidget(label, row, 0, Qt.AlignRight)
-        grid.addWidget(editBox, row, 1)
+        grid.addWidget(spinBox, row, 1)
         grid.addWidget(comboBox, row, 2)
         
-    def createSpinBox(self, label):
-        spinBox = QDoubleSpinBox()
-        label.setBuddy(spinBox)
-        spinBox.setRange(0.1, 1000)
-        spinBox.setValue(100)
-        spinBox.setSuffix(" %")
-        return spinBox
-        
-    def accept(self):
-
-        if self.isValid():
-            pageWidth = int(self.pixelWidthEditBox.text())
-            pageHeight = int(self.pixelHeightEditBox.text())
-            newPageSize = QSize(pageWidth, pageHeight)
-            resolution = float(self.resEditBox.text())
-            self.emit(SIGNAL("newPageSize"), newPageSize, resolution)        
-            QDialog.accept(self)
-
 class BackgroundImagePropertiesDlg(QDialog):
 
     def __init__(self, parent, image, backgroundColor, originalBrush, pageSize):

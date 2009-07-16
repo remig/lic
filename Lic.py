@@ -75,6 +75,9 @@ class LicGraphicsScene(QGraphicsScene):
         self.selectPage(self.pages[-1]._number)
         self.currentPage.setSelected(True)
 
+    def refreshView(self):
+        self.setPagesToDisplay(self.pagesToDisplay)
+        
     def selectPage(self, pageNumber):
         # Don't call currentPage.setSelected() from here!  Must be done later
         for page in self.pages:
@@ -107,7 +110,7 @@ class LicGraphicsScene(QGraphicsScene):
         selList = self.selectedItems()
         if self.pagesToDisplay == 1 or not selList or isinstance(selList[-1], Guide):
             return
-        self.scrollToPage(self.selectedItems()[-1].getPage())
+        self.scrollToPage(selList[-1].getPage())
     
     def scrollToPage(self, page):
         view = self.views()[0]
@@ -123,6 +126,7 @@ class LicGraphicsScene(QGraphicsScene):
             page.setPos(0.0, 0.0)
         if self.currentPage:
             self.selectPage(self.currentPage._number)
+            self.currentPage.setSelected(True)
     
     def showTwoPages(self):
         if len(self.pages) < 2:
@@ -148,6 +152,10 @@ class LicGraphicsScene(QGraphicsScene):
         p2.setPos(Page.PageSize.width() + 20, 0)
         p2.show()
 
+        if self.currentPage:
+            self.selectPage(self.currentPage._number)
+            self.currentPage.setSelected(True)
+
     def continuous(self):
         self.pagesToDisplay = self.PageViewContinuous
         pc = len(self.pages)
@@ -163,6 +171,10 @@ class LicGraphicsScene(QGraphicsScene):
             page.setPos(10, (10 * (i + 1)) + (ph * i))
             page.show()
     
+        if self.currentPage:
+            self.selectPage(self.currentPage._number)
+            self.currentPage.setSelected(True)
+
     def continuousFacing(self):
         if len(self.pages) < 3:
             return self.continuous()
@@ -189,6 +201,10 @@ class LicGraphicsScene(QGraphicsScene):
             y = (10 * ((i // 2) + 1)) + (ph * (i // 2))
             page.setPos(x, y)
             page.show()
+
+        if self.currentPage:
+            self.selectPage(self.currentPage._number)
+            self.currentPage.setSelected(True)
     
     def getPagesToDisplay(self):
         return self.pagesToDisplay
@@ -647,16 +663,17 @@ class LicWindow(QMainWindow):
 
     def changePageSizeAction(self):
         dialog = LicDialogs.PageSizeDlg(self, Page.PageSize, Page.Resolution)
-        self.connect(dialog, SIGNAL("newPageSize"), self.setPageSize)
-        dialog.exec_()
+        if dialog.exec_():
+            self.setPageSize(dialog.getPageSize(), dialog.getResolution())
 
     def setPageSize(self, newPageSize, newResolution):
         
         if (newPageSize.width() != Page.PageSize.width() or newPageSize.height() != Page.PageSize.height()) or (newResolution != Page.Resolution):
             Page.PageSize = newPageSize
             Page.Resolution = newResolution
-            self.scene.setSceneRect(0, 0, Page.PageSize.width(), Page.PageSize.height())
+            self.treeModel.templatePage.setRect(0, 0, newPageSize.width(), newPageSize.height())
             self.instructions.setPageSize(Page.PageSize)
+            self.scene.refreshView()
 
     def zoom(self, factor):
         self.graphicsView.scaleView(factor)
@@ -693,11 +710,6 @@ class LicWindow(QMainWindow):
             self.recentFiles.prepend(QString(filename))
             while self.recentFiles.count() > 9:
                 self.recentFiles.takeLast()
-
-    def changePageSize(self):
-        dialog = LicDialogs.PageSizeDlg(self)
-        if dialog.exec_():
-            pageSize = dialog.pageSize()
     
     def addActions(self, target, actions):
         for action in actions:
@@ -768,6 +780,7 @@ class LicWindow(QMainWindow):
         self.fileClose()
         self.importLDrawModel(filename)
         self.statusBar().showMessage("LDraw Model imported: " + filename)
+        self.scene.selectPage(1)
         self.scene.setPagesToDisplay(self.pagesToDisplay)
 
     def loadLicFile(self, filename = None):
@@ -789,8 +802,8 @@ class LicWindow(QMainWindow):
         
         self.filename = filename
         self.addRecentFile(filename)
-        self.scene.setPagesToDisplay(self.pagesToDisplay)
         self.scene.selectPage(1)
+        self.scene.setPagesToDisplay(self.pagesToDisplay)
     
     def importLDrawModel(self, filename):
 
@@ -977,7 +990,7 @@ def loadFile(window, filename):
         print "Bad file extension: " + filename
         return
 
-    window.scene.selectPage(1)
+    window.scene.selectFirstPage()
 
 def recompileResources():
     import os
