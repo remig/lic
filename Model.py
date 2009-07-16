@@ -482,6 +482,7 @@ class Page(PageTreeManager, QGraphicsRectItem):
         # Setup this page's page number
         self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
         self.numberItem.setFont(QFont("Arial", 15))
+        self.numberItem.setFlags(AllFlags)
         self.numberItem.dataText = "Page Number Label"
         self.numberItem.itemClassName = "Page Number"
         self.children.append(self.numberItem)
@@ -490,14 +491,16 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.lockIcon = LockIcon(self)
 
         # Position page number in bottom right page corner
-        rect = self.numberItem.boundingRect()
-        rect.moveBottomRight(self.rect().bottomRight() - Page.margin)
-        self.numberItem.setPos(rect.topLeft())
-        self.numberItem.setFlags(AllFlags)
-
+        self.resetPageNumberPosition()
+        
         # Need to explicitly add this page to scene, since it has no parent
         instructions.scene.addItem(self)
 
+    def resetPageNumberPosition(self):
+        rect = self.numberItem.boundingRect()
+        rect.moveBottomRight(self.rect().bottomRight() - Page.margin)
+        self.numberItem.setPos(rect.topLeft())
+    
     def _setNumber(self, number):
         self._number = number
         self.numberItem.setText("%d" % self._number)
@@ -669,8 +672,11 @@ class Page(PageTreeManager, QGraphicsRectItem):
     
     def initLayout(self):
 
+        self.lockIcon.resetPosition()
         if self.lockIcon.isLocked:
             return  # Don't make any layout changes to locked pages
+
+        self.resetPageNumberPosition()
 
         # Remove any separators; we'll re-add them in the appropriate place later
         self.removeAllSeparators()
@@ -889,13 +895,16 @@ class LockIcon(QGraphicsPixmapItem):
             LockIcon.loaded = True
 
         self.setPixmap(LockIcon.deactiveOpenIcon)
-        self.setPos(5, Page.PageSize.height() - self.boundingRect().height() - 5)
+        self.resetPosition()
         self.setFlags(NoMoveFlags)
         self.setAcceptHoverEvents(True)
         self.hoverEnterEvent = lambda event: self.changeIcon(True)
         self.hoverLeaveEvent = lambda event: self.changeIcon(False)
         
         self.isLocked = False
+    
+    def resetPosition(self):
+        self.setPos(5, Page.PageSize.height() - self.boundingRect().height() - 5)
     
     def changeIcon(self, active):
         if active:
@@ -2697,6 +2706,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
         
         for page in self.pages:
             page.setRect(0, 0, newPageSize.width(), newPageSize.height())
+            page.initLayout()
             
         for submodel in self.submodels:
             submodel.setPageSize(newPageSize)

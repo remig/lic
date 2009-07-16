@@ -672,6 +672,7 @@ class LicWindow(QMainWindow):
             Page.PageSize = newPageSize
             Page.Resolution = newResolution
             self.treeModel.templatePage.setRect(0, 0, newPageSize.width(), newPageSize.height())
+            self.treeModel.templatePage.initLayout()
             self.instructions.setPageSize(Page.PageSize)
             self.scene.refreshView()
 
