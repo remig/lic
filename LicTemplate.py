@@ -95,10 +95,14 @@ class TemplatePage(Page):
         step.__class__ = TemplateStep
         step.postLoadInit()
         step.csi.__class__ = TemplateCSI
+        step.csi.target, step.csi.name = CSI, "CSI"
+        
         if step.pli:
             step.pli.__class__ = TemplatePLI
+            step.pli.target, step.pli.name = PLI, "PLI"
         if self.submodelItem:
             self.submodelItem.__class__ = TemplateSubmodelPreview
+            self.submodelItem.target, self.submodelItem.name = SubmodelPreview, "Submodel"
         if step.callouts:
             step.callouts[0].__class__ = TemplateCallout
             step.callouts[0].arrow.__class__ = TemplateCalloutArrow
@@ -256,6 +260,27 @@ class TemplatePage(Page):
         newFont, ok = QFontDialog.getFont(oldFont)
         if ok:
             item.setAllFonts(oldFont, newFont)
+            
+    def scaleAllItems(self, newScale):
+        if not self.steps[0].pli:
+            print "NO TEMPLATE PLI TO SCALE"
+            return
+        
+        if not self.submodelItem:
+            print "NO SUBMODEL ITEM TO SCALE"
+            return
+        
+        oldScale = CSI.defaultScale
+        self.steps[0].csi.changeDefaultScale(newScale)
+        self.steps[0].csi.acceptDefaultScale(oldScale)
+
+        oldScale = PLI.defaultScale
+        self.steps[0].pli.changeDefaultScale(newScale)
+        self.steps[0].pli.acceptDefaultScale(oldScale)
+
+        oldScale = SubmodelPreview.defaultScale
+        self.submodelItem.changeDefaultScale(newScale)
+        self.submodelItem.acceptDefaultScale(oldScale)
 
 class TemplateCalloutArrow(TemplateLineItem, CalloutArrow):
     
@@ -317,7 +342,6 @@ class TemplateRotateScaleSignalItem(QObject):
 class TemplatePLI(TemplateRectItem, PLI, TemplateRotateScaleSignalItem):
     
     def contextMenuEvent(self, event):
-        self.target, self.name = PLI, "PLI"
         actions = [["Change Default PLI Rotation", self.rotateDefaultSignal],
                    ["Change Default PLI Scale", self.scaleDefaultSignal]]
         menu = TemplateRectItem.getContextMenu(self, actions)
@@ -334,7 +358,6 @@ class TemplatePLI(TemplateRectItem, PLI, TemplateRotateScaleSignalItem):
 class TemplateSubmodelPreview(TemplateRectItem, SubmodelPreview, TemplateRotateScaleSignalItem):
 
     def contextMenuEvent(self, event):
-        self.target, self.name = SubmodelPreview, "Submodel"
         actions = [["Change Default Submodel Rotation", self.rotateDefaultSignal],
                    ["Change Default Submodel Scale", self.scaleDefaultSignal]]
         menu = TemplateRectItem.getContextMenu(self, actions)
@@ -351,10 +374,9 @@ class TemplateSubmodelPreview(TemplateRectItem, SubmodelPreview, TemplateRotateS
 class TemplateCSI(CSI, TemplateRotateScaleSignalItem):
     
     def contextMenuEvent(self, event):
-        self.target, self.name = CSI, "CSI"
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Change Default CSI Rotation", self.rotateDefaultSignal)
-        menu.addAction("Change Default CSI Size", self.scaleDefaultSignal)
+        menu.addAction("Change Default CSI Scale", self.scaleDefaultSignal)
         menu.exec_(event.screenPos())
 
 class TemplateStep(Step):

@@ -16,6 +16,8 @@ QDataStream.readQPen = lambda self: ro(self, QPen)
 QDataStream.readQRectF = lambda self: ro(self, QRectF)
 QDataStream.readQPointF = lambda self: ro(self, QPointF)
 QDataStream.readQString = lambda self: ro(self, QString)
+QDataStream.readQSizeF = lambda self: ro(self, QSizeF)
+QDataStream.readQSize = lambda self: ro(self, QSize)
 
 def loadLicFile(filename, instructions, treeModel):
 
@@ -30,6 +32,7 @@ def loadLicFile(filename, instructions, treeModel):
         treeModel.templatePage.subModel = instructions.mainModel
 
     treeModel.templatePage.applyDefaults()
+    treeModel.templatePage.lockIcon.resetPosition()
 
     if fh is not None:
         fh.close()
@@ -103,6 +106,9 @@ def __readInstructions(stream, instructions):
     
     filename = str(stream.readQString())
     instructions.filename = filename
+    
+    Page.PageSize = stream.readQSize()
+    Page.Resolution = stream.readFloat()
 
     CSI.defaultScale = stream.readFloat()
     PLI.defaultScale = stream.readFloat()

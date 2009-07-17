@@ -1,5 +1,5 @@
 from PyQt4.QtGui import QUndoCommand
-from PyQt4.QtCore import SIGNAL
+from PyQt4.QtCore import SIGNAL, QSizeF
 
 import Helpers
 
@@ -124,36 +124,31 @@ class BeginEndDisplacementCommand(QUndoCommand):
 
 class ResizePageCommand(QUndoCommand):
 
-    """
-    ResizePageCommand stores a list of old / new page size and resolution pairs:
-    sizes = ((oldPageSize, newPageSize), (oldRes, newRes))
-    """
-
     _id = getNewCommandID()
 
-    def __init__(self, instructions, sizes):
-        QUndoCommand.__init__(self, "Undo the last Page resize")
+    def __init__(self, licWindow, oldPageSize, newPageSize, oldResolution, newResolution, doRescale):
+        QUndoCommand.__init__(self, "Page Resize")
         
-        self.instructions = instructions
-        csiSizes, pliSizes = sizes
-        self.oldCSISize, self.newCSISize = csiSizes
-        self.oldPLISize, self.newPLISize = pliSizes
+        self.licWindow = licWindow
+        self.oldPageSize, self.newPageSize = oldPageSize, newPageSize
+        self.oldResolution, self.newResolution = oldResolution, newResolution
+        self.doRescale = doRescale
+        self.oldScale = 1.0
+        self.newScale = float(newPageSize.width()) / float(oldPageSize.width())
+
+        if doRescale:  # Temp error check
+            os, ns = QSizeF(oldPageSize), QSizeF(newPageSize)
+            if (os.width() / os.height()) != (ns.width() / ns.height()):
+                print "Cannot rescale page items with new aspect ratio"
+            if (ns.width() / os.width()) != (ns.height() / os.height()):
+                print "Cannot rescale page items with uneven width / height scales"
         
     def undo(self):
-        self.instructions.setCSIPLISize(self.oldCSISize, self.oldPLISize)
+        self.licWindow.setPageSize(self.oldPageSize, self.oldResolution, self.doRescale, self.oldScale)
     
     def redo(self):
-        self.instructions.setCSIPLISize(self.newCSISize, self.newPLISize)
+        self.licWindow.setPageSize(self.newPageSize, self.newResolution, self.doRescale, self.newScale)
     
-    def mergeWith(self, command):
-        
-        if command.id() != self.id():
-            return False
-        
-        self.newCSISize = command.newCSISize
-        self.newPLISize = command.newPLISize
-        return True
-
 class MoveStepToPageCommand(QUndoCommand):
 
     """

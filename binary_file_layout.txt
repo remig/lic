@@ -23,6 +23,9 @@ Template:
   
 Instructions:
   QString imported filename
+  QSize Page.PageSize
+  float Page.Resolution
+  
   float CSI.scale
   float PLI.scale
   float SubmodelPreview.scale

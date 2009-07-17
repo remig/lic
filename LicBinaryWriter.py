@@ -59,6 +59,8 @@ def __writeTemplate(stream, template):
 def __writeInstructions(stream, instructions):
 
     stream << QString(instructions.mainModel.filename)
+    stream << Page.PageSize
+    stream.writeFloat(Page.Resolution)
 
     stream.writeFloat(CSI.defaultScale)
     stream.writeFloat(PLI.defaultScale)

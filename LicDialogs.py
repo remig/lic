@@ -79,7 +79,7 @@ class PageSizeDlg(QDialog):
         self.aspectRatioCheckBox.setChecked(True)
         self.connect(self.aspectRatioCheckBox, SIGNAL("stateChanged(int)"), self.aspectRatioClick)
 
-        self.rescaleCheckBox = QCheckBox("Rescale all &Page Elements")
+        self.rescaleCheckBox = QCheckBox("Rescale all &Page Elements (slow)")
         
         layout = QVBoxLayout()
         layout.addWidget(pixelGroupBox)
@@ -168,16 +168,18 @@ class PageSizeDlg(QDialog):
         self.checkAspect = True
 
     def aspectRatioClick(self, state):
-        if not self.aspectRatioCheckBox.isChecked():
-            return
-        self.checkAspect = False
-        if self.pixelFormatComboBox.currentIndex() == 0:  # pixel
-            self.pixelWidthSpinBox.setValue(self.originalPageSize.width())
-            self.pixelHeightSpinBox.setValue(self.originalPageSize.height())
-        else:  # percent
-            self.pixelWidthSpinBox.setValue(100)
-            self.pixelHeightSpinBox.setValue(100)
-        self.checkAspect = True
+        if self.aspectRatioCheckBox.isChecked():
+            self.rescaleCheckBox.setEnabled(True)
+            self.checkAspect = False
+            if self.pixelFormatComboBox.currentIndex() == 0:  # pixel
+                self.pixelWidthSpinBox.setValue(self.originalPageSize.width())
+                self.pixelHeightSpinBox.setValue(self.originalPageSize.height())
+            else:  # percent
+                self.pixelWidthSpinBox.setValue(100)
+                self.pixelHeightSpinBox.setValue(100)
+            self.checkAspect = True
+        else:
+            self.rescaleCheckBox.setEnabled(False)
     
 class BackgroundImagePropertiesDlg(QDialog):
 

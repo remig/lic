@@ -664,17 +664,27 @@ class LicWindow(QMainWindow):
     def changePageSizeAction(self):
         dialog = LicDialogs.PageSizeDlg(self, Page.PageSize, Page.Resolution)
         if dialog.exec_():
-            self.setPageSize(dialog.getPageSize(), dialog.getResolution())
+            newPageSize = dialog.getPageSize()
+            newRes = dialog.getResolution()
+            doRescale = dialog.getRescalePageItems()
+            self.undoStack.beginMacro("Page Resize")
+            self.undoStack.push(LicUndoActions.ResizePageCommand(self, Page.PageSize, newPageSize, Page.Resolution, newRes, doRescale))
+            self.undoStack.endMacro()
 
-    def setPageSize(self, newPageSize, newResolution):
+    def setPageSize(self, newPageSize, newResolution, doRescale, newScale):
         
-        if (newPageSize.width() != Page.PageSize.width() or newPageSize.height() != Page.PageSize.height()) or (newResolution != Page.Resolution):
-            Page.PageSize = newPageSize
-            Page.Resolution = newResolution
-            self.treeModel.templatePage.setRect(0, 0, newPageSize.width(), newPageSize.height())
-            self.treeModel.templatePage.initLayout()
-            self.instructions.setPageSize(Page.PageSize)
-            self.scene.refreshView()
+        if (newPageSize.width() == Page.PageSize.width() and newPageSize.height() == Page.PageSize.height()) and (newResolution != Page.Resolution):
+            return
+        
+        if doRescale:
+            self.treeModel.templatePage.scaleAllItems(newScale)
+        
+        Page.PageSize = newPageSize
+        Page.Resolution = newResolution
+        self.treeModel.templatePage.setRect(0, 0, newPageSize.width(), newPageSize.height())
+        self.treeModel.templatePage.initLayout()
+        self.instructions.setPageSize(Page.PageSize)
+        self.scene.refreshView()
 
     def zoom(self, factor):
         self.graphicsView.scaleView(factor)
