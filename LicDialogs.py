@@ -27,6 +27,7 @@ class PageSizeDlg(QDialog):
         QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
         self.setWindowTitle("Page Size")
         self.originalPageSize = pageSize
+        self.checkAspect = True
 
         pixelWidthLabel, self.pixelWidthSpinBox, = self.makeLabelSpinBox("&Width:", pageSize.width(), 1, 10000)
         pixelHeightLabel, self.pixelHeightSpinBox  = self.makeLabelSpinBox("&Height:", pageSize.height(), 1, 10000)
@@ -49,27 +50,42 @@ class PageSizeDlg(QDialog):
         pixelGroupBox = QGroupBox("Image Size (pixels):", self)
         pixelGroupBox.setLayout(grid)
 
-        docWidthLabel, docWidthEditBox, docWidthComboBox = self.createLabelEditComboWidgets("Wi&dth:", pageSize.width() / resolution, 1.0, 10000.0, True, "inches")
-        docHeightLabel, docHeightEditBox, docHeightComboBox = self.createLabelEditComboWidgets("Hei&ght:", pageSize.height() / resolution, 1.0, 10000.0, True, "inches")
-        resLabel, self.resEditBox, resComboBox = self.createLabelEditComboWidgets("&Resolution:", resolution, 1.0, 10000.0, True, "pixels/inch", "pixels/cm")
+        docWidthLabel, docWidthSpinBox = self.makeLabelSpinBox("Wi&dth:", pageSize.width() / resolution, 1.0, 10000.0, True)
+        docHeightLabel, docHeightSpinBox = self.makeLabelSpinBox("Hei&ght:", pageSize.height() / resolution, 1.0, 10000.0, True)
+        self.docFormatComboBox = QComboBox()
+        self.docFormatComboBox.addItems(["inches", "cm", "percent"])
         
+        resLabel, self.resSpinBox = self.makeLabelSpinBox("&Resolution:", resolution, 1.0, 10000.0, True)
+        self.resComboBox = QComboBox()
+        self.resComboBox.addItems(["pixels/inch", "pixels/cm"])
+
         grid = QGridLayout()
-        self.addWidgetsToGrid(grid, 0, docWidthLabel, docWidthEditBox, docWidthComboBox)
-        self.addWidgetsToGrid(grid, 1, docHeightLabel, docHeightEditBox, docHeightComboBox)
-        self.addWidgetsToGrid(grid, 2, resLabel, self.resEditBox, resComboBox)        
+        grid.addWidget(docWidthLabel, 0, 0, Qt.AlignRight)
+        grid.addWidget(docWidthSpinBox, 0, 1)
+        grid.addWidget(docHeightLabel, 1, 0, Qt.AlignRight)
+        grid.addWidget(docHeightSpinBox, 1, 1)
+        
+        grid.addWidget(self.docFormatComboBox, 0, 2, 2, 1, Qt.AlignVCenter)
+        
+        grid.addWidget(resLabel, 2, 0, Qt.AlignRight)
+        grid.addWidget(self.resSpinBox, 2, 1)
+        grid.addWidget(self.resComboBox, 2, 2)
         self.setGridSize(grid)
         
-        docGroupBox = QGroupBox("Printed Document Size (inches) (NYI):")
+        docGroupBox = QGroupBox("Printed Document Size (NYI):")
         docGroupBox.setLayout(grid)
         
-        self.constrainCheckBox = QCheckBox("&Keep Page Aspect Ratio")
-        resampleCheckBox = QCheckBox("Rescale all &Page Elements")
+        self.aspectRatioCheckBox = QCheckBox("&Keep Page Aspect Ratio")
+        self.aspectRatioCheckBox.setChecked(True)
+        self.connect(self.aspectRatioCheckBox, SIGNAL("stateChanged(int)"), self.aspectRatioClick)
+
+        self.rescaleCheckBox = QCheckBox("Rescale all &Page Elements")
         
         layout = QVBoxLayout()
         layout.addWidget(pixelGroupBox)
         layout.addWidget(docGroupBox)
-        layout.addWidget(self.constrainCheckBox)
-        layout.addWidget(resampleCheckBox)
+        layout.addWidget(self.aspectRatioCheckBox)
+        layout.addWidget(self.rescaleCheckBox)
         
         buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Vertical)
 
@@ -81,6 +97,13 @@ class PageSizeDlg(QDialog):
         self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
         
+    def setGridSize(self, grid):
+        
+        grid.setColumnMinimumWidth(0, 55)
+        grid.setColumnMinimumWidth(1, 50)
+        grid.setColumnMinimumWidth(2, 80)
+        grid.setHorizontalSpacing(10)        
+
     def getPageSize(self):
         if self.pixelFormatComboBox.currentIndex() == 0:  # pixel value
             width = self.pixelWidthSpinBox.value()
@@ -94,13 +117,17 @@ class PageSizeDlg(QDialog):
     def getResolution(self):
         return 72.0
 
+    def getRescalePageItems(self):
+        return self.rescaleCheckBox.isChecked()
+    
     def pixelComboChange(self, index):
         
+        self.checkAspect = False
         oldWidth, oldHeight = self.originalPageSize.width(), self.originalPageSize.height()
-         
+        
         if index == 0:  # to pixel
-            self.pixelWidthSpinBox.setValue(oldWidth * self.pixelWidthSpinBox.value() / 100)
-            self.pixelHeightSpinBox.setValue(oldHeight * self.pixelHeightSpinBox.value() / 100)
+            self.pixelWidthSpinBox.setValue(int(oldWidth * self.pixelWidthSpinBox.value() / 100.0))
+            self.pixelHeightSpinBox.setValue(int(oldHeight * self.pixelHeightSpinBox.value() / 100.0))
             self.pixelWidthSpinBox.setSuffix("")
             self.pixelHeightSpinBox.setSuffix("")
         else:  # to percent
@@ -108,45 +135,50 @@ class PageSizeDlg(QDialog):
             self.pixelHeightSpinBox.setValue(int(float(self.pixelHeightSpinBox.value()) / oldHeight * 100.0))
             self.pixelWidthSpinBox.setSuffix("%")
             self.pixelHeightSpinBox.setSuffix("%")
+        self.checkAspect = True
     
-    def pixelWidthChanged(self, newPageWidth):
-        if self.constrainCheckBox.isChecked():
-            oldPageWidth = self.pixelWidthSpinBox.value()
-            pageHeight = self.pixelHeightSpinBox.value()
-            aspect = pageHeight / oldPageWidth
-            pageHeight = int(newPageWidth * aspect)
+    def pixelWidthChanged(self, newValue):
+
+        if not self.checkAspect or not self.aspectRatioCheckBox.isChecked():
+            return  # No need to update width if aspect ratio can change
+        self.checkAspect = False
+        
+        if self.pixelFormatComboBox.currentIndex() == 0:  # pixel
+            oldWidth, oldHeight = self.originalPageSize.width(), self.originalPageSize.height()
+            pageHeight = int(newValue * oldHeight / oldWidth)
             self.pixelHeightSpinBox.setValue(pageHeight)
-
-    def pixelHeightChanged(self, newPageHeight):
-        if self.constrainCheckBox.isChecked():
-            oldPageHeight = self.pixelHeightSpinBox.value()
-            pageWidth = self.pixelWidthSpinBox.value()
-            aspect = pageWidth / oldPageHeight
-            pageWidth = int(newPageHeight * aspect)
-            self.pixelWidthSpinBox.setValue(pageWidth)
+        else:
+            self.pixelHeightSpinBox.setValue(newValue)
             
-    def createLabelEditComboWidgets(self, labelStr, value = 0, min = 0, max = 0, percent = False, comboStr1 = "pixels", comboStr2 = "percent"):
-        
-        label, spinbox = self.makeLabelSpinBox(labelStr, value, min, max, percent)
-        
-        comboBox = QComboBox()
-        comboBox.addItem(comboStr1)
-        comboBox.addItem(comboStr2)
-        return (label, spinbox, comboBox)
+        self.checkAspect = True
 
-    def setGridSize(self, grid):
-        
-        grid.setColumnMinimumWidth(0, 55)
-        grid.setColumnMinimumWidth(1, 50)
-        grid.setColumnMinimumWidth(2, 80)
-        grid.setHorizontalSpacing(10)        
+    def pixelHeightChanged(self, newValue):
 
-    def addWidgetsToGrid(self, grid, row, label, spinBox, comboBox):
+        if not self.checkAspect or not self.aspectRatioCheckBox.isChecked():
+            return  # No need to update width if aspect ratio can change
+        self.checkAspect = False
         
-        grid.addWidget(label, row, 0, Qt.AlignRight)
-        grid.addWidget(spinBox, row, 1)
-        grid.addWidget(comboBox, row, 2)
-        
+        if self.pixelFormatComboBox.currentIndex() == 0:  # pixel
+            oldWidth, oldHeight = self.originalPageSize.width(), self.originalPageSize.height()
+            pageWidth = int(newValue * oldWidth / oldHeight)
+            self.pixelWidthSpinBox.setValue(pageWidth)
+        else:
+            self.pixelWidthSpinBox.setValue(newValue)
+            
+        self.checkAspect = True
+
+    def aspectRatioClick(self, state):
+        if not self.aspectRatioCheckBox.isChecked():
+            return
+        self.checkAspect = False
+        if self.pixelFormatComboBox.currentIndex() == 0:  # pixel
+            self.pixelWidthSpinBox.setValue(self.originalPageSize.width())
+            self.pixelHeightSpinBox.setValue(self.originalPageSize.height())
+        else:  # percent
+            self.pixelWidthSpinBox.setValue(100)
+            self.pixelHeightSpinBox.setValue(100)
+        self.checkAspect = True
+    
 class BackgroundImagePropertiesDlg(QDialog):
 
     def __init__(self, parent, image, backgroundColor, originalBrush, pageSize):
