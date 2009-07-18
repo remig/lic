@@ -283,9 +283,8 @@ def __readPage(stream, parent, instructions, templateModel = None):
     # Read in the optional submodel preview image
     hasSubmodelItem = stream.readBool()
     if hasSubmodelItem:
-        page.submodelItem = SubmodelPreview(page, page.subModel)
-        page.addChild(stream.readInt32(), page.submodelItem)
-        __readRoundedRectItem(stream, page.submodelItem)
+        page.submodelItem = __readSubmodelItem(stream, page)
+        page.addChild(page.submodelItem.row(), page.submodelItem)
 
     # Read in any page separator lines
     borderCount = stream.readInt32()
@@ -345,6 +344,15 @@ def __readCallout(stream, parent):
         callout.steps.append(step)
 
     return callout
+
+def __readSubmodelItem(stream, page):
+    
+    submodelItem = SubmodelPreview(page, page.subModel)
+    submodelItem._row = stream.readInt32()
+    __readRoundedRectItem(stream, submodelItem)
+    submodelItem.scale = stream.readFloat()
+    submodelItem.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+    return submodelItem
 
 def __readCSI(stream, step):
 

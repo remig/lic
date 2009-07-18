@@ -393,13 +393,10 @@ class RotateItemCommand(QUndoCommand):
         QUndoCommand.__init__(self, "Item rotation")
         self.target, self.oldRotation, self.newRotation = target, oldRotation, newRotation
 
-    def undo(self):
-        self.target.rotation = list(self.oldRotation)
+    def doAction(self, redo):
+        self.target.rotation = list(self.newRotation) if redo else list(self.oldRotation)
         self.target.resetPixmap() 
-
-    def redo(self):
-        self.target.rotation = list(self.newRotation)
-        self.target.resetPixmap()
+        self.target.getPage().initLayout()
 
 class ScaleDefaultItemCommand(QUndoCommand):
 

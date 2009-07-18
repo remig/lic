@@ -205,7 +205,7 @@ class Instructions(QObject):
         self.mainModel = Submodel(self, self, filename)
         self.mainModel.importModel()
         
-        self.mainModel.syncPageNumbers()
+        self.mainModel.syncRowNumbers()
         self.mainModel.addInitialPagesAndSteps()
         
         t1, partStepCount, t2 = self.getPartDimensionListAndCount() 
@@ -244,10 +244,11 @@ class Instructions(QObject):
 
         self.mainModel.mergeInitialPages()
         self.mainModel.reOrderSubmodelPages()
-        self.mainModel.syncPageNumbers()
+        self.mainModel.syncRowNumbers()
         
         for page in self.mainModel.getPageList():
             page.adjustSubmodelImages()
+            page.resetPageNumberPosition()
 
         #endTime = time.time()
         #print "Total load time: %.2f" % (endTime - startTime)
@@ -2579,7 +2580,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
                     return page
         return None
      
-    def syncPageNumbers(self, firstPageNumber = 1):
+    def syncRowNumbers(self, firstPageNumber = 1):
 
         rowList = self.pages + self.submodels
         rowList.sort(key = lambda x: x._row)
@@ -2590,7 +2591,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
                 row.number = pageNumber
                 pageNumber += 1
             elif isinstance(row, Submodel):
-                pageNumber = row.syncPageNumbers(pageNumber)
+                pageNumber = row.syncRowNumbers(pageNumber)
 
         return pageNumber
     

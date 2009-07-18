@@ -130,10 +130,6 @@ Border:
   QRectF rect
   QPen pen
 
-SubmodelItem:
-  int32 child row
-  RoundedRectItem pos, rect, pen, brush, cornerRadius
-
 Step:
   int32 number
   bool hasPLI
@@ -170,6 +166,15 @@ Callout:
 
   int32 number of Steps
   ... Step 0..n ...
+
+SubmodelItem:
+  int32 row
+  RoundedRectItem pos, rect, pen, brush, cornerRadius
+  
+  float scale
+  float rotation x
+  float rotation y
+  float rotation z
   
 CSI:
   QPointF pos

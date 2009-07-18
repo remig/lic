@@ -194,8 +194,7 @@ def __writePage(stream, page):
     # Write out the optional submodel preview image
     if page.submodelItem:
         stream.writeBool(True)
-        stream.writeInt32(page.submodelItem.row())
-        __writeRoundedRectItem(stream, page.submodelItem)
+        __writeSubmodelItem(stream, page.submodelItem)
     else:
         stream.writeBool(False)
 
@@ -243,6 +242,15 @@ def __writeCallout(stream, callout):
     for step in callout.steps:
         __writeStep(stream, step)
     
+def __writeSubmodelItem(stream, submodelItem):
+    stream.writeInt32(submodelItem.row())
+    __writeRoundedRectItem(stream, submodelItem)
+    
+    stream.writeFloat(submodelItem.scale)
+    stream.writeFloat(submodelItem.rotation[0])
+    stream.writeFloat(submodelItem.rotation[1])
+    stream.writeFloat(submodelItem.rotation[2])
+
 def __writeCSI(stream, csi):
     stream << csi.pos()
     stream.writeInt32(csi.rect().width())
