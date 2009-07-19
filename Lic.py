@@ -444,8 +444,8 @@ class LicWindow(QMainWindow):
         self.loadSettings()
         
         self.undoStack = QUndoStack()
-        self.connect(self.undoStack, SIGNAL("cleanChanged(bool)"), self._setWindowModified)
-        
+        self.connect(self.undoStack, SIGNAL("cleanChanged(bool)"), lambda isClean: self.setWindowModified(not isClean))
+
         self.glWidget = QGLWidget(getGLFormat(), self)
         self.treeView = LicTreeView(self)
 
@@ -510,12 +510,6 @@ class LicWindow(QMainWindow):
         settings.setValue("MainWindow/State", QVariant(self.saveState()))
         settings.setValue("SplitterSizes", QVariant(self.mainSplitter.saveState()))
         settings.setValue("PageView", QVariant(str(self.scene.pagesToDisplay)))
-    
-    def _setWindowModified(self, bool):
-        # This is tied to the undo stack's cleanChanged signal.  Problem with that signal 
-        # is it sends the *opposite* bool to what we need to pass to setWindowModified,
-        # so can't just connect that signal straight to setWindowModified slot.
-        self.setWindowModified(not bool)
         
     def createUndoSignals(self):
 
@@ -658,8 +652,9 @@ class LicWindow(QMainWindow):
         # Export Menu
         self.exportMenu = menu.addMenu("E&xport")
         self.exportImagesAction = self.createMenuAction("&Generate Final Images", lambda: self.exportImages(self.glWidget), None, "Generate final images of each page in this Instruction book")
-        self.exportRenderedImagesAction = self.createMenuAction("Generate Images with Pov-Ray", lambda: self.exportImages(), None, "Use Pov-Ray to generate final, ray-traced images of each page in this Instruction book")
-        self.addActions(self.exportMenu, (self.exportImagesAction, self.exportRenderedImagesAction))
+        self.exportToPDFAction = self.createMenuAction("Generate &PDF", self.exportToPDF, None, "Create a PDF from this instruction book")
+        self.exportRenderedImagesAction = self.createMenuAction("Generate Images with Pov-Ray", self.exportImages, None, "Use Pov-Ray to generate final, ray-traced images of each page in this Instruction book")
+        self.addActions(self.exportMenu, (self.exportImagesAction, self.exportToPDFAction, self.exportRenderedImagesAction))
 
     def changePageSizeAction(self):
         dialog = LicDialogs.PageSizeDlg(self, Page.PageSize, Page.Resolution)
@@ -877,12 +872,13 @@ class LicWindow(QMainWindow):
         filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Safe File As", f, "Lic Instruction Book files (*.lic)"))
         if filename:
             self.filename = filename
+            self.instructions.filename = filename
             return self.fileSave()
 
     def fileSave(self):
         try:
             LicBinaryWriter.saveLicFile(self.filename, self.instructions, self.treeModel.templatePage)
-            self.setWindowModified(False)
+            self.undoStack.setClean()
             self.addRecentFile(self.filename)
             self.statusBar().showMessage("Saved to: " + self.filename)
         except (IOError, OSError), e:
@@ -941,14 +937,20 @@ class LicWindow(QMainWindow):
     def exportImages(self, widget = None):
         self.instructions.exportImages(widget)
         
-        #image = QImage(1000, 800, QImage.Format_ARGB32)
+        #fbo = QGLFramebufferObject(Page.PageSize.width() * 2, Page.PageSize.height() * 2)
+        #image = QImage(Page.PageSize, QImage.Format_ARGB32)
         #painter = QPainter()
-        #painter.begin(image)
-        #self.scene.render(painter, QRectF(0, 0, 1000, 800), QRectF(400, 100, 1000, 800))
+        #painter.begin(fbo)
+        #painter.setRenderHint(QPainter.HighQualityAntialiasing)
+        #self.scene.render(painter, QRectF(0, 0, Page.PageSize.width() * 2, Page.PageSize.height() * 2))
         #painter.end()
+        #image = fbo.toImage()
         #image.save(r"c:\lic\tmp\widget.png")
-        
+
         print "\nExport complete"
+
+    def exportToPDF(self):
+        self.instructions.exportToPDF(self.glWidget)
 
 def main():
     

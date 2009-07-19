@@ -190,6 +190,8 @@ class Instructions(QObject):
         partDictionary = {}
         submodelDictionary = {}
         currentModelFilename = ""
+        Page.PageSize = Page.defaultPageSize
+        Page.Resolution = Page.defaultResolution
         CSI.defaultScale = PLI.defaultScale = SubmodelPreview.defaultScale = 1.0
         CSI.defaultRotation = [20.0, 45.0, 0.0]
         PLI.defaultRotation = [20.0, -45.0, 0.0]
@@ -199,7 +201,7 @@ class Instructions(QObject):
     def importLDrawModel(self, filename):
         #startTime = time.time()
         
-        global currentModelFilename        
+        global currentModelFilename, submodelDictionary
         currentModelFilename = filename
 
         self.mainModel = Submodel(self, self, filename)
@@ -211,7 +213,7 @@ class Instructions(QObject):
         t1, partStepCount, t2 = self.getPartDimensionListAndCount() 
         pageList = self.mainModel.getPageList()
         pageList.sort(key = lambda x: x._number)
-        totalCount = (len(pageList) * 2) + 10 + partStepCount
+        totalCount = (len(pageList) * 2) + 11 + partStepCount
         currentCount = 2
         
         yield (totalCount, "Initializing GL display lists")
@@ -245,7 +247,9 @@ class Instructions(QObject):
         self.mainModel.mergeInitialPages()
         self.mainModel.reOrderSubmodelPages()
         self.mainModel.syncRowNumbers()
-        
+
+        currentCount += 1
+        yield (currentCount, "Adjusting Submodel Images")
         for page in self.mainModel.getPageList():
             page.adjustSubmodelImages()
             page.resetPageNumberPosition()
@@ -434,6 +438,26 @@ class Instructions(QObject):
 
         self.mainModel.exportImages(widget)
 
+    def exportToPDF(self, widget):
+        
+        filename = self.filename[:-3] + "pdf"
+        printer = QPrinter(QPrinter.HighResolution) # QPrinter.ScreenResolution)  # QPrinter.HighResolution)
+        printer.setOutputFileName(filename)
+        printer.setFullPage(True)
+        printer.setResolution(Page.Resolution)
+        printer.setPaperSize(QSizeF(Page.PageSize), QPrinter.DevicePixel)
+
+        painter = QPainter()
+        painter.begin(printer)
+        pageList = self.mainModel.getPageList()
+        for page in pageList:
+            image = page.getImage(widget)
+            painter.drawImage(QPointF(), image)
+            if page != pageList[-1]:
+                printer.newPage()
+        painter.end()
+        print "Exported PDF to " + filename
+    
     def getPartDictionary(self):
         global partDictionary
         return partDictionary
@@ -454,8 +478,13 @@ class Page(PageTreeManager, QGraphicsRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
 
     itemClassName = "Page"
+    
     PageSize = QSize(800, 600)  # Always pixels
     Resolution = 72.0           # Always pixels / inch
+    
+    defaultPageSize = QSize(800, 600)
+    defaultResolution = 72.0
+    
     margin = QPointF(15, 15)
     defaultColor = QColor(Qt.white)
     defaultBrush = None
@@ -742,6 +771,30 @@ class Page(PageTreeManager, QGraphicsRectItem):
         view.resize(oldSize)
         widget.repaint()
 
+    def getImage(self, widget):
+        self.lockIcon.hide()
+        
+        scene = self.scene()
+        pagesToDisplay = scene.getPagesToDisplay()
+        currentPage = scene.currentPage._number
+        scene.setPagesToDisplay(1)
+        scene.selectPage(self._number)
+        
+        view = scene.views()[0]
+        oldSize = view.size()
+        view.resize(Page.PageSize.width() + 4, Page.PageSize.height() + 4)
+        
+        widget.repaint()
+        image = widget.grabFrameBuffer(True)
+
+        self.lockIcon.show()
+        scene.setPagesToDisplay(pagesToDisplay)
+        scene.selectPage(currentPage)
+        view.resize(oldSize)
+        widget.repaint()
+        
+        return image
+
     def renderFinalImageWithPov(self):
 
         for step in self.steps:
@@ -783,7 +836,7 @@ class Page(PageTreeManager, QGraphicsRectItem):
         painter.end()
         image.save(self.getExportFilename())
         self.setPos(oldPos)
-                
+
     def paint(self, painter, option, widget = None):
 
         # Draw a slightly down-right translated black rectangle, for the page shadow effect
@@ -1733,6 +1786,8 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
         Allocate space for all parts in this PLI, and choose a decent layout.
         This is the initial algorithm used to layout a PLI.
         """
+
+        self.setPos(0.0, 0.0)
 
         # If this PLI is empty, nothing to do here
         if len(self.pliItems) < 1:

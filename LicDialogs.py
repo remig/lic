@@ -69,7 +69,7 @@ class PageSizeDlg(QDialog):
         grid.addWidget(self.resFormatLabel, 2, 2, Qt.AlignLeft)
         self.setGridSize(grid)
         
-        self.docGroupBox = QGroupBox("Printed Document Size (NYI):")
+        self.docGroupBox = QGroupBox("Printed Document Size:")
         self.docGroupBox.setCheckable(True)
         self.docGroupBox.setChecked(False)
         self.docGroupBox.setLayout(grid)
