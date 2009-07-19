@@ -2,9 +2,7 @@ Lic TODO:
 
 Thoughts on displacing parts:
 
-- Generate images at any arbitrary size
 - Need to give user a way to specify:
-  - Instruction image size
   - Paths to required apps (LDraw, L3P, Pov-Ray)
 
 - Surround optional 3rd party imports in try...catch blocks
@@ -44,5 +42,5 @@ For 2.0:
 - Look into GraphViz for some seriously heavy duty auto-layout options. GraphViz's plain-ext output
   mode could work wonders, especially when creating an entire book from scratch.
 
-- Try snap-to other page items, like in Flex Builder
+- snap-to other page items, like in Flex Builder
 

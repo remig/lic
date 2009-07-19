@@ -274,10 +274,17 @@ class MovePartsToStepCommand(QUndoCommand):
         oldStep.scene().clearSelection()
         oldStep.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
 
+        redoSubmodelOrder = False
         for part in self.partList:
             oldStep.removePart(part)
             newStep.addPart(part)
+            if part.isSubmodel():
+                redoSubmodelOrder = True
 
+        if redoSubmodelOrder:
+            newStep.getPage().instructions.mainModel.reOrderSubmodelPages()
+            newStep.getPage().instructions.mainModel.syncPageNumbers()
+        
         oldStep.scene().emit(SIGNAL("layoutChanged()"))
 
         oldStep.csi.resetPixmap()

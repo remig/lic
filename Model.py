@@ -207,7 +207,7 @@ class Instructions(QObject):
         self.mainModel = Submodel(self, self, filename)
         self.mainModel.importModel()
         
-        self.mainModel.syncRowNumbers()
+        self.mainModel.syncPageNumbers()
         self.mainModel.addInitialPagesAndSteps()
         
         t1, partStepCount, t2 = self.getPartDimensionListAndCount() 
@@ -246,7 +246,7 @@ class Instructions(QObject):
 
         self.mainModel.mergeInitialPages()
         self.mainModel.reOrderSubmodelPages()
-        self.mainModel.syncRowNumbers()
+        self.mainModel.syncPageNumbers()
 
         currentCount += 1
         yield (currentCount, "Adjusting Submodel Images")
@@ -630,11 +630,17 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.addStep(step)
 
     def deleteStep(self, step):
-
         self.steps.remove(step)
         self.children.remove(step)
         self.scene().removeItem(step)
         self.subModel.updateStepNumbers(step.number, -1)
+
+    def removeStep(self, step):
+        self.steps.remove(step)
+        self.children.remove(step)
+
+    def isEmpty(self):
+        return len(self.steps) == 0 and self.submodelItem is None
 
     def isLocked(self):
         return self.lockIcon.isLocked
@@ -681,10 +687,6 @@ class Page(PageTreeManager, QGraphicsRectItem):
         for s in self.separators:
             s.hide()
     
-    def removeStep(self, step):
-        self.steps.remove(step)
-        self.children.remove(step)
-
     def addSubmodelImage(self):
         self.submodelItem = SubmodelPreview(self, self.subModel)
         self.submodelItem.setPos(Page.margin)
@@ -1341,6 +1343,9 @@ class Step(StepTreeManager, QGraphicsRectItem):
         self._hasPLI = False
         self.pli.hide()
     
+    def isEmpty(self):
+        return len(self.csi.parts) == 0
+    
     def addPart(self, part):
         self.csi.addPart(part)
         if self.pli:  # Visibility here is irrelevant
@@ -1510,10 +1515,6 @@ class Step(StepTreeManager, QGraphicsRectItem):
                     
         menu.addSeparator()
         menu.addAction("Add blank Callout", self.addBlankCalloutSignal)
-        menu.addSeparator()
-        doLayout = menu.addAction("Re-layout affected Pages")
-        doLayout.setCheckable(True)
-        doLayout.setChecked(True)
 
         if not self.csi.parts:
             menu.addAction("&Delete Step", lambda: undo.push(AddRemoveStepCommand(self, False)))
@@ -1532,6 +1533,9 @@ class Step(StepTreeManager, QGraphicsRectItem):
             if isinstance(step, Step):
                 stepSet.append((step, step.parentItem(), step.parentItem().prevPage()))
         step.scene().undoStack.push(MoveStepToPageCommand(stepSet))
+
+        if self.scene().currentPage.isEmpty():
+            self.scene().undoStack.push(AddRemovePageCommand(self.scene().currentPage, False))
         
     def moveToNextPage(self):
         stepSet = []
@@ -1539,6 +1543,9 @@ class Step(StepTreeManager, QGraphicsRectItem):
             if isinstance(step, Step):
                 stepSet.append((step, step.parentItem(), step.parentItem().nextPage()))
         step.scene().undoStack.push(MoveStepToPageCommand(stepSet))
+
+        if self.scene().currentPage.isEmpty():
+            self.scene().undoStack.push(AddRemovePageCommand(self.scene().currentPage, False))
     
     def moveToPage(self, page, useSignals = True):
         if useSignals:
@@ -1549,8 +1556,8 @@ class Step(StepTreeManager, QGraphicsRectItem):
             page.scene().emit(SIGNAL("layoutChanged()"))
 
     def mergeWithStepSignal(self, step):
-        a = MovePartsToStepCommand(self.csi.getPartList(), self, step)
-        self.scene().undoStack.push(a)
+        self.scene().undoStack.push(MovePartsToStepCommand(self.csi.getPartList(), self, step))
+        self.scene().undoStack.push(AddRemoveStepCommand(self, False))
 
 class RotateScaleSignalItem(QObject):
     
@@ -2635,18 +2642,18 @@ class Submodel(SubmodelTreeManager, PartOGL):
                     return page
         return None
      
-    def syncRowNumbers(self, firstPageNumber = 1):
+    def syncPageNumbers(self, firstPageNumber = 1):
 
         rowList = self.pages + self.submodels
         rowList.sort(key = lambda x: x._row)
 
         pageNumber = firstPageNumber
-        for row in rowList:
-            if isinstance(row, Page):
-                row.number = pageNumber
+        for item in rowList:
+            if isinstance(item, Page):
+                item.number = pageNumber
                 pageNumber += 1
-            elif isinstance(row, Submodel):
-                pageNumber = row.syncRowNumbers(pageNumber)
+            elif isinstance(item, Submodel):
+                pageNumber = item.syncPageNumbers(pageNumber)
 
         return pageNumber
     
@@ -3177,7 +3184,15 @@ class Part(PartTreeManager, QGraphicsRectItem):
             if isinstance(item, Part):
                 selectedParts.append(item)
 
-        self.scene().undoStack.push(MovePartsToStepCommand(selectedParts, self.getStep(), destStep))
+        currentStep = self.getStep()
+        self.scene().undoStack.push(MovePartsToStepCommand(selectedParts, currentStep, destStep))
+        
+        currentPage = currentStep.getPage()
+        if currentStep.isEmpty():
+            self.scene().undoStack.push(AddRemoveStepCommand(currentStep, False))
+            
+        if currentPage.isEmpty():
+            self.scene().undoStack.push(AddRemovePageCommand(currentPage, False))
         
 class Arrow(Part):
     itemClassName = "Arrow"
