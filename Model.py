@@ -1491,6 +1491,12 @@ class Step(StepTreeManager, QGraphicsRectItem):
             
         self.callouts[0].setPos(cx, r.top() + cy)
 
+    def acceptDragAndDropList(self, dragItems):
+
+        parts = [p for p in dragItems if isinstance(p, Part)]
+        self.scene().undoStack.push(MovePartsToStepCommand(parts, self))
+        return True
+    
     def contextMenuEvent(self, event):
 
         selectedSteps = []
@@ -1556,7 +1562,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
             page.scene().emit(SIGNAL("layoutChanged()"))
 
     def mergeWithStepSignal(self, step):
-        self.scene().undoStack.push(MovePartsToStepCommand(self.csi.getPartList(), self, step))
+        self.scene().undoStack.push(MovePartsToStepCommand(self.csi.getPartList(), step))
         self.scene().undoStack.push(AddRemoveStepCommand(self, False))
 
 class RotateScaleSignalItem(QObject):
@@ -3185,7 +3191,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
                 selectedParts.append(item)
 
         currentStep = self.getStep()
-        self.scene().undoStack.push(MovePartsToStepCommand(selectedParts, currentStep, destStep))
+        self.scene().undoStack.push(MovePartsToStepCommand(selectedParts, destStep))
         
         currentPage = currentStep.getPage()
         if currentStep.isEmpty():

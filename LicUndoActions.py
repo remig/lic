@@ -266,38 +266,40 @@ class MovePartsToStepCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, partList, oldStep, newStep):
+    def __init__(self, partList, newStep):
         QUndoCommand.__init__(self, "move Part to Step")
-        self.partList, self.oldStep, self.newStep = partList, oldStep, newStep
+        self.newStep = newStep
+        self.partListStepPairs = [(p, p.getStep()) for p in partList] 
 
-    def moveFromStepToStep(self, oldStep, newStep):
-        oldStep.scene().clearSelection()
-        oldStep.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+    def doAction(self, redo):
+        self.newStep.scene().clearSelection()
+        self.newStep.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
 
         redoSubmodelOrder = False
-        for part in self.partList:
-            oldStep.removePart(part)
-            newStep.addPart(part)
+        stepsToReset = set([self.newStep])
+        
+        for part, oldStep in self.partListStepPairs:
+            if redo:
+                self.newStep.addPart(part)
+                oldStep.removePart(part)
+            else:
+                self.newStep.removePart(part)
+                oldStep.addPart(part)
+
             if part.isSubmodel():
                 redoSubmodelOrder = True
+            stepsToReset.add(oldStep)
 
         if redoSubmodelOrder:
-            newStep.getPage().instructions.mainModel.reOrderSubmodelPages()
-            newStep.getPage().instructions.mainModel.syncPageNumbers()
+            self.newStep.getPage().instructions.mainModel.reOrderSubmodelPages()
+            self.newStep.getPage().instructions.mainModel.syncPageNumbers()
         
-        oldStep.scene().emit(SIGNAL("layoutChanged()"))
+        self.newStep.scene().emit(SIGNAL("layoutChanged()"))
 
-        oldStep.csi.resetPixmap()
-        newStep.csi.resetPixmap()
-        oldStep.parent().initLayout()
-        newStep.parent().initLayout()
-            
-    def undo(self):
-        self.moveFromStepToStep(self.newStep, self.oldStep)
-
-    def redo(self):
-        self.moveFromStepToStep(self.oldStep, self.newStep)
-
+        for step in stepsToReset:
+            step.csi.resetPixmap()
+            step.getPage().initLayout()
+    
 class AddPartsToCalloutCommand(QUndoCommand):
 
     _id = getNewCommandID()

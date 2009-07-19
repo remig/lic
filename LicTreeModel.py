@@ -80,12 +80,11 @@ class LicTreeModel(QAbstractItemModel):
                 parentIndex = self.index(r, 0, parentIndex)
             dragItems.append(parentIndex.internalPointer())
 
-        parts = [p for p in dragItems if isinstance(p, Part)]
-        if isinstance(targetItem, Step):
-            command = MovePartsToStepCommand(parts, parts[0].getStep(), targetItem)
-            targetItem.scene().undoStack.push(command)
-            return True
-        
+        # At this point, targetItem is an instance of the actual instruction item dropped on,
+        # and dragItems is a list of actual instruction items dragged.  Let them sort out if
+        # they can be dragged / dropped onto one another.
+        if hasattr(targetItem, "acceptDragAndDropList"):
+            return targetItem.acceptDragAndDropList(dragItems)
         return False
     
     def removeRows(self, row, count, parent = None):
@@ -351,6 +350,7 @@ class PartTreeManager(BaseTreeManager):
         x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
         color = LDrawColors.getColorName(self.color)
         self._dataString = "%s - (%.1f, %.1f, %.1f)" % (color, x, y, z)
+        #self._dataString = "%s - (%s)" % (color, self.getPartBoundingBox())
         return self._dataString
     
     def dragDropFlags(self):
