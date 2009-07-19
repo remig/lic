@@ -3,19 +3,22 @@ from PyQt4.QtGui import *
 
 import Helpers
 
-def makeLabelSpinBox(self, text, value, min, max, percent = False, signal = None):
-    if percent:
+def makeLabelSpinBox(self, text, value, min, max, signal = None, double = False, percent = False):
+    if double:
         spinBox = QDoubleSpinBox()
-        spinBox.setSuffix(" %")
     else:
         spinBox = QSpinBox()
+
+    if percent:
+        spinBox.setSuffix("%")
+        
     spinBox.setRange(min, max)
     spinBox.setValue(value)
     lbl = QLabel(self.tr(text))
     lbl.setBuddy(spinBox)
     
     if signal:
-        self.connect(spinBox, SIGNAL("valueChanged(double)") if percent else SIGNAL("valueChanged(int)"), signal)
+        self.connect(spinBox, SIGNAL("valueChanged(double)") if double else SIGNAL("valueChanged(int)"), signal)
         
     return lbl, spinBox
 
@@ -27,17 +30,12 @@ class PageSizeDlg(QDialog):
         QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
         self.setWindowTitle("Page Size")
         self.originalPageSize = pageSize
-        self.checkAspect = True
+        self.notifySizeChange = True
 
-        pixelWidthLabel, self.pixelWidthSpinBox, = self.makeLabelSpinBox("&Width:", pageSize.width(), 1, 10000)
-        pixelHeightLabel, self.pixelHeightSpinBox  = self.makeLabelSpinBox("&Height:", pageSize.height(), 1, 10000)
-
+        pixelWidthLabel, self.pixelWidthSpinBox, = self.makeLabelSpinBox("&Width:", pageSize.width(), 1, 50000, self.pixelWidthChanged)
+        pixelHeightLabel, self.pixelHeightSpinBox  = self.makeLabelSpinBox("&Height:", pageSize.height(), 1, 50000, self.pixelHeightChanged)
         self.pixelFormatComboBox = QComboBox()
         self.pixelFormatComboBox.addItems(["pixels", "percent"])
-
-        self.connect(self.pixelWidthSpinBox, SIGNAL("valueChanged(int)"), self.pixelWidthChanged)
-        self.connect(self.pixelHeightSpinBox, SIGNAL("valueChanged(int)"), self.pixelHeightChanged)
-        self.connect(self.pixelFormatComboBox, SIGNAL("currentIndexChanged(int)"), lambda index: self.pixelComboChange(index))
 
         grid = QGridLayout()
         grid.addWidget(pixelWidthLabel, 0, 0, Qt.AlignRight)
@@ -47,53 +45,57 @@ class PageSizeDlg(QDialog):
         grid.addWidget(self.pixelFormatComboBox, 0, 2, 2, 1, Qt.AlignVCenter)
         self.setGridSize(grid)
         
-        pixelGroupBox = QGroupBox("Image Size (pixels):", self)
-        pixelGroupBox.setLayout(grid)
+        self.pixelGroupBox = QGroupBox("Image Size (pixels):", self)
+        self.pixelGroupBox.setCheckable(True)
+        self.pixelGroupBox.setChecked(True)
+        self.pixelGroupBox.setLayout(grid)
 
-        docWidthLabel, docWidthSpinBox = self.makeLabelSpinBox("Wi&dth:", pageSize.width() / resolution, 1.0, 10000.0, True)
-        docHeightLabel, docHeightSpinBox = self.makeLabelSpinBox("Hei&ght:", pageSize.height() / resolution, 1.0, 10000.0, True)
+        docWidthLabel, self.docWidthSpinBox = self.makeLabelSpinBox("Wi&dth:", pageSize.width() / float(resolution), 0.1, 1000.0, self.docWidthChanged, True)
+        docHeightLabel, self.docHeightSpinBox = self.makeLabelSpinBox("Hei&ght:", pageSize.height() / float(resolution), 0.1, 1000.0, self.docHeightChanged, True)
         self.docFormatComboBox = QComboBox()
-        self.docFormatComboBox.addItems(["inches", "cm", "percent"])
+        self.docFormatComboBox.addItems(["inches", "cm"])
         
-        resLabel, self.resSpinBox = self.makeLabelSpinBox("&Resolution:", resolution, 1.0, 10000.0, True)
-        self.resComboBox = QComboBox()
-        self.resComboBox.addItems(["pixels/inch", "pixels/cm"])
+        resLabel, self.resSpinBox = self.makeLabelSpinBox("&Resolution:", resolution, 1, 50000, self.resolutionChanged)
+        self.resFormatLabel = QLabel(self.tr("pixels/inch"))
 
         grid = QGridLayout()
         grid.addWidget(docWidthLabel, 0, 0, Qt.AlignRight)
-        grid.addWidget(docWidthSpinBox, 0, 1)
+        grid.addWidget(self.docWidthSpinBox, 0, 1)
         grid.addWidget(docHeightLabel, 1, 0, Qt.AlignRight)
-        grid.addWidget(docHeightSpinBox, 1, 1)
-        
+        grid.addWidget(self.docHeightSpinBox, 1, 1)        
         grid.addWidget(self.docFormatComboBox, 0, 2, 2, 1, Qt.AlignVCenter)
-        
         grid.addWidget(resLabel, 2, 0, Qt.AlignRight)
         grid.addWidget(self.resSpinBox, 2, 1)
-        grid.addWidget(self.resComboBox, 2, 2)
+        grid.addWidget(self.resFormatLabel, 2, 2, Qt.AlignLeft)
         self.setGridSize(grid)
         
-        docGroupBox = QGroupBox("Printed Document Size (NYI):")
-        docGroupBox.setLayout(grid)
+        self.docGroupBox = QGroupBox("Printed Document Size (NYI):")
+        self.docGroupBox.setCheckable(True)
+        self.docGroupBox.setChecked(False)
+        self.docGroupBox.setLayout(grid)
         
+        self.rescaleCheckBox = QCheckBox("Rescale all &Page Elements (slow)")
         self.aspectRatioCheckBox = QCheckBox("&Keep Page Aspect Ratio")
         self.aspectRatioCheckBox.setChecked(True)
-        self.connect(self.aspectRatioCheckBox, SIGNAL("stateChanged(int)"), self.aspectRatioClick)
-
-        self.rescaleCheckBox = QCheckBox("Rescale all &Page Elements (slow)")
         
         layout = QVBoxLayout()
-        layout.addWidget(pixelGroupBox)
-        layout.addWidget(docGroupBox)
+        layout.addWidget(self.pixelGroupBox)
+        layout.addWidget(self.docGroupBox)
         layout.addWidget(self.aspectRatioCheckBox)
         layout.addWidget(self.rescaleCheckBox)
-        
-        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Vertical)
 
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Vertical)
+        
         mainLayout = QHBoxLayout()
         mainLayout.addLayout(layout)
         mainLayout.addWidget(buttonBox)
         self.setLayout(mainLayout)
 
+        self.connect(self.pixelFormatComboBox, SIGNAL("currentIndexChanged(int)"), lambda index: self.pixelComboChange(index))
+        self.connect(self.docFormatComboBox, SIGNAL("currentIndexChanged(int)"), lambda index: self.docComboChange(index))
+        self.connect(self.pixelGroupBox, SIGNAL("clicked(bool)"), lambda checked: self.docGroupBox.setChecked(not checked))
+        self.connect(self.docGroupBox, SIGNAL("clicked(bool)"), lambda checked: self.pixelGroupBox.setChecked(not checked))
+        self.connect(self.aspectRatioCheckBox, SIGNAL("stateChanged(int)"), self.aspectRatioClick)
         self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
         
@@ -105,79 +107,157 @@ class PageSizeDlg(QDialog):
         grid.setHorizontalSpacing(10)        
 
     def getPageSize(self):
-        if self.pixelFormatComboBox.currentIndex() == 0:  # pixel value
+        if self.pixelFormatComboBox.currentIndex() == 0:  # pixel
             width = self.pixelWidthSpinBox.value()
             height = self.pixelHeightSpinBox.value()
-        else:  # percent value
-            width = self.originalPageSize.width() * self.pixelWidthSpinBox.value() / 100
-            height = self.originalPageSize.height() * self.pixelHeightSpinBox.value() / 100
+        else:  # percent
+            width = int(self.originalPageSize.width() * self.pixelWidthSpinBox.value() / 100.0)
+            height = int(self.originalPageSize.height() * self.pixelHeightSpinBox.value() / 100.0)
 
         return QSize(width, height)
-        
+
     def getResolution(self):
-        return 72.0
+        return self.resSpinBox.value()
 
     def getRescalePageItems(self):
         return self.rescaleCheckBox.isChecked()
+
+    def setWidth(self, width, isDocWidth):
+        
+        res = self.getResolution()
+        oldWidth, oldHeight = self.originalPageSize.width(), self.originalPageSize.height()
+        aspectRatio = float(oldHeight) / float(oldWidth)
+        newPixelWidth, newDocWidth = width, width
+        
+        if isDocWidth:
+            if self.docFormatComboBox.currentIndex() == 0:  # inch
+                newPixelWidth = int(width * res)
+            else:  # cm
+                newPixelWidth = int(width * res / 2.54)
+            if self.pixelFormatComboBox.currentIndex() == 1:  # percent
+                newPixelWidth = int(100.0 * newPixelWidth / oldWidth)
+        else:
+            if self.pixelFormatComboBox.currentIndex() == 0:  # pixel
+                newDocWidth = float(width) / res
+            else:  # percent
+                newDocWidth = oldWidth * width / 100.0 / res
+        
+        self.notifySizeChange = False
+
+        self.pixelWidthSpinBox.setValue(newPixelWidth)
+        self.docWidthSpinBox.setValue(newDocWidth)
+        
+        if self.aspectRatioCheckBox.isChecked():  # Need to update height boxes too
+            
+            # Update height box
+            if self.pixelFormatComboBox.currentIndex() == 0:  # pixel
+                self.pixelHeightSpinBox.setValue(int(newPixelWidth * aspectRatio))
+            else:  # percent
+                self.pixelHeightSpinBox.setValue(newPixelWidth)
+                
+            # Update doc height box
+            self.docHeightSpinBox.setValue(newDocWidth * aspectRatio)
     
+        self.notifySizeChange = True
+    
+    def setHeight(self, height, isDocHeight):
+
+        res = self.getResolution()
+        oldWidth, oldHeight = self.originalPageSize.width(), self.originalPageSize.height()
+        aspectRatio = float(oldWidth) / float(oldHeight)
+        newPixelHeight, newDocHeight = height, height
+        
+        if isDocHeight:
+            if self.docFormatComboBox.currentIndex() == 0:  # inch
+                newPixelHeight = int(height * res)
+            else:  # cm
+                newPixelHeight = int(height * res / 2.54)
+            if self.pixelFormatComboBox.currentIndex() == 1:  # percent
+                newPixelHeight = int(100.0 * newPixelHeight / oldHeight)
+        else:
+            if self.pixelFormatComboBox.currentIndex() == 0:  # pixel
+                newDocHeight = float(height) / res
+            else:  # percent
+                newDocHeight = oldHeight * height / 100.0 / res
+        
+        self.notifySizeChange = False
+
+        self.pixelHeightSpinBox.setValue(newPixelHeight)
+        self.docHeightSpinBox.setValue(newDocHeight)
+        
+        if self.aspectRatioCheckBox.isChecked():  # Need to update width boxes too
+            
+            # Update width box
+            if self.pixelFormatComboBox.currentIndex() == 0:  # pixel
+                self.pixelWidthSpinBox.setValue(int(newPixelHeight * aspectRatio))
+            else:  # percent
+                self.pixelWidthSpinBox.setValue(newPixelHeight)
+                
+            # Update doc width box
+            self.docWidthSpinBox.setValue(newDocHeight * aspectRatio)
+    
+        self.notifySizeChange = True
+
     def pixelComboChange(self, index):
         
-        self.checkAspect = False
-        oldWidth, oldHeight = self.originalPageSize.width(), self.originalPageSize.height()
+        self.notifySizeChange = False
+        oldWidth, oldHeight = float(self.originalPageSize.width()), float(self.originalPageSize.height())
+        newWidth, newHeight = float(self.pixelWidthSpinBox.value()), float(self.pixelHeightSpinBox.value())
         
         if index == 0:  # to pixel
-            self.pixelWidthSpinBox.setValue(int(oldWidth * self.pixelWidthSpinBox.value() / 100.0))
-            self.pixelHeightSpinBox.setValue(int(oldHeight * self.pixelHeightSpinBox.value() / 100.0))
+            self.pixelWidthSpinBox.setValue(int(oldWidth * newWidth / 100.0))
+            self.pixelHeightSpinBox.setValue(int(oldHeight * newHeight / 100.0))
             self.pixelWidthSpinBox.setSuffix("")
             self.pixelHeightSpinBox.setSuffix("")
         else:  # to percent
-            self.pixelWidthSpinBox.setValue(int(float(self.pixelWidthSpinBox.value()) / oldWidth * 100.0))
-            self.pixelHeightSpinBox.setValue(int(float(self.pixelHeightSpinBox.value()) / oldHeight * 100.0))
+            self.pixelWidthSpinBox.setValue(int(newWidth / oldWidth * 100.0))
+            self.pixelHeightSpinBox.setValue(int(newHeight / oldHeight * 100.0))
             self.pixelWidthSpinBox.setSuffix("%")
             self.pixelHeightSpinBox.setSuffix("%")
-        self.checkAspect = True
+        self.notifySizeChange = True
     
     def pixelWidthChanged(self, newValue):
-
-        if not self.checkAspect or not self.aspectRatioCheckBox.isChecked():
-            return  # No need to update width if aspect ratio can change
-        self.checkAspect = False
-        
-        if self.pixelFormatComboBox.currentIndex() == 0:  # pixel
-            oldWidth, oldHeight = self.originalPageSize.width(), self.originalPageSize.height()
-            pageHeight = int(newValue * oldHeight / oldWidth)
-            self.pixelHeightSpinBox.setValue(pageHeight)
-        else:
-            self.pixelHeightSpinBox.setValue(newValue)
+        if self.notifySizeChange:
+            self.setWidth(newValue, False)
             
-        self.checkAspect = True
-
     def pixelHeightChanged(self, newValue):
+        if self.notifySizeChange:
+            self.setHeight(newValue, False)
 
-        if not self.checkAspect or not self.aspectRatioCheckBox.isChecked():
-            return  # No need to update width if aspect ratio can change
-        self.checkAspect = False
+    def docComboChange(self, index):
+
+        res = self.resSpinBox.value()
         
-        if self.pixelFormatComboBox.currentIndex() == 0:  # pixel
-            oldWidth, oldHeight = self.originalPageSize.width(), self.originalPageSize.height()
-            pageWidth = int(newValue * oldWidth / oldHeight)
-            self.pixelWidthSpinBox.setValue(pageWidth)
-        else:
-            self.pixelWidthSpinBox.setValue(newValue)
+        if index == 0:  # to inches
+            res *= 2.54
+            self.resFormatLabel.setText("pixels/inch")
+        else:  # to cm
+            res /= 2.54
+            self.resFormatLabel.setText("pixels/cm")
             
-        self.checkAspect = True
+        self.resSpinBox.setValue(int(round(res)))
 
+    def docWidthChanged(self, newValue):
+        if self.notifySizeChange:
+            self.setWidth(newValue, True)
+
+    def docHeightChanged(self, newValue):
+        if self.notifySizeChange:
+            self.setHeight(newValue, True)
+
+    def resolutionChanged(self, newValue):
+        self.setWidth(self.pixelWidthSpinBox.value(), False)
+        self.setHeight(self.pixelHeightSpinBox.value(), False)
+    
     def aspectRatioClick(self, state):
+        
         if self.aspectRatioCheckBox.isChecked():
-            self.rescaleCheckBox.setEnabled(True)
-            self.checkAspect = False
+            # Setting just width will trigger rest of everything else
             if self.pixelFormatComboBox.currentIndex() == 0:  # pixel
-                self.pixelWidthSpinBox.setValue(self.originalPageSize.width())
-                self.pixelHeightSpinBox.setValue(self.originalPageSize.height())
-            else:  # percent
-                self.pixelWidthSpinBox.setValue(100)
-                self.pixelHeightSpinBox.setValue(100)
-            self.checkAspect = True
+                self.setWidth(self.originalPageSize.width(), False)
+            else:
+                self.setWidth(100, False)
+            self.rescaleCheckBox.setEnabled(True)
         else:
             self.rescaleCheckBox.setEnabled(False)
     
@@ -396,7 +476,7 @@ class ScaleDlg(QDialog):
         self.setWindowTitle("Set Size")
         self.originalSize = originalSize
 
-        sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox("&Size:", originalSize * 100.0, 0.1, 1000, True, self.sizeChanged)
+        sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox("&Size:", originalSize * 100.0, 0.1, 1000.0, self.sizeChanged, True, True)
         buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
 
         grid = QGridLayout()
@@ -431,9 +511,9 @@ class RotationDialog(QDialog):
         
         self.rotation = list(rotation)
 
-        xLabel, self.xSpinBox = self.makeLabelSpinBox("X:", self.rotation[0], -360, 360, False, self.rotationChanged)
-        yLabel, self.ySpinBox = self.makeLabelSpinBox("Y:", self.rotation[1], -360, 360, False, self.rotationChanged)
-        zLabel, self.zSpinBox = self.makeLabelSpinBox("Z:", self.rotation[2], -360, 360, False, self.rotationChanged)
+        xLabel, self.xSpinBox = self.makeLabelSpinBox("X:", self.rotation[0], -360, 360, self.rotationChanged)
+        yLabel, self.ySpinBox = self.makeLabelSpinBox("Y:", self.rotation[1], -360, 360, self.rotationChanged)
+        zLabel, self.zSpinBox = self.makeLabelSpinBox("Z:", self.rotation[2], -360, 360, self.rotationChanged)
 
         buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
         
@@ -474,7 +554,7 @@ class DisplaceDlg(QDialog):
         self.originalDisplacement, self.direction = displacement, direction
 
         distance = Helpers.displacementToDistance(displacement, direction)
-        sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, 0, 500, False, self.sizeChanged)
+        sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, 0, 500, self.sizeChanged)
         
         self.arrowCheckBox = QCheckBox(self.tr("&Adjust Arrow (NYI)"))
         self.arrowCheckBox.setChecked(False)
@@ -488,9 +568,9 @@ class DisplaceDlg(QDialog):
 
         self.extension = QWidget()
 
-        xLabel, self.xSpinBox = self.makeLabelSpinBox("X:", displacement[0], -500, 500, False, self.displacementChanged)
-        yLabel, self.ySpinBox = self.makeLabelSpinBox("Y:", displacement[1], -500, 500, False, self.displacementChanged)
-        zLabel, self.zSpinBox = self.makeLabelSpinBox("Z:", displacement[2], -500, 500, False, self.displacementChanged)
+        xLabel, self.xSpinBox = self.makeLabelSpinBox("X:", displacement[0], -500, 500, self.displacementChanged)
+        yLabel, self.ySpinBox = self.makeLabelSpinBox("Y:", displacement[1], -500, 500, self.displacementChanged)
+        zLabel, self.zSpinBox = self.makeLabelSpinBox("Z:", displacement[2], -500, 500, self.displacementChanged)
 
         self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
@@ -548,8 +628,8 @@ class ArrowDisplaceDlg(QDialog):
 
         displacement = arrow.displacement
         distance = Helpers.displacementToDistance(displacement, arrow.displaceDirection)
-        sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, 0, 500, False, self.sizeChanged)
-        lengthLabel, self.lengthSpinBox = self.makeLabelSpinBox(self.tr("&Length:"), arrow.getLength(), 0, 500, False, self.lengthChanged)
+        sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, 0, 500, self.sizeChanged)
+        lengthLabel, self.lengthSpinBox = self.makeLabelSpinBox(self.tr("&Length:"), arrow.getLength(), 0, 500, self.lengthChanged)
         
         self.moreButton = QPushButton(self.tr("X - Y - Z (NYI)"))
         self.moreButton.setCheckable(True)
@@ -559,13 +639,13 @@ class ArrowDisplaceDlg(QDialog):
 
         self.extension = QWidget()
 
-        xLabel, self.xSpinBox = self.makeLabelSpinBox("tip X:", displacement[0], -500, 500, False, self.displacementChanged)
-        yLabel, self.ySpinBox = self.makeLabelSpinBox("tip Y:", displacement[1], -500, 500, False, self.displacementChanged)
-        zLabel, self.zSpinBox = self.makeLabelSpinBox("tip Z:", displacement[2], -500, 500, False, self.displacementChanged)
+        xLabel, self.xSpinBox = self.makeLabelSpinBox("tip X:", displacement[0], -500, 500, self.displacementChanged)
+        yLabel, self.ySpinBox = self.makeLabelSpinBox("tip Y:", displacement[1], -500, 500, self.displacementChanged)
+        zLabel, self.zSpinBox = self.makeLabelSpinBox("tip Z:", displacement[2], -500, 500, self.displacementChanged)
 
-        xEndLabel, self.xEndSpinBox = self.makeLabelSpinBox("end X:", displacement[0], -500, 500, False, self.displacementChanged)
-        yEndLabel, self.yEndSpinBox = self.makeLabelSpinBox("end Y:", displacement[1], -500, 500, False, self.displacementChanged)
-        zEndLabel, self.zEndSpinBox = self.makeLabelSpinBox("end Z:", displacement[2], -500, 500, False, self.displacementChanged)
+        xEndLabel, self.xEndSpinBox = self.makeLabelSpinBox("end X:", displacement[0], -500, 500, self.displacementChanged)
+        yEndLabel, self.yEndSpinBox = self.makeLabelSpinBox("end Y:", displacement[1], -500, 500, self.displacementChanged)
+        zEndLabel, self.zEndSpinBox = self.makeLabelSpinBox("end Z:", displacement[2], -500, 500, self.displacementChanged)
 
         self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
