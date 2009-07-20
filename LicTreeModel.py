@@ -54,14 +54,14 @@ class LicTreeModel(QAbstractItemModel):
         data = data[:-1]  # Remove trailing '|'
                 
         mimeData = QMimeData()
-        mimeData.setData("application/x-rowlist", data)
+        mimeData.setData(self.mimeTypes()[0], data)
         return mimeData
         
     def dropMimeData(self, data, action, row, column, parent):
         if action == Qt.IgnoreAction:
             return True
         
-        if not data.hasFormat("application/x-rowlist") or column > 0:
+        if not data.hasFormat(self.mimeTypes()[0]) or column > 0:
             return False
 
         targetItem = parent.internalPointer()  # item that dragged items were dropped on

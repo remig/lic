@@ -312,13 +312,17 @@ class LicGraphicsScene(QGraphicsScene):
 
     def contextMenuEvent(self, event):
 
-        # We can't use the default handler at all because it calls the
-        # menu of the item that was *right-clicked on*, not the menu of the selected items
-        # TODO: need to handle this better: What if a page and a step are selected?
-        for item in reversed(self.selectedItems()):
-            for t in [Part, Arrow, Step, Page, Callout, CalloutArrow, CSI, PLI, SubmodelPreview, QGraphicsSimpleTextItem]:
-                if isinstance(item, t) or issubclass(type(item), t):
-                    return item.contextMenuEvent(event)
+        # We can't use the default handler at all because it calls the menu of the 
+        # item that was *right-clicked on*, not the menu of the selected items.
+        # So check if clicked item is selected.
+        clickedItem = self.itemAt(event.scenePos())
+        if clickedItem and clickedItem.isSelected():
+            return clickedItem.contextMenuEvent(event)
+        
+        selList = self.selectedItems()
+        if selList:
+            return selList[-1].contextMenuEvent(event)
+        event.ignore()
 
     def keyPressEvent(self, event):
         if not self.selectedItems():

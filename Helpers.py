@@ -184,6 +184,12 @@ def genericMouseReleaseEvent(className):
 def genericGetPage(self):
     return self.parentItem().getPage()
 
+# This is necessary because Qt distinguishes between QContextMenuEvent and 
+# QGraphicsSceneContextMenuEvent.  I guess its a C++ thing.  bleh
+# Python is perfectly happy simply accepting event.  Be sure to convert the appropriate event
+# parameters when passing one where another is expected though (like TreeView.contextMenuEvent)
+QGraphicsItem.contextMenuEvent = lambda self, event: event.ignore()
+
 QGraphicsLineItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
 QGraphicsLineItem.mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsItem)
 

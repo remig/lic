@@ -48,6 +48,7 @@ class LicTreeView(QTreeView):
         self.connect(self, SIGNAL("clicked(QModelIndex)"), self.clicked)
         self.setAcceptDrops(True)
         self.setDragEnabled(True)
+        self.setAutoExpandDelay(400)
         self.scene = None
 
     def keyPressEvent(self, event):
@@ -122,11 +123,13 @@ class LicTreeView(QTreeView):
         # Pass right clicks on to the item right-clicked on
         selList = self.selectionModel().selectedIndexes()
         if not selList:
+            event.ignore()
             return
-        event.screenPos = event.globalPos  # QContextMenuEvent vs. QGraphicsSceneContextMenuEvent silliness
-        item = selList[0].internalPointer()
-        if type(item) in [Part, Step, Page, Callout, CSI]:
-            return item.contextMenuEvent(event)
+        
+        # 'Convert' QContextMenuEvent to QGraphicsSceneContextMenuEvent
+        event.screenPos = event.globalPos
+        item = selList[-1].internalPointer()
+        return item.contextMenuEvent(event)
 
 class GraphicsRoundRectItem(QGraphicsRectItem):
     
