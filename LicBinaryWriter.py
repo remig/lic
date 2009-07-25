@@ -167,6 +167,8 @@ def __writePart(stream, part):
         stream.writeFloat(part.displacement[1])
         stream.writeFloat(part.displacement[2])
         stream.writeInt32(part.displaceDirection)
+        if part.filename != "arrow":
+            __writePart(stream, part.displaceArrow)
     else:
         stream.writeBool(False)
         
@@ -262,10 +264,11 @@ def __writeCSI(stream, csi):
     stream.writeFloat(csi.rotation[1])
     stream.writeFloat(csi.rotation[2])
 
-    stream.writeInt32(csi.partCount())
+    stream.writeInt32(csi.partCount() - len(csi.arrows))
     for partItem in csi.parts:
         for part in partItem.parts:
-            __writePart(stream, part)
+            if part.filename != 'arrow':
+                __writePart(stream, part)
 
 def __writePLI(stream, pli):
     __writeRoundedRectItem(stream, pli)

@@ -237,6 +237,8 @@ def __readPart(stream):
     if useDisplacement:
         displacement = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
         displaceDirection = stream.readInt32()
+        if filename != 'arrow':
+            displaceArrow = __readPart(stream)
         
     if filename == 'arrow':
         arrow = Arrow(displaceDirection)
@@ -250,6 +252,7 @@ def __readPart(stream):
     if useDisplacement:
         part.displacement = displacement
         part.displaceDirection = displaceDirection
+        part.displaceArrow = displaceArrow
 
     return part
 
@@ -374,12 +377,13 @@ def __readCSI(stream, step):
         elif part.filename in submodelDictionary:
             part.partOGL = submodelDictionary[part.filename]
             part.partOGL.used = True
-        elif part.filename != 'arrow':
+        else:
             print "LOAD ERROR: could not find a partOGL for part: " + part.filename
 
         csi.addPart(part)
-        if part.filename == 'arrow':
-            csi.arrows.append(part)
+        if hasattr(part, "displaceArrow"):
+            csi.addPart(part.displaceArrow)
+            csi.arrows.append(part.displaceArrow)
 
     return csi
 

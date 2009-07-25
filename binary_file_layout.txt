@@ -98,6 +98,7 @@ Part:
     float displacement[1] # y
     float displacement[2] # z
     int32 displaceDir
+    Part displaceArrow
     
   if part is also Arrow:
     int32 arrow.length
@@ -187,7 +188,7 @@ CSI:
   float rotation y
   float rotation z
   
-  int32 number of parts
+  int32 number of non-arrow parts
   ... Part 0..n ...
 
 PLI:
