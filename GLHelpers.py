@@ -60,7 +60,6 @@ def initFreshContext(doClear):
     glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 0)
     glShadeModel(GL_SMOOTH)
     glEnable(GL_MULTISAMPLE)
-    #glLineWidth(2.0)
 
     setupLighting()
     setupMaterial()

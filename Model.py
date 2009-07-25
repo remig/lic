@@ -220,8 +220,7 @@ class Instructions(QObject):
         self.mainModel.addInitialPagesAndSteps()
         
         t1, partStepCount, t2 = self.getPartDimensionListAndCount() 
-        pageList = self.mainModel.getPageList()
-        pageList.sort(key = lambda x: x._number)
+        pageList = self.getPageList()
         totalCount = (len(pageList) * 2) + 11 + partStepCount
         currentCount = 2
         
@@ -272,7 +271,9 @@ class Instructions(QObject):
         return self.mainModel.filename
 
     def getPageList(self):
-        return self.mainModel.getPageList()
+        pageList = self.mainModel.getPageList()
+        pageList.sort(key = lambda x: x._number)
+        return pageList
 
     def initGLDisplayLists(self):
         global GlobalGLContext
@@ -448,6 +449,9 @@ class Instructions(QObject):
 
         currentPageNumber = self.scene.currentPage._number
         w, h = Page.PageSize.width() * scaleFactor, Page.PageSize.height() * scaleFactor
+        
+        if scaleFactor > 1:
+            GL.glLineWidth(1.5)  # Make part lines a bit thicker for higher res output 
 
         # Create non-multisample FBO that we can call glReadPixels on
         frameBuffer = glGenFramebuffersEXT(1)
@@ -491,7 +495,7 @@ class Instructions(QObject):
     
         # Render & save each page, storing the created filename to return later
         pageFileNames = []
-        pageList = self.mainModel.getPageList()
+        pageList = self.getPageList()
         for page in pageList:
 
             page.lockIcon.hide()
@@ -774,6 +778,8 @@ class Page(PageTreeManager, QGraphicsRectItem):
         s = QGraphicsRectItem(self)
         s.setRect(rect if rect else QRectF(0, 0, 1, 1))
         s.setFlags(AllFlags)
+        s.setPen(QPen(Qt.black))
+        s.setBrush(QBrush(Qt.black))
         s.itemClassName = "Separator"
         s.dataText = "Step Separator"
         self.separators.append(s)
@@ -1638,9 +1644,13 @@ class Step(StepTreeManager, QGraphicsRectItem):
             page.scene().emit(SIGNAL("layoutChanged()"))
 
     def mergeWithStepSignal(self, step):
-        self.scene().undoStack.push(MovePartsToStepCommand(self.csi.getPartList(), step))
-        self.scene().undoStack.push(AddRemoveStepCommand(self, False))
+        scene = self.scene()
+        scene.undoStack.push(MovePartsToStepCommand(self.csi.getPartList(), step))
+        scene.undoStack.push(AddRemoveStepCommand(self, False))
 
+        if scene.currentPage.isEmpty():
+            scene.undoStack.push(AddRemovePageCommand(scene.currentPage, False))
+    
 class RotateScaleSignalItem(QObject):
     
     def rotateSignal(self):
