@@ -584,6 +584,14 @@ class LicWindow(QMainWindow):
         if not os.path.isdir(config['imgPath']):
             os.mkdir(config['imgPath'])   # Create final image directory if needed
 
+        config['GLImgPath'] = os.path.join(modelPath, 'GL_Images')
+        if not os.path.isdir(config['GLImgPath']):
+            os.mkdir(config['GLImgPath'])   # Create directory for GL renderings if needed
+
+        config['PDFPath'] = os.path.join(modelPath, 'PDFs')
+        if not os.path.isdir(config['PDFPath']):
+            os.mkdir(config['PDFPath'])   # Create directory for GL renderings if needed
+
         return config
 
     def initToolBars(self):
@@ -655,10 +663,10 @@ class LicWindow(QMainWindow):
         
         # Export Menu
         self.exportMenu = menu.addMenu("E&xport")
-        self.exportImagesAction = self.createMenuAction("&Generate Final Images", lambda: self.exportImages(self.glWidget), None, "Generate final images of each page in this Instruction book")
+        self.exportToImagesAction = self.createMenuAction("&Generate Final Images", self.exportImages, None, "Generate final images of each page in this Instruction book")
         self.exportToPDFAction = self.createMenuAction("Generate &PDF", self.exportToPDF, None, "Create a PDF from this instruction book")
-        self.exportRenderedImagesAction = self.createMenuAction("Generate Images with Pov-Ray", self.exportImages, None, "Use Pov-Ray to generate final, ray-traced images of each page in this Instruction book")
-        self.addActions(self.exportMenu, (self.exportImagesAction, self.exportToPDFAction, self.exportRenderedImagesAction))
+        self.exportToPOVAction = self.createMenuAction("Generate Images with Pov-Ray", self.exportToPOV, None, "Use Pov-Ray to generate final, ray-traced images of each page in this Instruction book")
+        self.addActions(self.exportMenu, (self.exportToImagesAction, self.exportToPDFAction, self.exportToPOVAction))
 
     def changePageSizeAction(self):
         dialog = LicDialogs.PageSizeDlg(self, Page.PageSize, Page.Resolution)
@@ -938,23 +946,20 @@ class LicWindow(QMainWindow):
                 QMessageBox.warning(self, "Lic - Open Error", "Failed to open %s: %s" % (filename, e))
                 self.fileClose()
 
-    def exportImages(self, widget = None):
-        self.instructions.exportImages(widget)
-        
-        #fbo = QGLFramebufferObject(Page.PageSize.width() * 2, Page.PageSize.height() * 2)
-        #image = QImage(Page.PageSize, QImage.Format_ARGB32)
-        #painter = QPainter()
-        #painter.begin(fbo)
-        #painter.setRenderHint(QPainter.HighQualityAntialiasing)
-        #self.scene.render(painter, QRectF(0, 0, Page.PageSize.width() * 2, Page.PageSize.height() * 2))
-        #painter.end()
-        #image = fbo.toImage()
-        #image.save(r"c:\lic\tmp\widget.png")
-
-        print "\nExport complete"
+    def exportImages(self):
+        self.instructions.exportImages()
+        self.glWidget.makeCurrent()
+        print "\nExported images to: " + config.config['imgPath']
 
     def exportToPDF(self):
-        self.instructions.exportToPDF(self.glWidget)
+        filename = self.instructions.exportToPDF()
+        self.glWidget.makeCurrent()
+        print "\nExported PDF to: " + filename
+                 
+    def exportToPOV(self):
+        print "THIS IS CURRENTLY NOT WORKING - Rendered item Rotation is way out"
+        self.instructions.exportToPOV()
+        print "\nExport complete"
 
 def main():
     
@@ -983,6 +988,7 @@ def main():
     #filename = unicode("C:\\lic\\viper_short.mpd")
     #filename = unicode("C:\\lic\\viper.mpd")
     #filename = unicode("C:\\lic\\Blaster.mpd")
+    #filename = unicode("C:\\lic\\2x4.lic")
     #filename = unicode("C:\\lic\\6x10.lic")
     #filename = unicode("C:\\lic\\6x10.dat")
     #filename = unicode("C:\\lic\\template.dat")

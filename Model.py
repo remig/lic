@@ -1,9 +1,15 @@
 import math   # for sqrt
 import os     # for output path creation
 import time
+import Image
 
 from OpenGL import GL
 from OpenGL import GLU
+
+from OpenGL.GL.ARB.framebuffer_object import *
+from OpenGL.GL.EXT.framebuffer_object import *
+from OpenGL.GL.EXT.framebuffer_multisample import *
+from OpenGL.GL.EXT.framebuffer_blit import *
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -429,37 +435,135 @@ class Instructions(QObject):
             for page in submodel.pages:
                 page.resetSubmodelImage()
                 page.initLayout()
-            
-    def exportImages(self, widget = None):
 
-        if widget is None:
-            global submodelDictionary
-            for model in submodelDictionary.values():
-                if model.used:
-                    model.createPng()
-            self.mainModel.createPng()
-
-        self.mainModel.exportImages(widget)
-
-    def exportToPDF(self, widget):
+    def exportToPOV(self):
+        global submodelDictionary
+        for model in submodelDictionary.values():
+            if model.used:
+                model.createPng()
+        self.mainModel.createPng()
+        self.mainModel.exportImages()
         
-        filename = self.filename[:-3] + "pdf"
-        printer = QPrinter(QPrinter.HighResolution) # QPrinter.ScreenResolution)  # QPrinter.HighResolution)
+    def exportImages(self, scaleFactor = 1):
+
+        currentPageNumber = self.scene.currentPage._number
+        w, h = Page.PageSize.width() * scaleFactor, Page.PageSize.height() * scaleFactor
+
+        # Create non-multisample FBO that we can call glReadPixels on
+        frameBuffer = glGenFramebuffersEXT(1)
+        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, frameBuffer)
+
+        # non-multisample color & depth buffers
+        colorBuffer = glGenRenderbuffersEXT(1)
+        glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, colorBuffer)
+        glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL.GL_RGBA, w, h)
+        
+        depthBuffer = glGenRenderbuffersEXT(1)
+        glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, depthBuffer)
+        glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL.GL_DEPTH_COMPONENT, w, h)
+
+        # bind depth & color buffer to non-multisample frame buffer
+        glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_RENDERBUFFER_EXT, colorBuffer);
+        glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, depthBuffer);
+    
+        # Setup multisample framebuffer
+        multisampleFrameBuffer = glGenFramebuffersEXT(1)
+        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, multisampleFrameBuffer)
+    
+        # multisample color & depth buffers
+        multisampleColorBuffer = glGenRenderbuffersEXT(1)
+        glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, multisampleColorBuffer)
+        glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT, 8, GL.GL_RGBA, w, h)
+        
+        multisampleDepthBuffer = glGenRenderbuffersEXT (1)
+        glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, multisampleDepthBuffer)
+        glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT, 8, GL.GL_DEPTH_COMPONENT, w, h)
+
+        # bind multisample color & depth buffers
+        glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_RENDERBUFFER_EXT, multisampleColorBuffer);
+        glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, multisampleDepthBuffer);
+
+        # Make sure multisample fbo is fully initialized
+        status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+        if status != GL_FRAMEBUFFER_COMPLETE_EXT:
+            print "Error in framebuffer activation"
+            return
+    
+        # Render & save each page, storing the created filename to return later
+        pageFileNames = []
+        pageList = self.mainModel.getPageList()
+        for page in pageList:
+
+            page.lockIcon.hide()
+            glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, multisampleFrameBuffer)
+            
+            GLHelpers.initFreshContext(True)
+            page.drawGLItemsOffscreen(QRectF(0, 0, w, h), float(scaleFactor))
+
+            # Bind multisampled FBO for reading, regular for writing and blit away
+            glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, multisampleFrameBuffer);
+            glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, frameBuffer);
+            glBlitFramebufferEXT(0, 0, w, h, 0, 0, w, h, GL.GL_COLOR_BUFFER_BIT, GL.GL_NEAREST);
+
+            # Bind the normal FBO for reading then read
+            glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, frameBuffer);
+            data = GL.glReadPixels(0, 0, w, h, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)
+            
+            # Create an image from raw pixels and save to disk - would be nice to create QImage directly here
+            exportedFilename = page.getGLImageFilename()
+            image = Image.fromstring("RGBA", (w, h), data)
+            image = image.transpose(Image.FLIP_TOP_BOTTOM)
+            image.save(exportedFilename)
+
+            image = QImage(w, h, QImage.Format_ARGB32)
+            painter = QPainter()
+            painter.begin(image)
+
+            self.scene.selectPage(page._number)
+            self.scene.render(painter, QRectF(0, 0, w, h))
+            
+            glImage = QImage(exportedFilename)
+            painter.drawImage(QPoint(0, 0), glImage)
+            painter.end()
+            newName = page.getExportFilename()
+            image.save(newName)
+            pageFileNames.append(newName)
+            page.lockIcon.show()
+
+        # Clean up - essential for recovering main glWidget's state
+        glDeleteFramebuffersEXT(1, [frameBuffer])
+        glDeleteRenderbuffersEXT(1, [colorBuffer])
+        glDeleteRenderbuffersEXT(1, [depthBuffer])
+        
+        glDeleteFramebuffersEXT(1, [multisampleFrameBuffer])
+        glDeleteRenderbuffersEXT(1, [multisampleDepthBuffer])
+        glDeleteRenderbuffersEXT(1, [multisampleColorBuffer])
+        
+        self.scene.selectPage(currentPageNumber)
+        return pageFileNames
+
+    def exportToPDF(self):
+
+        # Create an image for each page
+        pageList = self.exportImages(3)
+        filename = os.path.join(config.config['PDFPath'], os.path.basename(self.filename)[:-3] + "pdf")
+        
+        printer = QPrinter(QPrinter.HighResolution)
         printer.setOutputFileName(filename)
+        printer.setOutputFormat(QPrinter.PdfFormat)
         printer.setFullPage(True)
         printer.setResolution(Page.Resolution)
         printer.setPaperSize(QSizeF(Page.PageSize), QPrinter.DevicePixel)
 
         painter = QPainter()
         painter.begin(printer)
-        pageList = self.mainModel.getPageList()
-        for page in pageList:
-            image = page.getImage(widget)
-            painter.drawImage(QPointF(), image)
-            if page != pageList[-1]:
+        for pageFilename in pageList:
+            image = QImage(pageFilename)
+            painter.drawImage(QRectF(0.0, 0.0, Page.PageSize.width(), Page.PageSize.height()), image)
+            if pageFilename != pageList[-1]:
                 printer.newPage()
         painter.end()
-        print "Exported PDF to " + filename
+        return filename
     
     def getPartDictionary(self):
         global partDictionary
@@ -578,6 +682,9 @@ class Page(PageTreeManager, QGraphicsRectItem):
     def getExportFilename(self):
         return os.path.join(config.config['imgPath'], "Page_%d.png" % self._number)
     
+    def getGLImageFilename(self):
+        return os.path.join(config.config['GLImgPath'], "Page_%d.png" % self._number)
+
     def getPage(self):
         return self
     
@@ -756,50 +863,6 @@ class Page(PageTreeManager, QGraphicsRectItem):
         if self.submodelItem:
             self.resetSubmodelImage()
 
-    def renderFinalImageWithGL(self, widget):
-        scene = self.scene()
-        pagesToDisplay = scene.getPagesToDisplay()
-        currentPage = scene.currentPage._number
-        scene.setPagesToDisplay(1)
-        scene.selectPage(self._number)
-        
-        view = scene.views()[0]
-        oldSize = view.size()
-        view.resize(Page.PageSize.width() + 4, Page.PageSize.height() + 4)
-        
-        widget.repaint()
-        image = widget.grabFrameBuffer(True)
-        image.save(self.getExportFilename())
-
-        scene.setPagesToDisplay(pagesToDisplay)
-        scene.selectPage(currentPage)
-        view.resize(oldSize)
-        widget.repaint()
-
-    def getImage(self, widget):
-        self.lockIcon.hide()
-        
-        scene = self.scene()
-        pagesToDisplay = scene.getPagesToDisplay()
-        currentPage = scene.currentPage._number
-        scene.setPagesToDisplay(1)
-        scene.selectPage(self._number)
-        
-        view = scene.views()[0]
-        oldSize = view.size()
-        view.resize(Page.PageSize.width() + 4, Page.PageSize.height() + 4)
-        
-        widget.repaint()
-        image = widget.grabFrameBuffer(True)
-
-        self.lockIcon.show()
-        scene.setPagesToDisplay(pagesToDisplay)
-        scene.selectPage(currentPage)
-        view.resize(oldSize)
-        widget.repaint()
-        
-        return image
-
     def renderFinalImageWithPov(self):
 
         for step in self.steps:
@@ -871,6 +934,16 @@ class Page(PageTreeManager, QGraphicsRectItem):
         for glItem in self.glItemIterator():
             if rect.intersects(glItem.mapToScene(glItem.rect()).boundingRect()):
                 glItem.paintGL()
+            
+        GLHelpers.popAllGLMatrices()
+
+    def drawGLItemsOffscreen(self, rect, f):
+        
+        GLHelpers.pushAllGLMatrices()
+        GLHelpers.adjustGLViewport(0, 0, rect.width(), rect.height(), True)
+        
+        for glItem in self.glItemIterator():
+            glItem.paintGL(f)
             
         GLHelpers.popAllGLMatrices()
 
@@ -1624,11 +1697,11 @@ class SubmodelPreview(GraphicsRoundRectItem, RotateScaleSignalItem):
         self.partOGL = partOGL
         self.setRect(0, 0, partOGL.width + PLI.margin.x() * 2, partOGL.height + PLI.margin.y() * 2)
 
-    def paintGL(self):
+    def paintGL(self, f = 1.0):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.rect().width() / 2.0)
         dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0)
-        self.partOGL.paintGL(dx, dy, rotation = self.rotation, scale = self.scale)
+        self.partOGL.paintGL(dx * f, dy * f, rotation = self.rotation, scale = self.scale * f)
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
@@ -1707,11 +1780,11 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
         self.setRect(partRect | numberRect)
         self.moveBy(-self.rect().x(), -self.rect().y())
 
-    def paintGL(self):
+    def paintGL(self, f = 1.0):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.partOGL.width / 2.0)
         dy = -Page.PageSize.height() + pos.y() + (self.partOGL.height / 2.0)
-        self.partOGL.paintGL(dx, dy, self.color)
+        self.partOGL.paintGL(dx * f, dy * f, self.color, scale = f)
 
     """
     def paint(self, painter, option, widget = None):
@@ -1739,7 +1812,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
                         return
 
         povFile = l3p.createPovFromDat(datFile, self.color)
-        pngFile = povray.createPngFromPov(povFile, part.width, part.height, part.center, PLI.defaultScale, isPLIItem = True)
+        pngFile = povray.createPngFromPov(povFile, part.width, part.height, part.center, PLI.defaultScale, PLI.defaultRotation)
         self.pngImage = QImage(pngFile)
 
 class PLI(PLITreeManager, GraphicsRoundRectItem):
@@ -1923,7 +1996,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     def data(self, index):
         return "CSI - %d parts" % self.partCount()
 
-    def paintGL(self):
+    def paintGL(self, f = 1.0):
         """ 
         Assumes a current GL context.  Assumes that context has been transformed so the
         view runs from (0,0) to page width & height with (0,0) in the bottom left corner.
@@ -1934,13 +2007,12 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.rect().width() / 2.0) + self.center.x()
         dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0) + self.center.y()
-        GLHelpers.rotateToView(CSI.defaultRotation, CSI.defaultScale * self.scale, dx, dy, 0.0)
+        GLHelpers.rotateToView(CSI.defaultRotation, CSI.defaultScale * self.scale * f, dx * f, dy * f, 0.0)
         GLHelpers.rotateView(*self.rotation)
 
         GL.glCallList(self.oglDispID)
-        #self.calculateGLSize()
         GLHelpers.popAllGLMatrices()
-    
+
     def addPart(self, part):
         for p in self.parts:
             if p.name == part.partOGL.name:
@@ -2119,7 +2191,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             fh.close()
             
         povFile = l3p.createPovFromDat(datFile)
-        pngFile = povray.createPngFromPov(povFile, self.rect().width(), self.rect().height(), self.center, CSI.defaultScale * self.scale, isPLIItem = False)
+        pngFile = povray.createPngFromPov(povFile, self.rect().width(), self.rect().height(), self.center, CSI.defaultScale * self.scale, CSI.defaultRotation)
         self.pngImage = QImage(pngFile)
         
     def exportToLDrawFile(self, fh):
@@ -2814,12 +2886,9 @@ class Submodel(SubmodelTreeManager, PartOGL):
         for submodel in self.submodels:
             submodel.addSubmodelImages()
 
-    def exportImages(self, widget = None):
+    def exportImages(self):
         for page in self.pages:
-            if widget:
-                page.renderFinalImageWithGL(widget)
-            else:
-                page.renderFinalImageWithPov()
+            page.renderFinalImageWithPov()
 
         for submodel in self.submodels:
             submodel.exportImages(widget)
@@ -2835,7 +2904,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
             fh.close()
 
         povFile = l3p.createPovFromDat(datFile)
-        pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, PLI.defaultScale, isPLIItem = False)
+        pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, PLI.defaultScale, PLI.defaultRotation)
         self.pngImage = QImage(pngFile)
 
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
