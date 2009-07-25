@@ -2076,51 +2076,6 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.__callPreviousOGLDisplayLists(True)
         GL.glEndList()
 
-    def calculateGLSize(self):
-        
-        # TODO: This works, but its actually *slower* than the current image buffer solution.
-        # If possible, try to speed it up, since there's way more room for optimization here
-        # than the image buffer way (plus we can then ditch FBOs).
-        if self.__boxPoints is None:
-
-            minX, minY = 100000, 100000
-            maxX, maxY = 0, 0
-            i = 0
-            
-            for partItem in self.parts:
-                for part in partItem.parts:
-                    for v in part.vertexIterator(True):
-                        i+=1
-                        resX, resY, resZ = GLU.gluProject(v[0], v[1], v[2])
-                        maxX = max(resX, maxX)
-                        maxY = max(resY, maxY)
-                    
-                        minX = min(resX, minX)
-                        minY = min(resY, minY)
-                    
-            print "x min: %f, max: %f" % (minX, maxX)
-            print "y min: %f, max: %f" % (minY, maxY)
-            print "vertex count: %d" % i
-        
-            aX, aY, aZ = GLU.gluUnProject(minX, minY, 0.0)
-            bX, bY, bZ = GLU.gluUnProject(minX, maxY, 0.0)
-            cX, cY, cZ = GLU.gluUnProject(maxX, maxY, 0.0)
-            dX, dY, dZ = GLU.gluUnProject(maxX, minY, 0.0)
-            
-            self.__boxPoints = [[aX, aY, aZ], [bX, bY, bZ], [cX, cY, cZ], [dX, dY, dZ]]
-
-        GL.glPushAttrib(GL.GL_CURRENT_BIT)
-        GL.glColor4fv([1.0, 0.0, 0.0, 1.0])
-        
-        GL.glBegin(GL.GL_LINE_LOOP)
-        GL.glVertex3fv(self.__boxPoints[0])
-        GL.glVertex3fv(self.__boxPoints[1])
-        GL.glVertex3fv(self.__boxPoints[2])
-        GL.glVertex3fv(self.__boxPoints[3])
-        GL.glEnd()
-    
-        GL.glPopAttrib()
-    
     def resetPixmap(self):
         global GlobalGLContext
         
@@ -2342,21 +2297,6 @@ class PartOGL(object):
         primitive = Primitive(p['color'], p['points'], shape, self.winding)
         self.primitives.append(primitive)
 
-    def vertexIterator(self):
-
-        prevVertex = None
-        for primitive in self.primitives:
-            if primitive.type == GL.GL_LINES:
-                v1, v2 = primitive.vertexIterator()
-                if v1 != prevVertex:
-                    yield v1
-                prevVertex = v2
-                yield v2
-                
-        for part in self.parts:
-            for vertex in part.vertexIterator():
-                yield vertex
-
     def createOGLDisplayList(self):
         """ Initialize this part's display list."""
 
@@ -2452,7 +2392,6 @@ class PartOGL(object):
             GL.glColor4fv(colorRGB)
 
         GL.glCallList(self.oglDispID)
-        #self.calculateGLSize()
         GLHelpers.popAllGLMatrices()
 
     def getBoundingBox(self):
@@ -3087,22 +3026,6 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
 
-    def vertexIterator(self, useDisplacement = False):
-        if self.matrix:
-            matrix = list(self.matrix)
-            if useDisplacement and self.displacement:
-                matrix[12] += self.displacement[0]
-                matrix[13] += self.displacement[1]
-                matrix[14] += self.displacement[2]
-            GL.glPushMatrix()
-            GL.glMultMatrixf(matrix)
-            
-        for vertex in self.partOGL.vertexIterator():
-            yield vertex
-
-        if self.matrix:
-            GL.glPopMatrix()
-    
     def callGLDisplayList(self, useDisplacement = False):
 
         # must be called inside a glNewList/EndList pair
@@ -3487,10 +3410,6 @@ class Primitive(object):
 
     def resetBoundingBox(self):
         self._boundingBox = None
-
-    def vertexIterator(self):
-        p = self.points
-        return (p[0], p[1], p[2]), (p[3], p[4], p[5])
 
     # TODO: using numpy for all this would probably work a lot better
     def addNormal(self, p1, p2, p3):
