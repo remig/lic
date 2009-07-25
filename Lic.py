@@ -888,6 +888,8 @@ class LicWindow(QMainWindow):
             return self.fileSave()
 
     def fileSave(self):
+        if self.filename == "":
+            return self.fileSaveAs()
         try:
             LicBinaryWriter.saveLicFile(self.filename, self.instructions, self.treeModel.templatePage)
             self.undoStack.setClean()

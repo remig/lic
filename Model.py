@@ -2773,7 +2773,10 @@ class Submodel(SubmodelTreeManager, PartOGL):
 
         page.subModel = self
         self.instructions.updatePageNumbers(page.number)
-        self.pages.insert(page._row, page)
+
+        index = len([p for p in self.pages if p._row < page._row])
+        self.pages.insert(index, page)
+
         if page in self.instructions.scene.items():
             self.instructions.scene.removeItem(page)  # Need to re-add page to trigger scene page layout
         self.instructions.scene.addItem(page)
