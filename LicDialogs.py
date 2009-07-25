@@ -628,8 +628,8 @@ class ArrowDisplaceDlg(QDialog):
 
         displacement = arrow.displacement
         distance = Helpers.displacementToDistance(displacement, arrow.displaceDirection)
-        sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, 0, 500, self.sizeChanged)
-        lengthLabel, self.lengthSpinBox = self.makeLabelSpinBox(self.tr("&Length:"), arrow.getLength(), 0, 500, self.lengthChanged)
+        sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, -500, 500, self.sizeChanged)
+        lengthLabel, self.lengthSpinBox = self.makeLabelSpinBox(self.tr("&Length:"), arrow.getLength(), -500, 500, self.lengthChanged)
         
         self.moreButton = QPushButton(self.tr("X - Y - Z (NYI)"))
         self.moreButton.setCheckable(True)

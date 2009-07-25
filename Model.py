@@ -88,7 +88,7 @@ class LicTreeView(QTreeView):
     #def mouseReleaseEvent(self, event):
 
         #if event.button() == Qt.RightButton:
-        if not index:
+        if index is None or index.internalPointer() is None:
             return
 
         # Get a list of everything selected in the tree
@@ -2706,16 +2706,26 @@ class Submodel(SubmodelTreeManager, PartOGL):
         """ Reorder the tree so a submodel is right before the page it's used on """
         for submodel in self.submodels:
             page = self.findSubmodelPage(submodel)
-            if page is None:
-                continue  # submodel not used
+            if page is None or submodel._row == page._row - 1:
+                continue  # submodel not used or in right spot
             
-            self.incrementRows(-1) 
-            submodel._row = page._row
-            for page in [p for p in self.pages if p._row >= submodel._row]:
-                page._row += 1
-            for s in [p for p in self.submodels if p._row > submodel._row]:
-                s._row += 1
+            self.removeRow(submodel._row)
+            newRow = page._row
+            self.addRow(newRow)
+            submodel._row = newRow
 
+    def addRow(self, row):
+        for page in [p for p in self.pages if p._row >= row]:
+            page._row += 1
+        for s in [p for p in self.submodels if p._row >= row]:
+            s._row += 1
+    
+    def removeRow(self, row):
+        for page in [p for p in self.pages if p._row > row]:
+            page._row -= 1
+        for s in [p for p in self.submodels if p._row > row]:
+            s._row -= 1
+    
     def findSubmodelPage(self, submodel):
         for page in self.pages:
             for step in page.steps:
@@ -3191,8 +3201,8 @@ class Part(PartTreeManager, QGraphicsRectItem):
             menu.addSeparator()
 
         if self.displacement:
-            menu.addAction("&Increase displacement", lambda: self.displaceSignal(self.displaceDirection))
-            menu.addAction("&Decrease displacement", lambda: self.displaceSignal(Helpers.getOppositeDirection(self.displaceDirection)))
+            #menu.addAction("&Increase displacement", lambda: self.displaceSignal(self.displaceDirection))
+            #menu.addAction("&Decrease displacement", lambda: self.displaceSignal(Helpers.getOppositeDirection(self.displaceDirection)))
             menu.addAction("&Change displacement", self.adjustDisplaceSignal)
             menu.addAction("&Remove displacement", lambda: self.displaceSignal(None))
         else:
@@ -3406,7 +3416,7 @@ class Arrow(Part):
         #menu.addAction("Move &Back", lambda: self.displaceSignal(self.displaceDirection))
         #menu.addAction("&Longer", lambda: stack.push(AdjustArrowLength(self, 20)))
         #menu.addAction("&Shorter", lambda: stack.push(AdjustArrowLength(self, -20)))
-        menu.addAction("&Change Position & Length", self.adjustDisplaceSignal)
+        menu.addAction("&Change Position and Length", self.adjustDisplaceSignal)
 
         menu.exec_(event.screenPos())
 

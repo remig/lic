@@ -120,8 +120,8 @@ def __readInstructions(stream, instructions):
 
     __readPartDictionary(stream, partDictionary)
     
-    partCount = stream.readInt32()
-    for i in range(0, partCount):
+    submodelCount = stream.readInt32()
+    for i in range(0, submodelCount):
         model = __readSubmodel(stream, instructions)
         submodelDictionary[model.filename] = model
 
