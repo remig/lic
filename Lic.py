@@ -553,7 +553,7 @@ class LicWindow(QMainWindow):
 
     filename = property(fget = __getFilename, fset = __setFilename)
             
-    def initConfig(self):
+    def initConfig(self, filename = ""):
         """ 
         Create cache folders for temp dats, povs & pngs, if necessary.
         Cache folders are stored as 'LicPath/cache/modelName/[DATs|POVs|PNGs]'
@@ -564,7 +564,8 @@ class LicWindow(QMainWindow):
         if not os.path.isdir(cachePath):
             os.mkdir(cachePath)
             
-        modelPath = os.path.join(cachePath, os.path.basename(self.filename))
+        fn = filename if self.filename == "" else self.filename
+        modelPath = os.path.join(cachePath, os.path.basename(fn))
         if not os.path.isdir(modelPath):
             os.mkdir(modelPath)
         
@@ -863,7 +864,7 @@ class LicWindow(QMainWindow):
         self.scene.emit(SIGNAL("layoutChanged()"))
         self.scene.selectPage(1)
 
-        config.config = self.initConfig()
+        config.config = self.initConfig(filename)
         self.statusBar().showMessage("Instruction book loaded")
         self.fileCloseAction.setEnabled(True)
         self.fileSaveAsAction.setEnabled(True)

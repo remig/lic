@@ -296,6 +296,15 @@ class MovePartsToStepCommand(QUndoCommand):
         
         self.newStep.scene().emit(SIGNAL("layoutChanged()"))
 
+        # Need to refresh each step between the lowest and highest numbers
+        minStep = min(stepsToReset, key = lambda step: step.number)
+        maxStep = max(stepsToReset, key = lambda step: step.number)
+
+        nextStep = minStep.getNextStep()
+        while (nextStep is not None and nextStep.number < maxStep.number):
+            stepsToReset.add(nextStep)
+            nextStep = nextStep.getNextStep()
+            
         for step in stepsToReset:
             step.csi.resetPixmap()
             step.getPage().initLayout()

@@ -2654,6 +2654,9 @@ class Submodel(SubmodelTreeManager, PartOGL):
     def reOrderSubmodelPages(self):
         """ Reorder the tree so a submodel is right before the page it's used on """
         for submodel in self.submodels:
+            submodel.reOrderSubmodelPages()
+            
+        for submodel in self.submodels:
             page = self.findSubmodelPage(submodel)
             if page is None or submodel._row == page._row - 1:
                 continue  # submodel not used or in right spot
