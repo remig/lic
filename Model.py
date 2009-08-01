@@ -940,6 +940,8 @@ class Page(PageTreeManager, QGraphicsRectItem):
         for glItem in self.glItemIterator():
             if rect.intersects(glItem.mapToScene(glItem.rect()).boundingRect()):
                 glItem.paintGL()
+            elif hasattr(glItem, "isDirty") and glItem.isDirty:
+                glItem.paintGL()
             
         GLHelpers.popAllGLMatrices()
 
@@ -1711,7 +1713,7 @@ class SubmodelPreview(GraphicsRoundRectItem, RotateScaleSignalItem):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.rect().width() / 2.0)
         dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0)
-        self.partOGL.paintGL(dx * f, dy * f, rotation = self.rotation, scale = self.scale * f)
+        self.partOGL.paintGL(dx * f, dy * f, self.rotation, self.scale * f)
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
@@ -1720,7 +1722,7 @@ class SubmodelPreview(GraphicsRoundRectItem, RotateScaleSignalItem):
         menu.addAction("Scale Submodel Image", self.scaleSignal)
         menu.exec_(event.screenPos())
     
-class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
+class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     """ Represents one part inside a PLI along with its quantity label. """
     itemClassName = "PLIItem"
 
@@ -1794,7 +1796,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.partOGL.width / 2.0)
         dy = -Page.PageSize.height() + pos.y() + (self.partOGL.height / 2.0)
-        self.partOGL.paintGL(dx * f, dy * f, self.color, scale = f)
+        self.partOGL.paintGL(dx * f, dy * f, scale = f, color = self.color)
 
     """
     def paint(self, painter, option, widget = None):
@@ -1824,6 +1826,13 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem):
         povFile = l3p.createPovFromDat(datFile, self.color)
         pngFile = povray.createPngFromPov(povFile, part.width, part.height, part.center, PLI.defaultScale, PLI.defaultRotation)
         self.pngImage = QImage(pngFile)
+
+    def contextMenuEvent(self, event):
+        
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Rotate PLI Item", self.rotateSignal)
+        menu.addAction("Scale PLI Item", self.scaleSignal)
+        menu.exec_(event.screenPos())
 
 class PLI(PLITreeManager, GraphicsRoundRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
@@ -1871,13 +1880,8 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
 
     def resetPixmap(self):
         
-        resetItems = []
-        for item in self.pliItems:
-            if item.partOGL in resetItems:
-                continue
-            item.partOGL.resetPixmap()
-            resetItems.append(item.partOGL)
-            
+        for partOGL in set([item.partOGL for item in self.pliItems]):
+            partOGL.resetPixmap()
         self.initLayout()
     
     def initLayout(self):
@@ -1986,10 +1990,9 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.rotation = [0.0, 0.0, 0.0]
         self.scale = 1.0
         
-        self.__boxPoints = None
-        
         self.parts = []
         self.arrows = []
+        self.isDirty = False
 
     def getPartList(self):
         partList = []
@@ -2011,6 +2014,11 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         Assumes a current GL context.  Assumes that context has been transformed so the
         view runs from (0,0) to page width & height with (0,0) in the bottom left corner.
         """
+         
+        if self.isDirty:
+            self.resetPixmap()
+            self.getPage().initLayout()
+            self.isDirty = False
          
         GLHelpers.pushAllGLMatrices()
         
@@ -2183,7 +2191,6 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
-        stack = self.scene().undoStack
         menu.addAction("Rotate CSI", self.rotateSignal)
         menu.addAction("Scale CSI", self.scaleSignal)
         menu.addSeparator()
@@ -2227,6 +2234,9 @@ class PartOGL(object):
         self.isPrimitive = False  # primitive here means any file in 'P'
         self.isSubmodel = False
         self._boundingBox = None
+        
+        self.pliScale = 1.0
+        self.pliRotation = [0.0, 0.0, 0.0]
 
         self.width = self.height = -1
         self.leftInset = self.bottomInset = -1
@@ -2235,12 +2245,6 @@ class PartOGL(object):
         if filename and loadFromFile:
             self.loadFromFile()
 
-    def sortEdgesToBack(self):
-        for p in list(self.primitives):
-            if p.type == GL.GL_LINES:
-                self.primitives.remove(p)
-                self.primitives.append(p)
-            
     def loadFromFile(self):
 
         ldrawFile = LDrawFile(self.filename)
@@ -2372,7 +2376,7 @@ class PartOGL(object):
         self.width, self.height, self.center, self.leftInset, self.bottomInset = params
         return True
 
-    def paintGL(self, dx, dy, color = None, rotation = [0.0, 0.0, 0.0], scale = 1.0):
+    def paintGL(self, dx, dy, rotation = [0.0, 0.0, 0.0], scale = 1.0, color = None):
          
         GLHelpers.pushAllGLMatrices()
         
@@ -2382,10 +2386,16 @@ class PartOGL(object):
         dx += self.center.x() * scale
         dy += self.center.y() * scale
         
+        if color:  # Color means we're drawing a PLIItem, so apply PLI specific scale & rotation
+            ds *= self.pliScale
+        
         GLHelpers.rotateToView(dr, ds * scale, dx, dy, 0.0)
         GLHelpers.rotateView(*rotation)
         
         if color is not None:
+
+            GLHelpers.rotateView(*self.pliRotation)
+            
             colorRGB = LDrawColors.convertToRGBA(color)
             if colorRGB == LDrawColors.CurrentColor:
                 colorRGB = LDrawColors.colors[2][:4]
@@ -2633,7 +2643,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
         while True:   # yeah yeah, nested infinite loops of nastiness
             while True:
                 nextPage.steps[0].moveToPage(currentPage, False)
-                currentPage.initLayout()
+                currentPage.initLayout()  # TODO: Try both horizontal and vertical layout here
                 if currentPage.checkForLayoutOverlaps():  # Have overlap - move back & redo layouts
                     currentPage.steps[-1].moveToPage(nextPage, False)
                     currentPage.initLayout()

@@ -279,12 +279,14 @@ class MovePartsToStepCommand(QUndoCommand):
         stepsToReset = set([self.newStep])
         
         for part, oldStep in self.partListStepPairs:
-            if redo:
-                self.newStep.addPart(part)
-                oldStep.removePart(part)
-            else:
-                self.newStep.removePart(part)
-                oldStep.addPart(part)
+            startStep = oldStep if redo else self.newStep
+            endStep = self.newStep if redo else oldStep
+            
+            startStep.removePart(part)
+            endStep.addPart(part)
+            if part.displacement and part.displaceArrow:
+                startStep.csi.removeArrow(part.displaceArrow)
+                endStep.csi.addArrow(part.displaceArrow)
 
             if part.isSubmodel():
                 redoSubmodelOrder = True
@@ -306,8 +308,7 @@ class MovePartsToStepCommand(QUndoCommand):
             nextStep = nextStep.getNextStep()
             
         for step in stepsToReset:
-            step.csi.resetPixmap()
-            step.getPage().initLayout()
+            step.csi.isDirty = True
     
 class AddPartsToCalloutCommand(QUndoCommand):
 
