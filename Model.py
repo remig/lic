@@ -852,10 +852,10 @@ class Page(PageTreeManager, QGraphicsRectItem):
     def adjustSubmodelImages(self):
 
         # Check if we should shrink submodel image
-        if self.submodelItem and self.submodelItem.scale > 0.5 and self.checkForLayoutOverlaps():
+        if self.submodelItem and self.submodelItem.scaling > 0.5 and self.checkForLayoutOverlaps():
             
             # Scale submodel down and try again
-            newScale = self.submodelItem.scale - 0.2
+            newScale = self.submodelItem.scaling - 0.2
             self.submodelItem.changeScale(newScale)
             print "scaling page %d submodel down to %.2f" % (self._number, newScale)
             self.initLayout()
@@ -1672,17 +1672,17 @@ class RotateScaleSignalItem(QObject):
     
     def scaleSignal(self):
         parentWidget = self.scene().views()[0]
-        dialog = LicDialogs.ScaleDlg(parentWidget, self.scale)
+        dialog = LicDialogs.ScaleDlg(parentWidget, self.scaling)
         parentWidget.connect(dialog, SIGNAL("changeScale"), self.changeScale)
         parentWidget.connect(dialog, SIGNAL("acceptScale"), self.acceptScale)
         dialog.exec_()
 
     def changeScale(self, newScale):
-        self.scale = newScale
+        self.scaling = newScale
         self.resetPixmap()
         
     def acceptScale(self, oldScale):
-        action = ScaleItemCommand(self, oldScale, self.scale)
+        action = ScaleItemCommand(self, oldScale, self.scaling)
         self.scene().undoStack.push(action)
 
 class SubmodelPreview(GraphicsRoundRectItem, RotateScaleSignalItem):
@@ -1696,24 +1696,25 @@ class SubmodelPreview(GraphicsRoundRectItem, RotateScaleSignalItem):
         self.dataText = "Submodel Preview"
         self.cornerRadius = 10
         self.rotation = [0.0, 0.0, 0.0]
-        self.scale = 1.0
+        self.scaling = 1.0
         self.setFlags(AllFlags)
         self.setPartOGL(partOGL)
         
     def resetPixmap(self):
-        self.partOGL.resetPixmap(self.rotation, self.scale)
+        self.partOGL.resetPixmap(self.rotation, self.scaling)
         self.setPartOGL(self.partOGL)
         self.partOGL.resetPixmap()  # Restore partOGL - otherwise all pliItems screwed
         
     def setPartOGL(self, partOGL):
         self.partOGL = partOGL
+        self.partCenter = (partOGL.center.x(), partOGL.center.y())
         self.setRect(0, 0, partOGL.width + PLI.margin.x() * 2, partOGL.height + PLI.margin.y() * 2)
 
     def paintGL(self, f = 1.0):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
-        dx = pos.x() + (self.rect().width() / 2.0)
-        dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0)
-        self.partOGL.paintGL(dx * f, dy * f, self.rotation, self.scale * f)
+        dx = pos.x() + (self.rect().width() / 2.0) - (self.partOGL.center.x() - self.partCenter[0])
+        dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0) - (self.partOGL.center.y() - self.partCenter[1])
+        self.partOGL.paintGL(dx * f, dy * f, self.rotation, self.scaling * f)
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
@@ -1742,6 +1743,22 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.numberItem.setFont(QFont("Arial", 10))
         self.numberItem.setFlags(AllFlags)        
         self.setQuantity(quantity)
+
+    def __getRotation(self):
+        return self.partOGL.pliRotation
+    
+    def __setRotation(self, rotation):
+        self.partOGL.pliRotation = rotation
+        
+    rotation = property(fget = __getRotation, fset = __setRotation)
+
+    def __getScaling(self):
+        return self.partOGL.pliScale
+    
+    def __setScaling(self, scaling):
+        self.partOGL.pliScale = scaling
+        
+    scaling = property(fget = __getScaling, fset = __setScaling)
 
     def setQuantity(self, quantity):
         self.quantity = quantity
@@ -1796,7 +1813,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.partOGL.width / 2.0)
         dy = -Page.PageSize.height() + pos.y() + (self.partOGL.height / 2.0)
-        self.partOGL.paintGL(dx * f, dy * f, scale = f, color = self.color)
+        self.partOGL.paintGL(dx * f, dy * f, scaling = f, color = self.color)
 
     """
     def paint(self, painter, option, widget = None):
@@ -1804,6 +1821,10 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         painter.drawRect(self.boundingRect())
     """
 
+    def resetPixmap(self):
+        self.partOGL.resetPixmap()
+        self.parentItem().initLayout()
+        
     def createPng(self):
 
         part = self.partOGL
@@ -1898,17 +1919,8 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
             return
 
         # Initialize each item in this PLI, so they have good rects and properly positioned quantity labels
-        for i, item in enumerate(self.pliItems):
+        for item in self.pliItems:
             item.initLayout()
-            #print "{node [width=%f, height=%f] n%d}" % (item.rect().width() / 100.0, item.rect().height() / 100.0, i)
-            
-        nodes = range(0, len(self.pliItems))
-        while nodes:
-            x = nodes.pop()
-            s = ""
-            for i in nodes:
-                s += "n%d--n%d;" % (x, i)
-            #print s 
             
         # Sort list of parts to lay out by width (narrowest first), then remove tallest part, to be added first
         partList = list(self.pliItems)
@@ -1988,7 +2000,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
 
         self._row = 0
         self.rotation = [0.0, 0.0, 0.0]
-        self.scale = 1.0
+        self.scaling = 1.0
         
         self.parts = []
         self.arrows = []
@@ -2025,7 +2037,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.rect().width() / 2.0) + self.center.x()
         dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0) + self.center.y()
-        GLHelpers.rotateToView(CSI.defaultRotation, CSI.defaultScale * self.scale * f, dx * f, dy * f, 0.0)
+        GLHelpers.rotateToView(CSI.defaultRotation, CSI.defaultScale * self.scaling * f, dx * f, dy * f, 0.0)
         GLHelpers.rotateView(*self.rotation)
 
         GL.glCallList(self.oglDispID)
@@ -2145,7 +2157,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         if not self.parts:
             return result  # A CSI with no parts is already initialized
 
-        params = GLHelpers.initImgSize(size, self.oglDispID, filename, CSI.defaultScale * self.scale, CSI.defaultRotation, self.rotation, pBuffer)
+        params = GLHelpers.initImgSize(size, self.oglDispID, filename, CSI.defaultScale * self.scaling, CSI.defaultRotation, self.rotation, pBuffer)
         if params is None:
             return False
 
@@ -2164,7 +2176,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             fh.close()
             
         povFile = l3p.createPovFromDat(datFile)
-        pngFile = povray.createPngFromPov(povFile, self.rect().width(), self.rect().height(), self.center, CSI.defaultScale * self.scale, CSI.defaultRotation)
+        pngFile = povray.createPngFromPov(povFile, self.rect().width(), self.rect().height(), self.center, CSI.defaultScale * self.scaling, CSI.defaultRotation)
         self.pngImage = QImage(pngFile)
         
     def exportToLDrawFile(self, fh):
@@ -2333,7 +2345,7 @@ class PartOGL(object):
             return ""
         return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x(), self.center.y(), self.leftInset, self.bottomInset)
 
-    def resetPixmap(self, extraRotation = [0.0, 0.0, 0.0], extraScale = 1.0):
+    def resetPixmap(self, extraRotation = None, extraScale = None):
         
         global GlobalGLContext
         GlobalGLContext.makeCurrent()
@@ -2347,7 +2359,9 @@ class PartOGL(object):
             pBuffer = QGLPixelBuffer(size, size, getGLFormat(), GlobalGLContext)
             pBuffer.makeCurrent()
 
-            if self.initSize(size, pBuffer, extraRotation, extraScale):
+            rotation = extraRotation if extraRotation else self.pliRotation
+            scaling = extraScale if extraScale else self.pliScale
+            if self.initSize(size, pBuffer, rotation, scaling):
                 break
 
         GlobalGLContext.makeCurrent()
@@ -2368,28 +2382,28 @@ class PartOGL(object):
 
         # TODO: If a part is rendered at a size > 256, draw it smaller in the PLI - this sounds like a great way to know when to shrink a PLI image...
         rotation = SubmodelPreview.defaultRotation if self.isSubmodel else PLI.defaultRotation
-        scale = SubmodelPreview.defaultScale if self.isSubmodel else PLI.defaultScale
-        params = GLHelpers.initImgSize(size, self.oglDispID, self.filename, scale * extraScale, rotation, extraRotation, pBuffer)
+        scaling = SubmodelPreview.defaultScale if self.isSubmodel else PLI.defaultScale
+        params = GLHelpers.initImgSize(size, self.oglDispID, self.filename, scaling * extraScale, rotation, extraRotation, pBuffer)
         if params is None:
             return False
 
         self.width, self.height, self.center, self.leftInset, self.bottomInset = params
         return True
 
-    def paintGL(self, dx, dy, rotation = [0.0, 0.0, 0.0], scale = 1.0, color = None):
+    def paintGL(self, dx, dy, rotation = [0.0, 0.0, 0.0], scaling = 1.0, color = None):
          
         GLHelpers.pushAllGLMatrices()
         
         dr = SubmodelPreview.defaultRotation if self.isSubmodel else PLI.defaultRotation
         ds = SubmodelPreview.defaultScale if self.isSubmodel else PLI.defaultScale
 
-        dx += self.center.x() * scale
-        dy += self.center.y() * scale
+        dx += self.center.x() * scaling
+        dy += self.center.y() * scaling
         
-        if color:  # Color means we're drawing a PLIItem, so apply PLI specific scale & rotation
+        if color is not None:  # Color means we're drawing a PLIItem, so apply PLI specific scale & rotation
             ds *= self.pliScale
         
-        GLHelpers.rotateToView(dr, ds * scale, dx, dy, 0.0)
+        GLHelpers.rotateToView(dr, ds * scaling, dx, dy, 0.0)
         GLHelpers.rotateView(*rotation)
         
         if color is not None:

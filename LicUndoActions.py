@@ -400,7 +400,7 @@ class ScaleItemCommand(QUndoCommand):
         self.target, self.oldScale, self.newScale = target, oldScale, newScale
 
     def doAction(self, redo):
-        self.target.scale = self.newScale if redo else self.oldScale
+        self.target.scaling = self.newScale if redo else self.oldScale
         self.target.resetPixmap() 
         self.target.getPage().initLayout()
     

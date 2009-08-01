@@ -114,6 +114,7 @@ class TemplatePage(Page):
 
         if step.hasPLI():
             for item in step.pli.pliItems:
+                item.__class__ = TemplatePLIItem
                 item.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'PLI Item'))
                 item.numberItem.contextMenuEvent = lambda event, i = item: self.fontMenuEvent(event, i.numberItem)
         
@@ -339,6 +340,11 @@ class TemplateRotateScaleSignalItem(QObject):
         action = ScaleDefaultItemCommand(self.target, self.name, self, originalScale, self.target.defaultScale)
         self.scene().undoStack.push(action)
     
+class TemplatePLIItem(PLIItem):
+    
+    def contextMenuEvent(self, event):
+        event.ignore()
+
 class TemplatePLI(TemplateRectItem, PLI, TemplateRotateScaleSignalItem):
     
     def contextMenuEvent(self, event):

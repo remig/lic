@@ -248,7 +248,7 @@ def __writeSubmodelItem(stream, submodelItem):
     stream.writeInt32(submodelItem.row())
     __writeRoundedRectItem(stream, submodelItem)
     
-    stream.writeFloat(submodelItem.scale)
+    stream.writeFloat(submodelItem.scaling)
     stream.writeFloat(submodelItem.rotation[0])
     stream.writeFloat(submodelItem.rotation[1])
     stream.writeFloat(submodelItem.rotation[2])
@@ -259,7 +259,7 @@ def __writeCSI(stream, csi):
     stream.writeInt32(csi.rect().height())
     stream << csi.center
     
-    stream.writeFloat(csi.scale)
+    stream.writeFloat(csi.scaling)
     stream.writeFloat(csi.rotation[0])
     stream.writeFloat(csi.rotation[1])
     stream.writeFloat(csi.rotation[2])

@@ -353,7 +353,7 @@ def __readSubmodelItem(stream, page):
     submodelItem = SubmodelPreview(page, page.subModel)
     submodelItem._row = stream.readInt32()
     __readRoundedRectItem(stream, submodelItem)
-    submodelItem.scale = stream.readFloat()
+    submodelItem.scaling = stream.readFloat()
     submodelItem.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
     return submodelItem
 
@@ -365,7 +365,7 @@ def __readCSI(stream, step):
     csi.setRect(0.0, 0.0, stream.readInt32(), stream.readInt32())
     csi.center = stream.readQPointF()
 
-    csi.scale = stream.readFloat()
+    csi.scaling = stream.readFloat()
     csi.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
 
     global partDictionary, submodelDictionary
