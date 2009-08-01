@@ -194,6 +194,9 @@ def __readPartOGL(stream, createSubmodel = False):
     part.leftInset = stream.readInt32()
     part.bottomInset = stream.readInt32()
     part.center = stream.readQPointF()
+
+    part.pliScale = stream.readFloat()
+    part.pliRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
     
     primitiveCount = stream.readInt32()
     for i in range(0, primitiveCount):

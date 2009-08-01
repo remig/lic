@@ -137,6 +137,11 @@ def __writePartOGL(stream, partOGL):
     stream.writeInt32(partOGL.leftInset)
     stream.writeInt32(partOGL.bottomInset)
     stream << partOGL.center
+
+    stream.writeFloat(partOGL.pliScale)
+    stream.writeFloat(partOGL.pliRotation[0])
+    stream.writeFloat(partOGL.pliRotation[1])
+    stream.writeFloat(partOGL.pliRotation[2])
     
     stream.writeInt32(len(partOGL.primitives))
     for primitive in partOGL.primitives:

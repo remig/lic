@@ -67,6 +67,10 @@ PartOGL:
   int32 leftInset
   int32 bottomInset
   QPointF center
+  
+  float pliScale
+  float pliRotation x, y, z
+  
   int32 number of primitives
   ... Primitive 0..n ...
   int32 number of parts
@@ -173,9 +177,7 @@ SubmodelItem:
   RoundedRectItem pos, rect, pen, brush, cornerRadius
   
   float scale
-  float rotation x
-  float rotation y
-  float rotation z
+  float rotation x, y, z
   
 CSI:
   QPointF pos
@@ -184,9 +186,7 @@ CSI:
   QPointF center
 
   float scale
-  float rotation x
-  float rotation y
-  float rotation z
+  float rotation x, y, z
   
   int32 number of non-arrow parts
   ... Part 0..n ...
