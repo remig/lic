@@ -28,8 +28,6 @@ Thoughts on displacing parts:
   
 - In step context, add 'append / prepend blank step'
 
-- In CSI context, add 'apply scale / rotate to next X CSIs'
-
   
 For 2.0:
 

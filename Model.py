@@ -2222,6 +2222,13 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Rotate CSI", self.rotateSignal)
         menu.addAction("Scale CSI", self.scaleSignal)
+        
+        if self.parentItem().getNextStep():
+            if self.rotation != [0.0, 0.0, 0.0]:
+                menu.addAction("Copy Rotation to next X CSIs...", lambda: self.copyRotationScaleToNextCSIs(True))
+            if self.scaling != 1.0:
+                menu.addAction("Copy Scaling to next X CSIs...", lambda: self.copyRotationScaleToNextCSIs(False))
+
         menu.addSeparator()
         
         arrowMenu = menu.addMenu("Select Part")
@@ -2243,6 +2250,37 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         for part in self.getPartList():
             part.setSelected(True)
 
+    def copyRotationScaleToNextCSIs(self, doRotation):
+
+        # Build list of CSIs that need updating
+        csiList = []
+        step = self.parentItem().getNextStep()
+        while step is not None:
+            csiList.append(step.csi)
+            step = step.getNextStep()
+
+        # Get number of CSIs to update from user
+        text = "Rotate" if doRotation else "Scale"
+        parentWidget = self.scene().views()[0]
+        i, ok = QInputDialog.getInteger(parentWidget, "CSI Count", text + " next CSIs:", 
+                        1, 1, len(csiList), 1, Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        if not ok:
+            return
+
+        # Apply rotation | scaling to next chosen CSIs  
+        self.scene().undoStack.beginMacro("%s next %d CSI%s" % (text, i, 's' if i > 1 else ''))
+        for csi in csiList[0:i]:
+            if doRotation:
+                oldRotation = list(csi.rotation)
+                csi.rotation = list(self.rotation)
+                csi.acceptRotation(oldRotation)
+            else:
+                oldScaling = csi.scaling
+                csi.scaling = self.scaling
+                csi.acceptScale(oldScaling)
+                
+        self.scene().undoStack.endMacro()
+    
 class PartOGL(object):
     """
     Represents one 'abstract' part.  Could be regular part, like 2x4 brick, could be a 
