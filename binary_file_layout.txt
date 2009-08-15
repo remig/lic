@@ -106,6 +106,7 @@ Part:
     
   if part is also Arrow:
     int32 arrow.length
+    float arrow.axisRotation v2
   
 Page:
   int32 number

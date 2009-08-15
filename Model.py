@@ -30,7 +30,7 @@ import resources
 from LDrawFileFormat import *
 
 MagicNumber = 0x14768126
-FileVersion = 1
+FileVersion = 2
 
 UNINIT_GL_DISPID = -1
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
@@ -3329,6 +3329,7 @@ class Arrow(Part):
         
         self.displaceDirection = direction
         self.displacement = [0.0, 0.0, 0.0]
+        self.axisRotation = 0.0
         
         self.partOGL = PartOGL("arrow")
         self.matrix = IdentityMatrix()
@@ -3395,6 +3396,9 @@ class Arrow(Part):
             GL.glRotatef(45, 1.0, 0.0, 0.0)
         elif d == Qt.Key_Down:  # Forward
             GL.glRotatef(-45, 1.0, 0.0, 0.0)
+
+        if self.axisRotation:
+            GL.glRotatef(self.axisRotation, 1.0, 0.0, 0.0)
 
         if self.getCSI().rotation:
             GLHelpers.rotateView(*self.getCSI().rotation)
@@ -3465,6 +3469,7 @@ class Arrow(Part):
         dialog = LicDialogs.ArrowDisplaceDlg(parentWidget, self)
         parentWidget.connect(dialog, SIGNAL("changeDisplacement"), self.changeDisplacement)
         parentWidget.connect(dialog, SIGNAL("changeLength"), self.changeLength)
+        parentWidget.connect(dialog, SIGNAL("changeRotation"), self.changeRotation)
         parentWidget.connect(dialog, SIGNAL("accept"), self.accept)
         dialog.exec_()
         
@@ -3475,12 +3480,17 @@ class Arrow(Part):
     def changeLength(self, length):
         self.setLength(length)
         self.getCSI().resetPixmap()
+        
+    def changeRotation(self, rotation):
+        self.axisRotation = rotation
+        self.getCSI().resetPixmap()
 
-    def accept(self, oldDisplacement, oldLength):
+    def accept(self, oldDisplacement, oldLength, oldRotation):
         stack = self.scene().undoStack
         stack.beginMacro("Change Arrow Position")
         self.scene().undoStack.push(DisplacePartCommand(self, oldDisplacement, self.displacement))
         self.scene().undoStack.push(AdjustArrowLength(self, oldLength, self.getLength()))
+        self.scene().undoStack.push(AdjustArrowRotation(self, oldRotation, self.axisRotation))
         stack.endMacro()
 
 class Primitive(object):

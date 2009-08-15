@@ -179,6 +179,7 @@ def __writePart(stream, part):
         
     if isinstance(part, Arrow):
         stream.writeInt32(part.getLength())
+        stream.writeFloat(part.axisRotation)
 
 def __writePage(stream, page):
     stream.writeInt32(page.number)

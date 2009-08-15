@@ -61,9 +61,9 @@ def __createStream(filename, template = False):
     if magic != MagicNumber:
         raise IOError, "not a valid " + ext + " file"
 
-    fileVersion = stream.readInt16()
-    if fileVersion != FileVersion:
-        raise IOError, "unrecognized " + ext + " version"
+    stream.licFileVersion = stream.readInt16()
+    if stream.licFileVersion > FileVersion:
+        raise IOError, "Cannot read file: %s was created with a newer version of LIC (%d) than you're using(%d)." % (filename, stream.licFileVersion, FileVersion)
     return fh, stream
     
 def __readTemplate(stream, instructions):
@@ -248,6 +248,10 @@ def __readPart(stream):
         arrow.matrix = matrix
         arrow.displacement = displacement
         arrow.setLength(stream.readInt32())
+        
+        if stream.licFileVersion >= 2:
+            arrow.axisRotation = stream.readFloat()
+        
         return arrow
     
     part = Part(filename, color, matrix, invert)
