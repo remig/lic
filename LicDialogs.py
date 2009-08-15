@@ -2,6 +2,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 import Helpers
+import LDrawColors
 
 def makeLabelSpinBox(self, text, value, min, max, signal = None, double = False, percent = False):
     
@@ -31,6 +32,63 @@ def makeSpinBox(self, value, min, max, signal = None, double = False, percent = 
 
 QWidget.makeLabelSpinBox = makeLabelSpinBox
 QWidget.makeSpinBox = makeSpinBox
+
+class ColorButton(QToolButton):
+    
+    def __init__(self, parent, color):
+        QToolButton.__init__(self, parent)
+        
+        rgbColor = LDrawColors.convertToRGBA(color)
+        self.brush = QBrush(QColor.fromRgbF(*rgbColor))
+        self.colorCode = color
+        self.setToolTip(LDrawColors.getColorName(color))
+    
+    def paintEvent(self, event):
+        QToolButton.paintEvent(self, event)
+        
+        p = QPainter(self)
+        p.setBrush(self.brush)
+        p.drawRect(3, 3, self.width() - 9, self.height() - 9)
+        p.end()
+
+class LDrawColorDialog(QDialog):
+    
+    def __init__(self, parent, color):
+        QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle(self.tr("Change Color"))
+        self.originalColor = color
+        
+        r, c = 0, 0
+        grid = QGridLayout()
+        grid.setSizeConstraint(QLayout.SetFixedSize)
+        
+        for color in sorted(LDrawColors.colors):
+            if not LDrawColors.isRealColor(color):
+                continue
+            b = ColorButton(self, color)
+            self.connect(b, SIGNAL('clicked(bool)'), lambda b, c = color: self.emit(SIGNAL('changeColor'), c))
+            grid.addWidget(b, r, c)
+            c += 1
+            if c > 7:
+                c = 0
+                r += 1
+
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
+        self.connect(buttonBox, SIGNAL('accepted()'), self, SLOT('accept()'))
+        self.connect(buttonBox, SIGNAL('rejected()'), self, SLOT('reject()'))
+
+        box = QBoxLayout(QBoxLayout.TopToBottom, self)
+        box.insertLayout(0, grid)
+        box.addWidget(buttonBox)
+
+    def accept(self):
+        self.emit(SIGNAL('acceptColor'), self.originalColor)
+        QDialog.accept(self)
+        
+    def reject(self):
+        self.emit(SIGNAL('changeColor'), self.originalColor)
+        QDialog.reject(self)
 
 class PageSizeDlg(QDialog):
 

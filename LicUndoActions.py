@@ -560,3 +560,18 @@ class TogglePLIs(QUndoCommand):
         self.template.scene().emit(SIGNAL("layoutChanged()"))
         self.template.initLayout()
                 
+class ChangePartColorCommand(QUndoCommand):
+    
+    _id = getNewCommandID()
+    
+    def __init__(self, part, oldColor, newColor):
+        QUndoCommand.__init__(self, "Change Part color")
+        self.part, self.oldColor, self.newColor = part, oldColor, newColor
+
+    def doAction(self, redo):
+        oldColor, newColor = (self.oldColor, self.newColor) if redo else (self.newColor, self.oldColor)
+        self.part.changeColor(newColor)
+        if self.part.getStep().pli:
+            self.part.getStep().pli.changePartColor(self.part, oldColor, newColor)
+
+    

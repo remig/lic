@@ -22,7 +22,15 @@ Thoughts on displacing parts:
 
 - Add status indicator to file->open operation
 
+- Add button toolbar to tree view, to hide all non-part stuff, to make moving parts to / from steps easier
+  - Can add grouping options and sorting options and stuff there too
+  - expand / hide all nodes
+  
+- In step context, add 'append / prepend blank step'
 
+- In CSI context, add 'apply scale / rotate to next X CSIs'
+
+  
 For 2.0:
 
 - Title page

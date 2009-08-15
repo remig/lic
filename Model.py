@@ -1600,9 +1600,11 @@ class Step(StepTreeManager, QGraphicsRectItem):
             
         if self.getPrevStep():
             menu.addAction("Merge with Previous Step", lambda: self.mergeWithStepSignal(self.getPrevStep()))
+            menu.addAction("Swap with Previous Step", lambda: self.swapWithStepSignal(self.getPrevStep()))
         if self.getNextStep():
             menu.addAction("Merge with Next Step", lambda: self.mergeWithStepSignal(self.getNextStep()))
-                    
+            menu.addAction("Swap with Next Step", lambda: self.swapWithStepSignal(self.getNextStep()))
+
         menu.addSeparator()
         menu.addAction("Add blank Callout", self.addBlankCalloutSignal)
 
@@ -1652,6 +1654,15 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         if scene.currentPage.isEmpty():
             scene.undoStack.push(AddRemovePageCommand(scene.currentPage, False))
+            
+    def swapWithStepSignal(self, step):
+        stack = self.scene().undoStack
+        startList = self.csi.getPartList()
+        endList = step.csi.getPartList()
+        stack.beginMacro("Swap Steps")
+        stack.push(MovePartsToStepCommand(startList, step))
+        stack.push(MovePartsToStepCommand(endList, self))
+        stack.endMacro()
     
 class RotateScaleSignalItem(QObject):
     
@@ -1707,7 +1718,7 @@ class SubmodelPreview(GraphicsRoundRectItem, RotateScaleSignalItem):
         
     def setPartOGL(self, partOGL):
         self.partOGL = partOGL
-        self.partCenter = (partOGL.center.x(), partOGL.center.y())
+        self.partCenter = (partOGL.center.x() / self.scaling, partOGL.center.y() / self.scaling)
         self.setRect(0, 0, partOGL.width + PLI.margin.x() * 2, partOGL.height + PLI.margin.y() * 2)
 
     def paintGL(self, f = 1.0):
@@ -1899,6 +1910,12 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
             if pliItem.color == part.color and pliItem.partOGL.filename == part.partOGL.filename:
                 return pliItem.removePart()
 
+    def changePartColor(self, part, oldColor, newColor):
+        part.color = oldColor
+        self.removePart(part)
+        part.color = newColor
+        self.addPart(part)
+    
     def resetPixmap(self):
         
         for partOGL in set([item.partOGL for item in self.pliItems]):
@@ -3178,6 +3195,9 @@ class Part(PartTreeManager, QGraphicsRectItem):
             arrowMenu.addAction("Move Left", lambda: s.push(BeginEndDisplacementCommand(self, Qt.Key_Left)))
             arrowMenu.addAction("Move Right", lambda: s.push(BeginEndDisplacementCommand(self, Qt.Key_Right)))
             
+        menu.addSeparator()
+        menu.addAction("Change Color", self.changeColorSignal)
+        
         menu.exec_(event.screenPos())
 
     def createCalloutSignal(self):
@@ -3244,6 +3264,24 @@ class Part(PartTreeManager, QGraphicsRectItem):
             
         if currentPage.isEmpty():
             self.scene().undoStack.push(AddRemovePageCommand(currentPage, False))
+            
+    def changeColorSignal(self):
+        self.scene().clearSelection()
+        self.getCSI().isDirty = True
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.LDrawColorDialog(parentWidget, self.color)
+        parentWidget.connect(dialog, SIGNAL("changeColor"), self.changeColor)
+        parentWidget.connect(dialog, SIGNAL("acceptColor"), self.acceptColor)
+        dialog.exec_()
+        
+    def changeColor(self, newColor):
+        self.color = newColor
+        self.getCSI().isDirty = True
+        self.scene().update()
+    
+    def acceptColor(self, oldColor):
+        action = ChangePartColorCommand(self, oldColor, self.color)
+        self.scene().undoStack.push(action)
         
 class Arrow(Part):
     itemClassName = "Arrow"

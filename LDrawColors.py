@@ -104,6 +104,11 @@ colors = {
 
 complimentColors = [8, 9, 10, 11, 12, 13, 0, 8, 0, 1, 2, 3, 4, 5, 8, 8]
 
+def isRealColor(LDrawColorCode):
+    if LDrawColorCode in colors and type(colors[LDrawColorCode]) == type([]) and len(colors[LDrawColorCode]) == 5:
+        return True
+    return False
+
 def convertToRGBA(LDrawColorCode):
     if LDrawColorCode == CurrentColor:
         return CurrentColor
