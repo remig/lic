@@ -279,6 +279,8 @@ class MovePartsToStepCommand(QUndoCommand):
         stepsToReset = set([self.newStep])
         
         for part, oldStep in self.partListStepPairs:
+            if part.filename == 'arrow':
+                continue
             startStep = oldStep if redo else self.newStep
             endStep = self.newStep if redo else oldStep
             

@@ -966,6 +966,15 @@ class Page(PageTreeManager, QGraphicsRectItem):
             for callout in step.callouts:
                 for step2 in callout.steps:
                     yield step2.csi
+
+    def acceptDragAndDropList(self, dragItems, row):
+
+        steps = [s for s in dragItems if isinstance(s, Step)]
+        if not steps:
+            return False
+        
+        print "Dropping steps: %d"  %len(steps)
+        return True
             
     def contextMenuEvent(self, event):
         
@@ -1551,6 +1560,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
             self.csi.setPos(x, r.top() + y)
             return
 
+        self.callouts[0].initLayout()
         cr = self.callouts[0].rect()
         remainingWidth = r.width() - cr.width() - csiWidth 
         remainingHeight = r.height() - cr.height() - csiHeight
@@ -1575,9 +1585,11 @@ class Step(StepTreeManager, QGraphicsRectItem):
             
         self.callouts[0].setPos(cx, r.top() + cy)
 
-    def acceptDragAndDropList(self, dragItems):
+    def acceptDragAndDropList(self, dragItems, row):
 
         parts = [p for p in dragItems if isinstance(p, Part)]
+        if not parts:
+            return False
         self.scene().undoStack.push(MovePartsToStepCommand(parts, self))
         return True
     

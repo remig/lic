@@ -40,7 +40,7 @@ Celesty - Mortal Mind Creation - Lord Of Mortals *
 Concerto Moon - Concerto Moon - Like A Beast
 
 Dark Moor - Beyond The Sea - Before The Duel
-Dark Moor - Dark Moor - Eternity * 
+Dark Moor - Dark Moor - Eternity ** 
 
 DragonForce - Inhuman Rampage - Body Breakdown
 DragonForce - Inhuman Rampage - Operation Ground And Pound
@@ -70,6 +70,7 @@ Edguy - Mandrake - Fallen Angels
 Edguy - Superheroes - Judas At The Opera
 Edguy - Theater Of Salvation - Babylon **
 Edguy - Theatre Of Salvation - Falling Down *
+Edguy - Theatre Of Salvation - Holy Shadows
 Edguy - Theater Of Salvation - Wake Up The King * 
 Edguy - Vain Glory Opera - Fairytale * 
 Edguy - Vain Glory Opera - How Many Miles *

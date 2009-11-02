@@ -84,11 +84,11 @@ class LicTreeModel(QAbstractItemModel):
         # and dragItems is a list of actual instruction items dragged.  Let them sort out if
         # they can be dragged / dropped onto one another.
         if hasattr(targetItem, "acceptDragAndDropList"):
-            return targetItem.acceptDragAndDropList(dragItems)
+            return targetItem.acceptDragAndDropList(dragItems, row)
         return False
     
     def removeRows(self, row, count, parent = None):
-        pass  # Needed because otherwise the super gets called, but we handle all in dropMimeData
+        return False # Needed because otherwise the super gets called, but we handle all in dropMimeData
         
     def flags(self, index):
         if not index.isValid():
@@ -180,6 +180,9 @@ class PageTreeManager(BaseTreeManager):
     def data(self, index):
         return "Page %d" % self._number
 
+    def dragDropFlags(self):
+        return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDropEnabled
+
 class CalloutArrowTreeManager(BaseTreeManager):
 
     def child(self, row):
@@ -251,7 +254,7 @@ class StepTreeManager(BaseTreeManager):
             return self.callouts.index(child) + 1 + (1 if self.hasPLI() else 0) + (1 if self.numberItem else 0)
         
     def dragDropFlags(self):
-        return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDropEnabled
+        return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
         
 class PLIItemTreeManager(BaseTreeManager):
     
