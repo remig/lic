@@ -30,6 +30,9 @@ class LicGraphicsScene(QGraphicsScene):
         
     def __init__(self, parent):
         QGraphicsScene.__init__(self, parent)
+        self.reset()
+
+    def reset(self):
         self.scaleFactor = 1.0
         self.pagesToDisplay = 1
         self.currentPage = None
@@ -37,6 +40,8 @@ class LicGraphicsScene(QGraphicsScene):
         self.guides = []
         self.xSnapLine = self.createSnapLine()
         self.ySnapLine = self.createSnapLine()
+        self.snapToGuides = True
+        self.snapToItems = True
 
     def createSnapLine(self):
         snapLine = QGraphicsLineItem()
@@ -48,6 +53,12 @@ class LicGraphicsScene(QGraphicsScene):
         snapLine.hide()
         self.addItem(snapLine)
         return snapLine
+
+    def changeSnapToGuides(self):
+        self.snapToGuides = not self.snapToGuides
+
+    def changeSnapToItems(self):
+        self.snapToItems = not self.snapToItems
 
     def clearSelectedParts(self):
         partList = []
@@ -61,10 +72,7 @@ class LicGraphicsScene(QGraphicsScene):
 
     def clear(self):
         QGraphicsScene.clear(self)
-        self.pagesToDisplay = 1
-        self.currentPage = None
-        self.pages = []
-        self.guides = []
+        self.resetSettings()
 
     def drawForeground(self, painter, rect):
         GLHelpers.initFreshContext(False)
@@ -265,6 +273,9 @@ class LicGraphicsScene(QGraphicsScene):
         self.undoStack.push(LicUndoActions.AddRemoveGuideCommand(self, Guide(orientation), True))
 
     def snap(self, item):
+        if not self.snapToGuides and not self.snapToItems:
+            return # User disabled snap
+         
         snapDistance = 20
         margin = 20
 
@@ -275,25 +286,30 @@ class LicGraphicsScene(QGraphicsScene):
         # Build dict of all guides and page items and their [left, right, top, bottom] points
         itemDict = {}
         
-        for guide in self.guides:
-            guidePt = guide.mapToScene(guide.line().p1())
-            itemDict[guide] = [guidePt.x(), guidePt.y()]
+        if self.snapToGuides:
+            for guide in self.guides:
+                guidePt = guide.mapToScene(guide.line().p1())
+                itemDict[guide] = [guidePt.x(), guidePt.y()]
 
-        for pageItem in item.getPage().getAllChildItems():
-            if isinstance(pageItem, Step):
-                continue
-            if item.isAncestorOf(pageItem):
-                continue
-            if pageItem is item:
-                continue
-            itemDict[pageItem] = pageItem.getCornerList()
-            
-            if isinstance(pageItem, Page):  # Bump page points inwards so we snap to margin, not outside edge
-                itemDict[pageItem][0] += margin
-                itemDict[pageItem][1] += margin
-                itemDict[pageItem][2] -= margin
-                itemDict[pageItem][3] -= margin
+        if self.snapToItems:
+            for pageItem in item.getPage().getAllChildItems():
+                if isinstance(pageItem, Step):
+                    continue
+                if item.isAncestorOf(pageItem):
+                    continue
+                if pageItem is item:
+                    continue
+                itemDict[pageItem] = pageItem.getCornerList()
+                
+                if isinstance(pageItem, Page):  # Bump page points inwards so we snap to margin, not outside edge
+                    itemDict[pageItem][0] += margin
+                    itemDict[pageItem][1] += margin
+                    itemDict[pageItem][2] -= margin
+                    itemDict[pageItem][3] -= margin
 
+        if not itemDict:
+            return  # Nothing to snap to
+        
         # Get top-left & bottom-right corners of target item
         tl, br = item.getCorners()
         
@@ -541,6 +557,7 @@ class LicWindow(QMainWindow):
         statusBar = self.statusBar()
         self.scene = LicGraphicsScene(self)
         self.scene.undoStack = self.undoStack  # Make undo stack easy to find for everything
+        self.copySettingsToScene()
 
         self.graphicsView = LicGraphicsView(self)
         self.graphicsView.setViewport(self.glWidget)
@@ -590,6 +607,8 @@ class LicWindow(QMainWindow):
         self.restoreState(settings.value("MainWindow/State").toByteArray())
         self.splitterState = settings.value("SplitterSizes").toByteArray()
         self.pagesToDisplay = settings.value("PageView").toInt()[0]
+        self.snapToGuides = settings.value("SnapToGuides").toBool()
+        self.snapToItems = settings.value("SnapToItems").toBool()
     
     def saveSettings(self):
         settings = self.getSettingsFile()
@@ -599,6 +618,13 @@ class LicWindow(QMainWindow):
         settings.setValue("MainWindow/State", QVariant(self.saveState()))
         settings.setValue("SplitterSizes", QVariant(self.mainSplitter.saveState()))
         settings.setValue("PageView", QVariant(str(self.scene.pagesToDisplay)))
+        settings.setValue("SnapToGuides", QVariant(str(self.scene.snapToGuides)))
+        settings.setValue("SnapToItems", QVariant(str(self.scene.snapToItems)))
+        
+    def copySettingsToScene(self):
+        self.scene.setPagesToDisplay(self.pagesToDisplay)
+        self.scene.snapToGuides = self.snapToGuides
+        self.scene.snapToItems = self.snapToItems
         
     def createUndoSignals(self):
 
@@ -708,7 +734,7 @@ class LicWindow(QMainWindow):
                                 self.fileSaveTemplateAction, self.fileSaveTemplateAsAction, self.fileLoadTemplateAction, None,
                                 fileExitAction)
         
-        # Edit Menu - undo / redo is generated dynamicall in updateEditMenu()
+        # Edit Menu - undo / redo is generated dynamically in updateEditMenu()
         self.editMenu = menu.addMenu("&Edit")
         self.connect(self.editMenu, SIGNAL("aboutToShow()"), self.updateEditMenu)
 
@@ -722,8 +748,23 @@ class LicWindow(QMainWindow):
         self.redoAction.setEnabled(False)
         self.connect(self.undoStack, SIGNAL("canRedoChanged(bool)"), self.redoAction, SLOT("setEnabled(bool)"))
         
-        editActions = (self.undoAction, self.redoAction)
+        editActions = (self.undoAction, self.redoAction, None)
         self.addActions(self.editMenu, editActions)
+
+        # Snap menu (inside Edit Menu): Snap -> Snap to Guides & Snap to Items
+        guideSnapAction = self.createMenuAction("Guides", self.scene.changeSnapToGuides, None, "Snap To Guides")
+        guideSnapAction.setCheckable(True)
+        guideSnapAction.setChecked(self.scene.snapToGuides)
+        guideSnapAction.connect(guideSnapAction, SIGNAL("triggered()"), SLOT("setChecked(bool)"))
+        
+        itemSnapAction = self.createMenuAction("Items", self.scene.changeSnapToItems, None, "Snap To Items")
+        itemSnapAction.setCheckable(True)
+        itemSnapAction.setChecked(self.scene.snapToItems)
+        itemSnapAction.connect(itemSnapAction, SIGNAL("triggered()"), SLOT("setChecked(bool)"))
+        
+        snapMenu = self.editMenu.addMenu("Snap To")
+        snapMenu.addAction(guideSnapAction)
+        snapMenu.addAction(itemSnapAction)
 
         # View Menu
         self.viewMenu = menu.addMenu("&View")
@@ -739,7 +780,9 @@ class LicWindow(QMainWindow):
         twoPages = self.createMenuAction("Show Two Pages", self.scene.showTwoPages, None, "Show Two Pages")
         continuous = self.createMenuAction("Continuous", self.scene.continuous, None, "Continuous")
         continuousFacing = self.createMenuAction("Continuous Facing", self.scene.continuousFacing, None, "Continuous Facing")
-        self.addActions(self.viewMenu, (addHGuide, addVGuide, removeGuides, None, zoom100, zoomIn, zoomOut, onePage, twoPages, continuous, continuousFacing))
+        
+        viewActions = (addHGuide, addVGuide, removeGuides, None, zoom100, zoomIn, zoomOut, onePage, twoPages, continuous, continuousFacing)
+        self.addActions(self.viewMenu, viewActions)
 
         # Page Menu
         self.pageMenu = menu.addMenu("&Page")
@@ -885,7 +928,7 @@ class LicWindow(QMainWindow):
         self.importLDrawModel(filename)
         self.statusBar().showMessage("LDraw Model imported: " + filename)
         self.scene.selectPage(1)
-        self.scene.setPagesToDisplay(self.pagesToDisplay)
+        self.copySettingsToScene()
 
     def loadLicFile(self, filename = None):
         
@@ -907,7 +950,7 @@ class LicWindow(QMainWindow):
         self.filename = filename
         self.addRecentFile(filename)
         self.scene.selectPage(1)
-        self.scene.setPagesToDisplay(self.pagesToDisplay)
+        self.copySettingsToScene()
     
     def importLDrawModel(self, filename):
 
