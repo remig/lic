@@ -979,7 +979,8 @@ class Page(PageTreeManager, QGraphicsRectItem):
     def contextMenuEvent(self, event):
         
         menu = QMenu(self.scene().views()[0])
-        menu.addAction("Auto Layout", self.initLayout)
+        if not self.isLocked():
+            menu.addAction("Auto Layout", self.initLayout)
         menu.addAction("Check for Overlaps", self.checkForLayoutOverlaps)
         menu.addSeparator()
         menu.addAction("Prepend blank Page", self.addPageBeforeSignal)
@@ -992,10 +993,11 @@ class Page(PageTreeManager, QGraphicsRectItem):
                 menu.addAction("Show Step Separators", self.showSeparators)
         menu.addAction("Add blank Step", self.addBlankStepSignal)
         menu.addSeparator()
-        if self.layout.orientation == Layout.Horizontal:
-            menu.addAction("Use Vertical layout", self.useVerticalLayout)
-        else:
-            menu.addAction("Use Horizontal layout", self.useHorizontalLayout)
+        if not self.isLocked():
+            if self.layout.orientation == Layout.Horizontal:
+                menu.addAction("Use Vertical layout", self.useVerticalLayout)
+            else:
+                menu.addAction("Use Horizontal layout", self.useHorizontalLayout)
         menu.addAction("Delete Page", self.deletePageSignal)
         menu.exec_(event.screenPos())
     

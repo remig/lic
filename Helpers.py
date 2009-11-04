@@ -165,7 +165,7 @@ def genericMouseMoveEvent(className):
     
     def _tmp(self, event):
         className.mouseMoveEvent(self, event)
-        self.scene().snapToGuides(self)
+        self.scene().snap(self)
         #snapToGrid(self)
     return _tmp
     
@@ -175,12 +175,33 @@ def genericMouseReleaseEvent(className):
 
         if event.button() == Qt.RightButton:
             return
+        scene = self.scene()
         className.mouseReleaseEvent(self, event)
         if hasattr(self, 'oldPos') and self.pos() != self.oldPos:
-            self.scene().emit(SIGNAL("itemsMoved"), self.scene().selectedItems())
+            scene.emit(SIGNAL("itemsMoved"), scene.selectedItems())
+        scene.xSnapLine.hide()
+        scene.ySnapLine.hide()
 
     return _tmp
-                
+
+def genericGetCorners(self):
+    topLeft = self.mapToScene(self.mapFromParent(self.pos())) # pos is in item.parent coordinates
+    bottomRight = topLeft + QPointF(self.boundingRect().width(), self.boundingRect().height())
+    return topLeft, bottomRight
+
+def genericGetCornerList(self):
+    tl, br = self.getCorners()
+    return [tl.x(), tl.y(), br.x(), br.y()]
+
+# Make QPointF iterable: p[0] is p.x, p[1] is p.y.  Useful for unpacking x & y easily
+def pointIterator(self, index):
+    if key == 0:
+        return self.x()
+    if key == 1:
+        return self.y()
+    raise IndexError
+QPointF.__getItem__ = pointIterator
+
 def genericGetPage(self):
     return self.parentItem().getPage()
 
@@ -198,9 +219,13 @@ QGraphicsRectItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeI
 QGraphicsRectItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
 QGraphicsRectItem.getPage = genericGetPage
+QGraphicsRectItem.getCorners = genericGetCorners
+QGraphicsRectItem.getCornerList = genericGetCornerList
 
 QGraphicsSimpleTextItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
 QGraphicsSimpleTextItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)
 QGraphicsSimpleTextItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
 QGraphicsSimpleTextItem.getPage = genericGetPage
+QGraphicsSimpleTextItem.getCorners = genericGetCorners
+QGraphicsSimpleTextItem.getCornerList = genericGetCornerList

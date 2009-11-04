@@ -35,6 +35,19 @@ class LicGraphicsScene(QGraphicsScene):
         self.currentPage = None
         self.pages = []
         self.guides = []
+        self.xSnapLine = self.createSnapLine()
+        self.ySnapLine = self.createSnapLine()
+
+    def createSnapLine(self):
+        snapLine = QGraphicsLineItem()
+        pen = QPen(Qt.darkCyan)
+        pen.setWidth(2)
+        snapLine.setPen(pen)
+        snapLine.row = lambda: -1
+        snapLine.setZValue(10000)  # Put on top of everything else
+        snapLine.hide()
+        self.addItem(snapLine)
+        return snapLine
 
     def clearSelectedParts(self):
         partList = []
@@ -220,11 +233,10 @@ class LicGraphicsScene(QGraphicsScene):
 
     def addItem(self, item):
         QGraphicsScene.addItem(self, item)
-        if not isinstance(item, Page):
-            return
-        self.pages.append(item)
-        self.pages.sort(key = lambda x: x._number)
-        self.setPagesToDisplay(self.pagesToDisplay)
+        if isinstance(item, Page):
+            self.pages.append(item)
+            self.pages.sort(key = lambda x: x._number)
+            self.setPagesToDisplay(self.pagesToDisplay)
         
     def removeItem(self, item):
         QGraphicsScene.removeItem(self, item)
@@ -252,34 +264,107 @@ class LicGraphicsScene(QGraphicsScene):
     def addNewGuide(self, orientation):
         self.undoStack.push(LicUndoActions.AddRemoveGuideCommand(self, Guide(orientation), True))
 
-    def snapToGuides(self, item):
-        snapDistance = 30
-        dx = dy = nearestX = nearestY = 100.0
+    def snap(self, item):
+        snapDistance = 20
+        margin = 20
+
+        # Hide any existing snap guide lines
+        self.xSnapLine.hide()
+        self.ySnapLine.hide()
         
-        itemPt1 = item.mapToScene(item.mapFromParent(item.pos())) # pos is in item.parent coordinates
-        itemPt2 = itemPt1 + QPointF(item.boundingRect().width(), item.boundingRect().height())
-        
-        def snap(nearest, current, d1, d2):
-            i = d1 - d2
-            if abs(i) < nearest:
-                return abs(i), i
-            return nearest, current
+        # Build dict of all guides and page items and their [left, right, top, bottom] points
+        itemDict = {}
         
         for guide in self.guides:
             guidePt = guide.mapToScene(guide.line().p1())
+            itemDict[guide] = [guidePt.x(), guidePt.y()]
+
+        for pageItem in item.getPage().getAllChildItems():
+            if isinstance(pageItem, Step):
+                continue
+            if item.isAncestorOf(pageItem):
+                continue
+            if pageItem is item:
+                continue
+            itemDict[pageItem] = pageItem.getCornerList()
             
-            if guide.orientation == Layout.Vertical:
-                nearestX, dx = snap(nearestX, dx, guidePt.x(), itemPt1.x())
-                nearestX, dx = snap(nearestX, dx, guidePt.x(), itemPt2.x())
+            if isinstance(pageItem, Page):  # Bump page points inwards so we snap to margin, not outside edge
+                itemDict[pageItem][0] += margin
+                itemDict[pageItem][1] += margin
+                itemDict[pageItem][2] -= margin
+                itemDict[pageItem][3] -= margin
+
+        # Get top-left & bottom-right corners of target item
+        tl, br = item.getCorners()
+        
+        # Placeholders for current nearest corner & item
+        nearestX = dx = x = nearestY = dy = y = 100
+        newXItem = newYItem = None
+        
+        def snapEdge(targetEdge, itemEdge, nearest, dt, t, currentItem, newItem):
+            i = targetEdge - itemEdge
+            if abs(i) < nearest:
+                return abs(i), i, targetEdge, newItem
+            return nearest, dt, t, currentItem
+            
+        def snapX(targetEdge, itemEdge):
+            return snapEdge(targetEdge, itemEdge, nearestX, dx, x, newXItem, pageItem)
+
+        def snapY(targetEdge, itemEdge):
+            return snapEdge(targetEdge, itemEdge, nearestY, dy, y, newYItem, pageItem)
+
+        for pageItem, pts in itemDict.items():
+
+            if isinstance(pageItem, Guide):
+                left, top = pts
+                right, bottom = pts
             else:
-                nearestY, dy = snap(nearestY, dy, guidePt.y(), itemPt1.y())
-                nearestY, dy = snap(nearestY, dy, guidePt.y(), itemPt2.y())
+                left, top, right, bottom = pts
+
+            nearestX, dx, x, newXItem = snapX(left, tl.x())   # Compare left edges
+            nearestX, dx, x, newXItem = snapX(right, br.x())  # Compare right edges
+                
+            nearestY, dy, y, newYItem = snapY(top, tl.y())     # Compare top edges
+            nearestY, dy, y, newYItem = snapY(bottom, br.y())  # Compare bottom edges
             
+            if not isinstance(pageItem, Page):
+                
+                # Check if two items line up horizontally / vertically.  Snap with margin on opposite sides if so
+                if (top < tl.y() and bottom > br.y()) or (top > tl.y() and bottom < br.y()):
+                    nearestX, dx, x, newXItem = snapX(right + margin, tl.x())  # Snap item's left edge to right w. margin
+                    nearestX, dx, x, newXItem = snapX(left - margin, br.x())   # Snap item's right edge to left
+
+                if (left < tl.x() and right > br.x()) or (left > tl.x() and right < br.x()):
+                    nearestY, dy, y, newYItem = snapY(bottom + margin, tl.y()) # Snap item's bottom edge to top w. margin
+                    nearestY, dy, y, newYItem = snapY(top - margin, br.y())    # Snap item's top edge to bottom 
+
+        # Snap item into position
         if nearestX < snapDistance:
             item.moveBy(dx, 0)
         if nearestY < snapDistance:
             item.moveBy(0, dy)
 
+        tl, br = item.getCorners() # Get top-left & bottom-right corners of newly positioned item
+    
+        # Position a little snap guide line between item & snapped-to item
+        if nearestX < snapDistance:
+            if isinstance(newXItem, Guide):
+                top, bottom = tl.y() + 10, br.y() - 10
+            else:
+                left, top, right, bottom = itemDict[newXItem]  # Look up item points to snap to
+                
+            self.xSnapLine.setLine(x, min(top, tl.y()), x, max((bottom, br.y()))) # Position  snap guide line
+            self.xSnapLine.show()
+
+        if nearestY < snapDistance:
+            if isinstance(newYItem, Guide):
+                left, right = tl.x() + 10, br.x() - 10
+            else:
+                left, top, right, bottom = itemDict[newYItem]  # Look up item points to snap to
+                
+            self.ySnapLine.setLine(min(left, tl.x()), y, max((right, br.x())), y) # Position  snap guide line
+            self.ySnapLine.show()
+    
     def mouseReleaseEvent(self, event):
 
         # Need to compare the selection list before and after selection, to deselect any selected parts
@@ -986,7 +1071,7 @@ def main():
     filename = ""
     #filename = unicode("C:\\lic\\tardis.mpd")
     #filename = unicode("C:\\lic\\tardis.lic")
-    #filename = unicode("C:\\lic\\viper_wing.lic")
+    #filename = unicode("C:\\lic\\viper_wing.mpd")
     #filename = unicode("C:\\lic\\viper_short.lic")
     #filename = unicode("C:\\lic\\viper_short.mpd")
     #filename = unicode("C:\\lic\\viper.mpd")
@@ -1001,6 +1086,7 @@ def main():
     #filename = unicode("C:\\lic\\headlight_simple.dat")
     #filename = unicode("C:\\lic\\headlight.dat")
     #filename = unicode("C:\\lic\\displace.lic")
+    #filename = unicode("C:\\lic\\pyramid.lic")
     if filename:
         QTimer.singleShot(50, lambda: loadFile(window, filename))
 
