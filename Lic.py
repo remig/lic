@@ -9,7 +9,7 @@ from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
 
 from Model import *
-import LicTreeModel
+from LicTreeModel import LicTreeModel
 import LicBinaryReader
 import LicBinaryWriter
 import LicTemplate
@@ -541,6 +541,30 @@ class LicGraphicsView(QGraphicsView):
                 self.scene().scaleFactor = factor
                 self.scale(scaleFactor, scaleFactor)
 
+class LicTreeWidget(QWidget):
+    
+    def __init__(self, parent):
+        QWidget.__init__(self, parent)
+        
+        self.tree = LicTreeView(self)
+        
+        self.treeToolBar = QToolBar("Tree Toolbar", self)
+        self.treeToolBar.setStyleSheet("QToolBar { border: 0px; }");
+        self.treeToolBar.addAction("Hi")
+        self.treeToolBar.addAction("Bye")
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(2, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.treeToolBar)
+        layout.addWidget(self.tree)
+        self.setLayout(layout)
+    
+    def configureTree(self, scene, treeModel, selectionModel):
+        self.tree.scene = scene
+        self.tree.setModel(treeModel)
+        self.tree.setSelectionModel(selectionModel)
+
 class LicWindow(QMainWindow):
 
     def __init__(self, parent = None):
@@ -552,7 +576,7 @@ class LicWindow(QMainWindow):
         self.connect(self.undoStack, SIGNAL("cleanChanged(bool)"), lambda isClean: self.setWindowModified(not isClean))
 
         self.glWidget = QGLWidget(getGLFormat(), self)
-        self.treeView = LicTreeView(self)
+        self.treeWidget = LicTreeWidget(self)
 
         statusBar = self.statusBar()
         self.scene = LicGraphicsScene(self)
@@ -568,7 +592,7 @@ class LicWindow(QMainWindow):
         self.createUndoSignals()
 
         self.mainSplitter = QSplitter(Qt.Horizontal)
-        self.mainSplitter.addWidget(self.treeView)
+        self.mainSplitter.addWidget(self.treeWidget)
         self.mainSplitter.addWidget(self.graphicsView)
         self.mainSplitter.restoreState(self.splitterState)
         self.setCentralWidget(self.mainSplitter)
@@ -577,14 +601,12 @@ class LicWindow(QMainWindow):
         self.initToolBars()
 
         self.instructions = Instructions(self, self.scene, self.glWidget)
-        self.treeModel = LicTreeModel.LicTreeModel(self.treeView)
+        self.treeModel = LicTreeModel(self.treeWidget.tree)
         
-        self.treeView.scene = self.scene
-        self.treeView.setModel(self.treeModel)
         self.selectionModel = QItemSelectionModel(self.treeModel)  # MUST keep own reference to selection model here
-        self.treeView.setSelectionModel(self.selectionModel)
+        self.treeWidget.configureTree(self.scene, self.treeModel, self.selectionModel)
         
-        self.treeView.connect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateTreeSelection)
+        self.treeWidget.tree.connect(self.scene, SIGNAL("selectionChanged()"), self.treeWidget.tree.updateTreeSelection)
         self.scene.connect(self.scene, SIGNAL("selectionChanged()"), self.scene.selectionChanged)
 
         # Allow the graphics scene and instructions to emit the layoutAboutToBeChanged and layoutChanged 
@@ -881,7 +903,7 @@ class LicWindow(QMainWindow):
             self.saveSettings()
             
             # Need to explicitly disconnect these signals, because the scene emits a selectionChanged right before it's deleted
-            self.disconnect(self.scene, SIGNAL("selectionChanged()"), self.treeView.updateTreeSelection)
+            self.disconnect(self.scene, SIGNAL("selectionChanged()"), self.treeWidget.tree.updateTreeSelection)
             self.disconnect(self.scene, SIGNAL("selectionChanged()"), self.scene.selectionChanged)
             self.glWidget.doneCurrent()  # Avoid a crash when exiting
             event.accept()

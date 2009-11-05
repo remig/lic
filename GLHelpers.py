@@ -1,6 +1,9 @@
 import Image, ImageChops
 import os
 
+#import OpenGL
+#OpenGL.ERROR_CHECKING = False
+#OpenGL.ERROR_LOGGING = False
 from OpenGL.GL import *
 from OpenGL.GLU import *
 

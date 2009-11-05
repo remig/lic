@@ -165,7 +165,8 @@ def genericMouseMoveEvent(className):
     
     def _tmp(self, event):
         className.mouseMoveEvent(self, event)
-        self.scene().snap(self)
+        if (self.flags() & QGraphicsItem.ItemIsMovable) == QGraphicsItem.ItemIsMovable:
+            self.scene().snap(self)
         #snapToGrid(self)
     return _tmp
     
