@@ -3,6 +3,10 @@ import os     # for output path creation
 import time
 import Image
 
+#import OpenGL
+#OpenGL.ERROR_CHECKING = False
+#OpenGL.ERROR_LOGGING = False
+
 from OpenGL import GL
 from OpenGL import GLU
 
@@ -217,7 +221,8 @@ class Instructions(QObject):
         self.mainModel.importModel()
         
         self.mainModel.syncPageNumbers()
-        self.mainModel.addInitialPagesAndSteps()
+        if not self.mainModel.hasImportedSteps:
+            self.mainModel.addInitialPagesAndSteps()
         
         t1, partStepCount, t2 = self.getPartDimensionListAndCount() 
         pageList = self.getPageList()
@@ -2596,6 +2601,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
         self.instructions = instructions
         self.lineArray = lineArray
         self.used = False
+        self.hasImportedSteps = False
 
         self.pages = []
         self.submodels = []
@@ -2630,6 +2636,9 @@ class Submodel(SubmodelTreeManager, PartOGL):
         for line in self.lineArray[1:]:
             if isValidFileLine(line):
                 return
+            if isValidStepLine(line):
+                self.hasImportedSteps = True
+                newPage = self.appendBlankPage()
             if isValidPartLine(line):
                 self.addPartFromLine(lineToPart(line), line)
 
@@ -2800,10 +2809,12 @@ class Submodel(SubmodelTreeManager, PartOGL):
         else:
             row = 1 + max(self.pages[-1]._row if self.pages else 0, self.submodels[-1]._row if self.submodels else 0)
             
-        page = Page(self, self.instructions, -1, row)
+        pageNumber = self.pages[-1].number + 1 if self.pages else 1
+        page = Page(self, self.instructions, pageNumber, row)
         for p in self.pages[page._row : ]:
             p._row += 1
         self.pages.insert(page._row, page)
+        page.addBlankStep()
         return page
     
     def addPage(self, page):
@@ -2889,7 +2900,6 @@ class Submodel(SubmodelTreeManager, PartOGL):
         # First ensure we have a step in this submodel, so we can add the new part to it.
         if not self.pages:
             newPage = self.appendBlankPage()
-            newPage.addBlankStep()
 
         part = PartOGL.addPartFromLine(self, p, line)
         if not part:

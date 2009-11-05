@@ -72,7 +72,7 @@ class LicGraphicsScene(QGraphicsScene):
 
     def clear(self):
         QGraphicsScene.clear(self)
-        self.resetSettings()
+        self.reset()
 
     def drawForeground(self, painter, rect):
         GLHelpers.initFreshContext(False)
