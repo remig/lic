@@ -61,6 +61,11 @@ class LicTreeView(QTreeView):
         self.setAutoExpandDelay(400)
         self.scene = None
 
+    def setShowCSIPartGroupings(self, show):
+        self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        CSITreeManager.showPartGroupings = show
+        self.scene.emit(SIGNAL("layoutChanged()"))
+
     def keyPressEvent(self, event):
         
         key = event.key()

@@ -545,8 +545,27 @@ class LicTreeWidget(QWidget):
         
         self.treeToolBar = QToolBar("Tree Toolbar", self)
         self.treeToolBar.setStyleSheet("QToolBar { border: 0px; }");
-        self.treeToolBar.addAction("Hi")
-        self.treeToolBar.addAction("Bye")
+        self.treeToolBar.addAction("Expand (NYI)")
+        self.treeToolBar.addAction("Collapse (NYI)")
+
+        viewToolButton = QToolButton(self.treeToolBar)
+        #viewToolButton.setArrowType(Qt.DownArrow)
+        
+        viewMenu = QMenu(viewToolButton)
+        #viewMenu.addAction("Show All", self.tree.showAll)
+        
+        hideCSIPartGroupAction = QAction("Show CSI Part Groupings", viewMenu)
+        hideCSIPartGroupAction.setCheckable(True)
+        hideCSIPartGroupAction.setChecked(True)
+        hideCSIPartGroupAction.connect(hideCSIPartGroupAction, SIGNAL("toggled(bool)"), self.tree.setShowCSIPartGroupings)
+        viewMenu.addAction(hideCSIPartGroupAction)
+        
+        #viewMenu.addAction("Show Page | Step | Part", self.tree.showPageStepPart)
+        
+        viewToolButton.setMenu(viewMenu)
+        viewToolButton.setPopupMode(QToolButton.InstantPopup)
+        viewToolButton.setToolTip("Show / Hide")
+        self.treeToolBar.addWidget(viewToolButton)
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 0, 0, 0)

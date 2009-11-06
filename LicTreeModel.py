@@ -283,13 +283,17 @@ class PLITreeManager(BaseTreeManager):
 
 class CSITreeManager(BaseTreeManager):
 
+    showPartGroupings = True
+
     def child(self, row):
-        if row < 0 or row >= len(self.parts):
-            return None
-        return self.parts[row]
+        if self.showPartGroupings:
+            return self.parts[row]
+        return self.getPartList()[row]
 
     def rowCount(self):
-        return len(self.parts)
+        if self.showPartGroupings:
+            return len(self.parts)
+        return self.partCount()
 
 class SubmodelTreeManager(BaseTreeManager):
 
@@ -336,6 +340,11 @@ class PartTreeItemTreeManager(BaseTreeManager):
     def rowCount(self):
         return len(self.parts)
     
+    def checkParent(self):
+        if CSITreeManager.showPartGroupings:
+            return self
+        return self.parentItem()
+
     def data(self, index):
         if self._dataString:
             return self._dataString
@@ -344,8 +353,13 @@ class PartTreeItemTreeManager(BaseTreeManager):
         
 class PartTreeManager(BaseTreeManager):
 
+    def parent(self):
+        return self.parentItem().checkParent()
+
     def row(self):
-        return self.parentItem().parts.index(self)
+        if CSITreeManager.showPartGroupings:
+            return self.parentItem().parts.index(self)
+        return self.parentItem().parentItem().getPartList().index(self)
 
     def data(self, index):
         if self._dataString:
