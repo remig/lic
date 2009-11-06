@@ -54,11 +54,11 @@ class LicGraphicsScene(QGraphicsScene):
         self.addItem(snapLine)
         return snapLine
 
-    def changeSnapToGuides(self):
-        self.snapToGuides = not self.snapToGuides
+    def setSnapToGuides(self, snap):
+        self.snapToGuides = snap
 
-    def changeSnapToItems(self):
-        self.snapToItems = not self.snapToItems
+    def setSnapToItems(self, snap):
+        self.snapToItems = snap
 
     def clearSelectedParts(self):
         partList = []
@@ -95,6 +95,11 @@ class LicGraphicsScene(QGraphicsScene):
     def selectLastPage(self):
         self.selectPage(self.pages[-1]._number)
         self.currentPage.setSelected(True)
+
+    def selectCurrentPage(self):
+        if self.currentPage:
+            self.selectPage(self.currentPage._number)
+            self.currentPage.setSelected(True)
 
     def refreshView(self):
         self.setPagesToDisplay(self.pagesToDisplay)
@@ -145,9 +150,7 @@ class LicGraphicsScene(QGraphicsScene):
         for page in self.pages:
             page.hide()
             page.setPos(0.0, 0.0)
-        if self.currentPage:
-            self.selectPage(self.currentPage._number)
-            self.currentPage.setSelected(True)
+        self.selectCurrentPage()
     
     def showTwoPages(self):
         if len(self.pages) < 2:
@@ -172,10 +175,7 @@ class LicGraphicsScene(QGraphicsScene):
         p1.show()
         p2.setPos(Page.PageSize.width() + 20, 0)
         p2.show()
-
-        if self.currentPage:
-            self.selectPage(self.currentPage._number)
-            self.currentPage.setSelected(True)
+        self.selectCurrentPage()
 
     def continuous(self):
         self.pagesToDisplay = self.PageViewContinuous
@@ -191,10 +191,7 @@ class LicGraphicsScene(QGraphicsScene):
         for i, page in enumerate(self.pages):
             page.setPos(10, (10 * (i + 1)) + (ph * i))
             page.show()
-    
-        if self.currentPage:
-            self.selectPage(self.currentPage._number)
-            self.currentPage.setSelected(True)
+        self.selectCurrentPage()
 
     def continuousFacing(self):
         if len(self.pages) < 3:
@@ -222,11 +219,8 @@ class LicGraphicsScene(QGraphicsScene):
             y = (10 * ((i // 2) + 1)) + (ph * (i // 2))
             page.setPos(x, y)
             page.show()
+        self.selectCurrentPage()
 
-        if self.currentPage:
-            self.selectPage(self.currentPage._number)
-            self.currentPage.setSelected(True)
-    
     def getPagesToDisplay(self):
         return self.pagesToDisplay
     
@@ -264,13 +258,13 @@ class LicGraphicsScene(QGraphicsScene):
         self.undoStack.endMacro()
 
     def addGuide(self, orientation, pos):
-        guide = Guide(orientation)
+        guide = Guide(orientation, self.sceneRect())
         guide.setPos(pos)
         self.guides.append(guide)
         self.addItem(guide)
 
     def addNewGuide(self, orientation):
-        self.undoStack.push(LicUndoActions.AddRemoveGuideCommand(self, Guide(orientation), True))
+        self.undoStack.push(LicUndoActions.AddRemoveGuideCommand(self, Guide(orientation, self.sceneRect()), True))
 
     def snap(self, item):
         if not self.snapToGuides and not self.snapToItems:
@@ -487,7 +481,7 @@ class Guide(QGraphicsLineItem):
     
     extends = 500
     
-    def __init__(self, orientation):
+    def __init__(self, orientation, sceneRect):
         QGraphicsLineItem.__init__(self)
         
         self.orientation = orientation
@@ -497,13 +491,14 @@ class Guide(QGraphicsLineItem):
         self.row = lambda: -1
         self.setZValue(10000)  # Put on top of everything else
         
+        length = sceneRect.width() if orientation == Layout.Horizontal else sceneRect.height()
         pw, ph = Page.PageSize.width(), Page.PageSize.height()
         if orientation == Layout.Horizontal:
             self.setCursor(Qt.SplitVCursor)
-            self.setLine(-self.extends, ph / 2.0, pw + self.extends, ph / 2.0)
+            self.setLine(-self.extends, ph / 2.0, length + self.extends, ph / 2.0)
         else:
             self.setCursor(Qt.SplitHCursor)
-            self.setLine(pw / 2.0, -self.extends, pw / 2.0, ph + self.extends)
+            self.setLine(pw / 2.0, -self.extends, pw / 2.0, length + self.extends)
 
     def setLength(self, length):
         line = self.line()
@@ -605,7 +600,6 @@ class LicWindow(QMainWindow):
         
         self.selectionModel = QItemSelectionModel(self.treeModel)  # MUST keep own reference to selection model here
         self.treeWidget.configureTree(self.scene, self.treeModel, self.selectionModel)
-        
         self.treeWidget.tree.connect(self.scene, SIGNAL("selectionChanged()"), self.treeWidget.tree.updateTreeSelection)
         self.scene.connect(self.scene, SIGNAL("selectionChanged()"), self.scene.selectionChanged)
 
@@ -774,15 +768,13 @@ class LicWindow(QMainWindow):
         self.addActions(self.editMenu, editActions)
 
         # Snap menu (inside Edit Menu): Snap -> Snap to Guides & Snap to Items
-        guideSnapAction = self.createMenuAction("Guides", self.scene.changeSnapToGuides, None, "Snap To Guides")
+        guideSnapAction = self.createMenuAction("Guides", self.scene.setSnapToGuides, None, "Snap To Guides", "toggled(bool)")
         guideSnapAction.setCheckable(True)
         guideSnapAction.setChecked(self.scene.snapToGuides)
-        guideSnapAction.connect(guideSnapAction, SIGNAL("triggered()"), SLOT("setChecked(bool)"))
         
-        itemSnapAction = self.createMenuAction("Items", self.scene.changeSnapToItems, None, "Snap To Items")
+        itemSnapAction = self.createMenuAction("Items", self.scene.setSnapToItems, None, "Snap To Items", "toggled(bool)")
         itemSnapAction.setCheckable(True)
         itemSnapAction.setChecked(self.scene.snapToItems)
-        itemSnapAction.connect(itemSnapAction, SIGNAL("triggered()"), SLOT("setChecked(bool)"))
         
         snapMenu = self.editMenu.addMenu("Snap To")
         snapMenu.addAction(guideSnapAction)
@@ -972,7 +964,7 @@ class LicWindow(QMainWindow):
         self.filename = filename
         self.addRecentFile(filename)
         self.scene.selectPage(1)
-        self.copySettingsToScene()
+        self.scene.setPagesToDisplay(self.pagesToDisplay)
     
     def importLDrawModel(self, filename):
 

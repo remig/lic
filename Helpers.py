@@ -164,6 +164,8 @@ def snapToGrid(item):
 def genericMouseMoveEvent(className):
     
     def _tmp(self, event):
+        if event.buttons() == Qt.RightButton:
+            return
         className.mouseMoveEvent(self, event)
         if (self.flags() & QGraphicsItem.ItemIsMovable) == QGraphicsItem.ItemIsMovable:
             self.scene().snap(self)
