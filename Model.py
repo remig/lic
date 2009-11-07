@@ -66,6 +66,11 @@ class LicTreeView(QTreeView):
         CSITreeManager.showPartGroupings = show
         self.scene.emit(SIGNAL("layoutChanged()"))
 
+    def setShowCSI(self, show):
+        self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        StepTreeManager.showCSI = show
+        self.scene.emit(SIGNAL("layoutChanged()"))
+
     def keyPressEvent(self, event):
         
         key = event.key()
@@ -1904,7 +1909,6 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
         self.pliItems = []  # {(part filename, color): PLIItem instance}
 
         self.dataText = "PLI"  # String displayed in Tree - reimplement data(self, index) to override
-        self._row = 1
         
         self.setPos(0.0, 0.0)
         self.setFlags(AllFlags)
@@ -2039,7 +2043,6 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.setFlags(AllFlags)
         self.setPen(QPen(Qt.NoPen))
 
-        self._row = 0
         self.rotation = [0.0, 0.0, 0.0]
         self.scaling = 1.0
         

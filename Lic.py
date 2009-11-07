@@ -552,13 +552,17 @@ class LicTreeWidget(QWidget):
         #viewToolButton.setArrowType(Qt.DownArrow)
         
         viewMenu = QMenu(viewToolButton)
+
         #viewMenu.addAction("Show All", self.tree.showAll)
-        
-        hideCSIPartGroupAction = QAction("Show CSI Part Groupings", viewMenu)
-        hideCSIPartGroupAction.setCheckable(True)
-        hideCSIPartGroupAction.setChecked(True)
-        hideCSIPartGroupAction.connect(hideCSIPartGroupAction, SIGNAL("toggled(bool)"), self.tree.setShowCSIPartGroupings)
-        viewMenu.addAction(hideCSIPartGroupAction)
+        def addViewAction(title, slot):
+            action = QAction(title, viewMenu)
+            action.setCheckable(True)
+            action.setChecked(True)
+            action.connect(action, SIGNAL("toggled(bool)"), slot)
+            viewMenu.addAction(action)
+
+        addViewAction("Show CSI", self.tree.setShowCSI)
+        addViewAction("Show CSI Part Groupings", self.tree.setShowCSIPartGroupings)
         
         #viewMenu.addAction("Show Page | Step | Part", self.tree.showPageStepPart)
         

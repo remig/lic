@@ -146,11 +146,7 @@ class BaseTreeManager(object):
     def row(self):
         if hasattr(self, '_row'):
             return self._row
-        if hasattr(self, 'parentItem'):
-            parent = self.parentItem()
-            if hasattr(parent, 'getChildRow'):
-                return parent.getChildRow(self)
-        return 0
+        return self.parentItem().getChildRow(self)
 
 QGraphicsSimpleTextItem.__bases__ += (BaseTreeManager,)
 QGraphicsRectItem.__bases__ += (BaseTreeManager,)
@@ -219,9 +215,13 @@ class CalloutTreeManager(BaseTreeManager):
 
 class StepTreeManager(BaseTreeManager):
     
+    showCSI = True
+    
     def child(self, row):
-        if row == 0:
+        if row == 0 and self.showCSI:
             return self.csi
+        if not self.showCSI:
+            row += 1
         if row == 1:
             if self.hasPLI():
                 return self.pli
@@ -234,11 +234,17 @@ class StepTreeManager(BaseTreeManager):
         offset = row - 1 - (1 if self.hasPLI() else 0) - (1 if self.numberItem else 0)
         if offset < len(self.callouts):
                 return self.callouts[offset]
-
-        return None
+            
+        offset -= len(self.callouts)
+        
+        if self.showCSI:
+            return None
+        return self.csi.child(offset)
 
     def rowCount(self):
-        return 1 + (1 if self.hasPLI() else 0) + (1 if self.numberItem else 0) + len(self.callouts)
+        rows = (1 if self.hasPLI() else 0) + (1 if self.numberItem else 0) + len(self.callouts)
+        rows += 1 if StepTreeManager.showCSI else self.csi.rowCount()
+        return rows
 
     def data(self, index):
         return "Step %d" % self._number
@@ -246,12 +252,20 @@ class StepTreeManager(BaseTreeManager):
     def getChildRow(self, child):
         if child is self.csi:
             return 0
+        row = 0
+        if StepTreeManager.showCSI:
+            row += 1
         if child is self.pli:
-            return 1
+            return row
+        if self.hasPLI():
+            row += 1
         if child is self.numberItem:
-            return 2 if self.hasPLI() else 1
+            return row
+        if self.numberItem:
+            row += 1
         if child in self.callouts:
-            return self.callouts.index(child) + 1 + (1 if self.hasPLI() else 0) + (1 if self.numberItem else 0)
+            return self.callouts.index(child) + row
+        return row + len(self.callouts) + self.csi._subChildRow(child)
         
     def dragDropFlags(self):
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
@@ -285,13 +299,29 @@ class CSITreeManager(BaseTreeManager):
 
     showPartGroupings = True
 
+    def checkParent(self):
+        if StepTreeManager.showCSI:
+            return self
+        return self.parentItem()
+    
+    def _subChildRow(self, child):
+        if isinstance(child, PartTreeItemTreeManager):
+            return self.parts.index(child)
+        if isinstance(child, PartTreeManager):
+            return self.getPartList().index(child)
+        
+    def getChildRow(self, child):
+        if StepTreeManager.showCSI:
+            return self._subChildRow(child)
+        return self.parentItem().getChildRow(child)
+    
     def child(self, row):
-        if self.showPartGroupings:
+        if CSITreeManager.showPartGroupings:
             return self.parts[row]
         return self.getPartList()[row]
 
     def rowCount(self):
-        if self.showPartGroupings:
+        if CSITreeManager.showPartGroupings:
             return len(self.parts)
         return self.partCount()
 
@@ -334,16 +364,21 @@ class PartTreeItemTreeManager(BaseTreeManager):
             return None
         return self.parts[row]
 
-    def row(self):
-        return self.parentItem().parts.index(self)
-
+    def getChildRow(self, child):
+        if CSITreeManager.showPartGroupings:
+            return self.parts.index(child)
+        return self.parentItem().getChildRow(child)
+    
     def rowCount(self):
         return len(self.parts)
+    
+    def parent(self):
+        return self.parentItem().checkParent()
     
     def checkParent(self):
         if CSITreeManager.showPartGroupings:
             return self
-        return self.parentItem()
+        return self.parentItem().checkParent()
 
     def data(self, index):
         if self._dataString:
@@ -355,11 +390,6 @@ class PartTreeManager(BaseTreeManager):
 
     def parent(self):
         return self.parentItem().checkParent()
-
-    def row(self):
-        if CSITreeManager.showPartGroupings:
-            return self.parentItem().parts.index(self)
-        return self.parentItem().parentItem().getPartList().index(self)
 
     def data(self, index):
         if self._dataString:
