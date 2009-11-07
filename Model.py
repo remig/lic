@@ -61,15 +61,34 @@ class LicTreeView(QTreeView):
         self.setAutoExpandDelay(400)
         self.scene = None
 
-    def setShowCSIPartGroupings(self, show):
-        self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-        CSITreeManager.showPartGroupings = show
-        self.scene.emit(SIGNAL("layoutChanged()"))
+    def walkTreeModel(self, cmp, action):
+        
+        model = self.model()
+        
+        def traverse(index):
+            
+            if index.isValid() and cmp(index):
+                action(index)
+                 
+            for row in range(model.rowCount(index)):
+                if not index.isValid() and row == 0:
+                    continue  # Special case: skip the template page
+                traverse(model.index(row, 0, index))
+        
+        traverse(QModelIndex())
 
-    def setShowCSI(self, show):
-        self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-        StepTreeManager.showCSI = show
-        self.scene.emit(SIGNAL("layoutChanged()"))
+    def hideRowInstance(self, instanceType, hide):
+        # instanceType can be either concrete type like PLI or 
+        # itemClassString like "Page Number" (for specific QGraphicsSimpleTextItems) 
+
+        def cmp(index):
+            ptr = index.internalPointer()
+            if isinstance(instanceType, str):
+                return ptr.itemClassName == instanceType
+            return isinstance(ptr, instanceType)
+
+        action = lambda index: self.setRowHidden(index.row(), index.parent(), hide)
+        self.walkTreeModel(cmp, action)
 
     def keyPressEvent(self, event):
         
@@ -1780,6 +1799,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         # Initialize the quantity label (position set in initLayout)
         self.numberItem = QGraphicsSimpleTextItem("0x", self)
         self.numberItem.itemClassName = "PLIItem Quantity"
+        self.numberItem._row = 0
         self.numberItem.setFont(QFont("Arial", 10))
         self.numberItem.setFlags(AllFlags)        
         self.setQuantity(quantity)
@@ -2984,6 +3004,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
         self.pngImage = QImage(pngFile)
 
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
+    itemClassName = "Part Tree Item"
 
     def __init__(self, parent, name):
         QGraphicsRectItem.__init__(self, parent)

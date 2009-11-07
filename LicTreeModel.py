@@ -391,13 +391,21 @@ class PartTreeManager(BaseTreeManager):
     def parent(self):
         return self.parentItem().checkParent()
 
+    def resetDataString(self):  # Useful for reseting dataString inside a lambda
+        self._dataString = None
+
     def data(self, index):
         if self._dataString:
             return self._dataString
-        x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
+
         color = LDrawColors.getColorName(self.color)
-        self._dataString = "%s - (%.1f, %.1f, %.1f)" % (color, x, y, z)
-        #self._dataString = "%s - (%s)" % (color, self.getPartBoundingBox())
+        if CSITreeManager.showPartGroupings:
+            x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
+            self._dataString = "%s - (%.1f, %.1f, %.1f)" % (color, x, y, z)
+            #self._dataString = "%s - (%s)" % (color, self.getPartBoundingBox())
+        else:
+            self._dataString = "%s - %s" % (self.partOGL.name, color)
+
         return self._dataString
     
     def dragDropFlags(self):

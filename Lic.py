@@ -9,7 +9,7 @@ from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
 
 from Model import *
-from LicTreeModel import LicTreeModel
+import LicTreeModel
 import LicBinaryReader
 import LicBinaryWriter
 import LicTemplate
@@ -542,6 +542,7 @@ class LicTreeWidget(QWidget):
         QWidget.__init__(self, parent)
         
         self.tree = LicTreeView(self)
+        self.hiddenRowActions = []
         
         self.treeToolBar = QToolBar("Tree Toolbar", self)
         self.treeToolBar.setStyleSheet("QToolBar { border: 0px; }");
@@ -553,18 +554,30 @@ class LicTreeWidget(QWidget):
         
         viewMenu = QMenu(viewToolButton)
 
-        #viewMenu.addAction("Show All", self.tree.showAll)
-        def addViewAction(title, slot):
+        def addViewAction(title, slot, checked = True):
             action = QAction(title, viewMenu)
             action.setCheckable(True)
-            action.setChecked(True)
+            action.setChecked(checked)
             action.connect(action, SIGNAL("toggled(bool)"), slot)
+            action.action = slot
             viewMenu.addAction(action)
+            return action
 
-        addViewAction("Show CSI", self.tree.setShowCSI)
-        addViewAction("Show CSI Part Groupings", self.tree.setShowCSIPartGroupings)
+        #viewMenu.addAction("Show All", self.tree.showAll)
+        addViewAction("Show Page | Step | Part", self.setShowPageStepPart, False)
+        viewMenu.addSeparator()
+        addViewAction("Group Parts by type", self.setShowCSIPartGroupings)
+        viewMenu.addSeparator()
+
+        self.hiddenRowActions.append(addViewAction("Show Page Number", lambda show: self.tree.hideRowInstance("Page Number", not show)))
+        self.hiddenRowActions.append(addViewAction("Show Step Number", lambda show: self.tree.hideRowInstance("Step Number", not show)))
         
-        #viewMenu.addAction("Show Page | Step | Part", self.tree.showPageStepPart)
+        self.csiCheckAction = addViewAction("Show CSI", self.setShowCSI)  # Special case - stuff inside CSI needs to move into Step if CSI hidden
+        
+        self.hiddenRowActions.append(addViewAction("Show PLI", lambda show: self.tree.hideRowInstance(PLI, not show)))
+        self.hiddenRowActions.append(addViewAction("Show PLI Items", lambda show: self.tree.hideRowInstance(PLIItem, not show)))
+        self.hiddenRowActions.append(addViewAction("Show PLI Item Qty", lambda show: self.tree.hideRowInstance("PLIItem Quantity", not show)))
+        self.hiddenRowActions.append(addViewAction("Show Callouts", lambda show: self.tree.hideRowInstance(Callout, not show)))
         
         viewToolButton.setMenu(viewMenu)
         viewToolButton.setPopupMode(QToolButton.InstantPopup)
@@ -577,6 +590,35 @@ class LicTreeWidget(QWidget):
         layout.addWidget(self.treeToolBar)
         layout.addWidget(self.tree)
         self.setLayout(layout)
+    
+    def setShowPageStepPart(self, show):
+        self.csiCheckAction.setChecked(not show)
+        for action in self.hiddenRowActions:
+            action.setChecked(not show)
+    
+    def setShowCSIPartGroupings(self, show):
+        model = self.tree.model()
+        model.emit(SIGNAL("layoutAboutToBeChanged()"))
+        LicTreeModel.CSITreeManager.showPartGroupings = show
+        
+        # Need to reset all cached Part data strings 
+        cmp = lambda index: isinstance(index.internalPointer(), Part)
+        action = lambda index: index.internalPointer().resetDataString()
+        self.tree.walkTreeModel(cmp, action)
+        
+        model.emit(SIGNAL("layoutChanged()"))
+        self.resetHiddenRows()
+
+    def setShowCSI(self, show):
+        model = self.tree.model()
+        model.emit(SIGNAL("layoutAboutToBeChanged()"))
+        LicTreeModel.StepTreeManager.showCSI = show
+        model.emit(SIGNAL("layoutChanged()"))
+        self.resetHiddenRows()
+
+    def resetHiddenRows(self, ):
+        for action in self.hiddenRowActions:
+            action.action(action.isChecked())
     
     def configureTree(self, scene, treeModel, selectionModel):
         self.tree.scene = scene
@@ -619,7 +661,7 @@ class LicWindow(QMainWindow):
         self.initToolBars()
 
         self.instructions = Instructions(self, self.scene, self.glWidget)
-        self.treeModel = LicTreeModel(self.treeWidget.tree)
+        self.treeModel = LicTreeModel.LicTreeModel(self.treeWidget.tree)
         
         self.selectionModel = QItemSelectionModel(self.treeModel)  # MUST keep own reference to selection model here
         self.treeWidget.configureTree(self.scene, self.treeModel, self.selectionModel)
@@ -877,6 +919,7 @@ class LicWindow(QMainWindow):
             for i, filename in enumerate(recentFiles):
                 action = QAction("&%d %s" % (i+1, QFileInfo(filename).fileName()), self)
                 action.setData(QVariant(filename))
+                action.setStatusTip(filename)
                 self.connect(action, SIGNAL("triggered()"), self.loadLicFile)
                 self.fileMenu.addAction(action)
             
