@@ -545,12 +545,14 @@ class LicTreeWidget(QWidget):
         self.hiddenRowActions = []
         
         self.treeToolBar = QToolBar("Tree Toolbar", self)
-        self.treeToolBar.setStyleSheet("QToolBar { border: 0px; }");
-        self.treeToolBar.addAction("Expand (NYI)")
-        self.treeToolBar.addAction("Collapse (NYI)")
+        self.treeToolBar.setIconSize(QSize(15, 15))
+        self.treeToolBar.setStyleSheet("QToolBar { border: 0px; }")
+        self.treeToolBar.addAction(QIcon(":/expand"), "Expand", self.tree.expandOneLevel)
+        self.treeToolBar.addAction(QIcon(":/collapse"), "Collapse", self.tree.collapseAll)
 
         viewToolButton = QToolButton(self.treeToolBar)
-        #viewToolButton.setArrowType(Qt.DownArrow)
+        viewToolButton.setIcon(QIcon(":/down_arrow"))
+        viewToolButton.setStyleSheet("QToolButton::menu-indicator { image: url(:/blank) }")
         
         viewMenu = QMenu(viewToolButton)
 
@@ -587,7 +589,7 @@ class LicTreeWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addWidget(self.treeToolBar)
+        layout.addWidget(self.treeToolBar, 0, Qt.AlignRight)
         layout.addWidget(self.tree)
         self.setLayout(layout)
     

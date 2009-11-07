@@ -60,6 +60,7 @@ class LicTreeView(QTreeView):
         self.setDragEnabled(True)
         self.setAutoExpandDelay(400)
         self.scene = None
+        self.expandedDepth = 0
 
     def walkTreeModel(self, cmp, action):
         
@@ -89,6 +90,14 @@ class LicTreeView(QTreeView):
 
         action = lambda index: self.setRowHidden(index.row(), index.parent(), hide)
         self.walkTreeModel(cmp, action)
+
+    def collapseAll(self):
+        QTreeView.collapseAll(self)
+        self.expandedDepth = 0
+
+    def expandOneLevel(self):
+        self.expandToDepth(self.expandedDepth)
+        self.expandedDepth += 1
 
     def keyPressEvent(self, event):
         

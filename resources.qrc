@@ -4,5 +4,10 @@
   <file alias = "lock_close">images/lock_close.png</file>
   <file alias = "lock_grey_open">images/lock_grey_open.png</file>
   <file alias = "lock_grey_close">images/lock_grey_close.png</file>
+  
+  <file alias = "collapse">images/collapse.png</file>
+  <file alias = "expand">images/expand.png</file>
+  <file alias = "down_arrow">images/down_arrow.png</file>
+  <file alias = "blank">images/blank.png</file>
 </qresource>
 </RCC>
