@@ -157,11 +157,20 @@ class TemplatePage(Page):
                 break
         glContext.makeCurrent()
         
-    def applyFullTemplate(self):
+    def applyFullTemplate(self, useUndo = True):
         
         originalPage = self.instructions.mainModel.pages[0]
-        stack = self.scene().undoStack
-        stack.beginMacro("Load Template")
+        
+        if useUndo:
+            stack = self.scene().undoStack
+            stack.beginMacro("Apply Template")
+        else:
+            class NoOp():
+                def push(self, x):
+                    pass
+            
+            stack = NoOp()
+            
         stack.push(SetPageBackgroundColorCommand(self, originalPage.color, self.color))
         stack.push(SetPageBackgroundBrushCommand(self, originalPage.brush, self.brush))
         
@@ -178,7 +187,8 @@ class TemplatePage(Page):
             stack.push(SetPenCommand(self.submodelItem, originalPage.submodelItem.pen(), self.submodelItem.pen()))
             stack.push(SetBrushCommand(self.submodelItem, originalPage.submodelItem.brush(), self.submodelItem.brush()))
 
-        stack.endMacro()
+        if useUndo:
+            stack.endMacro()
 
     def applyDefaults(self):
         

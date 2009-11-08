@@ -592,7 +592,12 @@ class LicTreeWidget(QWidget):
         layout.addWidget(self.treeToolBar, 0, Qt.AlignRight)
         layout.addWidget(self.tree)
         self.setLayout(layout)
-    
+
+    def configureTree(self, scene, treeModel, selectionModel):
+        self.tree.scene = scene
+        self.tree.setModel(treeModel)
+        self.tree.setSelectionModel(selectionModel)
+
     def setShowPageStepPart(self, show):
         self.csiCheckAction.setChecked(not show)
         for action in self.hiddenRowActions:
@@ -621,11 +626,6 @@ class LicTreeWidget(QWidget):
     def resetHiddenRows(self, ):
         for action in self.hiddenRowActions:
             action.action(action.isChecked())
-    
-    def configureTree(self, scene, treeModel, selectionModel):
-        self.tree.scene = scene
-        self.tree.setModel(treeModel)
-        self.tree.setSelectionModel(selectionModel)
 
 class LicWindow(QMainWindow):
 
@@ -651,7 +651,8 @@ class LicWindow(QMainWindow):
         self.graphicsView.setScene(self.scene)
         self.scene.setSceneRect(0, 0, Page.PageSize.width(), Page.PageSize.height())
         
-        self.createUndoSignals()
+        # Connect the items moved signal to a push command on undo stack
+        self.connect(self.scene, SIGNAL("itemsMoved"), lambda x: self.undoStack.push(LicUndoActions.MoveCommand(x)))
 
         self.mainSplitter = QSplitter(Qt.Horizontal)
         self.mainSplitter.addWidget(self.treeWidget)
@@ -709,13 +710,6 @@ class LicWindow(QMainWindow):
         self.scene.snapToGuides = self.snapToGuides
         self.scene.snapToItems = self.snapToItems
         
-    def createUndoSignals(self):
-
-        signals = [("itemsMoved", LicUndoActions.MoveCommand)]
-
-        for signal, command in signals:
-            self.connect(self.scene, SIGNAL(signal), lambda x, c = command: self.undoStack.push(c(x)))
-
     def __getFilename(self):
         return self.__filename
     
@@ -735,15 +729,7 @@ class LicWindow(QMainWindow):
             enabled = False
 
         self.undoStack.setClean()
-        self.fileCloseAction.setEnabled(enabled)
-        self.fileSaveAction.setEnabled(enabled)
-        self.fileSaveAsAction.setEnabled(enabled)
-        self.fileSaveTemplateAction.setEnabled(enabled)
-        self.fileSaveTemplateAsAction.setEnabled(enabled)
-        self.fileLoadTemplateAction.setEnabled(enabled)
-        self.pageMenu.setEnabled(enabled)
-        self.viewMenu.setEnabled(enabled)
-        self.exportMenu.setEnabled(enabled)
+        self.enableMenus(enabled)
 
     filename = property(fget = __getFilename, fset = __setFilename)
             
@@ -862,7 +848,7 @@ class LicWindow(QMainWindow):
         continuous = self.createMenuAction("Continuous", self.scene.continuous, None, "Continuous")
         continuousFacing = self.createMenuAction("Continuous Facing", self.scene.continuousFacing, None, "Continuous Facing")
         
-        viewActions = (addHGuide, addVGuide, removeGuides, None, zoom100, zoomIn, zoomOut, onePage, twoPages, continuous, continuousFacing)
+        viewActions = (addHGuide, addVGuide, removeGuides, None, zoom100, zoomIn, zoomOut, None, onePage, twoPages, continuous, continuousFacing)
         self.addActions(self.viewMenu, viewActions)
 
         # Page Menu
@@ -1068,7 +1054,7 @@ class LicWindow(QMainWindow):
         #templatePage.createBlankTemplate(self.glWidget)
 
         self.treeModel.setTemplatePage(templatePage)
-        self.treeModel.templatePage.applyFullTemplate()
+        self.treeModel.templatePage.applyFullTemplate(False)
         self.treeModel.templatePage.applyDefaults()
         
         self.scene.emit(SIGNAL("layoutChanged()"))
@@ -1076,15 +1062,21 @@ class LicWindow(QMainWindow):
 
         config.config = self.initConfig(filename)
         self.statusBar().showMessage("Instruction book loaded")
-        self.fileCloseAction.setEnabled(True)
-        self.fileSaveAsAction.setEnabled(True)
-        self.fileSaveTemplateAsAction.setEnabled(True)
-        self.fileLoadTemplateAction.setEnabled(True)
-        self.editMenu.setEnabled(True)
-        self.pageMenu.setEnabled(True)
-        self.viewMenu.setEnabled(True)
-        self.exportMenu.setEnabled(True)
+        self.enableMenus(True)
 
+    def enableMenus(self, enabled):
+        self.fileCloseAction.setEnabled(enabled)
+        self.fileSaveAction.setEnabled(enabled)
+        self.fileSaveAsAction.setEnabled(enabled)
+        self.fileSaveTemplateAction.setEnabled(enabled)
+        self.fileSaveTemplateAsAction.setEnabled(enabled)
+        self.fileLoadTemplateAction.setEnabled(enabled)
+        self.editMenu.setEnabled(enabled)
+        self.pageMenu.setEnabled(enabled)
+        self.viewMenu.setEnabled(enabled)
+        self.exportMenu.setEnabled(enabled)
+        self.treeWidget.treeToolBar.setEnabled(enabled)
+        
     def fileSaveAs(self):
         if self.filename:
             f = self.filename
