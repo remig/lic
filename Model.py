@@ -55,7 +55,7 @@ class LicTreeView(QTreeView):
     def __init__(self, parent):
         QTreeView.__init__(self, parent)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.connect(self, SIGNAL("clicked(QModelIndex)"), self.clicked)
+        self.connect(self, SIGNAL("pressed(QModelIndex)"), self.clicked)
         self.setAcceptDrops(True)
         self.setDragEnabled(True)
         self.setAutoExpandDelay(400)
@@ -127,28 +127,23 @@ class LicTreeView(QTreeView):
                 self.scrollTo(index)
 
     def clicked(self, index = None):
-    #def mouseReleaseEvent(self, event):
 
-        #if event.button() == Qt.RightButton:
-        if index is None or index.internalPointer() is None:
-            return
-
-        # Get a list of everything selected in the tree
+        if QApplication.mouseButtons() == Qt.RightButton:
+            return  # Ignore right clicks - they're passed on to selected item for their context menu
+        
         selList = self.selectionModel().selectedIndexes()
-        #if not selList:
-        #    return
-        #index = selList[-1]
+        internalPtr = index.internalPointer()
 
         # Clear any existing selection from the graphics view
         self.scene.clearSelectedParts()
         self.scene.clearSelection()
 
         # Find the selected item's parent page, then flip to that page
-        if isinstance(index.internalPointer(), Submodel):
-            self.scene.selectPage(index.internalPointer().pages[0].number)
+        if isinstance(internalPtr, Submodel):
+            self.scene.selectPage(internalPtr.pages[0].number)
             self.scrollTo(index.child(0, 0))
         else:
-            page = index.internalPointer().getPage()
+            page = internalPtr.getPage()
             self.scene.selectPage(page._number)
 
         # Finally, select the things we actually clicked on
@@ -160,7 +155,7 @@ class LicTreeView(QTreeView):
             else:
                 item.setSelected(True)
                 
-        # Optimization: don't just select each parts, because selecting a part forces it's CSI to redraw.
+        # Optimization: don't just select each parts, because selecting a part forces its CSI to redraw.
         # Instead, only redraw the CSI once, on the last part update
         if partList:
             for part in partList[:-1]:

@@ -390,6 +390,8 @@ class LicGraphicsScene(QGraphicsScene):
             if not part in selItems:
                 part.setSelected(False)
 
+        self.emit(SIGNAL("sceneClick"))
+        
     def mousePressEvent(self, event):
         
         # Need to compare the selection list before and after selection, to deselect any selected parts
@@ -397,7 +399,7 @@ class LicGraphicsScene(QGraphicsScene):
         for item in self.selectedItems():
             if isinstance(item, Part):
                 parts.append(item)
-        
+
         QGraphicsScene.mousePressEvent(self, event)
 
         selItems = self.selectedItems()
@@ -668,7 +670,7 @@ class LicWindow(QMainWindow):
         
         self.selectionModel = QItemSelectionModel(self.treeModel)  # MUST keep own reference to selection model here
         self.treeWidget.configureTree(self.scene, self.treeModel, self.selectionModel)
-        self.treeWidget.tree.connect(self.scene, SIGNAL("selectionChanged()"), self.treeWidget.tree.updateTreeSelection)
+        self.treeWidget.tree.connect(self.scene, SIGNAL("sceneClick"), self.treeWidget.tree.updateTreeSelection)
         self.scene.connect(self.scene, SIGNAL("selectionChanged()"), self.scene.selectionChanged)
 
         # Allow the graphics scene and instructions to emit the layoutAboutToBeChanged and layoutChanged 
@@ -948,8 +950,7 @@ class LicWindow(QMainWindow):
         if self.offerSave():
             self.saveSettings()
             
-            # Need to explicitly disconnect these signals, because the scene emits a selectionChanged right before it's deleted
-            self.disconnect(self.scene, SIGNAL("selectionChanged()"), self.treeWidget.tree.updateTreeSelection)
+            # Need to explicitly disconnect this signal, because the scene emits a selectionChanged right before it's deleted
             self.disconnect(self.scene, SIGNAL("selectionChanged()"), self.scene.selectionChanged)
             self.glWidget.doneCurrent()  # Avoid a crash when exiting
             event.accept()
