@@ -28,8 +28,6 @@ import LDrawColors
 import Helpers
 import Layout
 import LicDialogs
-import GradientDialog
-import resources
 
 from LDrawFileFormat import *
 
@@ -111,7 +109,7 @@ class LicTreeView(QTreeView):
             self.clicked(self.currentIndex())
     
     def updateTreeSelection(self):
-        """ This is called whenever the graphics scene's selection changes """
+        """ This is called whenever the graphics scene is clicked """
         
         # Deselect everything in the tree
         model = self.model()
@@ -1424,6 +1422,9 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             menu.addAction("Hide Step numbers", lambda: stack.push(ToggleStepNumbersCommand(self, False)))
         else:
             menu.addAction("Show Step numbers", lambda: stack.push(ToggleStepNumbersCommand(self, True)))
+
+        menu.addSeparator()
+        menu.addAction("Convert To Submodel", lambda: stack.push(CalloutToSubmodelCommand(self)))
         menu.exec_(event.screenPos())
 
     def setQuantitySignal(self):
@@ -1432,7 +1433,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
                                            0, 999, 1, Qt.CustomizeWindowHint | Qt.WindowTitleHint)
         if ok:
             self.scene().undoStack.push(ChangeCalloutQtyCommand(self, qty))
-    
+
 class Step(StepTreeManager, QGraphicsRectItem):
     """ A single step in an Instruction book.  Contains one optional PLI and exactly one CSI. """
     itemClassName = "Step"
@@ -2076,7 +2077,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         
         self.parts = []
         self.arrows = []
-        self.isDirty = False
+        self.isDirty = True
 
     def getPartList(self):
         partList = []
@@ -3022,53 +3023,11 @@ class Submodel(SubmodelTreeManager, PartOGL):
     def contextMenuEvent(self, event):
 
         menu = QMenu()
-        menu.addAction("Change Submodel to Callout", self.convertToCallout)
+        menu.addAction("Change Submodel to Callout", self.convertToCalloutSignal)
         menu.exec_(event.screenPos())
         
-    def convertToCallout(self):
-        
-        targetStep = self.parent().findSubmodelStep(self)
-        targetCallout = targetStep.addBlankCalloutSignal()
-        scene = targetStep.scene()
-        parentModel = self._parent
-        
-        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-        scene.undoStack.beginMacro("Change Submodel to Callout")
-
-        # Find each instance of this submodel on the target page
-        submodelInstanceList = []
-        for part in targetStep.csi.getPartList():
-            if part.partOGL == self:
-                targetStep.removePart(part)
-                submodelInstanceList.append(part)
-
-        calloutDone = False
-        for submodelPart in submodelInstanceList:
-            # Copy each part in this submodel to the new callout
-            for page in self.pages:
-                for step in page.steps:
-    
-                    newPartList = []
-                    for part in step.csi.getPartList():
-                        newPart = part.duplicate()
-                        newPart.matrix = Helpers.multiplyMatrices(newPart.matrix, submodelPart.matrix)
-                        newPartList.append(newPart)
-    
-                    scene.undoStack.push(MovePartsToStepCommand(newPartList, targetStep))
-                    
-                    if not calloutDone:
-                        scene.undoStack.push(AddPartsToCalloutCommand(targetCallout, [p.duplicate() for p in newPartList]))
-                        if step != page.steps[-1]:
-                            targetCallout.addBlankStep()
-                        
-            calloutDone = True
-        
-        targetCallout.setQuantity(len(submodelInstanceList))
-                    
-        scene.undoStack.endMacro()
-        parentModel.removeSubmodel(self)
-        scene.selectPage(targetStep.parentItem().number)
-        scene.emit(SIGNAL("layoutChanged()"))
+    def convertToCalloutSignal(self):
+        self.pages[0].scene().undoStack.push(SubmodelToCalloutCommand(self))
         
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
     itemClassName = "Part Tree Item"
