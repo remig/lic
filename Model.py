@@ -28,6 +28,7 @@ import LDrawColors
 import Helpers
 import Layout
 import LicDialogs
+import resources  # Needed for ":/resource" type paths to work
 
 from LDrawFileFormat import *
 
@@ -1669,11 +1670,14 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         menu.exec_(event.screenPos())
 
-    def addBlankCalloutSignal(self):
+    def addBlankCalloutSignal(self, useSignal = True):
         number = self.callouts[-1].number + 1 if self.callouts else 1
         callout = Callout(self, number)
         callout.addBlankStep(False)
-        self.scene().undoStack.push(AddRemoveCalloutCommand(callout, True))
+        if useSignal:
+            self.scene().undoStack.push(AddRemoveCalloutCommand(callout, True))
+        else:
+            self.addCallout(callout)
         return callout
     
     def moveToPrevPage(self):
@@ -2816,6 +2820,23 @@ class Submodel(SubmodelTreeManager, PartOGL):
             page._row -= 1
         for s in [p for p in self.submodels if p._row > row]:
             s._row -= 1
+    
+    def addSubmodel(self, submodel):
+        # Assume Submodel already exists as a Part on an appropriate Step
+
+        step = self.findSubmodelStep(submodel)
+        
+        if step is None:  # Submodel doesn't live here - try existing submodels
+            for model in self.submodels:
+                model.addSubmodel(submodel)
+        else:
+            submodel._parent = self
+            submodel._row = self.rowCount()
+            self.submodels.append(submodel)
+            self.reOrderSubmodelPages()
+            self.instructions.mainModel.syncPageNumbers()
+            for page in submodel.pages:
+                self.instructions.scene.addItem(page)
     
     def removeSubmodel(self, submodel):
         self.removeRow(submodel._row)

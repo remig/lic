@@ -591,61 +591,88 @@ class SubmodelToCalloutCommand(QUndoCommand):
     _id = getNewCommandID()
     
     def __init__(self, submodel):
-        QUndoCommand.__init__(self, "Change Submodel To Callout")
+        QUndoCommand.__init__(self, "Submodel To Callout")
         self.submodel = submodel
+        self.parentModel = submodel._parent
+        self.targetStep = submodel._parent.findSubmodelStep(submodel)
         
     def redo(self):
+        # Convert a Submodel into a Callout
 
-        targetStep = self.submodel._parent.findSubmodelStep(self.submodel)
-        targetCallout = targetStep.addBlankCalloutSignal()
-        scene = targetStep.scene()
-        
+        scene = self.targetStep.scene()
+        scene.clearSelection()
         scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        
+        self.targetCallout = self.targetStep.addBlankCalloutSignal(False)
 
         # Find each instance of this submodel on the target page
-        submodelInstanceList = []
-        for part in targetStep.csi.getPartList():
+        self.submodelInstanceList = []
+        self.addedParts = []
+        for part in self.targetStep.csi.getPartList():
             if part.partOGL == self.submodel:
-                targetStep.removePart(part)
-                submodelInstanceList.append(part)
+                self.targetStep.removePart(part)
+                self.submodelInstanceList.append(part)
 
         calloutDone = False
-        for submodelPart in submodelInstanceList:
+        for submodelPart in self.submodelInstanceList:
             for page in self.submodel.pages:
                 for step in page.steps:
-    
+
+                    if step != page.steps[-1] and not calloutDone:
+                        self.targetCallout.addBlankStep(False)
+                        
                     for part in step.csi.getPartList():
                         newPart = part.duplicate()
                         newPart.matrix = Helpers.multiplyMatrices(newPart.matrix, submodelPart.matrix)
+                        self.addedParts.append(newPart)
                         
-                        targetStep.addPart(newPart)
+                        self.targetStep.addPart(newPart)
                         if not calloutDone:
-                            targetCallout.addPart(part)
+                            self.targetCallout.addPart(newPart.duplicate())
                             
-                    if step != page.steps[-1] and not calloutDone:
-                        targetCallout.addBlankStep(False)
-                        
             calloutDone = True
         
-        if len(submodelInstanceList) > 1:
-            targetCallout.setQuantity(len(submodelInstanceList))
-        targetCallout.initLayout()
-        targetStep.initLayout()
+        if len(self.submodelInstanceList) > 1:
+            self.targetCallout.setQuantity(len(self.submodelInstanceList))
+        self.targetCallout.initLayout()
+        self.targetStep.initLayout()
                     
-        self.submodel._parent.removeSubmodel(self.submodel)
-        scene.selectPage(targetStep.parentItem().number)
-        targetStep.parentItem().setSelected(True)
+        self.parentModel.removeSubmodel(self.submodel)
+        
+        scene.selectPage(self.targetStep.parentItem().number)
+        self.targetStep.parentItem().setSelected(True)
         scene.emit(SIGNAL("layoutChanged()"))
         scene.emit(SIGNAL("sceneClick"))
         
     def undo(self):
-        print "Converting Callout To Submodel"
+        # Convert a Callout into a Submodel
+        # For now, assume this really is an undo, and we have a fully defined self.submodel, targetStep and targetCallout 
+        
+        scene = self.targetStep.scene()
+        scene.clearSelection()
+        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        
+        for part in self.addedParts:
+            self.targetStep.removePart(part)
+
+        for submodel in self.submodelInstanceList:
+            self.targetStep.addPart(submodel)
+
+        self.parentModel.addSubmodel(self.submodel)
+        
+        self.targetStep.removeCallout(self.targetCallout)
+        self.targetStep.initLayout()
+
+        scene.selectPage(self.submodel.pages[0].number)
+        self.submodel.pages[0].setSelected(True)
+        scene.emit(SIGNAL("layoutChanged()"))
+        scene.emit(SIGNAL("sceneClick"))
 
 class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
 
     _id = getNewCommandID()
     
     def __init__(self, submodel):
-        QUndoCommand.__init__(self, "Change Callout To Submodel")
+        QUndoCommand.__init__(self, "Callout To Submodel")
         self.submodel = submodel
         self.undo, self.redo = self.redo, self.undo
