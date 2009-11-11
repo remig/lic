@@ -594,11 +594,11 @@ class SubmodelToCalloutCommand(QUndoCommand):
         QUndoCommand.__init__(self, "Submodel To Callout")
         self.submodel = submodel
         self.parentModel = submodel._parent
-        self.targetStep = submodel._parent.findSubmodelStep(submodel)
         
     def redo(self):
         # Convert a Submodel into a Callout
 
+        self.targetStep = self.parentModel.findSubmodelStep(self.submodel)
         scene = self.targetStep.scene()
         scene.clearSelection()
         scene.emit(SIGNAL("layoutAboutToBeChanged()"))
@@ -617,10 +617,6 @@ class SubmodelToCalloutCommand(QUndoCommand):
         for submodelPart in self.submodelInstanceList:
             for page in self.submodel.pages:
                 for step in page.steps:
-
-                    if step != page.steps[-1] and not calloutDone:
-                        self.targetCallout.addBlankStep(False)
-                        
                     for part in step.csi.getPartList():
                         newPart = part.duplicate()
                         newPart.matrix = Helpers.multiplyMatrices(newPart.matrix, submodelPart.matrix)
@@ -629,6 +625,9 @@ class SubmodelToCalloutCommand(QUndoCommand):
                         self.targetStep.addPart(newPart)
                         if not calloutDone:
                             self.targetCallout.addPart(newPart.duplicate())
+
+                    if step != page.steps[-1] and not calloutDone:
+                        self.targetCallout.addBlankStep(False)
                             
             calloutDone = True
         
@@ -637,11 +636,11 @@ class SubmodelToCalloutCommand(QUndoCommand):
         self.targetCallout.initLayout()
         self.targetStep.initLayout()
                     
-        self.parentModel.removeSubmodel(self.submodel)
-        
+        self.parentModel.removeSubmodel(self.submodel)        
+        scene.emit(SIGNAL("layoutChanged()"))
+
         scene.selectPage(self.targetStep.parentItem().number)
         self.targetStep.parentItem().setSelected(True)
-        scene.emit(SIGNAL("layoutChanged()"))
         scene.emit(SIGNAL("sceneClick"))
         
     def undo(self):
@@ -672,7 +671,14 @@ class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
 
     _id = getNewCommandID()
     
-    def __init__(self, submodel):
+    def __init__(self, callout):
         QUndoCommand.__init__(self, "Callout To Submodel")
-        self.submodel = submodel
-        self.undo, self.redo = self.redo, self.undo
+        self.targetCallout = targetCallout
+        
+    def redo(self):
+        self.targetStep = self.targetCallout.parentItem()
+        
+        self.addedParts = []
+    
+    def undo(self):
+        pass

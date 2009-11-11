@@ -2106,7 +2106,6 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
          
         if self.isDirty:
             self.resetPixmap()
-            self.getPage().initLayout()
             self.isDirty = False
          
         GLHelpers.pushAllGLMatrices()
