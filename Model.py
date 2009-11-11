@@ -141,7 +141,6 @@ class LicTreeView(QTreeView):
         # Find the selected item's parent page, then flip to that page
         if isinstance(internalPtr, Submodel):
             self.scene.selectPage(internalPtr.pages[0].number)
-            self.scrollTo(index.child(0, 0))
         else:
             page = internalPtr.getPage()
             self.scene.selectPage(page._number)
@@ -826,6 +825,8 @@ class Page(PageTreeManager, QGraphicsRectItem):
         return s
 
     def removeAllSeparators(self):
+        if not self.separators:
+            return
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         for separator in self.separators:
             self.children.remove(separator)
@@ -1400,6 +1401,8 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         return int(self.qtyLabel.text()[:-1])
 
     def setQuantity(self, qty):
+        if self.qtyLabel is None:
+            self.addQuantityLabel()
         self.qtyLabel.setText("%dx" % qty)
         self.positionQtyLabel()
 
@@ -1670,6 +1673,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
         callout = Callout(self, number)
         callout.addBlankStep(False)
         self.scene().undoStack.push(AddRemoveCalloutCommand(callout, True))
+        return callout
     
     def moveToPrevPage(self):
         stepSet = []
@@ -2127,7 +2131,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         for p in self.parts:
             p.removePart(part)
 
-        for p in [x for x in self.parts if not x.parts]:
+        for p in [x for x in self.parts if not x.parts]:  # Delete empty part item groups
             self.parts.remove(p)
 
     def addArrow(self, arrow):
@@ -2791,7 +2795,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
             submodel.reOrderSubmodelPages()
             
         for submodel in self.submodels:
-            page = self.findSubmodelPage(submodel)
+            page = self.findSubmodelStep(submodel).getPage()
             if page is None or submodel._row == page._row - 1:
                 continue  # submodel not used or in right spot
             
@@ -2812,11 +2816,19 @@ class Submodel(SubmodelTreeManager, PartOGL):
         for s in [p for p in self.submodels if p._row > row]:
             s._row -= 1
     
-    def findSubmodelPage(self, submodel):
+    def removeSubmodel(self, submodel):
+        self.removeRow(submodel._row)
+        self.submodels.remove(submodel)
+        for page in submodel.pages:
+            page.scene().removeItem(page)
+        self.instructions.mainModel.syncPageNumbers()
+        submodel._parent = None
+
+    def findSubmodelStep(self, submodel):
         for page in self.pages:
             for step in page.steps:
                 if submodel in [part.partOGL for part in step.csi.getPartList()]:
-                    return page
+                    return step
         return None
      
     def syncPageNumbers(self, firstPageNumber = 1):
@@ -3007,6 +3019,57 @@ class Submodel(SubmodelTreeManager, PartOGL):
         pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, PLI.defaultScale, PLI.defaultRotation)
         self.pngImage = QImage(pngFile)
 
+    def contextMenuEvent(self, event):
+
+        menu = QMenu()
+        menu.addAction("Change Submodel to Callout", self.convertToCallout)
+        menu.exec_(event.screenPos())
+        
+    def convertToCallout(self):
+        
+        targetStep = self.parent().findSubmodelStep(self)
+        targetCallout = targetStep.addBlankCalloutSignal()
+        scene = targetStep.scene()
+        parentModel = self._parent
+        
+        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        scene.undoStack.beginMacro("Change Submodel to Callout")
+
+        # Find each instance of this submodel on the target page
+        submodelInstanceList = []
+        for part in targetStep.csi.getPartList():
+            if part.partOGL == self:
+                targetStep.removePart(part)
+                submodelInstanceList.append(part)
+
+        calloutDone = False
+        for submodelPart in submodelInstanceList:
+            # Copy each part in this submodel to the new callout
+            for page in self.pages:
+                for step in page.steps:
+    
+                    newPartList = []
+                    for part in step.csi.getPartList():
+                        newPart = part.duplicate()
+                        newPart.matrix = Helpers.multiplyMatrices(newPart.matrix, submodelPart.matrix)
+                        newPartList.append(newPart)
+    
+                    scene.undoStack.push(MovePartsToStepCommand(newPartList, targetStep))
+                    
+                    if not calloutDone:
+                        scene.undoStack.push(AddPartsToCalloutCommand(targetCallout, [p.duplicate() for p in newPartList]))
+                        if step != page.steps[-1]:
+                            targetCallout.addBlankStep()
+                        
+            calloutDone = True
+        
+        targetCallout.setQuantity(len(submodelInstanceList))
+                    
+        scene.undoStack.endMacro()
+        parentModel.removeSubmodel(self)
+        scene.selectPage(targetStep.parentItem().number)
+        scene.emit(SIGNAL("layoutChanged()"))
+        
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
     itemClassName = "Part Tree Item"
 
@@ -3298,8 +3361,8 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def createCalloutSignal(self):
         self.scene().undoStack.beginMacro("Create new Callout from Parts")
         step = self.getStep()
-        step.addBlankCalloutSignal()
-        self.moveToCalloutSignal(step.callouts[-1])
+        callout = step.addBlankCalloutSignal()
+        self.moveToCalloutSignal(callout)
         step.initLayout()
         self.scene().undoStack.endMacro()
         

@@ -15,6 +15,26 @@ def determinant3x3(m):
     d3 = m[0][2] * ((m[1][0] * m[2][1]) - (m[1][1] * m[2][0]))
     return d1 - d2 + d3
 
+def multiplyMatrices(matrix1, matrix2):
+    # m1 & m2 must be in the form [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    # ie, matrix list straigth from a Part
+    m1 = listToMatrix(matrix1)
+    m2 = listToMatrix(matrix2)
+    m = [[0]*4, [0]*4, [0]*4, [0]*4]
+    
+    for i in range(4):
+        for j in range(4):
+            for k in range(4):
+                m[i][j] += m1[i][k] * m2[k][j]
+        
+    return matrixToList(m)
+
+def listToMatrix(l):
+    return [l[0:4], l[4:8], l[8:12], l[12:16]]
+
+def matrixToList(m):
+    return m[0] + m[1] + m[2] + m[3]
+
 def GLMatrixToXYZ(matrix):
     return [matrix[12], matrix[13], matrix[14]]
 
