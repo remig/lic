@@ -16,7 +16,7 @@ class LicTreeModel(QAbstractItemModel):
         self.root.incrementRows(1)
     
     def data(self, index, role = Qt.DisplayRole):
-        if role != Qt.DisplayRole:
+        if role != Qt.DisplayRole or not index.isValid():
             return QVariant()
 
         item = index.internalPointer()
@@ -100,7 +100,7 @@ class LicTreeModel(QAbstractItemModel):
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable
 
     def index(self, row, column, parent):
-        if row < 0 or column < 0:
+        if row < 0 or column != 0:
             return QModelIndex()
         
         if not parent.isValid() and self.templatePage and row == 0:
@@ -135,6 +135,10 @@ class LicTreeModel(QAbstractItemModel):
     def headerData(self, section, orientation, role = Qt.DisplayRole):
         return QVariant("Instruction Book")
 
+    def clearPersistentIndices(self):
+        for index in self.persistentIndexList():
+            self.changePersistentIndex(index, QModelIndex())
+
 class BaseTreeManager(object):
     
     def parent(self):
@@ -167,9 +171,6 @@ class PageTreeManager(BaseTreeManager):
     def setRow(self, row):
         self._row = row
         
-    def row(self):
-        return self._row
-
     def getChildRow(self, child):
         return self.children.index(child)
     
@@ -218,9 +219,9 @@ class StepTreeManager(BaseTreeManager):
     showCSI = True
     
     def child(self, row):
-        if row == 0 and self.showCSI:
+        if row == 0 and StepTreeManager.showCSI:
             return self.csi
-        if not self.showCSI:
+        if not StepTreeManager.showCSI:
             row += 1
         if row == 1:
             if self.hasPLI():
@@ -237,7 +238,7 @@ class StepTreeManager(BaseTreeManager):
             
         offset -= len(self.callouts)
         
-        if self.showCSI:
+        if StepTreeManager.showCSI:
             return None
         return self.csi.child(offset)
 
@@ -299,11 +300,6 @@ class CSITreeManager(BaseTreeManager):
 
     showPartGroupings = True
 
-    def checkParent(self):
-        if StepTreeManager.showCSI:
-            return self
-        return self.parentItem()
-    
     def _subChildRow(self, child):
         if isinstance(child, PartTreeItemTreeManager):
             return self.parts.index(child)
@@ -342,9 +338,6 @@ class SubmodelTreeManager(BaseTreeManager):
     def setRow(self, row):
         self._row = row
         
-    def row(self):
-        return self._row
-
     def incrementRows(self, increment):
         for page in self.pages:
             page._row += increment
@@ -373,13 +366,10 @@ class PartTreeItemTreeManager(BaseTreeManager):
         return len(self.parts)
     
     def parent(self):
-        return self.parentItem().checkParent()
+        if StepTreeManager.showCSI:
+            return self.parentItem()
+        return self.parentItem().parentItem()
     
-    def checkParent(self):
-        if CSITreeManager.showPartGroupings:
-            return self
-        return self.parentItem().checkParent()
-
     def data(self, index):
         if self._dataString:
             return self._dataString
@@ -389,7 +379,11 @@ class PartTreeItemTreeManager(BaseTreeManager):
 class PartTreeManager(BaseTreeManager):
 
     def parent(self):
-        return self.parentItem().checkParent()
+        if CSITreeManager.showPartGroupings:
+            return self.parentItem()
+        if StepTreeManager.showCSI:
+            return self.getCSI()
+        return self.getStep()
 
     def resetDataString(self):  # Useful for reseting dataString inside a lambda
         self._dataString = None

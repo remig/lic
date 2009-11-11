@@ -21,6 +21,8 @@ import LicUndoActions
 import Layout
 import GLHelpers
 
+from modeltest import ModelTest
+
 __version__ = 0.1
 
 class LicGraphicsScene(QGraphicsScene):
@@ -667,6 +669,7 @@ class LicWindow(QMainWindow):
 
         self.instructions = Instructions(self, self.scene, self.glWidget)
         self.treeModel = LicTreeModel.LicTreeModel(self.treeWidget.tree)
+        #self.modelTest = ModelTest(self.treeModel, self)
         
         self.selectionModel = QItemSelectionModel(self.treeModel)  # MUST keep own reference to selection model here
         self.treeWidget.configureTree(self.scene, self.treeModel, self.selectionModel)
@@ -679,6 +682,10 @@ class LicWindow(QMainWindow):
         self.connect(self.scene, SIGNAL("layoutChanged()"), self.treeModel, SIGNAL("layoutChanged()"))
         self.connect(self.instructions, SIGNAL("layoutAboutToBeChanged()"), self.treeModel, SIGNAL("layoutAboutToBeChanged()"))
         self.connect(self.instructions, SIGNAL("layoutChanged()"), self.treeModel, SIGNAL("layoutChanged()"))
+
+        # AbstractItemModels keep a list of persistent indices around, which is an *insane*
+        # pain to keep up to date.  So just clear the list whenever the model layout changes
+        self.connect(self.treeModel, SIGNAL("layoutAboutToBeChanged()"), self.treeModel.clearPersistentIndices)
             
         self.filename = ""   # This will trigger the __setFilename method below
 
@@ -1189,7 +1196,7 @@ def main():
     filename = ""
     #filename = unicode("C:\\lic\\tardis.mpd")
     #filename = unicode("C:\\lic\\tardis.lic")
-    #filename = unicode("C:\\lic\\viper_wing.mpd")
+    #filename = unicode("C:\\lic\\viper_white.lic")
     #filename = unicode("C:\\lic\\viper_short.lic")
     #filename = unicode("C:\\lic\\viper_short.mpd")
     #filename = unicode("C:\\lic\\viper.mpd")
@@ -1199,12 +1206,14 @@ def main():
     #filename = unicode("C:\\lic\\6x10.dat")
     #filename = unicode("C:\\lic\\template.dat")
     #filename = unicode("C:\\lic\\pins.ldr")
-    #filename = unicode("C:\\lic\\stack.dat")
+    #filename = unicode("C:\\lic\\stack.lic")
     #filename = unicode("C:\\lic\\1x1x2.dat")
     #filename = unicode("C:\\lic\\headlight_simple.dat")
     #filename = unicode("C:\\lic\\headlight.dat")
     #filename = unicode("C:\\lic\\displace.lic")
     #filename = unicode("C:\\lic\\pyramid.lic")
+    #filename = unicode("C:\\lic\\2_brick_stack.lic")
+
     if filename:
         QTimer.singleShot(50, lambda: loadFile(window, filename))
 

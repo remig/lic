@@ -294,7 +294,7 @@ def __readPage(stream, parent, instructions, templateModel = None):
     hasSubmodelItem = stream.readBool()
     if hasSubmodelItem:
         page.submodelItem = __readSubmodelItem(stream, page)
-        page.addChild(page.submodelItem.row(), page.submodelItem)
+        page.addChild(page.submodelItem._row, page.submodelItem)
 
     # Read in any page separator lines
     borderCount = stream.readInt32()
