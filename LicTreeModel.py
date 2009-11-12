@@ -275,6 +275,20 @@ class StepTreeManager(BaseTreeManager):
     def dragDropFlags(self):
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
         
+class SubmodelPreviewTreeManager(BaseTreeManager):
+
+    def child(self, row):
+        return self.pli if (self.pli is not None) and self.isSubAssembly and row == 0 else None
+
+    def rowCount(self):
+        if (self.pli is not None) and self.isSubAssembly:
+            return 1
+        return 0
+
+    def getChildRow(self, child):
+        if child is self.pli:
+            return 0
+
 class PLIItemTreeManager(BaseTreeManager):
     
     def child(self, row):

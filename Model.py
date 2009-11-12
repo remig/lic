@@ -994,10 +994,14 @@ class Page(PageTreeManager, QGraphicsRectItem):
 
     def glItemIterator(self):
         if self.submodelItem:
-            yield self.submodelItem
+            if self.submodelItem.isSubAssembly:
+                for pliItem in self.submodelItem.pli.pliItems:
+                    yield pliItem
+            else:
+                yield self.submodelItem
         for step in self.steps:
             yield step.csi
-            if step.pli:
+            if step.pli and step.hasPLI():
                 for pliItem in step.pli.pliItems:
                     yield pliItem
             for callout in step.callouts:
@@ -1756,7 +1760,7 @@ class RotateScaleSignalItem(QObject):
         action = ScaleItemCommand(self, oldScale, self.scaling)
         self.scene().undoStack.push(action)
 
-class SubmodelPreview(GraphicsRoundRectItem, RotateScaleSignalItem):
+class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateScaleSignalItem):
     itemClassName = "SubmodelPreview"
     
     defaultScale = 1.0
@@ -1770,6 +1774,8 @@ class SubmodelPreview(GraphicsRoundRectItem, RotateScaleSignalItem):
         self.scaling = 1.0
         self.setFlags(AllFlags)
         self.setPartOGL(partOGL)
+        self.pli = None
+        self.isSubAssembly = False
         
     def resetPixmap(self):
         self.partOGL.resetPixmap(self.rotation, self.scaling)
@@ -1786,6 +1792,18 @@ class SubmodelPreview(GraphicsRoundRectItem, RotateScaleSignalItem):
         dx = pos.x() + (self.rect().width() / 2.0) - (self.partOGL.center.x() - self.partCenter[0])
         dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0) - (self.partOGL.center.y() - self.partCenter[1])
         self.partOGL.paintGL(dx * f, dy * f, self.rotation, self.scaling * f)
+
+    def convertToSubAssembly(self):
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.isSubAssembly = True
+        self.setRect(self.parentItem().rect().adjusted(0, 0, -Page.margin.x() * 2, -Page.margin.y() * 2))
+        self.pli = PLI(self)
+        for part in self.partOGL.parts:
+            self.pli.addPart(part)
+        self.pli.resetPixmap()
+        self.setRect(self.pli.rect())
+        self.parentItem().initLayout()
+        self.scene().emit(SIGNAL("layoutChanged()"))
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
@@ -3041,11 +3059,18 @@ class Submodel(SubmodelTreeManager, PartOGL):
 
         menu = QMenu()
         menu.addAction("Change Submodel to Callout", self.convertToCalloutSignal)
+        menu.addAction("Change Submodel to Sub Assembly", self.convertToSubAssemblySignal)
         menu.exec_(event.screenPos())
         
     def convertToCalloutSignal(self):
         self.pages[0].scene().undoStack.push(SubmodelToCalloutCommand(self))
         
+    def convertToSubAssemblySignal(self):
+        for page in self.pages:
+            for step in page.steps:
+                step.disablePLI()
+        self.pages[0].submodelItem.convertToSubAssembly()
+    
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
     itemClassName = "Part Tree Item"
 
