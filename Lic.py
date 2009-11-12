@@ -62,6 +62,10 @@ class LicGraphicsScene(QGraphicsScene):
     def setSnapToItems(self, snap):
         self.snapToItems = snap
 
+    def clearSelection(self):
+        self.clearSelectedParts()
+        QGraphicsScene.clearSelection(self)
+        
     def clearSelectedParts(self):
         partList = []
         for item in self.selectedItems():
@@ -683,9 +687,8 @@ class LicWindow(QMainWindow):
         self.connect(self.instructions, SIGNAL("layoutAboutToBeChanged()"), self.treeModel, SIGNAL("layoutAboutToBeChanged()"))
         self.connect(self.instructions, SIGNAL("layoutChanged()"), self.treeModel, SIGNAL("layoutChanged()"))
 
-        # AbstractItemModels keep a list of persistent indices around, which is an *insane*
-        # pain to keep up to date.  So just clear the list whenever the model layout changes
-        self.connect(self.treeModel, SIGNAL("layoutAboutToBeChanged()"), self.treeModel.clearPersistentIndices)
+        # AbstractItemModels keep a list of persistent indices around, which we need to update after layout change
+        self.connect(self.treeModel, SIGNAL("layoutChanged()"), self.treeModel.updatePersistentIndices)
             
         self.filename = ""   # This will trigger the __setFilename method below
 

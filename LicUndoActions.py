@@ -312,6 +312,7 @@ class MovePartsToStepCommand(QUndoCommand):
             
         for step in stepsToReset:
             step.csi.isDirty = True
+            step.initLayout()
     
 class AddPartsToCalloutCommand(QUndoCommand):
 
@@ -633,14 +634,16 @@ class SubmodelToCalloutCommand(QUndoCommand):
         
         if len(self.submodelInstanceList) > 1:
             self.targetCallout.setQuantity(len(self.submodelInstanceList))
-        self.targetCallout.initLayout()
+            
+        for step in self.targetCallout.steps:
+            step.csi.resetPixmap()
         self.targetStep.initLayout()
+        self.targetCallout.initLayout()
                     
-        self.parentModel.removeSubmodel(self.submodel)        
+        self.parentModel.removeSubmodel(self.submodel)
         scene.emit(SIGNAL("layoutChanged()"))
-
         scene.selectPage(self.targetStep.parentItem().number)
-        self.targetStep.parentItem().setSelected(True)
+        self.targetCallout.setSelected(True)
         scene.emit(SIGNAL("sceneClick"))
         
     def undo(self):
@@ -661,10 +664,10 @@ class SubmodelToCalloutCommand(QUndoCommand):
         
         self.targetStep.removeCallout(self.targetCallout)
         self.targetStep.initLayout()
+        scene.emit(SIGNAL("layoutChanged()"))
 
         scene.selectPage(self.submodel.pages[0].number)
         self.submodel.pages[0].setSelected(True)
-        scene.emit(SIGNAL("layoutChanged()"))
         scene.emit(SIGNAL("sceneClick"))
 
 class CalloutToSubmodelCommand(SubmodelToCalloutCommand):

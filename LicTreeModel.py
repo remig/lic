@@ -135,9 +135,13 @@ class LicTreeModel(QAbstractItemModel):
     def headerData(self, section, orientation, role = Qt.DisplayRole):
         return QVariant("Instruction Book")
 
-    def clearPersistentIndices(self):
+    def updatePersistentIndices(self):
         for index in self.persistentIndexList():
-            self.changePersistentIndex(index, QModelIndex())
+            item = index.internalPointer()
+            newIndex = QModelIndex()
+            if item and item.parent():
+                newIndex = self.createIndex(item.row(), 0, item)
+            self.changePersistentIndex(index, newIndex)
 
 class BaseTreeManager(object):
     

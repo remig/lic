@@ -134,7 +134,6 @@ class LicTreeView(QTreeView):
         internalPtr = index.internalPointer()
 
         # Clear any existing selection from the graphics view
-        self.scene.clearSelectedParts()
         self.scene.clearSelection()
 
         # Find the selected item's parent page, then flip to that page
@@ -2299,12 +2298,10 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         menu.exec_(event.screenPos())
         
     def selectPart(self, part):
-        self.scene().clearSelectedParts()
         self.scene().clearSelection()
         part.setSelected(True)
         
     def selectAllParts(self):
-        self.scene().clearSelectedParts()
         self.scene().clearSelection()
         for part in self.getPartList():
             part.setSelected(True)
@@ -3344,6 +3341,8 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.moveToCalloutSignal(callout)
         step.initLayout()
         self.scene().undoStack.endMacro()
+        self.scene().clearSelection()
+        callout.setSelected(True)
         
     def moveToCalloutSignal(self, callout):
         selectedParts = []
