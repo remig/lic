@@ -33,7 +33,7 @@ import resources  # Needed for ":/resource" type paths to work
 from LDrawFileFormat import *
 
 MagicNumber = 0x14768126
-FileVersion = 2
+FileVersion = 3
 
 UNINIT_GL_DISPID = -1
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
@@ -1781,6 +1781,12 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
         self.setPartOGL(self.partOGL)
         self.partOGL.resetPixmap()  # Restore partOGL - otherwise all pliItems screwed
         
+    def resetRect(self):
+        if self.isSubAssembly:
+            self.setPos(self.mapToParent(self.pli.pos()))
+            self.pli.setPos(0, 0)
+            self.setRect(self.pli.rect())
+    
     def setPartOGL(self, partOGL):
         self.partOGL = partOGL
         self.partCenter = (partOGL.center.x() / self.scaling, partOGL.center.y() / self.scaling)
@@ -1796,6 +1802,8 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         self.isSubAssembly = True
         self.setRect(self.parentItem().rect().adjusted(0, 0, -Page.margin.x() * 2, -Page.margin.y() * 2))
+        self.setPen(QPen(Qt.transparent))
+        self.setBrush(QBrush(Qt.transparent))
         self.pli = PLI(self)
         for part in self.partOGL.parts:
             self.pli.addPart(part)
@@ -1811,6 +1819,8 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
         self.pli.setParentItem(None)
         self.pli = None
         self.resetPixmap()
+        self.setPen(GraphicsRoundRectItem.defaultPen)
+        self.setBrush(GraphicsRoundRectItem.defaultBrush)
         self.parentItem().initLayout()
         self.scene().emit(SIGNAL("layoutChanged()"))
 
@@ -3026,6 +3036,11 @@ class Submodel(SubmodelTreeManager, PartOGL):
             csiList += submodel.getCSIList()
 
         return csiList
+
+    def showHidePLIs(self, show):
+        for page in self.pages:
+            for step in page.steps:
+                step.enablePLI() if show else step.disablePLI()
 
     def pageCount(self):
         pageCount = len(self.pages)

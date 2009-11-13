@@ -13,6 +13,9 @@ Thoughts on displacing parts:
 
 - Only create config paths when a file is about to be exported.  No sense creating them on model import!
 
+- Clean up load / save: we're creating a lot of objects only to totally overwrite them later in load
+  (like step.pli & csi)
+  
 - Still need to handle submodels that are not embedded in the main model file.
 
 - Have a small problem where if you click on a submodel, its node is expanded automatically 

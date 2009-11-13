@@ -7,13 +7,6 @@ eof
 
 -----------------------
 
-int32 magic number
-int8 file version
-Template
-eof
-
------------------------
-
 Template:
 
   QString filename
@@ -53,6 +46,7 @@ Submodel:
   ... Submodel filename 0..n ...
   int32 _row
   QString parent (filename of model using this submodel, ie _parent.filename)
+  bool isSubAssembly v3
 
 partDictionary:
   int32 length of part dictionary
@@ -179,6 +173,9 @@ SubmodelItem:
   
   float scale
   float rotation x, y, z
+
+  bool isSubAssembly v3
+  PLI self.pli, if isSubAssembly v3
   
 CSI:
   QPointF pos

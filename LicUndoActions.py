@@ -698,11 +698,7 @@ class SubmodelToFromSubAssembly(QUndoCommand):
     def doAction(self, redo):
         
         self.submodel.isSubAssembly = not self.submodel.isSubAssembly
-        
         do = (redo and self.submodelToAssembly) or (not redo and not self.submodelToAssembly)
-        for page in self.submodel.pages:
-            for step in page.steps:
-                step.disablePLI() if do else step.enablePLI()
-                
+        self.submodel.showHidePLIs(not do)
         submodelItem = self.submodel.pages[0].submodelItem
         submodelItem.convertToSubAssembly() if do else submodelItem.convertToSubmodel()

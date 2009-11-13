@@ -122,6 +122,8 @@ def __writeSubmodel(stream, submodel):
     name = submodel._parent.filename if hasattr(submodel._parent, 'filename') else ""
     stream << QString(name)
 
+    stream.writeBool(submodel.isSubAssembly)
+
 def __writePartDictionary(stream, partDictionary):
 
     stream.writeInt32(len(partDictionary))
@@ -224,6 +226,7 @@ def __writeStep(stream, step):
     
     if step.pli:
         __writePLI(stream, step.pli)
+    stream.writeBool(step._hasPLI)
 
     if step.numberItem:
         stream << step.numberItem.pos() << step.numberItem.font()
@@ -258,6 +261,10 @@ def __writeSubmodelItem(stream, submodelItem):
     stream.writeFloat(submodelItem.rotation[0])
     stream.writeFloat(submodelItem.rotation[1])
     stream.writeFloat(submodelItem.rotation[2])
+
+    stream.writeBool(submodelItem.isSubAssembly)
+    if submodelItem.isSubAssembly:
+        __writePLI(stream, submodelItem.pli)
 
 def __writeCSI(stream, csi):
     stream << csi.pos()

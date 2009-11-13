@@ -63,7 +63,7 @@ def __createStream(filename, template = False):
 
     stream.licFileVersion = stream.readInt16()
     if stream.licFileVersion > FileVersion:
-        raise IOError, "Cannot read file: %s was created with a newer version of LIC (%d) than you're using(%d)." % (filename, stream.licFileVersion, FileVersion)
+        raise IOError, "Cannot read file: %s was created with a newer version of Lic (%d) than you're using(%d)." % (filename, stream.licFileVersion, FileVersion)
     return fh, stream
     
 def __readTemplate(stream, instructions):
@@ -167,6 +167,10 @@ def __readSubmodel(stream, instructions):
 
     submodel._row = stream.readInt32()
     submodel._parent = str(stream.readQString())
+    
+    if stream.licFileVersion >= 3:
+        submodel.isSubAssembly = stream.readBool()
+
     return submodel
 
 def __readPartDictionary(stream, partDictionary):
@@ -309,10 +313,10 @@ def __readPage(stream, parent, instructions, templateModel = None):
 def __readStep(stream, parent):
     
     stepNumber = stream.readInt32()
-    hasPLI = stream.readBool()
+    pliExists = stream.readBool()
     hasNumberItem = stream.readBool()
     
-    step = Step(parent, stepNumber, hasPLI, hasNumberItem)
+    step = Step(parent, stepNumber, pliExists, hasNumberItem)
     
     step.setPos(stream.readQPointF())
     step.setRect(stream.readQRectF())
@@ -320,9 +324,14 @@ def __readStep(stream, parent):
 
     step.csi = __readCSI(stream, step)
     
-    if hasPLI:
+    if pliExists:
         step.pli = __readPLI(stream, step)
     
+    if stream.licFileVersion >= 3:
+        step._hasPLI = stream.readBool()
+        if not step._hasPLI:
+            step.disablePLI()
+        
     if hasNumberItem:
         step.numberItem.setPos(stream.readQPointF())
         step.numberItem.setFont(stream.readQFont())
@@ -362,6 +371,12 @@ def __readSubmodelItem(stream, page):
     __readRoundedRectItem(stream, submodelItem)
     submodelItem.scaling = stream.readFloat()
     submodelItem.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+    
+    if stream.licFileVersion >= 3:
+        submodelItem.isSubAssembly = stream.readBool()
+        if submodelItem.isSubAssembly:
+            submodelItem.pli = __readPLI(stream, submodelItem)
+
     return submodelItem
 
 def __readCSI(stream, step):
@@ -394,9 +409,9 @@ def __readCSI(stream, step):
 
     return csi
 
-def __readPLI(stream, parentStep):
+def __readPLI(stream, parent):
 
-    pli = PLI(parentStep)
+    pli = PLI(parent)
     __readRoundedRectItem(stream, pli)
     
     itemCount = stream.readInt32()
