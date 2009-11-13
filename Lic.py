@@ -544,7 +544,132 @@ class LicGraphicsView(QGraphicsView):
                 self.scene().scaleFactor = factor
                 self.scale(scaleFactor, scaleFactor)
 
+class LicTreeView(QTreeView):
+
+    def __init__(self, parent):
+        QTreeView.__init__(self, parent)
+        self.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.connect(self, SIGNAL("pressed(QModelIndex)"), self.clicked)
+        self.setAcceptDrops(True)
+        self.setDragEnabled(True)
+        self.setAutoExpandDelay(400)
+        self.scene = None
+        self.expandedDepth = 0
+
+    def walkTreeModel(self, cmp, action):
+        
+        model = self.model()
+        
+        def traverse(index):
+            
+            if index.isValid() and cmp(index):
+                action(index)
+                 
+            for row in range(model.rowCount(index)):
+                if not index.isValid() and row == 0:
+                    continue  # Special case: skip the template page
+                traverse(model.index(row, 0, index))
+        
+        traverse(QModelIndex())
+
+    def hideRowInstance(self, instanceType, hide):
+        # instanceType can be either concrete type like PLI or itemClassString
+        # like "Page Number" (for specific QGraphicsSimpleTextItems) 
+
+        def cmp(index):
+            ptr = index.internalPointer()
+            if isinstance(instanceType, str):
+                return ptr.itemClassName == instanceType
+            return isinstance(ptr, instanceType)
+
+        action = lambda index: self.setRowHidden(index.row(), index.parent(), hide)
+        self.walkTreeModel(cmp, action)
+
+    def collapseAll(self):
+        QTreeView.collapseAll(self)
+        self.expandedDepth = 0
+
+    def expandOneLevel(self):
+        self.expandToDepth(self.expandedDepth)
+        self.expandedDepth += 1
+
+    def keyPressEvent(self, event):
+        
+        key = event.key()
+        if key == Qt.Key_PageUp:
+            self.scene.pageUp()
+        elif key == Qt.Key_PageDown:
+            self.scene.pageDown()
+        else:
+            QTreeView.keyPressEvent(self, event)
+            self.clicked(self.currentIndex())
+    
+    def updateTreeSelection(self):
+        """ This is called whenever the graphics scene is clicked """
+        
+        # Deselect everything in the tree
+        model = self.model()
+        selection = self.selectionModel()
+        selection.clear()
+
+        # Select everything in the tree that's currently selected in the graphics view
+        for item in self.scene.selectedItems():
+            index = model.createIndex(item.row(), 0, item)
+            if index:
+                self.setCurrentIndex(index)
+                selection.select(index, QItemSelectionModel.Select)
+                self.scrollTo(index)
+
+    def clicked(self, index = None):
+
+        if QApplication.mouseButtons() == Qt.RightButton:
+            return  # Ignore right clicks - they're passed on to selected item for their context menu
+        
+        selList = self.selectionModel().selectedIndexes()
+        internalPtr = index.internalPointer()
+
+        # Clear any existing selection from the graphics view
+        self.scene.clearSelection()
+
+        # Find the selected item's parent page, then flip to that page
+        if isinstance(internalPtr, Submodel):
+            self.scene.selectPage(internalPtr.pages[0].number)
+        else:
+            page = internalPtr.getPage()
+            self.scene.selectPage(page._number)
+
+        # Finally, select the things we actually clicked on
+        partList = []
+        for index in selList:
+            item = index.internalPointer()
+            if isinstance(item, Part):
+                partList.append(item)
+            else:
+                item.setSelected(True)
+                
+        # Optimization: don't just select each parts, because selecting a part forces its CSI to redraw.
+        # Instead, only redraw the CSI once, on the last part update
+        if partList:
+            for part in partList[:-1]:
+                part.setSelected(True, False)
+            partList[-1].setSelected(True, True)
+
+    def contextMenuEvent(self, event):
+        # Pass right clicks on to the item right-clicked on
+        selList = self.selectionModel().selectedIndexes()
+        if not selList:
+            event.ignore()
+            return
+        
+        # 'Convert' QContextMenuEvent to QGraphicsSceneContextMenuEvent
+        event.screenPos = event.globalPos
+        item = selList[-1].internalPointer()
+        return item.contextMenuEvent(event)
+
 class LicTreeWidget(QWidget):
+    """
+    Combines a LicTreeView (itself a full widget) and a toolbar with a few buttons to control the tree layout.
+    """
     
     def __init__(self, parent):
         QWidget.__init__(self, parent)
@@ -1216,6 +1341,7 @@ def main():
     #filename = unicode("C:/lic/displace.lic")
     #filename = unicode("C:/lic/pyramid.lic")
     #filename = unicode("C:/lic/2_brick_stack.lic")
+    #filename = unicode("C:/lic/viper_white.lic")
 
     if filename:
         QTimer.singleShot(50, lambda: loadFile(window, filename))
