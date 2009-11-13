@@ -770,7 +770,7 @@ class LicWindow(QMainWindow):
         self.undoStack = QUndoStack()
         self.connect(self.undoStack, SIGNAL("cleanChanged(bool)"), lambda isClean: self.setWindowModified(not isClean))
 
-        self.glWidget = QGLWidget(getGLFormat(), self)
+        self.glWidget = QGLWidget(GLHelpers.getGLFormat(), self)
         self.treeWidget = LicTreeWidget(self)
 
         statusBar = self.statusBar()
@@ -866,6 +866,7 @@ class LicWindow(QMainWindow):
             enabled = False
 
         self.undoStack.setClean()
+        self.setWindowModified(False)
         self.enableMenus(enabled)
 
     filename = property(fget = __getFilename, fset = __setFilename)
@@ -1045,11 +1046,16 @@ class LicWindow(QMainWindow):
                 action = QAction("&%d %s" % (i+1, QFileInfo(filename).fileName()), self)
                 action.setData(QVariant(filename))
                 action.setStatusTip(filename)
-                self.connect(action, SIGNAL("triggered()"), self.loadLicFile)
+                self.connect(action, SIGNAL("triggered()"), self.openRecentFile)
                 self.fileMenu.addAction(action)
             
         self.fileMenu.addSeparator()
         self.fileMenu.addAction(self.fileMenuActions[-1])
+
+    def openRecentFile(self):
+        action = self.sender()
+        filename = unicode(action.data().toString())
+        self.fileOpen(filename)
 
     def updateEditMenu(self):
         self.undoAction.setText("&Undo %s " % self.undoStack.undoText())
@@ -1092,8 +1098,8 @@ class LicWindow(QMainWindow):
         else:
             event.ignore()
 
-    def fileClose(self):
-        if not self.offerSave():
+    def fileClose(self, offerSave = True):
+        if offerSave and not self.offerSave():
             return
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.instructions.clear()
@@ -1102,7 +1108,6 @@ class LicWindow(QMainWindow):
         self.scene.clear()
         self.filename = ""
         self.scene.emit(SIGNAL("layoutChanged()"))
-        # TODO: Redraw background, to clear up any leftover drawing bits
 
     def offerSave(self):
         """ 
@@ -1112,11 +1117,9 @@ class LicWindow(QMainWindow):
         if not self.isWindowModified():
             return True
         reply = QMessageBox.question(self, "Lic - Unsaved Changes", "Save unsaved changes?", QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-        if reply == QMessageBox.Cancel:
-            return False
         if reply == QMessageBox.Yes:
-            self.fileSave()
-        return True
+            return self.fileSave()
+        return reply == QMessageBox.No
 
     def fileImport(self):
         if not self.offerSave():
@@ -1134,18 +1137,8 @@ class LicWindow(QMainWindow):
         self.scene.selectPage(1)
         self.copySettingsToScene()
 
-    def loadLicFile(self, filename = None):
+    def loadLicFile(self, filename):
         
-        if filename is None:
-            action = self.sender()
-            filename = unicode(action.data().toString())
-
-        if not self.offerSave():
-            return
-        
-        if self.filename and filename != self.filename:
-            self.fileClose()
-
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         LicBinaryReader.loadLicFile(filename, self.instructions, self.treeModel)
         self.treeModel.root = self.instructions.mainModel
@@ -1198,6 +1191,7 @@ class LicWindow(QMainWindow):
 
         config.config = self.initConfig(filename)
         self.statusBar().showMessage("Instruction book loaded")
+        self.setWindowModified(True)
         self.enableMenus(True)
 
     def enableMenus(self, enabled):
@@ -1225,6 +1219,7 @@ class LicWindow(QMainWindow):
             self.filename = filename
             self.instructions.filename = filename
             return self.fileSave()
+        return False
 
     def fileSave(self):
         if self.filename == "":
@@ -1234,8 +1229,10 @@ class LicWindow(QMainWindow):
             self.undoStack.setClean()
             self.addRecentFile(self.filename)
             self.statusBar().showMessage("Saved to: " + self.filename)
+            return True
         except (IOError, OSError), e:
             QMessageBox.warning(self, "Lic - Save Error", "Failed to save %s: %s" % (self.filename, e))
+        return False
 
     def fileSaveTemplate(self):
         template = self.treeModel.templatePage
@@ -1274,13 +1271,16 @@ class LicWindow(QMainWindow):
                 self.scene.emit(SIGNAL("layoutChanged()"))
                 self.setWindowModified(True)
     
-    def fileOpen(self):
+    def fileOpen(self, filename = None):
         if not self.offerSave():
             return
         dir = os.path.dirname(self.filename) if self.filename is not None else "."
-        filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Open Instruction Book", dir, "Lic Instruction Book files (*.lic)"))
+        
+        if filename is None:
+            filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Open Instruction Book", dir, "Lic Instruction Book files (*.lic)"))
+            
         if filename and filename != self.filename:
-            self.fileClose()
+            self.fileClose(False)
             try:
                 self.loadLicFile(filename)
             except IOError, e:
@@ -1353,7 +1353,7 @@ def loadFile(window, filename):
     if filename[-3:] == 'dat' or filename[-3:] == 'mpd' or filename[-3:] == 'ldr':
         window.importLDrawModelTimerAction(filename)
     elif filename[-3:] == 'lic':
-        window.loadLicFile(filename)
+        window.fileOpen(filename)
     else:
         print "Bad file extension: " + filename
         return

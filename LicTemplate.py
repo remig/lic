@@ -1,5 +1,6 @@
 from Model import *
 from LicUndoActions import *
+from GLHelpers import getGLFormat
 
 class TemplateLineItem(object):
 

@@ -45,11 +45,6 @@ GlobalGLContext = None
 NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
 AllFlags = NoMoveFlags | QGraphicsItem.ItemIsMovable
 
-def getGLFormat():
-    format = QGLFormat(QGL.SampleBuffers)
-    format.setSamples(8)
-    return format
-
 class Instructions(QObject):
     itemClassName = "Instructions"
 
@@ -213,7 +208,7 @@ class Instructions(QObject):
         for size in sizes:
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, getGLFormat(), GlobalGLContext)
+            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), GlobalGLContext)
             pBuffer.makeCurrent()
 
             # Render each image and calculate their sizes
@@ -260,7 +255,7 @@ class Instructions(QObject):
         for size in sizes:
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, getGLFormat(), GlobalGLContext)
+            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), GlobalGLContext)
 
             # Render each CSI and calculate its size
             for csi in csiList:
@@ -2075,7 +2070,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         for size in sizes:
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, getGLFormat(), GlobalGLContext)
+            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), GlobalGLContext)
             pBuffer.makeCurrent()
 
             if self.initSize(size, pBuffer):
@@ -2351,7 +2346,7 @@ class PartOGL(object):
         for size in sizes:
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, getGLFormat(), GlobalGLContext)
+            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), GlobalGLContext)
             pBuffer.makeCurrent()
 
             rotation = extraRotation if extraRotation else self.pliRotation

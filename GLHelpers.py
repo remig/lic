@@ -8,8 +8,12 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 
 from PyQt4.QtCore import QPointF
+from PyQt4.QtOpenGL import QGLFormat, QGL
 
-DEBUG = 0
+def getGLFormat():
+    format = QGLFormat(QGL.SampleBuffers)
+    format.setSamples(8)
+    return format
 
 def drawCoordLines(length = 20.0):
     glPushAttrib(GL_CURRENT_BIT)
