@@ -1768,7 +1768,6 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
     
     def __init__(self, parent, partOGL):
         GraphicsRoundRectItem.__init__(self, parent)
-        self.dataText = "Submodel Preview"
         self.cornerRadius = 10
         self.rotation = [0.0, 0.0, 0.0]
         self.scaling = 1.0
@@ -1802,6 +1801,16 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
             self.pli.addPart(part)
         self.pli.resetPixmap()
         self.setRect(self.pli.rect())
+        self.parentItem().initLayout()
+        self.scene().emit(SIGNAL("layoutChanged()"))
+
+    def convertToSubmodel(self):
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.isSubAssembly = False
+        self.scene().removeItem(self.pli)
+        self.pli.setParentItem(None)
+        self.pli = None
+        self.resetPixmap()
         self.parentItem().initLayout()
         self.scene().emit(SIGNAL("layoutChanged()"))
 
@@ -2664,6 +2673,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
         self._row = 0
         self._parent = parent
         self.isSubmodel = True
+        self.isSubAssembly = False
         
     def setSelected(self, selected):
         self.pages[0].setSelected(selected)
@@ -3059,17 +3069,20 @@ class Submodel(SubmodelTreeManager, PartOGL):
 
         menu = QMenu()
         menu.addAction("Change Submodel to Callout", self.convertToCalloutSignal)
-        menu.addAction("Change Submodel to Sub Assembly", self.convertToSubAssemblySignal)
+        if self.isSubAssembly:
+            menu.addAction("Change Sub Assembly to Submodel", self.convertFromSubAssemblySignal)
+        else:
+            menu.addAction("Change Submodel to Sub Assembly", self.convertToSubAssemblySignal)
         menu.exec_(event.screenPos())
         
     def convertToCalloutSignal(self):
         self.pages[0].scene().undoStack.push(SubmodelToCalloutCommand(self))
         
     def convertToSubAssemblySignal(self):
-        for page in self.pages:
-            for step in page.steps:
-                step.disablePLI()
-        self.pages[0].submodelItem.convertToSubAssembly()
+        self.pages[0].scene().undoStack.push(SubmodelToFromSubAssembly(self, True))
+        
+    def convertFromSubAssemblySignal(self):
+        self.pages[0].scene().undoStack.push(SubmodelToFromSubAssembly(self, False))
     
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
     itemClassName = "Part Tree Item"

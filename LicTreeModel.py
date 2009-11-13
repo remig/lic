@@ -289,6 +289,9 @@ class SubmodelPreviewTreeManager(BaseTreeManager):
         if child is self.pli:
             return 0
 
+    def data(self, index):
+        return "Sub-Assembly" if self.isSubAssembly else "Submodel Preview"
+
 class PLIItemTreeManager(BaseTreeManager):
     
     def child(self, row):
