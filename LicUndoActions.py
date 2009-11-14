@@ -214,7 +214,6 @@ class AddRemoveCalloutCommand(QUndoCommand):
             parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
             parent.addCallout(self.callout)
             parent.scene().emit(SIGNAL("layoutChanged()"))
-            self.callout.setSelected(True)
         else:
             self.callout.setSelected(False)
             parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
@@ -324,11 +323,13 @@ class AddRemovePartsToCalloutCommand(QUndoCommand):
 
     def doAction(self, redo):
         self.callout.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+
         for part in self.partList:
             if (redo and self.addParts) or (not redo and not self.addParts):
                 self.callout.addPart(part)
             else:
                 self.callout.removePart(part)
+
         self.callout.scene().emit(SIGNAL("layoutChanged()"))
         self.callout.steps[-1].csi.resetPixmap()
         self.callout.initLayout()

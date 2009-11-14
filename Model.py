@@ -1536,6 +1536,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
             self.scene().undoStack.push(AddRemoveCalloutCommand(callout, True))
         else:
             self.addCallout(callout)
+        self.scene().fullItemSelectionUpdate([callout])
         return callout
     
     def moveToPrevPage(self):
@@ -3257,8 +3258,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.moveToCalloutSignal(callout)
         step.initLayout()
         self.scene().undoStack.endMacro()
-        self.scene().clearSelection()
-        callout.setSelected(True)
+        self.scene().fullItemSelectionUpdate([callout])
         
     def moveToCalloutSignal(self, callout):
         selectedParts = []
