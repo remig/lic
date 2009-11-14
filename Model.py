@@ -1167,11 +1167,19 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         return None
 
     def addPart(self, part):
-        self.steps[-1].addPart(part)
+        newPart = part.duplicate()
+        newPart.originalPart = part
+        part.calloutPart = newPart
+        part.callout = self
+        self.steps[-1].addPart(newPart)
 
     def removePart(self, part):
+        newPart = part.calloutPart
+        newPart.originalPart = None
+        part.calloutPart = None
+        part.callout = None
         for step in self.steps:
-            step.removePart(part)
+            step.removePart(newPart)
 
     def resetRect(self):
         children = self.children()
@@ -2988,6 +2996,11 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.displacement = []
         self.displaceDirection = None
 
+        # Links to track if this part is in a Callout, and the part it's tied to
+        self.callout = None
+        self.calloutPart = None
+        self.originalPart = None
+
         #self.setPos(0.0, 0.0)
         #self.setRect(0.0, 0.0, 30.0, 30.0)
         #self.setPen(QPen(Qt.black))
@@ -3188,12 +3201,15 @@ class Part(PartTreeManager, QGraphicsRectItem):
         step = self.getStep()
         menu = QMenu(self.scene().views()[0])
 
-        menu.addAction("Create Callout from Parts", self.createCalloutSignal)
+        if self.callout:
+            menu.addAction("Remove from Callout", self.removeFromCalloutSignal)
+        else:
+            menu.addAction("Create Callout from Parts", self.createCalloutSignal)
 
-        if step.callouts:
-            subMenu = menu.addMenu("Move Part to Callout")
-            for callout in step.callouts:
-                subMenu.addAction("Callout %d" % callout.number, lambda x = callout: self.moveToCalloutSignal(x))
+            if step.callouts:
+                subMenu = menu.addMenu("Move Part to Callout")
+                for callout in step.callouts:
+                    subMenu.addAction("Callout %d" % callout.number, lambda x = callout: self.moveToCalloutSignal(x))
         
         menu.addSeparator()
         
@@ -3242,9 +3258,16 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def moveToCalloutSignal(self, callout):
         selectedParts = []
         for item in self.scene().selectedItems():
-            if isinstance(item, Part):
-                selectedParts.append(item.duplicate())
-        self.scene().undoStack.push(AddPartsToCalloutCommand(callout, selectedParts))
+            if isinstance(item, Part) and item.callout is None:
+                selectedParts.append(item)
+        self.scene().undoStack.push(AddRemovePartsToCalloutCommand(callout, selectedParts, True))
+
+    def removeFromCalloutSignal(self):
+        selectedParts = []
+        for item in self.scene().selectedItems():
+            if isinstance(item, Part) and item.callout:
+                selectedParts.append(item)
+        self.scene().undoStack.push(AddRemovePartsToCalloutCommand(self.callout, selectedParts, False))
     
     def keyReleaseEvent(self, event):
         direction = event.key()

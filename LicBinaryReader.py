@@ -329,7 +329,7 @@ def __readStep(stream, parent):
     
     if stream.licFileVersion >= 3:
         step._hasPLI = stream.readBool()
-        if not step._hasPLI:
+        if not step._hasPLI and step.pli:
             step.disablePLI()
         
     if hasNumberItem:

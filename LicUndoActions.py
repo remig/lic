@@ -314,18 +314,18 @@ class MovePartsToStepCommand(QUndoCommand):
             step.csi.isDirty = True
             step.initLayout()
     
-class AddPartsToCalloutCommand(QUndoCommand):
+class AddRemovePartsToCalloutCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, callout, partList):
-        QUndoCommand.__init__(self, "add Part to Callout")
-        self.callout, self.partList = callout, partList
+    def __init__(self, callout, partList, addParts):
+        QUndoCommand.__init__(self, "%s Part to Callout" % ("add" if addParts else "remove"))
+        self.callout, self.partList, self.addParts = callout, partList, addParts
 
     def doAction(self, redo):
         self.callout.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         for part in self.partList:
-            if redo:
+            if (redo and self.addParts) or (not redo and not self.addParts):
                 self.callout.addPart(part)
             else:
                 self.callout.removePart(part)

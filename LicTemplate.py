@@ -64,6 +64,38 @@ class TemplateRectItem(TemplateLineItem):
         if dialog.exec_():
             self.scene().undoStack.push(SetBrushCommand(self, self.brush(), QBrush(dialog.getGradient())))
 
+class TemplateRotateScaleSignalItem(QObject):
+
+    def rotateDefaultSignal(self):
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.RotationDialog(parentWidget, self.target.defaultRotation)
+        parentWidget.connect(dialog, SIGNAL("changeRotation"), self.changeDefaultRotation)
+        parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.acceptDefaultRotation)
+        dialog.exec_()
+
+    def changeDefaultRotation(self, rotation):
+        self.target.defaultRotation = list(rotation)
+        self.resetPixmap()
+
+    def acceptDefaultRotation(self, oldRotation):
+        action = RotateDefaultItemCommand(self.target, self.name, self, oldRotation, self.target.defaultRotation)
+        self.scene().undoStack.push(action)
+
+    def scaleDefaultSignal(self):
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.ScaleDlg(parentWidget, self.target.defaultScale)
+        parentWidget.connect(dialog, SIGNAL("changeScale"), self.changeDefaultScale)
+        parentWidget.connect(dialog, SIGNAL("acceptScale"), self.acceptDefaultScale)
+        dialog.exec_()
+    
+    def changeDefaultScale(self, newScale):
+        self.target.defaultScale = newScale
+        self.resetPixmap()
+    
+    def acceptDefaultScale(self, originalScale):
+        action = ScaleDefaultItemCommand(self.target, self.name, self, originalScale, self.target.defaultScale)
+        self.scene().undoStack.push(action)
+
 class TemplatePage(Page):
 
     def __init__(self, subModel, instructions):
@@ -107,6 +139,8 @@ class TemplatePage(Page):
         if step.callouts:
             step.callouts[0].__class__ = TemplateCallout
             step.callouts[0].arrow.__class__ = TemplateCalloutArrow
+            step.callouts[0].steps[0].csi.__class__ = TemplateCSI
+            step.callouts[0].steps[0].csi.target, step.callouts[0].steps[0].csi.name = CSI, "CSI"
                 
         self.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Page'))
         step.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Step'))
@@ -139,6 +173,12 @@ class TemplatePage(Page):
         step.csi.createOGLDisplayList()
         self.initOGLDimension(step.csi, glContext)
 
+        step.addBlankCalloutSignal(False)
+        step.callouts[0].addPart(self.subModel.parts[1].duplicate())
+        step.callouts[0].addPart(self.subModel.parts[2].duplicate())
+
+        step.callouts[0].steps[0].csi.resetPixmap()
+        
         self.addSubmodelImage()
         self.submodelItem.setPartOGL(self.subModelPart)
         
@@ -319,38 +359,29 @@ class TemplateCallout(TemplateRectItem, Callout):
         Callout.setBrush(self, newBrush)
         Callout.defaultBrush = newBrush
 
-class TemplateRotateScaleSignalItem(QObject):
+class TemplateStep(Step):
     
-    def rotateDefaultSignal(self):
-        parentWidget = self.scene().views()[0]
-        dialog = LicDialogs.RotationDialog(parentWidget, self.target.defaultRotation)
-        parentWidget.connect(dialog, SIGNAL("changeRotation"), self.changeDefaultRotation)
-        parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.acceptDefaultRotation)
-        dialog.exec_()
-        
-    def changeDefaultRotation(self, rotation):
-        self.target.defaultRotation = list(rotation)
-        self.resetPixmap()
-        
-    def acceptDefaultRotation(self, oldRotation):
-        action = RotateDefaultItemCommand(self.target, self.name, self, oldRotation, self.target.defaultRotation)
-        self.scene().undoStack.push(action)
+    def postLoadInit(self):
+        self.data = lambda index: "Template Step"
+        self.setFlags(NoMoveFlags)
+    
+    def contextMenuEvent(self, event):
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Disable PLIs" if self.hasPLI() else "Enable PLIs", self.togglePLIs)
+        #menu.addSeparator()
+        menu.addAction("Format Background", self.formatBackground)
+        arrowMenu = menu.addMenu("Format Background")
+        #arrowMenu.addAction("Color", self.setBackgroundColor)
+        #arrowMenu.addAction("Gradient", self.setBackgroundColor)
+        #rrowMenu.addAction("Image", self.setBackgroundColor)
+        menu.exec_(event.screenPos())
 
-    def scaleDefaultSignal(self):
-        parentWidget = self.scene().views()[0]
-        dialog = LicDialogs.ScaleDlg(parentWidget, self.target.defaultScale)
-        parentWidget.connect(dialog, SIGNAL("changeScale"), self.changeDefaultScale)
-        parentWidget.connect(dialog, SIGNAL("acceptScale"), self.acceptDefaultScale)
-        dialog.exec_()
+    def togglePLIs(self):
+        self.scene().undoStack.push(TogglePLIs(self, not self.hasPLI()))
     
-    def changeDefaultScale(self, newScale):
-        self.target.defaultScale = newScale
-        self.resetPixmap()
-    
-    def acceptDefaultScale(self, originalScale):
-        action = ScaleDefaultItemCommand(self.target, self.name, self, originalScale, self.target.defaultScale)
-        self.scene().undoStack.push(action)
-    
+    def formatBackground(self):
+        pass
+
 class TemplatePLIItem(PLIItem):
     
     def contextMenuEvent(self, event):
@@ -395,28 +426,3 @@ class TemplateCSI(CSI, TemplateRotateScaleSignalItem):
         menu.addAction("Change Default CSI Rotation", self.rotateDefaultSignal)
         menu.addAction("Change Default CSI Scale", self.scaleDefaultSignal)
         menu.exec_(event.screenPos())
-
-class TemplateStep(Step):
-    
-    def postLoadInit(self):
-        self.data = lambda index: "Template Step"
-        self.setFlags(NoMoveFlags)
-    
-    def contextMenuEvent(self, event):
-        menu = QMenu(self.scene().views()[0])
-        menu.addAction("Disable PLIs" if self.hasPLI() else "Enable PLIs", self.togglePLIs)
-        #menu.addSeparator()
-        menu.addAction("Format Background", self.formatBackground)
-        arrowMenu = menu.addMenu("Format Background")
-        #arrowMenu.addAction("Color", self.setBackgroundColor)
-        #arrowMenu.addAction("Gradient", self.setBackgroundColor)
-        #rrowMenu.addAction("Image", self.setBackgroundColor)
-        menu.exec_(event.screenPos())
-
-    def togglePLIs(self):
-        self.scene().undoStack.push(TogglePLIs(self, not self.hasPLI()))
-    
-    def formatBackground(self):
-        pass
-    
-    

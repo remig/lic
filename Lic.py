@@ -1253,8 +1253,6 @@ class LicWindow(QMainWindow):
             return self.fileSaveTemplate()
     
     def fileLoadTemplate(self):
-        if not self.offerSave():
-            return
         templateName = self.treeModel.templatePage.filename
         dir = os.path.dirname(templateName) if templateName is not None else "."
         newFilename = unicode(QFileDialog.getOpenFileName(self, "Lic - Load Template", dir, "Lic Template files (*.lit)"))
