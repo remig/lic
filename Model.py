@@ -545,10 +545,13 @@ class Page(PageTreeManager, QGraphicsRectItem):
             for callout in step.callouts:
                 items.append(callout)
                 items.append(callout.arrow)
+                items.append(callout.arrow.tipRect)
+                items.append(callout.arrow.baseRect)
                 if callout.qtyLabel:
                     items.append(callout.qtyLabel)
                 for step in callout.steps:
                     items.append(step)
+                    items.append(step.csi)
                     if step.numberItem:
                         items.append(step.numberItem)
 
@@ -977,6 +980,8 @@ class CalloutArrowEndItem(QGraphicsRectItem):
         self.oldPoint = QPointF(self.point)
     
     def mouseMoveEvent(self, event):
+        if self.flags() == NoMoveFlags:
+            return
         QGraphicsRectItem.mouseMoveEvent(self, event)
         self.point -= event.lastScenePos() - event.scenePos()
         self.mousePoint = event.pos()
