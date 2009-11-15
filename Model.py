@@ -898,6 +898,7 @@ class Page(PageTreeManager, QGraphicsRectItem):
     def addBlankStepSignal(self):
         step = Step(self, self.getNextStepNumber())
         self.scene().undoStack.push(AddRemoveStepCommand(step, True))
+        self.scene().fullItemSelectionUpdate(step)
 
     def deletePageSignal(self):
         if self.steps: #Do not allow pages with steps to be deleted
@@ -908,10 +909,12 @@ class Page(PageTreeManager, QGraphicsRectItem):
     def addPageBeforeSignal(self):
         newPage = Page(self.subModel, self.instructions, self.number, self._row)
         self.scene().undoStack.push(AddRemovePageCommand(newPage, True))
+        self.scene().fullItemSelectionUpdate(newPage)
     
     def addPageAfterSignal(self):
         newPage = Page(self.subModel, self.instructions, self.number + 1, self._row + 1)
         self.scene().undoStack.push(AddRemovePageCommand(newPage, True))
+        self.scene().fullItemSelectionUpdate(newPage)
 
 class LockIcon(QGraphicsPixmapItem):
 
@@ -1536,7 +1539,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
             self.scene().undoStack.push(AddRemoveCalloutCommand(callout, True))
         else:
             self.addCallout(callout)
-        self.scene().fullItemSelectionUpdate([callout])
+        self.scene().fullItemSelectionUpdate(callout)
         return callout
     
     def moveToPrevPage(self):
@@ -1735,14 +1738,8 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
 
     def removePart(self):
         self.quantity -= 1
-        if self.quantity > 0:
-            # Still have other parts - reduce qty label
-            self.numberItem.setText("%dx" % self.quantity)
-            self.numberItem.dataText = "Qty. Label (%dx)" % self.quantity
-        else:
-            # PLIItem is now empty - kill it
-            self.parentItem().pliItems.remove(self)
-            self.scene().removeItem(self)
+        self.numberItem.setText("%dx" % self.quantity)
+        self.numberItem.dataText = "Qty. Label (%dx)" % self.quantity
 
     def resetRect(self):
         glRect = QRectF(0.0, 0.0, self.partOGL.width, self.partOGL.height)
@@ -1861,7 +1858,13 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
         
         for pliItem in self.pliItems:
             if pliItem.color == part.color and pliItem.partOGL.filename == part.partOGL.filename:
-                return pliItem.removePart()
+                pliItem.removePart()
+                break
+
+        for pliItem in [i for i in self.pliItems if i.quantity <= 0]: # Check for & delete empty PLIItems
+            self.scene().removeItem(pliItem)
+            self.pliItems.remove(pliItem)
+            pliItem.setParentItem(None)
 
     def changePartColor(self, part, oldColor, newColor):
         part.color = oldColor
@@ -2028,7 +2031,9 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             p.removePart(part)
 
         for p in [x for x in self.parts if not x.parts]:  # Delete empty part item groups
+            self.scene().removeItem(p)
             self.parts.remove(p)
+            p.setParentItem(None)
 
     def addArrow(self, arrow):
         self.addPart(arrow)
@@ -3258,7 +3263,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.moveToCalloutSignal(callout)
         step.initLayout()
         self.scene().undoStack.endMacro()
-        self.scene().fullItemSelectionUpdate([callout])
+        self.scene().fullItemSelectionUpdate(callout)
         
     def moveToCalloutSignal(self, callout):
         selectedParts = []

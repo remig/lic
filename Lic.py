@@ -144,6 +144,12 @@ class LicGraphicsScene(QGraphicsScene):
             return
         self.scrollToPage(selList[-1].getPage())
     
+    def fullItemSelectionUpdate(self, *itemList):
+        self.clearSelection()
+        for item in itemList:
+            item.setSelected(True)
+        self.emit(SIGNAL("sceneClick"))
+
     def scrollToPage(self, page):
         view = self.views()[0]
         view.setInteractive(False)
@@ -247,6 +253,7 @@ class LicGraphicsScene(QGraphicsScene):
             self.setPagesToDisplay(self.pagesToDisplay)
         
     def removeItem(self, item):
+        self.emit(SIGNAL("itemDeleted"), item)
         QGraphicsScene.removeItem(self, item)
         if not isinstance(item, Page):
             return
@@ -713,6 +720,7 @@ class LicTreeWidget(QWidget):
         self.hiddenRowActions.append(addViewAction("Show PLI Items", lambda show: self.tree.hideRowInstance(PLIItem, not show)))
         self.hiddenRowActions.append(addViewAction("Show PLI Item Qty", lambda show: self.tree.hideRowInstance("PLIItem Quantity", not show)))
         self.hiddenRowActions.append(addViewAction("Show Callouts", lambda show: self.tree.hideRowInstance(Callout, not show)))
+        self.hiddenRowActions.append(addViewAction("Show Submodel Previews", lambda show: self.tree.hideRowInstance(SubmodelPreview, not show)))
         
         viewToolButton.setMenu(viewMenu)
         viewToolButton.setPopupMode(QToolButton.InstantPopup)
@@ -814,6 +822,9 @@ class LicWindow(QMainWindow):
 
         # AbstractItemModels keep a list of persistent indices around, which we need to update after layout change
         self.connect(self.treeModel, SIGNAL("layoutChanged()"), self.treeModel.updatePersistentIndices)
+
+        # Need to notify the Model when a particular index was deleted
+        self.treeModel.connect(self.scene, SIGNAL("itemDeleted"), self.treeModel.deletePersistentItem)
             
         self.filename = ""   # This will trigger the __setFilename method below
 
@@ -1340,6 +1351,7 @@ def main():
     #filename = unicode("C:/lic/pyramid.lic")
     #filename = unicode("C:/lic/2_brick_stack.lic")
     #filename = unicode("C:/lic/viper_white.lic")
+    #filename = unicode("C:/lic/2bricks.lic")
 
     if filename:
         QTimer.singleShot(50, lambda: loadFile(window, filename))

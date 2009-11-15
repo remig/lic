@@ -143,6 +143,10 @@ class LicTreeModel(QAbstractItemModel):
                 newIndex = self.createIndex(item.row(), 0, item)
             self.changePersistentIndex(index, newIndex)
 
+    def deletePersistentItem(self, item):
+        index = self.createIndex(item.row(), 0, item)
+        self.changePersistentIndex(index, QModelIndex())
+
 class BaseTreeManager(object):
     
     def parent(self):

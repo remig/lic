@@ -283,6 +283,7 @@ class MovePartsToStepCommand(QUndoCommand):
             startStep = oldStep if redo else self.newStep
             endStep = self.newStep if redo else oldStep
             
+            part.setParentItem(endStep) # Temporarily set part's parent, so it doesn't get deleted by Qt
             startStep.removePart(part)
             endStep.addPart(part)
             if part.displacement and part.displaceArrow:
