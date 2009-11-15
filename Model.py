@@ -624,9 +624,9 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.addStep(step)
 
     def deleteStep(self, step):
+        self.scene().removeItem(step)
         self.steps.remove(step)
         self.children.remove(step)
-        self.scene().removeItem(step)
         self.subModel.updateStepNumbers(step.number, -1)
 
     def removeStep(self, step):
@@ -672,8 +672,8 @@ class Page(PageTreeManager, QGraphicsRectItem):
             return
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         for separator in self.separators:
-            self.children.remove(separator)
             self.scene().removeItem(separator)
+            self.children.remove(separator)
         del self.separators[:]
         self.scene().emit(SIGNAL("layoutChanged()"))
     
@@ -1163,8 +1163,8 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             self.enableStepNumbers()
 
     def deleteStep(self, step):
-        self.steps.remove(step)
         self.scene().removeItem(step)
+        self.steps.remove(step)
         if len(self.steps) <= 1:
             self.disableStepNumbers()
 
@@ -1255,6 +1255,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             
     def removeQuantityLabel(self):
         self.scene().removeItem(self.qtyLabel)
+        self.qtyLabel.setParentItem(None)
         self.qtyLabel = None
 
     def getQuantity(self):
@@ -1360,8 +1361,8 @@ class Step(StepTreeManager, QGraphicsRectItem):
         self.callouts.append(callout)
     
     def removeCallout(self, callout):
-        self.callouts.remove(callout)
         self.scene().removeItem(callout)
+        self.callouts.remove(callout)
     
     def resetRect(self):
         if self.maxRect:
@@ -1531,15 +1532,18 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         menu.exec_(event.screenPos())
 
-    def addBlankCalloutSignal(self, useSignal = True):
+    def addBlankCalloutSignal(self, useUndo = True, useSelection = True):
         number = self.callouts[-1].number + 1 if self.callouts else 1
         callout = Callout(self, number)
         callout.addBlankStep(False)
-        if useSignal:
+        if useUndo:
             self.scene().undoStack.push(AddRemoveCalloutCommand(callout, True))
         else:
             self.addCallout(callout)
-        self.scene().fullItemSelectionUpdate(callout)
+            
+        if useSelection:
+            self.scene().fullItemSelectionUpdate(callout)
+
         return callout
     
     def moveToPrevPage(self):
@@ -2040,8 +2044,8 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.arrows.append(arrow)
         
     def removeArrow(self, arrow):
-        self.removePart(arrow)
         self.scene().removeItem(arrow)
+        self.removePart(arrow)
         self.arrows.remove(arrow)
     
     def __callPreviousOGLDisplayLists(self, isCurrent = False):
@@ -3259,7 +3263,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def createCalloutSignal(self):
         self.scene().undoStack.beginMacro("Create new Callout from Parts")
         step = self.getStep()
-        callout = step.addBlankCalloutSignal()
+        callout = step.addBlankCalloutSignal(True, False)
         self.moveToCalloutSignal(callout)
         step.initLayout()
         self.scene().undoStack.endMacro()

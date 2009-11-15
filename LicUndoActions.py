@@ -606,7 +606,7 @@ class SubmodelToCalloutCommand(QUndoCommand):
         scene.clearSelection()
         scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         
-        self.targetCallout = self.targetStep.addBlankCalloutSignal(False)
+        self.targetCallout = self.targetStep.addBlankCalloutSignal(False, False)
 
         # Find each instance of this submodel on the target page
         self.submodelInstanceList = []
