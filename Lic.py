@@ -56,12 +56,6 @@ class LicGraphicsScene(QGraphicsScene):
         self.addItem(snapLine)
         return snapLine
 
-    def setSnapToGuides(self, snap):
-        self.snapToGuides = snap
-
-    def setSnapToItems(self, snap):
-        self.snapToItems = snap
-
     def clearSelection(self):
         self.clearSelectedParts()
         QGraphicsScene.clearSelection(self)
@@ -970,11 +964,11 @@ class LicWindow(QMainWindow):
         self.addActions(self.editMenu, editActions)
 
         # Snap menu (inside Edit Menu): Snap -> Snap to Guides & Snap to Items
-        guideSnapAction = self.createMenuAction("Guides", self.scene.setSnapToGuides, None, "Snap To Guides", "toggled(bool)")
+        guideSnapAction = self.createMenuAction("Guides", self.setSnapToGuides, None, "Snap To Guides", "toggled(bool)")
         guideSnapAction.setCheckable(True)
         guideSnapAction.setChecked(self.scene.snapToGuides)
         
-        itemSnapAction = self.createMenuAction("Items", self.scene.setSnapToItems, None, "Snap To Items", "toggled(bool)")
+        itemSnapAction = self.createMenuAction("Items", self.setSnapToItems, None, "Snap To Items", "toggled(bool)")
         itemSnapAction.setCheckable(True)
         itemSnapAction.setChecked(self.scene.snapToItems)
         
@@ -1040,6 +1034,12 @@ class LicWindow(QMainWindow):
 
     def zoom(self, factor):
         self.graphicsView.scaleView(factor)
+        
+    def setSnapToGuides(self, snap):
+        self.snapToGuides = self.scene.snapToGuides = snap
+
+    def setSnapToItems(self, snap):
+        self.snapToItems = self.scene.snapToItems = snap
         
     def updateFileMenu(self):
         self.fileMenu.clear()
@@ -1158,7 +1158,7 @@ class LicWindow(QMainWindow):
         self.filename = filename
         self.addRecentFile(filename)
         self.scene.selectPage(1)
-        self.scene.setPagesToDisplay(self.pagesToDisplay)
+        self.copySettingsToScene()
     
     def importLDrawModel(self, filename):
 
@@ -1352,6 +1352,7 @@ def main():
     #filename = unicode("C:/lic/2_brick_stack.lic")
     #filename = unicode("C:/lic/viper_white.lic")
     #filename = unicode("C:/lic/2bricks.lic")
+    #filename = unicode("C:/lic/pyramid_callout.lic")
 
     if filename:
         QTimer.singleShot(50, lambda: loadFile(window, filename))

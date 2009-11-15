@@ -289,6 +289,10 @@ class MovePartsToStepCommand(QUndoCommand):
             if part.displacement and part.displaceArrow:
                 startStep.csi.removeArrow(part.displaceArrow)
                 endStep.csi.addArrow(part.displaceArrow)
+                
+            if part.callout:  # TODO: Make sure we can swap steps when one step has a multi-part callout
+                startStep.removeCallout(part.callout)  # TODO: Make sure we can moe a part in a single-part callout to a new step
+                endStep.addCallout(part.callout)
 
             if part.isSubmodel():
                 redoSubmodelOrder = True
@@ -313,6 +317,8 @@ class MovePartsToStepCommand(QUndoCommand):
         for step in stepsToReset:
             step.csi.isDirty = True
             step.initLayout()
+            if step.isInCallout():
+                step.parentItem().initLayout()
     
 class AddRemovePartsToCalloutCommand(QUndoCommand):
 

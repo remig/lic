@@ -30,6 +30,7 @@ import Layout
 import LicDialogs
 import resources  # Needed for ":/resource" type paths to work
 from LicQtWrapper import GraphicsRoundRectItem
+from RectanglePacker import CygonRectanglePacker
 
 from LDrawFileFormat import *
 
@@ -1007,11 +1008,10 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
                            QPointF(arrowTipLength, 0.0),
                            QPointF(arrowTipLength + 3, arrowTipHeight)])
     
-    def __init__(self, parent, csi):
+    def __init__(self, parent):
         QGraphicsRectItem.__init__(self, parent)
         self.dataText = "Callout Arrow"
 
-        self.csi = csi
         self.setPen(self.defaultPen)
         self.setBrush(self.defaultBrush)
         self.setFlags(NoMoveFlags)
@@ -1022,8 +1022,9 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
     def initializeEndPoints(self):
         # Find two target rects, both in *LOCAL* coordinates
         callout = self.parentItem()
+        csi = callout.parentItem().csi
         calloutRect = self.mapFromItem(callout, callout.rect()).boundingRect()
-        csiRect = self.mapFromItem(self.csi, self.csi.rect()).boundingRect()
+        csiRect = self.mapFromItem(csi, csi.rect()).boundingRect()
 
         if csiRect.right() < calloutRect.left():  # Callout right of CSI
             self.tipRect.point = csiRect.topRight() + QPointF(0.0, csiRect.height() / 2.0)
@@ -1041,16 +1042,17 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
             self.tipRect.point = csiRect.bottomLeft() + QPointF(csiRect.width() / 2.0, 0.0)
             self.baseRect.point = callout.getArrowBasePoint('top')
             
-        self.tipRect.point = self.mapToItem(self.csi, self.tipRect.point)  # Store tip point in CSI space
+        self.tipRect.point = self.mapToItem(csi, self.tipRect.point)  # Store tip point in CSI space
         
     def paint(self, painter, option, widget = None):
         
         # Find two target rects, both in *LOCAL* coordinates
         callout = self.parentItem()
+        csi = callout.parentItem().csi
         calloutRect = self.mapFromItem(callout, callout.rect()).boundingRect()
-        csiRect = self.mapFromItem(self.csi, self.csi.rect()).boundingRect()
+        csiRect = self.mapFromItem(csi, csi.rect()).boundingRect()
 
-        tip = self.mapFromItem(self.csi, self.tipRect.point)
+        tip = self.mapFromItem(csi, self.tipRect.point)
         end = self.baseRect.point
 
         if csiRect.right() < calloutRect.left():  # Callout right of CSI
@@ -1137,7 +1139,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
     def __init__(self, parent, number = 1, showStepNumbers = False):
         GraphicsRoundRectItem.__init__(self, parent)
 
-        self.arrow = CalloutArrow(self, self.parentItem().csi)
+        self.arrow = CalloutArrow(self)
         self.steps = []
         self.number = number
         self.qtyLabel = None
@@ -1189,6 +1191,12 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         for step in self.steps:
             step.removePart(newPart)
 
+    def partCount(self):
+        partCount = 0
+        for step in self.steps:
+            partCount += step.csi.partCount()
+        return partCount
+        
     def resetRect(self):
         children = self.children()
         children.remove(self.arrow)  # Don't want Callout arrow inside its selection box
@@ -1233,6 +1241,9 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         if self.qtyLabel:
             self.positionQtyLabel()
             
+        self.arrow.initializeEndPoints()
+        
+    def initEndPoints(self):
         self.arrow.initializeEndPoints()
         
     def enableStepNumbers(self):
@@ -1287,8 +1298,13 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             menu.addAction("Show Step numbers", lambda: stack.push(ToggleStepNumbersCommand(self, True)))
 
         menu.addSeparator()
-        menu.addAction("Convert To Submodel", lambda: stack.push(CalloutToSubmodelCommand(self)))
+        if self.partCount() > 0:
+            menu.addAction("Convert To Submodel", lambda: stack.push(CalloutToSubmodelCommand(self)))
+        else:
+            menu.addAction("Delete empty Callout", lambda: stack.push(AddRemoveCalloutCommand(self, False)))
         menu.exec_(event.screenPos())
+        
+        # TODO: Add support for moving entire Callout to next / prev step, then eventually drag & drop
 
     def setQuantitySignal(self):
         parentWidget = self.scene().views()[0]
@@ -1371,6 +1387,9 @@ class Step(StepTreeManager, QGraphicsRectItem):
             r = QRectF(0.0, 0.0, 1.0, 1.0)
         self.setRect(r | self.childrenBoundingRect())
 
+    def isInCallout(self):
+        return isinstance(self.parentItem(), Callout)
+    
     def getNextStep(self):
         return self.parentItem().getStep(self.number + 1)
 
@@ -1459,6 +1478,10 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         csiWidth = self.csi.rect().width()
         csiHeight = self.csi.rect().height()
+        if csiWidth <= 0.0 or csiHeight <= 0.0:
+            self.csi.resetPixmap()
+            csiWidth = self.csi.rect().width()
+            csiHeight = self.csi.rect().height()
 
         if not self.callouts:
             
@@ -1491,6 +1514,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
             cy = y + csiHeight - cr.height()
             
         self.callouts[0].setPos(cx, r.top() + cy)
+        self.callouts[0].initEndPoints()
 
     def acceptDragAndDropList(self, dragItems, row):
 
@@ -1526,12 +1550,17 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         menu.addSeparator()
         menu.addAction("Add blank Callout", self.addBlankCalloutSignal)
+        if len(self.callouts) > 1:
+            menu.addAction("Merge Similar Callouts", self.mergeSimilarCalloutSignal)
 
         if not self.csi.parts:
             menu.addAction("&Delete Step", lambda: undo.push(AddRemoveStepCommand(self, False)))
 
         menu.exec_(event.screenPos())
 
+    def mergeSimilarCalloutSignal(self):
+        print "hi"
+    
     def addBlankCalloutSignal(self, useUndo = True, useSelection = True):
         number = self.callouts[-1].number + 1 if self.callouts else 1
         callout = Callout(self, number)
@@ -1906,6 +1935,29 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
         partList.remove(tallestPart)
         partList.append(tallestPart)
 
+        """
+        # Try rectangle packer instead
+        mx = self.margin.x()
+        mx2 = mx * 2.0
+        my = self.margin.y()
+        my2 = my * 2.0
+        rMaxWidth = self.parentItem().rect().width() / 2.0
+        rMaxHeight = (tallestPart.rect().height() * 1.5) + my2
+        rectanglePacker = CygonRectanglePacker(rMaxWidth, rMaxHeight)
+        
+        for pliItem in partList:
+            point = rectanglePacker.Pack(pliItem.rect().width() + mx, pliItem.rect().height() + my)
+            if point:
+                pliItem.setPos(point.x + self.margin.x(), point.y + self.margin.y())
+            else:
+                print "PLIItem doesn't fit!!!  DOOM!!!"
+                
+        rect = self.childrenBoundingRect().adjusted(-PLI.margin.x(), -PLI.margin.y(), PLI.margin.x(), PLI.margin.y())
+        self.setRect(rect)
+        
+        return
+        """
+    
         # This rect will be enlarged as needed
         pliBox = QRectF(0, 0, -1, -1)
 
@@ -2032,7 +2084,9 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     def removePart(self, part):
 
         for p in self.parts:
-            p.removePart(part)
+            if part in p.parts:
+                p.removePart(part)
+                break
 
         for p in [x for x in self.parts if not x.parts]:  # Delete empty part item groups
             self.scene().removeItem(p)
@@ -2656,7 +2710,9 @@ class Submodel(SubmodelTreeManager, PartOGL):
             self.addPage(newPage)
             
             for part in partList[currentPart: ]:  # Move all but the first x parts to next step
-                part.getStep().removePart(part)
+                currentStep = part.getStep()
+                part.setParentItem(newPage)
+                currentStep.removePart(part)
                 newPage.steps[-1].addPart(part)
 
             csi = newPage.steps[-1].csi
@@ -3221,7 +3277,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         else:
             menu.addAction("Create Callout from Parts", self.createCalloutSignal)
 
-            if step.callouts:
+            if step.callouts:  # TODO: Add support for moving patt from callout to callout
                 subMenu = menu.addMenu("Move Part to Callout")
                 for callout in step.callouts:
                     subMenu.addAction("Callout %d" % callout.number, lambda x = callout: self.moveToCalloutSignal(x))
@@ -3229,11 +3285,11 @@ class Part(PartTreeManager, QGraphicsRectItem):
         menu.addSeparator()
         
         needSeparator = False
-        if step.getPrevStep():
+        if step.getPrevStep() and not self.callout:
             menu.addAction("Move to &Previous Step", lambda: self.moveToStepSignal(step.getPrevStep()))
             needSeparator = True
             
-        if step.getNextStep():
+        if step.getNextStep() and not self.callout:
             menu.addAction("Move to &Next Step", lambda: self.moveToStepSignal(step.getNextStep()))
             needSeparator = True
 
