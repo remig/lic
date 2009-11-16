@@ -187,19 +187,25 @@ class SwapStepsCommand(QUndoCommand):
         p1, p2 = s1.parentItem(), s2.parentItem()
         
         p1.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        i1, i2 = s1.row(), s2.row()
-        p1.children[i1], p2.children[i2] = p2.children[i2], p1.children[i1]
-        
+
+        if not s1.isInCallout():
+            i1, i2 = s1.row(), s2.row()
+            p1.children[i1], p2.children[i2] = p2.children[i2], p1.children[i1]
+
         i1, i2 = p1.steps.index(s1), p2.steps.index(s2)
         p1.steps[i1], p2.steps[i2] = p2.steps[i2], p1.steps[i1]
-        
+
         s1.number, s2.number = s2.number, s1.number
-        s1.setParentItem(p2)
-        s2.setParentItem(p1)
-        
+        s1.csi.isDirty, s2.csi.isDirty = True, True
+
+        if p1 != p2:
+            s1.setParentItem(p2)
+            s2.setParentItem(p1)
+
         p1.initLayout()
-        p2.initLayout()
-        p1.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        if p1 != p2:
+            p2.initLayout()
+        p1.scene().emit(SIGNAL("layoutChanged()"))
 
 class AddRemoveStepCommand(QUndoCommand):
 
