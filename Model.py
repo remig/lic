@@ -624,15 +624,11 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.subModel.updateStepNumbers(step.number)
         self.addStep(step)
 
-    def deleteStep(self, step):
+    def removeStep(self, step):
         self.scene().removeItem(step)
         self.steps.remove(step)
         self.children.remove(step)
         self.subModel.updateStepNumbers(step.number, -1)
-
-    def removeStep(self, step):
-        self.steps.remove(step)
-        self.children.remove(step)  # TODO: have deleteStep & removeStep - get rid of one!!
 
     def isEmpty(self):
         return len(self.steps) == 0 and self.submodelItem is None
@@ -1164,7 +1160,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         if len(self.steps) > 1:
             self.enableStepNumbers()
 
-    def deleteStep(self, step):
+    def removeStep(self, step):
         self.scene().removeItem(step)
         self.steps.remove(step)
         if len(self.steps) <= 1:
@@ -1633,7 +1629,10 @@ class Step(StepTreeManager, QGraphicsRectItem):
     def moveToPage(self, page, useSignals = True):
         if useSignals:
             page.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.parentItem().removeStep(self)
+            
+        self.parentItem().steps.remove(self)
+        self.parentItem().children.remove(self)
+        
         page.addStep(self)
         if useSignals:
             page.scene().emit(SIGNAL("layoutChanged()"))

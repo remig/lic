@@ -221,7 +221,7 @@ class AddRemoveStepCommand(QUndoCommand):
         else:
             self.step.setSelected(False)
             parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-            parent.deleteStep(self.step)                
+            parent.removeStep(self.step)                
             parent.scene().emit(SIGNAL("layoutChanged()"))
         parent.initLayout()
 
