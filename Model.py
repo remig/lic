@@ -35,7 +35,7 @@ from RectanglePacker import CygonRectanglePacker
 from LDrawFileFormat import *
 
 MagicNumber = 0x14768126
-FileVersion = 3
+FileVersion = 4
 
 UNINIT_GL_DISPID = -1
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
@@ -1176,14 +1176,14 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         newPart = part.duplicate()
         newPart.originalPart = part
         part.calloutPart = newPart
-        part.callout = self
+        part.inCallout = True
         self.steps[-1].addPart(newPart)
 
     def removePart(self, part):
         newPart = part.calloutPart
         newPart.originalPart = None
         part.calloutPart = None
-        part.callout = None
+        part.inCallout = False
         for step in self.steps:
             step.removePart(newPart)
 
@@ -1897,7 +1897,7 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
         self.setFlags(AllFlags)
 
     def isEmpty(self):
-        return True if len(self.pliItems) == 0 else False
+        return len(self.pliItems) == 0
 
     def resetRect(self):
         rect = self.childrenBoundingRect().adjusted(-PLI.margin.x(), -PLI.margin.y(), PLI.margin.x(), PLI.margin.y())
@@ -3096,7 +3096,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.displaceDirection = None
 
         # Links to track if this part is in a Callout, and the part it's tied to
-        self.callout = None
+        self.inCallout = False
         self.calloutPart = None
         self.originalPart = None
 
@@ -3300,7 +3300,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         step = self.getStep()
         menu = QMenu(self.scene().views()[0])
 
-        if self.callout:
+        if self.inCallout:
             menu.addAction("Remove from Callout", self.removeFromCalloutSignal)
         else:
             menu.addAction("Create Callout from Parts", self.createCalloutSignal)
@@ -3313,11 +3313,11 @@ class Part(PartTreeManager, QGraphicsRectItem):
         menu.addSeparator()
 
         needSeparator = False
-        if step.getPrevStep() and not self.callout:
+        if step.getPrevStep() and not self.inCallout:
             menu.addAction("Move to &Previous Step", lambda: self.moveToStepSignal(step.getPrevStep()))
             needSeparator = True
 
-        if step.getNextStep() and not self.callout:
+        if step.getNextStep() and not self.inCallout:
             menu.addAction("Move to &Next Step", lambda: self.moveToStepSignal(step.getNextStep()))
             needSeparator = True
 
@@ -3356,16 +3356,17 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def moveToCalloutSignal(self, callout):
         selectedParts = []
         for item in self.scene().selectedItems():
-            if isinstance(item, Part) and item.callout is None:
+            if isinstance(item, Part) and not item.inCallout:
                 selectedParts.append(item)
         self.scene().undoStack.push(AddRemovePartsToCalloutCommand(callout, selectedParts, True))
 
     def removeFromCalloutSignal(self):
         selectedParts = []
         for item in self.scene().selectedItems():
-            if isinstance(item, Part) and item.callout:
+            if isinstance(item, Part) and item.inCallout:
                 selectedParts.append(item)
-        self.scene().undoStack.push(AddRemovePartsToCalloutCommand(self.callout, selectedParts, False))
+        callout = self.calloutPart.getStep().parentItem()
+        self.scene().undoStack.push(AddRemovePartsToCalloutCommand(callout, selectedParts, False))
     
     def keyReleaseEvent(self, event):
         direction = event.key()
@@ -3404,7 +3405,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def moveToStepSignal(self, destStep):
         selectedParts = []
         for item in self.scene().selectedItems():
-            if isinstance(item, Part) and not item.callout:
+            if isinstance(item, Part) and not item.inCallout:
                 selectedParts.append(item)
 
         currentStep = self.getStep()

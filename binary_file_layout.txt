@@ -89,6 +89,7 @@ Part:
   ... 
   float matrix[15]
   
+  bool inCallout
   bool useDisplacement # if displacement
   
   if useDisplacement:

@@ -240,6 +240,8 @@ def __readPart(stream):
     for i in range(0, 16):
         matrix.append(stream.readFloat())
     
+    inCallout = stream.readBool() if stream.licFileVersion >= 4 else False
+
     useDisplacement = stream.readBool()
     if useDisplacement:
         displacement = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
@@ -259,6 +261,7 @@ def __readPart(stream):
         return arrow
     
     part = Part(filename, color, matrix, invert)
+    part.inCallout = inCallout
     
     if useDisplacement:
         part.displacement = displacement
@@ -341,6 +344,14 @@ def __readStep(stream, parent):
         callout = __readCallout(stream, step)
         step.callouts.append(callout)
     
+    # Associate each part that has a matching part in a callout to that matching part, and vice versa
+    for part in [p for p in step.csi.getPartList() if p.inCallout]:
+        for callout in step.callouts:
+            for calloutPart in callout.getPartList():
+                if (calloutPart.filename == part.filename) and (calloutPart.matrix == part.matrix) and (calloutPart.color == part.color):
+                    part.calloutPart = calloutPart
+                    calloutPart.originalPart = part
+
     return step
 
 def __readCallout(stream, parent):

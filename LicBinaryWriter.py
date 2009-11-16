@@ -168,6 +168,8 @@ def __writePart(stream, part):
     for point in part.matrix:
         stream.writeFloat(point)
         
+    stream.writeBool(part.inCallout)
+
     if part.displacement and part.displaceDirection:
         stream.writeBool(True)
         stream.writeFloat(part.displacement[0])
