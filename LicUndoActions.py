@@ -174,6 +174,33 @@ class MoveStepToPageCommand(QUndoCommand):
             newPage.initLayout()
             oldPage.initLayout()
 
+class SwapStepsCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, step1, step2):
+        QUndoCommand.__init__(self, "Swap Steps")
+        self.step1, self.step2 = step1, step2
+        
+    def doAction(self, redo):
+        s1, s2 = self.step1, self.step2
+        p1, p2 = s1.parentItem(), s2.parentItem()
+        
+        p1.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        i1, i2 = s1.row(), s2.row()
+        p1.children[i1], p2.children[i2] = p2.children[i2], p1.children[i1]
+        
+        i1, i2 = p1.steps.index(s1), p2.steps.index(s2)
+        p1.steps[i1], p2.steps[i2] = p2.steps[i2], p1.steps[i1]
+        
+        s1.number, s2.number = s2.number, s1.number
+        s1.setParentItem(p2)
+        s2.setParentItem(p1)
+        
+        p1.initLayout()
+        p2.initLayout()
+        p1.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+
 class AddRemoveStepCommand(QUndoCommand):
 
     _id = getNewCommandID()
@@ -268,7 +295,7 @@ class MovePartsToStepCommand(QUndoCommand):
     def __init__(self, partList, newStep):
         QUndoCommand.__init__(self, "move Part to Step")
         self.newStep = newStep
-        self.partListStepPairs = [(p, p.getStep()) for p in partList] 
+        self.partListStepPairs = [(p, p.getStep()) for p in partList]
 
     def doAction(self, redo):
         self.newStep.scene().clearSelection()
@@ -290,10 +317,6 @@ class MovePartsToStepCommand(QUndoCommand):
                 startStep.csi.removeArrow(part.displaceArrow)
                 endStep.csi.addArrow(part.displaceArrow)
                 
-            if part.callout:  # TODO: Make sure we can swap steps when one step has a multi-part callout
-                startStep.removeCallout(part.callout)  # TODO: Make sure we can moe a part in a single-part callout to a new step
-                endStep.addCallout(part.callout)
-
             if part.isSubmodel():
                 redoSubmodelOrder = True
             stepsToReset.add(oldStep)

@@ -632,7 +632,7 @@ class Page(PageTreeManager, QGraphicsRectItem):
 
     def removeStep(self, step):
         self.steps.remove(step)
-        self.children.remove(step)
+        self.children.remove(step)  # TODO: have deleteStep & removeStep - get rid of one!!
 
     def isEmpty(self):
         return len(self.steps) == 0 and self.submodelItem is None
@@ -1191,6 +1191,12 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         for step in self.steps:
             step.removePart(newPart)
 
+    def getPartList(self):
+        partList = []
+        for step in self.steps:
+            partList += step.csi.getPartList()
+        return partList
+
     def partCount(self):
         partCount = 0
         for step in self.steps:
@@ -1298,14 +1304,43 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             menu.addAction("Show Step numbers", lambda: stack.push(ToggleStepNumbersCommand(self, True)))
 
         menu.addSeparator()
+
+        if self.parentItem().getPrevStep():
+            menu.addAction("Move to Previous Step", self.moveToPrevStepSignal)
+        if self.parentItem().getNextStep():
+            menu.addAction("Move to Next Step", self.moveToNextStepSignal)
+
+        menu.addSeparator()
+
         if self.partCount() > 0:
             menu.addAction("Convert To Submodel", lambda: stack.push(CalloutToSubmodelCommand(self)))
         else:
             menu.addAction("Delete empty Callout", lambda: stack.push(AddRemoveCalloutCommand(self, False)))
         menu.exec_(event.screenPos())
         
-        # TODO: Add support for moving entire Callout to next / prev step, then eventually drag & drop
+    def moveToPrevStepSignal(self):
+        destStep = self.parentItem().getPrevStep()
+        self.moveToStepSignal(destStep, "Previous")
 
+    def moveToNextStepSignal(self):
+        destStep = self.parentItem().getNextStep()
+        self.moveToStepSignal(destStep, "Next")
+    
+    def moveToStepSignal(self, destStep, text):
+        stack = self.scene().undoStack
+        partList = [p.originalPart for p in self.getPartList()]
+        
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        stack.beginMacro("Move Callout to %s Step" % text)
+
+        stack.push(AddRemoveCalloutCommand(self, False))
+        self.setParentItem(destStep)
+        stack.push(AddRemoveCalloutCommand(self, True))
+        
+        stack.push(MovePartsToStepCommand(partList, destStep))
+        stack.endMacro()
+        self.scene().emit(SIGNAL("layoutChanged()"))
+    
     def setQuantitySignal(self):
         parentWidget = self.scene().views()[0]
         qty, ok = QInputDialog.getInteger(parentWidget, "Callout Quantity", "Quantity:", self.getQuantity(),
@@ -1612,14 +1647,8 @@ class Step(StepTreeManager, QGraphicsRectItem):
             scene.undoStack.push(AddRemovePageCommand(scene.currentPage, False))
             
     def swapWithStepSignal(self, step):
-        stack = self.scene().undoStack
-        startList = self.csi.getPartList()
-        endList = step.csi.getPartList()
-        stack.beginMacro("Swap Steps")
-        stack.push(MovePartsToStepCommand(startList, step))
-        stack.push(MovePartsToStepCommand(endList, self))
-        stack.endMacro()
-    
+        self.scene().undoStack.push(SwapStepsCommand(self, step))
+
 class RotateScaleSignalItem(QObject):
 
     def rotateSignal(self):
@@ -3283,12 +3312,12 @@ class Part(PartTreeManager, QGraphicsRectItem):
                     subMenu.addAction("Callout %d" % callout.number, lambda x = callout: self.moveToCalloutSignal(x))
         
         menu.addSeparator()
-        
+
         needSeparator = False
         if step.getPrevStep() and not self.callout:
             menu.addAction("Move to &Previous Step", lambda: self.moveToStepSignal(step.getPrevStep()))
             needSeparator = True
-            
+
         if step.getNextStep() and not self.callout:
             menu.addAction("Move to &Next Step", lambda: self.moveToStepSignal(step.getNextStep()))
             needSeparator = True
@@ -3376,7 +3405,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def moveToStepSignal(self, destStep):
         selectedParts = []
         for item in self.scene().selectedItems():
-            if isinstance(item, Part):
+            if isinstance(item, Part) and not item.callout:
                 selectedParts.append(item)
 
         currentStep = self.getStep()
