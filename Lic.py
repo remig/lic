@@ -76,9 +76,18 @@ class LicGraphicsScene(QGraphicsScene):
 
     def drawForeground(self, painter, rect):
         GLHelpers.initFreshContext(False)
+
+        pagesToDraw = []
         for page in self.pages:
             if page.isVisible() and rect.intersects(page.rect().translated(page.pos())):
-                page.drawGLItems(painter, rect)
+                pagesToDraw.append(page)
+                
+        for page in pagesToDraw:
+            page.drawGLItems(painter, rect)
+
+        GLHelpers.setupForQtPainter()
+        for page in pagesToDraw:
+            page.drawAnnotations(painter, rect)
     
     def pageUp(self):
         self.selectPage(max(self.currentPage._number - 1, self.pages[0]._number))

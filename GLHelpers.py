@@ -77,6 +77,10 @@ def initFreshContext(doClear):
 
     glEnable(GL_DEPTH_TEST)
     glEnable(GL_NORMALIZE)
+
+def setupForQtPainter():
+    glDisable(GL_LIGHTING)
+    glDisable(GL_DEPTH_TEST)
         
 def adjustGLViewport(x, y, width, height, altOrtho = False):
     x = int(x)

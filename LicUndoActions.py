@@ -237,7 +237,7 @@ class AddRemoveCalloutCommand(QUndoCommand):
 
     def __init__(self, callout, addCallout):
         QUndoCommand.__init__(self, "%s Callout" % ("add" if addCallout else "delete"))
-            
+
         self.callout, self.addCallout = callout, addCallout
         self.parent = callout.parentItem()
 
@@ -250,7 +250,7 @@ class AddRemoveCalloutCommand(QUndoCommand):
         else:
             self.callout.setSelected(False)
             parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-            parent.removeCallout(self.callout)                
+            parent.removeCallout(self.callout)
             parent.scene().emit(SIGNAL("layoutChanged()"))
         parent.initLayout()
 
@@ -369,6 +369,32 @@ class AddRemovePartsToCalloutCommand(QUndoCommand):
         self.callout.scene().emit(SIGNAL("layoutChanged()"))
         self.callout.steps[-1].csi.resetPixmap()
         self.callout.initLayout()
+
+class MergeTwoCalloutsCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, callout1, callout2, mergeCallouts):
+        QUndoCommand.__init__(self, "Merge two Callouts")
+        self.callout1, self.callout2, self.mergeCallouts = callout1, callout2, mergeCallouts
+        self.parent = callout1.parentItem()
+        
+    def doAction(self, redo):
+        parent = self.parent
+        if redo:
+            parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+            parent.removeCallout(self.callout1)
+            parent.removeCallout(self.callout2)
+            
+            self.newCallout = parent.addBlankCalloutSignal(False, False)
+            for part in self.callout1.getPartList():
+                self.newCallout.addPart(part)
+            self.newCallout.setQuantity(2)
+            parent.initLayout()
+
+            parent.scene().emit(SIGNAL("layoutChanged()"))
+        else:
+            print "Undo callout Merg NYI"
 
 class ToggleStepNumbersCommand(QUndoCommand):
 

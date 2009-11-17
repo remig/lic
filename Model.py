@@ -43,6 +43,7 @@ submodelDictionary = {}  # {'filename': Submodel()}
 currentModelFilename = ""
 
 GlobalGLContext = None
+NoFlags = QGraphicsItem.GraphicsItemFlags()
 NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
 AllFlags = NoMoveFlags | QGraphicsItem.ItemIsMovable
 
@@ -850,6 +851,11 @@ class Page(PageTreeManager, QGraphicsRectItem):
                 for step2 in callout.steps:
                     yield step2.csi
 
+    def drawAnnotations(self, painter, rect):
+        for step in self.steps:
+            for callout in step.callouts:
+                callout.arrow.paintAsAnnotation(painter)
+
     def acceptDragAndDropList(self, dragItems, row):
 
         steps = [s for s in dragItems if isinstance(s, Step)]
@@ -970,9 +976,17 @@ class CalloutArrowEndItem(QGraphicsRectItem):
         self.setPen(parent.pen())
         
     def paint(self, painter, option, widget = None):
-        if self.isSelected():
-            QGraphicsRectItem.paint(self, painter, option, widget)
+        return  # Do nothing on real paint - will paint as an annotation after GLItems in foreground
     
+    def paintAsAnnotation(self, painter):
+        if self.isSelected():
+            painter.save()
+            painter.setPen(QPen(Qt.DashLine))
+            painter.setBrush(Qt.NoBrush)
+            painter.translate(self.pos())
+            painter.drawRect(self.rect())
+            painter.restore()
+
     def mousePressEvent(self, event):
         if event.button() == Qt.RightButton:
             return
@@ -982,7 +996,7 @@ class CalloutArrowEndItem(QGraphicsRectItem):
     def mouseMoveEvent(self, event):
         if self.flags() == NoMoveFlags:
             return
-        QGraphicsRectItem.mouseMoveEvent(self, event)
+        QGraphicsItem.mouseMoveEvent(self, event)
         self.point -= event.lastScenePos() - event.scenePos()
         self.mousePoint = event.pos()
         
@@ -1041,6 +1055,9 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         self.tipRect.point = self.mapToItem(csi, self.tipRect.point)  # Store tip point in CSI space
         
     def paint(self, painter, option, widget = None):
+        return  # Do nothing on real paint - will paint as an annotation after GLItems in foreground
+    
+    def paintAsAnnotation(self, painter):
         
         # Find two target rects, both in *LOCAL* coordinates
         callout = self.parentItem()
@@ -1103,16 +1120,19 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
             elif my > b:
                 end.setY(b)
 
+        painter.save()
+        scenePos = self.mapToScene(self.pos())
+        painter.translate(scenePos.x(), scenePos.y())
+        painter.setPen(self.pen())
+        painter.setBrush(self.brush())
+
         # Draw step line
         line = QPolygonF([tip + offset, mid1, mid2, end])
-        painter.setPen(self.pen())
         painter.drawPolyline(line)
 
         # Draw arrow head
-        painter.save()
         painter.translate(tip)
         painter.rotate(rotation)
-        painter.setBrush(self.brush())
         painter.drawPolygon(self.arrowHead)
         painter.restore()
 
@@ -1123,9 +1143,20 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         else:
             self.setRect(r.adjusted(-self.arrowTipHeight - 2, 0.0, self.arrowTipHeight + 2, 0.0))
 
-        # Draw selection box, if selected
+        painter.save()
+        scenePos = self.mapToScene(self.pos())
+        painter.translate(scenePos.x(), scenePos.y())
+        
         if self.isSelected():
-            QGraphicsRectItem.paint(self, painter, option, widget)
+            painter.save()
+            painter.setPen(QPen(Qt.DashLine))
+            painter.setBrush(Qt.NoBrush)
+            painter.drawRect(self.rect())
+            painter.restore()
+
+        self.tipRect.paintAsAnnotation(painter)
+        self.baseRect.paintAsAnnotation(painter)
+        painter.restore()
 
 class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
@@ -1285,10 +1316,54 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         r.moveBottomRight(self.rect().bottomRight() - Page.margin)
         self.qtyLabel.setPos(r.topLeft())
 
+    def mergeCallouts(self):
+        selectedCallouts = [x for x in self.scene().selectedItems() if isinstance(x, Callout)]
+
+        if len(selectedCallouts) != 2 or selectedCallouts[0].parentItem() != selectedCallouts[1].parentItem():
+            print "Can only merge two callouts in the same Step for now"
+            return
+        
+        c1Parts = selectedCallouts[0].getPartList()
+        c2Parts = selectedCallouts[1].getPartList()
+        
+        if len(c1Parts) != len(c2Parts):
+            print "Not similar enough"
+            return
+        
+        # Add a temporary equality check to Parts, to make the next step easier
+        Part.__eq__ = lambda self, other: self.color == other.color and self.filename == other.filename
+        
+        # Check if two callout part lists have basically the same parts
+        # Two parts are similar if they have the same filename & color (matrix is irrelevant here (__eq__ above))
+        matches = True
+        for p1 in c1Parts:
+            if p1 in c2Parts:
+                c2Parts.remove(p1)
+            else:
+                matches = False
+                    
+        if not matches:
+            print "Not similar enough"
+            return
+        
+        del(Part.__eq__)
+        self.scene().undoStack.push(MergeTwoCalloutsCommand(selectedCallouts[0], selectedCallouts[1], True))
+    
+    def mergeCalloutContextMenu(self, event):
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Merge similar Callouts", self.mergeCallouts)
+        menu.exec_(event.screenPos())
+    
     def contextMenuEvent(self, event):
+        
+        selectedCallouts = [x for x in self.scene().selectedItems() if isinstance(x, Callout)]
+        if len(selectedCallouts) == 2 and self in selectedCallouts:
+            return self.mergeCalloutContextMenu(event)
+
         stack = self.scene().undoStack
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Add blank Step", self.addBlankStep)
+        
         if self.qtyLabel:
             menu.addAction("Change Quantity", self.setQuantitySignal)
             menu.addAction("Remove Quantity Label", lambda: stack.push(ToggleCalloutQtyCommand(self, False)))
@@ -1443,6 +1518,9 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         if self.hasPLI(): # Do not use on a step with PLI
             return
+
+        if self.csi.rect().width() <= 0.0 or self.csi.rect().height() <= 0.0:
+            self.csi.resetPixmap()
 
         if self.numberItem:
             self.numberItem.setPos(0.0, 0.0)
