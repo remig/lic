@@ -1329,25 +1329,18 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         else:
             self.removeQuantityLabel()
 
-    def mergeCalloutContextMenu(self, event):
-        menu = QMenu(self.scene().views()[0])
-        menu.addAction("Merge similar Callouts", self.mergeCalloutSignal)
-        menu.exec_(event.screenPos())
-
-    def mergeCalloutSignal(self):
-        # TODO: Handle selecting 3 or more similar callouts & merging them all
-        selectedCallouts = [x for x in self.scene().selectedItems() if isinstance(x, Callout)]
-
-        if len(selectedCallouts) != 2 or selectedCallouts[0].parentItem() != selectedCallouts[1].parentItem():
-            print "Can only merge two callouts in the same Step for now"
-            return
+    def calloutMatches(self, callout):
+        if self is callout:
+            return True
         
-        c1Parts = selectedCallouts[0].getPartList()
-        c2Parts = selectedCallouts[1].getPartList()
+        if self.parentItem() != callout.parentItem():
+            return False
+
+        c1Parts = self.getPartList()
+        c2Parts = callout.getPartList()
         
         if len(c1Parts) != len(c2Parts):
-            print "Not similar enough"
-            return
+            return False
         
         # Add a temporary equality check to Parts, to make the next step easier
         Part.__eq__ = lambda self, other: self.color == other.color and self.filename == other.filename
@@ -1358,17 +1351,31 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             if p1 in c2Parts:
                 c2Parts.remove(p1)
             else:
-                print "Not similar enough"
-                return
-                    
+                del(Part.__eq__)
+                return False
+            
         del(Part.__eq__)
-        self.scene().undoStack.push(MergeTwoCalloutsCommand(selectedCallouts[0], selectedCallouts[1], True))
+        return True
     
-    def contextMenuEvent(self, event):
-        
+    def mergeCalloutContextMenu(self, event):
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Merge similar Callouts", self.mergeCalloutSignal)
+        menu.exec_(event.screenPos())
+
+    def mergeCalloutSignal(self):
         selectedCallouts = [x for x in self.scene().selectedItems() if isinstance(x, Callout)]
-        if len(selectedCallouts) == 2 and self in selectedCallouts:
-            return self.mergeCalloutContextMenu(event)
+        selectedCallouts.remove(self)
+        self.scene().undoStack.push(MergeCalloutsCommand(self, selectedCallouts, True))
+
+    def contextMenuEvent(self, event):
+
+        # Special case: check if all selected items are Callouts - try merge if so
+        selectedItems = self.scene().selectedItems()
+        selectedCallouts = [x for x in selectedItems if isinstance(x, Callout)]
+        if len(selectedCallouts) == len(selectedItems) and len(selectedCallouts) > 1 and self in selectedCallouts:
+            matches = [x for x in selectedCallouts if self.calloutMatches(x)]
+            if len(matches) == len(selectedCallouts):
+                return self.mergeCalloutContextMenu(event)
 
         stack = self.scene().undoStack
         menu = QMenu(self.scene().views()[0])

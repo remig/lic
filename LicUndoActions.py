@@ -370,27 +370,26 @@ class AddRemovePartsToCalloutCommand(QUndoCommand):
         self.callout.steps[-1].csi.resetPixmap()
         self.callout.initLayout()
 
-class MergeTwoCalloutsCommand(QUndoCommand):
+class MergeCalloutsCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
     # TODO: Handle merging two already merged callouts (A+B) + (C+D) - either don't allow or handle
-    def __init__(self, callout1, callout2, mergeCallouts):
-        QUndoCommand.__init__(self, "Merge two Callouts")
-        self.callout1, self.callout2, self.mergeCallouts = callout1, callout2, mergeCallouts
-        self.parent = callout1.parentItem()
-        if len(callout1.mergedCallouts) < len(callout2.mergedCallouts):
-            self.callout1, self.callout2 = self.callout2, self.callout1
+    def __init__(self, mainCallout, calloutList, mergeCallouts):
+        QUndoCommand.__init__(self, "%s Callouts" % ("Merge" if mergeCallouts else "Split"))
+        self.mainCallout, self.calloutList, self.mergeCallouts = mainCallout, calloutList, mergeCallouts
+        self.parent = mainCallout.parentItem()
 
     def doAction(self, redo):
         parent = self.parent
         parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        if redo:
-            parent.removeCallout(self.callout2)
-            self.callout1.mergeCallout(self.callout2)
-        else:
-            self.callout1.removeCallout(self.callout2)
-            parent.addCallout(self.callout2)
+        for callout in self.calloutList:
+            if (redo and self.mergeCallouts) or (not redo and not self.mergeCallouts):
+                parent.removeCallout(callout)
+                self.mainCallout.mergeCallout(callout)
+            else:
+                self.mainCallout.removeCallout(callout)
+                parent.addCallout(callout)
         parent.initLayout()
         parent.scene().emit(SIGNAL("layoutChanged()"))
 
@@ -407,7 +406,7 @@ class SwitchToNextCalloutBase(QUndoCommand):
         parent = self.parent
         parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
 
-        if self.doSwitch:
+        if (redo and self.doSwitch) or (not redo and not self.doSwitch):
             newCallout = self.callout.mergedCallouts.pop(0)
             parent.addCallout(newCallout)
             for callout in self.callout.mergedCallouts:
