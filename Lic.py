@@ -50,7 +50,6 @@ class LicGraphicsScene(QGraphicsScene):
         pen = QPen(Qt.darkCyan)
         pen.setWidth(2)
         snapLine.setPen(pen)
-        snapLine.row = lambda: -1
         snapLine.setZValue(10000)  # Put on top of everything else
         snapLine.hide()
         self.addItem(snapLine)
@@ -444,6 +443,8 @@ class LicGraphicsScene(QGraphicsScene):
             event.accept()
         
     def keyReleaseEvent(self, event):
+        if not self.pages:
+            return  # No pages = nothing to do here
 
         for item in self.selectedItems():
             if isinstance(item, Part):
@@ -458,17 +459,13 @@ class LicGraphicsScene(QGraphicsScene):
             offset = 20 if event.modifiers() & Qt.ControlModifier else 5
 
         if key == Qt.Key_PageUp:
-            self.pageUp()
-            return
+            return self.pageUp()
         if key == Qt.Key_PageDown:
-            self.pageDown()
-            return
+            return self.pageDown()
         if key == Qt.Key_Home:
-            self.selectFirstPage()
-            return
+            return self.selectFirstPage()
         if key == Qt.Key_End:
-            self.selectLastPage()
-            return
+            return self.selectLastPage()
 
         if key == Qt.Key_Left:
             x = -offset
@@ -506,7 +503,6 @@ class Guide(QGraphicsLineItem):
         self.setFlags(AllFlags)
         self.setPen(QPen(QColor(0, 0, 255, 128)))  # Blue 1/2 transparent
         #self.setPen(QPen(QBrush(QColor(0, 0, 255, 128)), 1.5))  # Blue 1/2 transparent, 1.5 thick
-        self.row = lambda: -1
         self.setZValue(10000)  # Put on top of everything else
         
         length = sceneRect.width() if orientation == Layout.Horizontal else sceneRect.height()
@@ -624,6 +620,8 @@ class LicTreeView(QTreeView):
 
         # Select everything in the tree that's currently selected in the graphics view
         for item in self.scene.selectedItems():
+            if not hasattr(item, "row"):  # Ignore stuff like guides & snap lines
+                continue
             index = model.createIndex(item.row(), 0, item)
             if index:
                 self.setCurrentIndex(index)

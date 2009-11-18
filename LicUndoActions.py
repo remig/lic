@@ -374,27 +374,57 @@ class MergeTwoCalloutsCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
+    # TODO: Handle merging two already merged callouts (A+B) + (C+D) - either don't allow or handle
     def __init__(self, callout1, callout2, mergeCallouts):
         QUndoCommand.__init__(self, "Merge two Callouts")
         self.callout1, self.callout2, self.mergeCallouts = callout1, callout2, mergeCallouts
         self.parent = callout1.parentItem()
-        
+        if len(callout1.mergedCallouts) < len(callout2.mergedCallouts):
+            self.callout1, self.callout2 = self.callout2, self.callout1
+
     def doAction(self, redo):
         parent = self.parent
+        parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         if redo:
-            parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-            parent.removeCallout(self.callout1)
             parent.removeCallout(self.callout2)
-            
-            self.newCallout = parent.addBlankCalloutSignal(False, False)
-            for part in self.callout1.getPartList():
-                self.newCallout.addPart(part)
-            self.newCallout.setQuantity(2)
-            parent.initLayout()
-
-            parent.scene().emit(SIGNAL("layoutChanged()"))
+            self.callout1.mergeCallout(self.callout2)
         else:
-            print "Undo callout Merg NYI"
+            self.callout1.removeCallout(self.callout2)
+            parent.addCallout(self.callout2)
+        parent.initLayout()
+        parent.scene().emit(SIGNAL("layoutChanged()"))
+
+class SwitchToNextCalloutBase(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, callout, doSwitch):
+        QUndoCommand.__init__(self, "Switch to next Callout base")
+        self.callout, self.doSwitch = callout, doSwitch
+        self.parent = callout.parentItem()
+
+    def doAction(self, redo):
+        parent = self.parent
+        parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+
+        if self.doSwitch:
+            newCallout = self.callout.mergedCallouts.pop(0)
+            parent.addCallout(newCallout)
+            for callout in self.callout.mergedCallouts:
+                newCallout.mergeCallout(callout)
+            newCallout.mergeCallout(self.callout)
+        else:
+            newCallout = self.callout.mergedCallouts.pop()
+            parent.addCallout(newCallout)
+            newCallout.mergeCallout(self.callout)
+            for callout in self.callout.mergedCallouts:
+                newCallout.mergeCallout(callout)
+                
+        parent.removeCallout(self.callout)
+        self.callout.mergedCallouts = []
+        self.callout = newCallout
+        parent.initLayout()
+        parent.scene().emit(SIGNAL("layoutChanged()"))
 
 class ToggleStepNumbersCommand(QUndoCommand):
 

@@ -1168,6 +1168,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
         self.arrow = CalloutArrow(self)
         self.steps = []
+        self.mergedCallouts = []
         self.number = number
         self.qtyLabel = None
         self.showStepNumbers = showStepNumbers
@@ -1316,7 +1317,25 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         r.moveBottomRight(self.rect().bottomRight() - Page.margin)
         self.qtyLabel.setPos(r.topLeft())
 
-    def mergeCallouts(self):
+    def mergeCallout(self, callout):
+        self.mergedCallouts.append(callout)
+        self.setQuantity(len(self.mergedCallouts) + 1)
+
+    def removeCallout(self, callout):
+        self.mergedCallouts.remove(callout)
+        qty = len(self.mergedCallouts)
+        if qty:
+            self.setQuantity(qty + 1)
+        else:
+            self.removeQuantityLabel()
+
+    def mergeCalloutContextMenu(self, event):
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Merge similar Callouts", self.mergeCalloutSignal)
+        menu.exec_(event.screenPos())
+
+    def mergeCalloutSignal(self):
+        # TODO: Handle selecting 3 or more similar callouts & merging them all
         selectedCallouts = [x for x in self.scene().selectedItems() if isinstance(x, Callout)]
 
         if len(selectedCallouts) != 2 or selectedCallouts[0].parentItem() != selectedCallouts[1].parentItem():
@@ -1335,24 +1354,15 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         
         # Check if two callout part lists have basically the same parts
         # Two parts are similar if they have the same filename & color (matrix is irrelevant here (__eq__ above))
-        matches = True
         for p1 in c1Parts:
             if p1 in c2Parts:
                 c2Parts.remove(p1)
             else:
-                matches = False
+                print "Not similar enough"
+                return
                     
-        if not matches:
-            print "Not similar enough"
-            return
-        
         del(Part.__eq__)
         self.scene().undoStack.push(MergeTwoCalloutsCommand(selectedCallouts[0], selectedCallouts[1], True))
-    
-    def mergeCalloutContextMenu(self, event):
-        menu = QMenu(self.scene().views()[0])
-        menu.addAction("Merge similar Callouts", self.mergeCallouts)
-        menu.exec_(event.screenPos())
     
     def contextMenuEvent(self, event):
         
@@ -1375,6 +1385,10 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             menu.addAction("Show Step numbers", lambda: stack.push(ToggleStepNumbersCommand(self, True)))
 
         menu.addSeparator()
+        
+        if self.mergedCallouts:
+            menu.addAction("Use next Callout as Base", lambda: stack.push(SwitchToNextCalloutBase(self, True)))
+            menu.addSeparator()
 
         if self.parentItem().getPrevStep():
             menu.addAction("Move to Previous Step", self.moveToPrevStepSignal)
@@ -1599,7 +1613,10 @@ class Step(StepTreeManager, QGraphicsRectItem):
             self.csi.setPos(x, r.top() + y)
             return
 
-        self.callouts[0].initLayout()
+        for callout in self.callouts:
+            callout.initLayout()
+            
+        # TODO: Try properly laying out a step with more than one callout
         cr = self.callouts[0].rect()
         remainingWidth = r.width() - cr.width() - csiWidth 
         remainingHeight = r.height() - cr.height() - csiHeight
