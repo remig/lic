@@ -374,22 +374,30 @@ class MergeCalloutsCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    # TODO: Handle merging two already merged callouts (A+B) + (C+D) - either don't allow or handle
     def __init__(self, mainCallout, calloutList, mergeCallouts):
         QUndoCommand.__init__(self, "%s Callouts" % ("Merge" if mergeCallouts else "Split"))
-        self.mainCallout, self.calloutList, self.mergeCallouts = mainCallout, calloutList, mergeCallouts
+        self.mainCallout, self.mergeCallouts = mainCallout, mergeCallouts
+
+        # Store the original {callout: merged callouts} configuration
+        self.calloutConfig = dict([(callout, tuple(callout.mergedCallouts)) for callout in calloutList])
+        self.originalMergedCallouts = tuple(self.mainCallout.mergedCallouts)
         self.parent = mainCallout.parentItem()
 
     def doAction(self, redo):
         parent = self.parent
         parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        for callout in self.calloutList:
-            if (redo and self.mergeCallouts) or (not redo and not self.mergeCallouts):
+
+        if (redo and self.mergeCallouts) or (not redo and not self.mergeCallouts):
+            for callout in self.calloutConfig.keys():
                 parent.removeCallout(callout)
                 self.mainCallout.mergeCallout(callout)
-            else:
-                self.mainCallout.removeCallout(callout)
+        else:
+            for callout, mergeList in self.calloutConfig.items():
                 parent.addCallout(callout)
+                self.mainCallout.removeMergedCallout(callout)
+                callout.setMergedCallouts(list(mergeList))
+            self.mainCallout.setMergedCallouts(list(self.originalMergedCallouts))
+
         parent.initLayout()
         parent.scene().emit(SIGNAL("layoutChanged()"))
 

@@ -1299,9 +1299,10 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         self.qtyLabel.dataText = "Quantity Label"
             
     def removeQuantityLabel(self):
-        self.scene().removeItem(self.qtyLabel)
-        self.qtyLabel.setParentItem(None)
-        self.qtyLabel = None
+        if self.qtyLabel and self.scene():
+            self.scene().removeItem(self.qtyLabel)
+            self.qtyLabel.setParentItem(None)
+            self.qtyLabel = None
 
     def getQuantity(self):
         return int(self.qtyLabel.text()[:-1])
@@ -1312,6 +1313,13 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         self.qtyLabel.setText("%dx" % qty)
         self.positionQtyLabel()
 
+    def setMergedQuantity(self):
+        qty = len(self.mergedCallouts)
+        if qty:
+            self.setQuantity(qty + 1)
+        else:
+            self.removeQuantityLabel()
+
     def positionQtyLabel(self):
         r = self.qtyLabel.boundingRect()
         r.moveBottomRight(self.rect().bottomRight() - Page.margin)
@@ -1319,15 +1327,18 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
     def mergeCallout(self, callout):
         self.mergedCallouts.append(callout)
-        self.setQuantity(len(self.mergedCallouts) + 1)
+        for c in callout.mergedCallouts:
+            self.mergeCallout(c)
+        callout.setMergedCallouts([])
+        self.setMergedQuantity()
 
-    def removeCallout(self, callout):
+    def removeMergedCallout(self, callout):
         self.mergedCallouts.remove(callout)
-        qty = len(self.mergedCallouts)
-        if qty:
-            self.setQuantity(qty + 1)
-        else:
-            self.removeQuantityLabel()
+        self.setMergedQuantity()
+
+    def setMergedCallouts(self, calloutList):
+        self.mergedCallouts = calloutList
+        self.setMergedQuantity()
 
     def calloutMatches(self, callout):
         if self is callout:
