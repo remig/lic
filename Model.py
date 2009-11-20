@@ -1311,7 +1311,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         self.qtyLabel.dataText = "Quantity Label"
             
     def removeQuantityLabel(self):
-        if self.qtyLabel and self.scene():
+        if self.qtyLabel and self.scene():  # Need this check because, in some undo / redo ops, self is not in a scene
             self.scene().removeItem(self.qtyLabel)
             self.qtyLabel.setParentItem(None)
             self.qtyLabel = None
@@ -1405,10 +1405,10 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         menu.addAction("Add blank Step", self.addBlankStep)
         
         if self.qtyLabel:
-            menu.addAction("Change Quantity", self.setQuantitySignal)
-            menu.addAction("Remove Quantity Label", lambda: stack.push(ToggleCalloutQtyCommand(self, False)))
-        else:
-            menu.addAction("Add Quantity Label", lambda: stack.push(ToggleCalloutQtyCommand(self, True)))
+            menu.addAction("Hide Quantity Label", lambda: stack.push(ToggleCalloutQtyCommand(self, False)))
+        elif self.mergedCallouts:
+            menu.addAction("Show Quantity Label", lambda: stack.push(ToggleCalloutQtyCommand(self, True)))
+
         if self.showStepNumbers:
             menu.addAction("Hide Step numbers", lambda: stack.push(ToggleStepNumbersCommand(self, False)))
         else:
@@ -1469,13 +1469,6 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         stack.endMacro()
         self.scene().emit(SIGNAL("layoutChanged()"))
     
-    def setQuantitySignal(self):
-        parentWidget = self.scene().views()[0]
-        qty, ok = QInputDialog.getInteger(parentWidget, "Callout Quantity", "Quantity:", self.getQuantity(),
-                                           0, 999, 1, Qt.CustomizeWindowHint | Qt.WindowTitleHint)
-        if ok:
-            self.scene().undoStack.push(ChangeCalloutQtyCommand(self, qty))
-
 class Step(StepTreeManager, QGraphicsRectItem):
     """ A single step in an Instruction book.  Contains one optional PLI and exactly one CSI. """
     itemClassName = "Step"

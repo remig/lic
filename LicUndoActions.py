@@ -478,30 +478,18 @@ class ToggleCalloutQtyCommand(QUndoCommand):
     _id = getNewCommandID()
 
     def __init__(self, callout, enableQty):
-        QUndoCommand.__init__(self, "%s Callout Quantity" % ("Add" if enableQty else "Remove"))
+        QUndoCommand.__init__(self, "%s Callout Quantity" % ("Show" if enableQty else "Hide"))
         self.callout, self.enableQty = callout, enableQty
 
     def doAction(self, redo):
         self.callout.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         if (redo and self.enableQty) or (not redo and not self.enableQty):
-            self.callout.addQuantityLabel()
+            self.callout.setMergedQuantity()
         else:
             self.callout.removeQuantityLabel()
         self.callout.scene().emit(SIGNAL("layoutChanged()"))
         self.callout.initLayout()
 
-class ChangeCalloutQtyCommand(QUndoCommand):
-
-    _id = getNewCommandID()
-
-    def __init__(self, callout, qty):
-        QUndoCommand.__init__(self, "Change Callout Quantity")
-        self.callout, self.qty = callout, qty
-        self.oldQty = self.callout.getQuantity()
-
-    def doAction(self, redo):
-        self.callout.setQuantity(self.qty if redo else self.oldQty)
-                
 class AdjustArrowLength(QUndoCommand):
 
     _id = getNewCommandID()
