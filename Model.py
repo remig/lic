@@ -21,12 +21,12 @@ from PyQt4.QtOpenGL import *
 
 from LicUndoActions import *
 from LicTreeModel import *
+from Layout import *
 import GLHelpers
 import l3p
 import povray
 import LDrawColors
 import Helpers
-import Layout
 import LicDialogs
 import resources  # Needed for ":/resource" type paths to work
 from LicQtWrapper import GraphicsRoundRectItem
@@ -495,7 +495,7 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.separators = []
         self.children = []
         self.submodelItem = None
-        self.layout = Layout.GridLayout()
+        self.layout = GridLayout()
         self.color = self.defaultColor
         self.brush = self.defaultBrush
 
@@ -871,19 +871,23 @@ class Page(PageTreeManager, QGraphicsRectItem):
         if not self.isLocked():
             menu.addAction("Auto Layout", self.initLayout)
         menu.addAction("Check for Overlaps", self.checkForLayoutOverlaps)
+
         menu.addSeparator()
+
         menu.addAction("Prepend blank Page", self.addPageBeforeSignal)
         menu.addAction("Append blank Page", self.addPageAfterSignal)
+
         menu.addSeparator()
         if self.separators:
             if [x for x in self.separators if x.isVisible()]:
                 menu.addAction("Hide Step Separators", self.hideSeparators)
             else:
                 menu.addAction("Show Step Separators", self.showSeparators)
+
         menu.addAction("Add blank Step", self.addBlankStepSignal)
         menu.addSeparator()
-        if not self.isLocked():
-            if self.layout.orientation == Layout.Horizontal:
+        if not self.isLocked() and len(self.steps) > 1:
+            if self.layout.orientation == Horizontal:
                 menu.addAction("Use Vertical layout", self.useVerticalLayout)
             else:
                 menu.addAction("Use Horizontal layout", self.useHorizontalLayout)
@@ -891,11 +895,11 @@ class Page(PageTreeManager, QGraphicsRectItem):
         menu.exec_(event.screenPos())
     
     def useVerticalLayout(self):
-        self.layout.orientation = Layout.Vertical
+        self.layout.orientation = Vertical
         self.initLayout()
         
     def useHorizontalLayout(self):
-        self.layout.orientation = Layout.Horizontal
+        self.layout.orientation = Horizontal
         self.initLayout()
         
     def addBlankStepSignal(self):
@@ -1028,6 +1032,9 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         
         self.tipRect = CalloutArrowEndItem(self, 32, 32, "Arrow Tip", 0)
         self.baseRect = CalloutArrowEndItem(self, 20, 20, "Arrow Base", 1)
+        
+        # TODO: Add ability to add and drag around arbitrary points to Callout arrow
+        self.internalPoints = []
 
     def initializeEndPoints(self):
         # Find two target rects, both in *LOCAL* coordinates
@@ -1172,7 +1179,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         self.number = number
         self.qtyLabel = None
         self.showStepNumbers = showStepNumbers
-        self.layout = Layout.GridLayout()
+        self.layout = GridLayout()
         
         self.setPos(0.0, 0.0)
         self.setRect(0.0, 0.0, 30.0, 30.0)
@@ -1388,6 +1395,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             if len(matches) == len(selectedCallouts):
                 return self.mergeCalloutContextMenu(event)
 
+        # TODO: Add easy way to get rid of callout - move all parts back into the step
         stack = self.scene().undoStack
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Add blank Step", self.addBlankStep)
@@ -1625,7 +1633,6 @@ class Step(StepTreeManager, QGraphicsRectItem):
             csiHeight = self.csi.rect().height()
 
         if not self.callouts:
-            
             x = (r.width() - csiWidth) / 2.0
             y = (r.height() - csiHeight) / 2.0
             self.csi.setPos(x, r.top() + y)
@@ -1633,32 +1640,11 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         for callout in self.callouts:
             callout.initLayout()
-            
-        # TODO: Try properly laying out a step with more than one callout
-        cr = self.callouts[0].rect()
-        remainingWidth = r.width() - cr.width() - csiWidth 
-        remainingHeight = r.height() - cr.height() - csiHeight
-        
-        placeRight = remainingWidth > remainingHeight
-        
-        if placeRight:
-            csiWidth += cr.width() + (Page.margin.x() * 3)
-        else:
-            csiHeight += cr.height() + (Page.margin.y() * 3)
 
-        x = (r.width() - csiWidth) / 2.0
-        y = (r.height() - csiHeight) / 2.0
-        self.csi.setPos(x, r.top() + y)
-        
-        if placeRight:
-            cx = x + csiWidth - cr.width()
-            cy = (r.height() - cr.height()) / 2.0
-        else:
-            cx = (r.width() - cr.width()) / 2.0
-            cy = y + csiHeight - cr.height()
-            
-        self.callouts[0].setPos(cx, r.top() + cy)
-        self.callouts[0].initEndPoints()
+        GridLayout.initCrossLayout(r, [self.csi] + self.callouts)
+
+        for callout in self.callouts:
+            callout.initEndPoints()
 
     def acceptDragAndDropList(self, dragItems, row):
 

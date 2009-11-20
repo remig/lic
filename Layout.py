@@ -3,7 +3,7 @@ from PyQt4.QtCore import *
 
 Horizontal = 0
 Vertical = 1
-    
+
 def maxSafe(s):
     return max(s) if s else 0.0
 
@@ -12,10 +12,11 @@ class GridLayout(object):
     # Stores a margin and row & column count, and provides layout algorithms given a list of stuff to layout
     # Stores a set of separators that separate each member.
     
-    def __init__(self, rowCount = -1, colCount = -1, margin = 15, orientation = Vertical):
+    margin = 15
+    
+    def __init__(self, rowCount = -1, colCount = -1, orientation = Vertical):
         self.colCount = rowCount
         self.rowCount = colCount
-        self.margin = margin
         self.orientation = orientation
         self.separators = []  # List of (index, QRectF) tuples that encode all separator info
 
@@ -44,7 +45,51 @@ class GridLayout(object):
             return (y, x)
         else:
             return (x, y)
+    
+    @staticmethod
+    def initCrossLayout(rect, memberList):
+        # Assumes each member in list is right width & height.  Max 9 items in memberList (beyond are ignored)
+        # MemberList is a list of any objects that have rect(), setPos() and moveBy() methods
+        # Sets position of each member into a cross, which fits inside rect:
+        # -5- -3- -6-
+        # -2- -0- -1-
+        # -7- -4- -8-
+        
+        indices = [(1,1), (1,2), (1,0), (0,1), (2,1), (0,0), (0,2), (2,0), (2,2)]
+        rowHeights, colWidths = [[], [], []], [[], [], []]
+        
+        # Store the size of each memeber in the appropriate row col spot
+        for i, member in enumerate(memberList):
+            row, col = indices[i]
+            r, m2 = member.rect(), GridLayout.margin * 2
+            rowHeights[row].append(r.height() + m2)
+            colWidths[col].append(r.width() + m2)
             
+        # Use only the max row / col value for a given cell
+        rowHeights = [maxSafe(row) for row in rowHeights]
+        colWidths = [maxSafe(col) for col in colWidths]
+
+        # Find difference in size between current cross and passed in rect
+        dx = (rect.width() - sum(colWidths)) / 3.0
+        dy = (rect.height() - sum(rowHeights)) / 3.0
+
+        # Enlarge each row / col so overall cross fits tight inside passed in rect
+        colWidths = [x + dx for x in colWidths]
+        rowHeights = [y + dy for y in rowHeights]
+
+        # Position each member in the right cell in the cross
+        for i, member in enumerate(memberList):
+            row, col = indices[i]
+            width = sum(colWidths[:col]) + rect.x()
+            height = sum(rowHeights[:row]) + rect.y()
+            member.setPos(width, height)
+
+            # Move to center of cell, if necessary
+            dx = (colWidths[col] - member.rect().width()) / 2.0
+            dy = (rowHeights[row] - member.rect().height()) / 2.0
+            if dx > 0 or dy > 0:
+                member.moveBy(dx, dy)
+
     def initLayoutInsideOut(self, memberList):
         # Assumes each member in list is right width & height
         # Sets position of each member into a grid

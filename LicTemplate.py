@@ -1,6 +1,7 @@
 from Model import *
 from LicUndoActions import *
 from GLHelpers import getGLFormat
+from GradientDialog import GradientDialog
 
 class TemplateLineItem(object):
 
@@ -60,7 +61,7 @@ class TemplateRectItem(TemplateLineItem):
         
     def setBackgroundGradient(self):
         g = self.brush().gradient()
-        dialog = GradientDialog.GradientDialog(self.scene().views()[0], self.rect().size().toSize(), g)
+        dialog = GradientDialog(self.scene().views()[0], self.rect().size().toSize(), g)
         if dialog.exec_():
             self.scene().undoStack.push(SetBrushCommand(self, self.brush(), QBrush(dialog.getGradient())))
 
@@ -280,7 +281,7 @@ class TemplatePage(Page):
         
     def setBackgroundGradient(self):
         g = self.brush.gradient() if self.brush else None
-        dialog = GradientDialog.GradientDialog(self.scene().views()[0], Page.PageSize, g)
+        dialog = GradientDialog(self.scene().views()[0], Page.PageSize, g)
         if dialog.exec_():
             self.scene().undoStack.push(SetPageBackgroundBrushCommand(self, self.brush, QBrush(dialog.getGradient())))
     
