@@ -639,6 +639,9 @@ class LicTreeView(QTreeView):
         # Clear any existing selection from the graphics view
         self.scene.clearSelection()
 
+        if not selList:
+            return  # Nothing selected = nothing to do here
+
         # Find the selected item's parent page, then flip to that page
         if isinstance(internalPtr, Submodel):
             self.scene.selectPage(internalPtr.pages[0].number)

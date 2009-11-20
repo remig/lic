@@ -349,25 +349,48 @@ class MovePartsToStepCommand(QUndoCommand):
             if step.isInCallout():
                 step.parentItem().initLayout()
     
-class AddRemovePartsToCalloutCommand(QUndoCommand):
+class AddPartsToCalloutCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, callout, partList, addParts):
-        QUndoCommand.__init__(self, "%s Part to Callout" % ("add" if addParts else "remove"))
-        self.callout, self.partList, self.addParts = callout, partList, addParts
+    def __init__(self, callout, partList):
+        QUndoCommand.__init__(self, "Add Parts to Callout")
+        self.callout, self.partList = callout, partList
 
     def doAction(self, redo):
         self.callout.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
 
         for part in self.partList:
-            if (redo and self.addParts) or (not redo and not self.addParts):
+            if redo:
                 self.callout.addPart(part)
             else:
                 self.callout.removePart(part)
 
         self.callout.scene().emit(SIGNAL("layoutChanged()"))
         self.callout.steps[-1].csi.resetPixmap()
+        self.callout.initLayout()
+
+class RemovePartsFromCalloutCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, callout, partList):
+        QUndoCommand.__init__(self, "Remove Parts from Callout")
+        self.callout = callout
+        self.partStepList = [(part, part.calloutPart.getStep()) for part in partList]
+
+    def doAction(self, redo):
+        self.callout.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+
+        for part, step in self.partStepList:
+            if redo:
+                self.callout.removePart(part)
+            else:
+                self.callout.addPart(part, step)
+
+        self.callout.scene().emit(SIGNAL("layoutChanged()"))
+        for step in self.callout.steps:
+            step.csi.resetPixmap()
         self.callout.initLayout()
 
 class MergeCalloutsCommand(QUndoCommand):

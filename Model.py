@@ -1211,12 +1211,14 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
                 return step
         return None
 
-    def addPart(self, part):
+    def addPart(self, part, step = None):
         newPart = part.duplicate()
         newPart.originalPart = part
         part.calloutPart = newPart
         part.inCallout = True
-        self.steps[-1].addPart(newPart)
+        if step is None:
+            step = self.steps[-1]
+        step.addPart(newPart)
 
     def removePart(self, part):
         newPart = part.calloutPart
@@ -1231,6 +1233,9 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         for step in self.steps:
             partList += step.csi.getPartList()
         return partList
+
+    def getOriginalPartList(self):
+        return [p.originalPart for p in self.getPartList()]
 
     def partCount(self):
         partCount = 0
@@ -1395,7 +1400,6 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             if len(matches) == len(selectedCallouts):
                 return self.mergeCalloutContextMenu(event)
 
-        # TODO: Add easy way to get rid of callout - move all parts back into the step
         stack = self.scene().undoStack
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Add blank Step", self.addBlankStep)
@@ -1425,10 +1429,24 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
         if self.partCount() > 0:
             menu.addAction("Convert To Submodel", lambda: stack.push(CalloutToSubmodelCommand(self)))
+            menu.addAction("Remove Callout", self.removeCalloutSignal)
         else:
             menu.addAction("Delete empty Callout", lambda: stack.push(AddRemoveCalloutCommand(self, False)))
         menu.exec_(event.screenPos())
         
+    def removeCalloutSignal(self):
+        scene = self.scene()
+        stack = scene.undoStack
+        
+        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        stack.beginMacro("Remove Callout")
+        
+        stack.push(RemovePartsFromCalloutCommand(self, self.getOriginalPartList()))
+        stack.push(AddRemoveCalloutCommand(self, False))
+
+        stack.endMacro()
+        scene.emit(SIGNAL("layoutChanged()"))
+    
     def moveToPrevStepSignal(self):
         destStep = self.parentItem().getPrevStep()
         self.moveToStepSignal(destStep, "Previous")
@@ -1439,7 +1457,6 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
     
     def moveToStepSignal(self, destStep, text):
         stack = self.scene().undoStack
-        partList = [p.originalPart for p in self.getPartList()]
         
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         stack.beginMacro("Move Callout to %s Step" % text)
@@ -1447,8 +1464,8 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         stack.push(AddRemoveCalloutCommand(self, False))
         self.setParentItem(destStep)
         stack.push(AddRemoveCalloutCommand(self, True))
-        
-        stack.push(MovePartsToStepCommand(partList, destStep))
+        stack.push(MovePartsToStepCommand(self.getOriginalPartList(), destStep))
+
         stack.endMacro()
         self.scene().emit(SIGNAL("layoutChanged()"))
     
@@ -1680,17 +1697,12 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         menu.addSeparator()
         menu.addAction("Add blank Callout", self.addBlankCalloutSignal)
-        if len(self.callouts) > 1:
-            menu.addAction("Merge Similar Callouts", self.mergeSimilarCalloutSignal)
 
         if not self.csi.parts:
             menu.addAction("&Delete Step", lambda: undo.push(AddRemoveStepCommand(self, False)))
 
         menu.exec_(event.screenPos())
 
-    def mergeSimilarCalloutSignal(self):
-        print "hi"
-    
     def addBlankCalloutSignal(self, useUndo = True, useSelection = True):
         number = self.callouts[-1].number + 1 if self.callouts else 1
         callout = Callout(self, number)
@@ -3457,7 +3469,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         for item in self.scene().selectedItems():
             if isinstance(item, Part) and not item.inCallout:
                 selectedParts.append(item)
-        self.scene().undoStack.push(AddRemovePartsToCalloutCommand(callout, selectedParts, True))
+        self.scene().undoStack.push(AddPartsToCalloutCommand(callout, selectedParts))
 
     def removeFromCalloutSignal(self):
         selectedParts = []
@@ -3465,7 +3477,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
             if isinstance(item, Part) and item.inCallout:
                 selectedParts.append(item)
         callout = self.calloutPart.getStep().parentItem()
-        self.scene().undoStack.push(AddRemovePartsToCalloutCommand(callout, selectedParts, False))
+        self.scene().undoStack.push(RemovePartsFromCalloutCommand(callout, selectedParts))
     
     def keyReleaseEvent(self, event):
         direction = event.key()
