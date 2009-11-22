@@ -225,31 +225,25 @@ class TemplatePage(Page):
 
         step = self.steps[0]
         if step.pli:
-            stack.push(SetPenCommand(step.pli, originalPage.steps[0].pli.pen(), step.pli.pen()))
-            stack.push(SetBrushCommand(step.pli, originalPage.steps[0].pli.brush(), step.pli.brush()))
+            stack.push(SetPenCommand(step.pli, PLI.defaultPen))
+            stack.push(SetBrushCommand(step.pli, PLI.defaultBrush))
         
         if self.submodelItem:
-            stack.push(SetPenCommand(self.submodelItem, originalPage.submodelItem.pen(), self.submodelItem.pen()))
-            stack.push(SetBrushCommand(self.submodelItem, originalPage.submodelItem.brush(), self.submodelItem.brush()))
+            stack.push(SetPenCommand(self.submodelItem, SubmodelPreview.defaultPen))
+            stack.push(SetBrushCommand(self.submodelItem, SubmodelPreview.defaultBrush))
+
+        if step.callouts:
+            callout = step.callouts[0]
+            stack.push(SetPenCommand(callout, Callout.defaultPen))
+            stack.push(SetBrushCommand(callout, Callout.defaultBrush))
+
+            arrow = callout.arrow
+            stack.push(SetPenCommand(arrow, CalloutArrow.defaultPen))
+            stack.push(SetBrushCommand(arrow, CalloutArrow.defaultBrush))
 
         if useUndo:
             stack.endMacro()
 
-    def applyDefaults(self):
-        
-        step = self.steps[0]
-        Page.defaultColor = self.color
-        Page.defaultBrush = self.brush
-        if step.pli:
-            PLI.defaultPen = step.pli.pen()
-            PLI.defaultBrush = step.pli.brush()
-        if step.callouts:
-            Callout.defaultPen = step.callouts[0].pen()
-            Callout.defaultBrush = step.callouts[0].brush()
-        if self.submodelItem:
-            SubmodelPreview.defaultPen = self.submodelItem.pen()
-            SubmodelPreview.defaultBrush = self.submodelItem.brush()
-    
     def getStep(self, number):
         return self.steps[0] if number == 0 else None
 

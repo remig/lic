@@ -19,7 +19,13 @@ class GraphicsRoundRectItem(QGraphicsRectItem):
             painter.setBrush(self.brush())
             painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
             if self.isSelected():
-                QGraphicsRectItem.paint(self, painter, option, widget)
+                painter.save()
+                pen = QPen(Qt.DashLine)
+                pen.setWidth(2)
+                painter.setPen(pen)
+                painter.setBrush(Qt.NoBrush)
+                painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
+                painter.restore()
         else:
             QGraphicsRectItem.paint(self, painter, option, widget)
     

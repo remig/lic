@@ -604,9 +604,10 @@ class SetPenCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, target, oldPen, newPen):
+    def __init__(self, target, oldPen, newPen = None):
         QUndoCommand.__init__(self, "change Border")
-        self.target, self.oldPen, self.newPen = target, oldPen, newPen
+        self.target, self.oldPen = target, oldPen
+        self.newPen = newPen if newPen else target.pen()
         self.template = target.getPage()
 
     def doAction(self, redo):
@@ -623,9 +624,10 @@ class SetBrushCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, target, oldBrush, newBrush):
+    def __init__(self, target, oldBrush, newBrush = None):
         QUndoCommand.__init__(self, "change Border")
-        self.target, self.oldBrush, self.newBrush = target, oldBrush, newBrush
+        self.target, self.oldBrush = target, oldBrush
+        self.newBrush = newBrush if newBrush else target.brush()
         self.template = target.getPage()
 
     def doAction(self, redo):

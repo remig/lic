@@ -1205,7 +1205,6 @@ class LicWindow(QMainWindow):
 
         self.treeModel.setTemplatePage(templatePage)
         self.treeModel.templatePage.applyFullTemplate(False)
-        self.treeModel.templatePage.applyDefaults()
         
         self.scene.emit(SIGNAL("layoutChanged()"))
         self.scene.selectPage(1)
@@ -1286,7 +1285,6 @@ class LicWindow(QMainWindow):
                 self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
                 self.treeModel.templatePage = newTemplate
                 self.treeModel.templatePage.applyFullTemplate()
-                self.treeModel.templatePage.applyDefaults()
                 self.scene.emit(SIGNAL("layoutChanged()"))
                 self.setWindowModified(True)
     

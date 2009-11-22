@@ -31,7 +31,6 @@ def loadLicFile(filename, instructions, treeModel):
     if treeModel.templatePage:
         treeModel.templatePage.subModel = instructions.mainModel
 
-    treeModel.templatePage.applyDefaults()
     treeModel.templatePage.lockIcon.resetPosition()
 
     if fh is not None:
