@@ -1000,6 +1000,7 @@ class CalloutArrowEndItem(QGraphicsRectItem):
     def mouseMoveEvent(self, event):
         if self.flags() == NoMoveFlags:
             return
+        self.parentItem().internalPoints = []
         QGraphicsItem.mouseMoveEvent(self, event)
         self.point -= event.lastScenePos() - event.scenePos()
         self.mousePoint = event.pos()
@@ -1136,7 +1137,8 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
 
     def paintAsAnnotation(self, painter):
         
-        self.initializePoints()
+        if not self.internalPoints:
+            self.initializePoints()
         
         painter.save()
         scenePos = self.mapToScene(self.pos())
@@ -1487,6 +1489,10 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
         stack.endMacro()
         self.scene().emit(SIGNAL("layoutChanged()"))
+
+    def mouseMoveEvent(self, event):
+        GraphicsRoundRectItem.mouseMoveEvent(self, event)
+        self.arrow.internalPoints = []
     
 class Step(StepTreeManager, QGraphicsRectItem):
     """ A single step in an Instruction book.  Contains one optional PLI and exactly one CSI. """
@@ -2739,11 +2745,10 @@ class Submodel(SubmodelTreeManager, PartOGL):
     """ A Submodel is just a PartOGL that also has pages & steps, and can be inserted into a tree. """
     itemClassName = "Submodel"
 
-    def __init__(self, parent = None, instructions = None, filename = "", lineArray = None):
+    def __init__(self, parent = None, instructions = None, filename = ""):
         PartOGL.__init__(self, filename)
 
         self.instructions = instructions
-        self.lineArray = lineArray
         self.used = False
         self.hasImportedSteps = False
 
@@ -2765,20 +2770,20 @@ class Submodel(SubmodelTreeManager, PartOGL):
         ldrawFile.loadFileArray()
         submodelList = ldrawFile.getSubmodels()
 
-        # Add any submodels found in this LDraw file to the submodel dictionary, unused and uninitialized
+        # Add any submodels found in this LDraw file to the submodel dictionary, unused
         if submodelList:
             global submodelDictionary
             for submodelFilename, index in submodelList.items():
                 lineArray = ldrawFile.fileArray[index[0]: index[1]]
-                model = Submodel(self, self.instructions, submodelFilename, lineArray)
+                model = Submodel(self, self.instructions, submodelFilename)
+                model.loadFromLineArray(lineArray)
                 submodelDictionary[submodelFilename] = model
 
         # Load the contents of this specific LDraw file into this submodel
-        self.lineArray = ldrawFile.fileArray
-        self.loadFromLineArray()
+        self.loadFromLineArray(ldrawFile.fileArray)
 
-    def loadFromLineArray(self):
-        for line in self.lineArray[1:]:
+    def loadFromLineArray(self, lineArray):
+        for line in lineArray[1:]:
             if isValidFileLine(line):
                 return
             if isValidStepLine(line):
@@ -3155,10 +3160,11 @@ class Submodel(SubmodelTreeManager, PartOGL):
     def contextMenuEvent(self, event):
 
         menu = QMenu()
-        menu.addAction("Change Submodel to Callout", self.convertToCalloutSignal)
         if self.isSubAssembly:
+            menu.addAction("Change Sub Assembly to Callout", self.convertToCalloutSignal)
             menu.addAction("Change Sub Assembly to Submodel", self.convertFromSubAssemblySignal)
         else:
+            menu.addAction("Change Submodel to Callout", self.convertToCalloutSignal)
             menu.addAction("Change Submodel to Sub Assembly", self.convertToSubAssemblySignal)
         menu.exec_(event.screenPos())
         
@@ -3234,8 +3240,6 @@ class Part(PartTreeManager, QGraphicsRectItem):
         fn = self.filename
         if fn in submodelDictionary:
             self.partOGL = submodelDictionary[fn]
-            if not self.partOGL.used:
-                self.partOGL.loadFromLineArray()
         elif fn in partDictionary:
             self.partOGL = partDictionary[fn]
         else:

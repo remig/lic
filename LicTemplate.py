@@ -158,8 +158,9 @@ class TemplatePage(Page):
         for item in self.getAllChildItems():
             item.setFlags(NoMoveFlags)
 
-        step.callouts[0].arrow.tipRect.setFlags(NoFlags)
-        step.callouts[0].arrow.baseRect.setFlags(NoFlags)
+        if step.callouts:
+            step.callouts[0].arrow.tipRect.setFlags(NoFlags)
+            step.callouts[0].arrow.baseRect.setFlags(NoFlags)
 
     def createBlankTemplate(self, glContext):
         step = Step(self, 0)
