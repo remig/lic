@@ -1017,7 +1017,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
     defaultBrush = QBrush(Qt.transparent)  # Fill arrow head
     arrowTipLength = 22.0
     arrowTipHeight = 5.0
-    arrowHead = QPolygonF([QPointF(),
+    ArrowHead = QPolygonF([QPointF(),
                            QPointF(arrowTipLength + 3, -arrowTipHeight),
                            QPointF(arrowTipLength, 0.0),
                            QPointF(arrowTipLength + 3, arrowTipHeight)])
@@ -1064,8 +1064,8 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
     def paint(self, painter, option, widget = None):
         return  # Do nothing on real paint - will paint as an annotation after GLItems in foreground
     
-    def paintAsAnnotation(self, painter):
-        
+    def initializePoints(self):
+
         # Find two target rects, both in *LOCAL* coordinates
         callout = self.parentItem()
         csi = callout.parentItem().csi
@@ -1127,6 +1127,17 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
             elif my > b:
                 end.setY(b)
 
+        tr = self.tipRect.rect().translated(self.tipRect.pos())
+        br = self.baseRect.rect().translated(self.baseRect.pos())
+        self.setRect(tr | br)
+
+        self.internalPoints = [tip + offset, mid1, mid2, end]
+        self.tipPoint, self.tipRotation = tip, rotation
+
+    def paintAsAnnotation(self, painter):
+        
+        self.initializePoints()
+        
         painter.save()
         scenePos = self.mapToScene(self.pos())
         painter.translate(scenePos.x(), scenePos.y())
@@ -1134,22 +1145,15 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         painter.setBrush(self.brush())
 
         # Draw step line
-        line = QPolygonF([tip + offset, mid1, mid2, end])
-        painter.drawPolyline(line)
+        painter.drawPolyline(QPolygonF(self.internalPoints))
 
         # Draw arrow head
-        painter.translate(tip)
-        painter.rotate(rotation)
-        painter.drawPolygon(self.arrowHead)
+        painter.translate(self.tipPoint)
+        painter.rotate(self.tipRotation)
+        painter.drawPolygon(self.ArrowHead)
         painter.restore()
 
-        # Widen / heighten bounding rect to include tip and end line
-        r = QRectF(tip, end).normalized()
-        if rotation == 0 or rotation == 180:
-            self.setRect(r.adjusted(0.0, -self.arrowTipHeight - 2, 0.0, self.arrowTipHeight + 2))
-        else:
-            self.setRect(r.adjusted(-self.arrowTipHeight - 2, 0.0, self.arrowTipHeight + 2, 0.0))
-
+        # Draw any selection boxes
         painter.save()
         scenePos = self.mapToScene(self.pos())
         painter.translate(scenePos.x(), scenePos.y())
