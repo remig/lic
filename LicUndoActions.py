@@ -440,15 +440,11 @@ class SwitchToNextCalloutBase(QUndoCommand):
         if (redo and self.doSwitch) or (not redo and not self.doSwitch):
             newCallout = self.callout.mergedCallouts.pop(0)
             parent.addCallout(newCallout)
-            for callout in self.callout.mergedCallouts:
-                newCallout.mergeCallout(callout)
-            newCallout.mergeCallout(self.callout)
+            newCallout.mergeCallout(self.callout, append = True)
         else:
             newCallout = self.callout.mergedCallouts.pop()
             parent.addCallout(newCallout)
             newCallout.mergeCallout(self.callout)
-            for callout in self.callout.mergedCallouts:
-                newCallout.mergeCallout(callout)
                 
         parent.removeCallout(self.callout)
         self.callout.mergedCallouts = []

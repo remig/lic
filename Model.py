@@ -1156,7 +1156,9 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         
         if self.isSelected():
             painter.save()
-            painter.setPen(QPen(Qt.DashLine))
+            pen = QPen(Qt.DashLine)
+            pen.setWidth(2)
+            painter.setPen(pen)
             painter.setBrush(Qt.NoBrush)
             painter.drawRect(self.rect())
             painter.restore()
@@ -1164,6 +1166,16 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         self.tipRect.paintAsAnnotation(painter)
         self.baseRect.paintAsAnnotation(painter)
         painter.restore()
+
+    def contextMenuEvent(self, event):
+
+        stack = self.scene().undoStack
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Add Point", self.addPoint)
+        menu.exec_(event.screenPos())
+        
+    def addPoint(self):
+        print "hi"
 
 class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
@@ -1337,10 +1349,13 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         r.moveBottomRight(self.rect().bottomRight() - Page.margin)
         self.qtyLabel.setPos(r.topLeft())
 
-    def mergeCallout(self, callout):
-        self.mergedCallouts.append(callout)
+    def mergeCallout(self, callout, append = False):
+        if not append:
+            self.mergedCallouts.append(callout)
         for c in callout.mergedCallouts:
             self.mergeCallout(c)
+        if append:
+            self.mergedCallouts.append(callout)
         callout.setMergedCallouts([])
         self.setMergedQuantity()
 
@@ -3409,7 +3424,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         else:
             menu.addAction("Create Callout from Parts", self.createCalloutSignal)
 
-            if step.callouts:  # TODO: Add support for moving patt from callout to callout
+            if step.callouts:  # TODO: Add support for moving part from callout to callout
                 subMenu = menu.addMenu("Move Part to Callout")
                 for callout in step.callouts:
                     subMenu.addAction("Callout %d" % callout.number, lambda x = callout: self.moveToCalloutSignal(x))
