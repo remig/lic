@@ -3,6 +3,7 @@ from PyQt4.QtCore import *
 from Model import *
 from LicTemplate import *
 import Layout
+import GLHelpers
 
 def ro(self, targetType):
     c = targetType()
@@ -85,7 +86,7 @@ def __readTemplate(stream, instructions):
         part.partOGL = partDictionary[part.filename]
 
     for partOGL in partDictionary.values():
-        if partOGL.oglDispID == UNINIT_GL_DISPID:
+        if partOGL.oglDispID == GLHelpers.UNINIT_GL_DISPID:
             partOGL.createOGLDisplayList()
        
     for glItem in template.glItemIterator():

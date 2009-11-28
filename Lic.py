@@ -1146,7 +1146,7 @@ class LicWindow(QMainWindow):
         if not self.offerSave():
             return
         dir = os.path.dirname(self.filename) if self.filename is not None else "."
-        formats = ["*.mpd", "*.dat"]
+        formats = ["*.mpd", "*.ldr", "*.dat"]
         filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Import LDraw Model", dir, "LDraw Models (%s)" % " ".join(formats)))
         if filename:
             QTimer.singleShot(50, lambda: self.importLDrawModelTimerAction(filename))

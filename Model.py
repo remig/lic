@@ -37,7 +37,6 @@ from LDrawFileFormat import *
 MagicNumber = 0x14768126
 FileVersion = 4
 
-UNINIT_GL_DISPID = -1
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 submodelDictionary = {}  # {'filename': Submodel()}
 currentModelFilename = ""
@@ -160,7 +159,7 @@ class Instructions(QObject):
         
         # First initialize all partOGL display lists
         for part in partDictionary.values():
-            if part.oglDispID == UNINIT_GL_DISPID:
+            if part.oglDispID == GLHelpers.UNINIT_GL_DISPID:
                 part.createOGLDisplayList()
             
         # Initialize all submodel display lists
@@ -2180,7 +2179,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         QGraphicsRectItem.__init__(self, step)
 
         self.center = QPointF()
-        self.oglDispID = UNINIT_GL_DISPID
+        self.oglDispID = GLHelpers.UNINIT_GL_DISPID
         self.setFlags(AllFlags)
         self.setPen(QPen(Qt.NoPen))
 
@@ -2190,6 +2189,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.parts = []
         self.arrows = []
         self.isDirty = True
+        self.nextCSIIsDirty = False
 
     def getPartList(self):
         partList = []
@@ -2215,6 +2215,11 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         if self.isDirty:
             self.resetPixmap()
             self.isDirty = False
+            if self.nextCSIIsDirty:
+                nextStep = self.parentItem().getNextStep()
+                if nextStep:
+                    nextStep.csi.isDirty = nextStep.csi.nextCSIIsDirty = True
+                self.nextCSIIsDirty = False
          
         GLHelpers.pushAllGLMatrices()
         
@@ -2277,7 +2282,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         for a single display list giving a full model rendering up to this step.
         """
 
-        if self.oglDispID == UNINIT_GL_DISPID:
+        if self.oglDispID == GLHelpers.UNINIT_GL_DISPID:
             self.oglDispID = GL.glGenLists(1)
         GL.glNewList(self.oglDispID, GL.GL_COMPILE)
         #GLHelpers.drawCoordLines()
@@ -2290,7 +2295,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         if not self.parts:
             self.center = QPointF()
             self.setRect(QRectF())
-            self.oglDispID = UNINIT_GL_DISPID
+            self.oglDispID = GLHelpers.UNINIT_GL_DISPID
             return  # No parts = reset pixmap
         
         # Temporarily enlarge CSI, in case recent changes pushed image out of existing bounds.
@@ -2333,7 +2338,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         """
         global currentModelFilename
 
-        if self.oglDispID == UNINIT_GL_DISPID:
+        if self.oglDispID == GLHelpers.UNINIT_GL_DISPID:
             print "ERROR: Trying to init a CSI size that has no display list"
             return False
         
@@ -2466,7 +2471,7 @@ class PartOGL(object):
         self.winding = GL.GL_CCW
         self.parts = []
         self.primitives = []
-        self.oglDispID = UNINIT_GL_DISPID
+        self.oglDispID = GLHelpers.UNINIT_GL_DISPID
         self.isPrimitive = False  # primitive here means any file in 'P'
         self.isSubmodel = False
         self._boundingBox = None
@@ -2542,10 +2547,10 @@ class PartOGL(object):
 
         # Ensure any parts in this part have been initialized
         for part in self.parts:
-            if part.partOGL.oglDispID == UNINIT_GL_DISPID:
+            if part.partOGL.oglDispID == GLHelpers.UNINIT_GL_DISPID:
                 part.partOGL.createOGLDisplayList()
 
-        if self.oglDispID == UNINIT_GL_DISPID:
+        if self.oglDispID == GLHelpers.UNINIT_GL_DISPID:
             self.oglDispID = GL.glGenLists(1)
         GL.glNewList(self.oglDispID, GL.GL_COMPILE)
 
@@ -3242,6 +3247,8 @@ class Part(PartTreeManager, QGraphicsRectItem):
             self.partOGL = submodelDictionary[fn]
         elif fn in partDictionary:
             self.partOGL = partDictionary[fn]
+        elif fn.upper() in partDictionary:
+            self.partOGL = partDictionary[fn.upper()]
         else:
             self.partOGL = partDictionary[fn] = PartOGL(fn, loadFromFile = True)
         
@@ -3467,7 +3474,9 @@ class Part(PartTreeManager, QGraphicsRectItem):
             arrowMenu.addAction("Move Right", lambda: s.push(BeginEndDisplacementCommand(self, Qt.Key_Right)))
             
         menu.addSeparator()
-        menu.addAction("Change Color", self.changeColorSignal)
+        if not self.originalPart:
+            menu.addAction("Change Color", self.changeColorSignal)
+            menu.addAction("Change Part", self.changeBasePartSignal)
         
         menu.exec_(event.screenPos())
 
@@ -3553,16 +3562,24 @@ class Part(PartTreeManager, QGraphicsRectItem):
         parentWidget.connect(dialog, SIGNAL("changeColor"), self.changeColor)
         parentWidget.connect(dialog, SIGNAL("acceptColor"), self.acceptColor)
         dialog.exec_()
-        
+
     def changeColor(self, newColor):
         self.color = newColor
         self.getCSI().isDirty = True
+        self.getCSI().nextCSIIsDirty = True
         self.scene().update()
     
     def acceptColor(self, oldColor):
         action = ChangePartColorCommand(self, oldColor, self.color)
         self.scene().undoStack.push(action)
-        
+
+    def changeBasePartSignal(self):
+        dir = os.path.join(config.LDrawPath, 'PARTS')
+        filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open LDraw Part", dir, "LDraw Part Files (*.dat)"))
+        fn = os.path.basename(filename)
+        if fn and fn != self.filename:
+            self.scene().undoStack.push(ChangePartOGLCommand(self, fn))
+
 class Arrow(Part):
     itemClassName = "Arrow"
 

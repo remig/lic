@@ -10,6 +10,8 @@ from OpenGL.GLU import *
 from PyQt4.QtCore import QPointF
 from PyQt4.QtOpenGL import QGLFormat, QGL
 
+UNINIT_GL_DISPID = -1
+
 def getGLFormat():
     format = QGLFormat(QGL.SampleBuffers)
     format.setSamples(8)

@@ -2,6 +2,7 @@ from PyQt4.QtGui import QUndoCommand
 from PyQt4.QtCore import SIGNAL, QSizeF
 
 import Helpers
+import GLHelpers
 
 def resetGLItem(self, name, template):
     instructions = template.getPage().instructions
@@ -316,7 +317,7 @@ class MovePartsToStepCommand(QUndoCommand):
             startStep = oldStep if redo else self.newStep
             endStep = self.newStep if redo else oldStep
             
-            part.setParentItem(endStep) # Temporarily set part's parent, so it doesn't get deleted by Qt
+            part.setParentItem(None) # Temporarily set part's parent, so it doesn't get deleted by Qt
             startStep.removePart(part)
             endStep.addPart(part)
             if part.displacement and part.displaceArrow:
@@ -696,6 +697,41 @@ class ChangePartColorCommand(QUndoCommand):
         if self.part.getStep().pli:
             self.part.getStep().pli.changePartColor(self.part, oldColor, newColor)
 
+class ChangePartOGLCommand(QUndoCommand):
+    
+    _id = getNewCommandID()
+    
+    def __init__(self, part, newFilename):
+        QUndoCommand.__init__(self, "Change Part")
+        self.part, self.newFilename = part, newFilename
+        self.oldFilename = self.part.filename
+
+    def doAction(self, redo):
+        part = self.part
+        step = part.getStep()
+        scene = self.part.scene()
+        
+        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        scene.clearSelection()
+        
+        part.setParentItem(None) # Temporarily set part's parent, so it doesn't get deleted by Qt
+        step.removePart(part)
+        
+        part.filename = self.newFilename if redo else self.oldFilename
+            
+        part.initializePartOGL()
+        if part.partOGL.oglDispID == GLHelpers.UNINIT_GL_DISPID:
+            part.partOGL.createOGLDisplayList()
+            part.partOGL.resetPixmap()
+            
+        step.addPart(part)
+        step.csi.isDirty = True
+        step.csi.nextCSIIsDirty = True
+        step.initLayout()
+        
+        scene.update()
+        scene.emit(SIGNAL("layoutChanged()"))
+
 class SubmodelToCalloutCommand(QUndoCommand):
     
     _id = getNewCommandID()
@@ -785,9 +821,12 @@ class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
     
     def __init__(self, callout):
         QUndoCommand.__init__(self, "Callout To Submodel")
-        self.targetCallout = targetCallout
+        self.callout = callout
         
     def redo(self):
+        parentModel = self.callout.getPage().parentItem()
+        newSubmodel = Submodel(parentModel, parentModel.instructions, "Callout_To_Submodel")
+
         self.targetStep = self.targetCallout.parentItem()
         
         self.addedParts = []
