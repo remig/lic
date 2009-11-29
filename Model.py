@@ -35,7 +35,7 @@ from RectanglePacker import CygonRectanglePacker
 from LDrawFileFormat import *
 
 MagicNumber = 0x14768126
-FileVersion = 4
+FileVersion = 5
 
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 submodelDictionary = {}  # {'filename': Submodel()}
@@ -463,7 +463,7 @@ class Instructions(QObject):
         if self.mainModel:
             self.mainModel.setPageSize(newPageSize)
 
-class Page(PageTreeManager, QGraphicsRectItem):
+class Page(PageTreeManager, GraphicsRoundRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
 
     itemClassName = "Page"
@@ -475,11 +475,13 @@ class Page(PageTreeManager, QGraphicsRectItem):
     defaultResolution = 72.0
     
     margin = QPointF(15, 15)
-    defaultColor = QColor(Qt.white)
-    defaultBrush = None
+    defaultFillColor = QColor(Qt.white)
+    defaultBrush = QBrush(Qt.NoBrush)
+    defaultPen = QPen(Qt.NoPen)
+    defaultPen.cornerRadius = 0
 
     def __init__(self, subModel, instructions, number, row):
-        QGraphicsRectItem.__init__(self)
+        GraphicsRoundRectItem.__init__(self, None)
 
         # Position this rectangle inset from the containing scene
         self.setPos(0, 0)
@@ -495,8 +497,7 @@ class Page(PageTreeManager, QGraphicsRectItem):
         self.children = []
         self.submodelItem = None
         self.layout = GridLayout()
-        self.color = self.defaultColor
-        self.brush = self.defaultBrush
+        self.color = Page.defaultFillColor
 
         # Setup this page's page number
         self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
@@ -515,11 +516,13 @@ class Page(PageTreeManager, QGraphicsRectItem):
         # Need to explicitly add this page to scene, since it has no parent
         instructions.scene.addItem(self)
 
-    def resetPageNumberPosition(self):
-        rect = self.numberItem.boundingRect()
-        rect.moveBottomRight(self.rect().bottomRight() - Page.margin)
-        self.numberItem.setPos(rect.topLeft())
-    
+    def insetRect(self):
+        r = QGraphicsRectItem.rect(self)
+        inset = self.pen().width()
+        if inset:
+            r.adjust(inset, inset, -inset, -inset)
+        return r
+
     def _setNumber(self, number):
         self._number = number
         self.numberItem.setText("%d" % self._number)
@@ -697,6 +700,11 @@ class Page(PageTreeManager, QGraphicsRectItem):
                 return True
         return False
     
+    def resetPageNumberPosition(self):
+        rect = self.numberItem.boundingRect()
+        rect.moveBottomRight(self.insetRect().bottomRight() - Page.margin)
+        self.numberItem.setPos(rect.topLeft())
+
     def initLayout(self):
 
         self.lockIcon.resetPosition()
@@ -708,14 +716,15 @@ class Page(PageTreeManager, QGraphicsRectItem):
         # Remove any separators; we'll re-add them in the appropriate place later
         self.removeAllSeparators()
 
-        pageRect = self.rect()
+        pageRect = self.insetRect()
         mx = Page.margin.x()
         my = Page.margin.y()
         
         # Allocate space for the submodel image, if any
         if self.submodelItem:
-            self.submodelItem.setPos(Page.margin)
-            self.submodelItem.rect().setTopLeft(Page.margin)
+            topLeft = Page.margin + self.insetRect().topLeft()
+            self.submodelItem.setPos(topLeft)
+            self.submodelItem.rect().setTopLeft(topLeft)
             pageRect.setTop(self.submodelItem.rect().height() + my + my)
 
         label = "Initializing Page: %d" % self._number
@@ -797,15 +806,17 @@ class Page(PageTreeManager, QGraphicsRectItem):
         painter.setBrush(QBrush(Qt.black))
         painter.drawRect(self.rect().translated(3, 3))
 
-        # Draw the page itself - white with a thin black border
-        painter.setPen(QPen(Qt.black))
-        painter.setBrush(QBrush(self.color))
+        # Draw the full page in the border color
+        painter.setBrush(QBrush(self.pen().color()))
         painter.drawRect(self.rect())
         
+        # Draw the page itself in the chosen fill, with the correctly inset rounded rect 
+        painter.setBrush(QBrush(self.color))
+        painter.drawRoundedRect(self.insetRect(), self.cornerRadius, self.cornerRadius)
+        
         # Draw any images or gradients this page may have
-        if self.brush:
-            painter.setBrush(self.brush)
-            painter.drawRect(self.rect())
+        painter.setBrush(self.brush())
+        painter.drawRoundedRect(self.insetRect(), self.cornerRadius, self.cornerRadius)
 
     def drawGLItems(self, painter, rect):
         

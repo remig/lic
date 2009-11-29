@@ -189,13 +189,9 @@ def __writePage(stream, page):
     stream.writeInt32(page.number)
     stream.writeInt32(page._row)
     
-    stream << page.pos() << page.rect() << page.color
-    if page.brush:
-        stream.writeBool(True)
-        stream << page.brush
-    else:
-        stream.writeBool(False)
-        
+    __writeRoundedRectItem(stream, page)
+    stream << page.color
+    
     stream << page.numberItem.pos() << page.numberItem.font()
 
     # Write out each step in this page

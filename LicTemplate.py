@@ -97,7 +97,7 @@ class TemplateRotateScaleSignalItem(QObject):
         action = ScaleDefaultItemCommand(self.target, self.name, self, originalScale, self.target.defaultScale)
         self.scene().undoStack.push(action)
 
-class TemplatePage(Page):
+class TemplatePage(TemplateRectItem, Page):
 
     def __init__(self, subModel, instructions):
         Page.__init__(self, subModel, instructions, 0, 0)
@@ -250,6 +250,7 @@ class TemplatePage(Page):
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
+        menu.addAction("Format Border", self.formatBorder)
         menu.addAction("Background Color", self.setBackgroundColor)
         arrowMenu = menu.addMenu("Background Fill Effect")
         arrowMenu.addAction("Gradient", self.setBackgroundGradient)
@@ -259,26 +260,30 @@ class TemplatePage(Page):
         menu.exec_(event.screenPos())
         
     def setColor(self, color):
-        Page.defaultColor = color
+        Page.defaultFillColor = color
         self.color = color
         
     def setBrush(self, brush):
+        Page.setBrush(self, brush)
         Page.defaultBrush = brush
-        self.brush = brush
         
+    def setPen(self, newPen):
+        Page.setPen(self, newPen)
+        Page.defaultPen = newPen
+
     def setBackgroundColor(self):
         color = QColorDialog.getColor(self.color, self.scene().views()[0])
         if color.isValid(): 
             self.scene().undoStack.push(SetPageBackgroundColorCommand(self, self.color, color))
     
     def setBackgroundNone(self):
-        self.scene().undoStack.push(SetPageBackgroundBrushCommand(self, self.brush, None))
+        self.scene().undoStack.push(SetPageBackgroundBrushCommand(self, self.brush(), QBrush(Qt.NoBrush)))
         
     def setBackgroundGradient(self):
-        g = self.brush.gradient() if self.brush else None
+        g = self.brush().gradient()
         dialog = GradientDialog(self.scene().views()[0], Page.PageSize, g)
         if dialog.exec_():
-            self.scene().undoStack.push(SetPageBackgroundBrushCommand(self, self.brush, QBrush(dialog.getGradient())))
+            self.scene().undoStack.push(SetPageBackgroundBrushCommand(self, self.brush(), QBrush(dialog.getGradient())))
     
     def setBackgroundImage(self):
         
@@ -293,8 +298,8 @@ class TemplatePage(Page):
             return
 
         stack = self.scene().undoStack
-        dialog = LicDialogs.BackgroundImagePropertiesDlg(parentWidget, image, self.color, self.brush, Page.PageSize)
-        action = lambda image: stack.push(SetPageBackgroundBrushCommand(self, self.brush, QBrush(image) if image else None))
+        dialog = LicDialogs.BackgroundImagePropertiesDlg(parentWidget, image, self.color, self.brush(), Page.PageSize)
+        action = lambda image: stack.push(SetPageBackgroundBrushCommand(self, self.brush(), QBrush(image) if image else None))
         parentWidget.connect(dialog, SIGNAL("changed"), action)
 
         stack.beginMacro("change Page background")

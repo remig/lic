@@ -594,7 +594,7 @@ class SetPageBackgroundBrushCommand(QUndoCommand):
         self.template.setBrush(brush)
         self.template.update()
         for page in self.template.instructions.getPageList():
-            page.brush = brush
+            page.setBrush(brush)
             page.update()
 
 class SetPenCommand(QUndoCommand):

@@ -282,12 +282,16 @@ def __readPage(stream, parent, instructions, templateModel = None):
     else:
         page = Page(parent, instructions, number, row)
 
-    page.setPos(stream.readQPointF())
-    page.setRect(stream.readQRectF())
-    page.color = stream.readQColor()
-    hasBrush = stream.readBool()
-    if hasBrush:
-        page.brush = stream.readQBrush()
+    if stream.licFileVersion >= 5:
+        __readRoundedRectItem(stream, page)
+        page.color = stream.readQColor()
+    else:
+        page.setPos(stream.readQPointF())
+        page.setRect(stream.readQRectF())
+        page.color = stream.readQColor()
+        hasBrush = stream.readBool()
+        if hasBrush:
+            page.brush = stream.readQBrush()
     
     page.numberItem.setPos(stream.readQPointF())
     page.numberItem.setFont(stream.readQFont())

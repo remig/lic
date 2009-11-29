@@ -398,7 +398,7 @@ class PenDlg(QDialog):
         self.originalPen, self.hasRadius, self.fillColor = originalPen, hasRadius, fillColor
 
         self.penWidthSpinBox = QSpinBox()
-        self.penWidthSpinBox.setRange(0, 20)
+        self.penWidthSpinBox.setRange(0, 50)
         self.penWidthSpinBox.setValue(originalPen.width())
 
         self.penWidthLabel = QLabel(self.tr("Pen &Width:"))

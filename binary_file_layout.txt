@@ -107,11 +107,8 @@ Page:
   int32 number
   int32 _row
   
-  QPointF pos
-  QRectF rect
+  RoundedRectItem pos, rect, pen, brush, cornerRadius
   QColor color
-  bool hasBrush
-  QBrush brush, if hasBrush
   
   QPointF number.pos
   QFont number.font
