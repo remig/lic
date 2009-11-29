@@ -824,15 +824,62 @@ class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
         self.callout = callout
         
     def redo(self):
-        parentModel = self.callout.getPage().parentItem()
-        newSubmodel = Submodel(parentModel, parentModel.instructions, "Callout_To_Submodel")
+        callout = self.callout
+        scene = callout.scene()
+        scene.clearSelection()
+        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
 
-        self.targetStep = self.targetCallout.parentItem()
+        partList = callout.getOriginalPartList()
+        self.targetStep = callout.parentItem()
+        self.parentModel = callout.getPage().parent()
+        submodel = callout.createBlankSubmodel()
+        submodel.appendBlankPage()
         
-        self.addedParts = []
+        for part in partList:
+            submodel.parts.append(part)
+            submodel.pages[0].steps[0].addPart(part)
+            self.targetStep.removePart(part)
+
+        submodel.addInitialPagesAndSteps()
+        submodel.mergeInitialPages()
+        if submodel.oglDispID == GLHelpers.UNINIT_GL_DISPID:
+            submodel.createOGLDisplayList()
+        submodel.resetPixmap()
+
+        self.newPart = submodel.createBlankPart()
+        self.newPart.partOGL = submodel
+        self.targetStep.addPart(self.newPart)
+        
+        self.parentModel.addSubmodel(submodel)
+
+        self.targetStep.removeCallout(callout)
+        self.targetStep.initLayout()
+        self.submodel = submodel
+
+        scene.emit(SIGNAL("layoutChanged()"))
+
+        scene.selectPage(submodel.pages[0].number)
+        submodel.pages[0].setSelected(True)
+        scene.emit(SIGNAL("sceneClick"))
     
     def undo(self):
-        pass
+        scene = self.targetStep.scene()
+        scene.clearSelection()
+        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        
+        self.targetStep.removePart(self.newPart)
+        self.parentModel.removeSubmodel(self.submodel)
+        for part in self.submodel.parts:
+            self.targetStep.addPart(part)
+
+        self.targetStep.addCallout(self.callout)
+        self.targetStep.initLayout()
+        self.callout.initLayout()
+        
+        scene.emit(SIGNAL("layoutChanged()"))
+        scene.selectPage(self.targetStep.parentItem().number)
+        self.callout.setSelected(True)
+        scene.emit(SIGNAL("sceneClick"))
 
 class SubmodelToFromSubAssembly(QUndoCommand):
     

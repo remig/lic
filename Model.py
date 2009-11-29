@@ -90,6 +90,7 @@ class Instructions(QObject):
         global currentModelFilename, submodelDictionary
         currentModelFilename = filename
 
+        # TODO: Add new MainModel class, which will extend Submodel by adding template, title and part list pages
         self.mainModel = Submodel(self, self, filename)
         self.mainModel.importModel()
         
@@ -1271,6 +1272,13 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             partCount += step.csi.partCount()
         return partCount
         
+    def createBlankSubmodel(self):
+        parentModel = self.getPage().parent()
+        fn = "Callout_To_Submodel_%d" % self.number
+        model = Submodel(parentModel, parentModel.instructions, fn)
+        submodelDictionary[fn] = model
+        return model
+
     def resetRect(self):
         children = self.children()
         children.remove(self.arrow)  # Don't want Callout arrow inside its selection box
@@ -1477,7 +1485,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
         stack.endMacro()
         scene.emit(SIGNAL("layoutChanged()"))
-    
+
     def moveToPrevStepSignal(self):
         destStep = self.parentItem().getPrevStep()
         self.moveToStepSignal(destStep, "Previous")
@@ -2963,7 +2971,8 @@ class Submodel(SubmodelTreeManager, PartOGL):
             self.reOrderSubmodelPages()
             self.instructions.mainModel.syncPageNumbers()
             for page in submodel.pages:
-                self.instructions.scene.addItem(page)
+                if page.scene() is None:
+                    self.instructions.scene.addItem(page)
     
     def removeSubmodel(self, submodel):
         self.removeRow(submodel._row)
@@ -3087,6 +3096,9 @@ class Submodel(SubmodelTreeManager, PartOGL):
             if page:
                 return page
         return None
+
+    def createBlankPart(self):
+        return Part(self.filename, matrix = IdentityMatrix())
 
     def addPartFromLine(self, p, line):
         
