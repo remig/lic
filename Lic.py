@@ -729,6 +729,7 @@ class LicTreeWidget(QWidget):
         viewToolButton.setMenu(viewMenu)
         viewToolButton.setPopupMode(QToolButton.InstantPopup)
         viewToolButton.setToolTip("Show / Hide")
+        viewToolButton.setFocusPolicy(Qt.NoFocus)
         self.treeToolBar.addWidget(viewToolButton)
         
         layout = QVBoxLayout(self)
