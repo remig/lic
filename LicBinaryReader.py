@@ -20,19 +20,23 @@ QDataStream.readQString = lambda self: ro(self, QString)
 QDataStream.readQSizeF = lambda self: ro(self, QSizeF)
 QDataStream.readQSize = lambda self: ro(self, QSize)
 
-def loadLicFile(filename, instructions, treeModel):
+def loadLicFile(filename, instructions):
 
     fh, stream = __createStream(filename)
     
-    if stream.readBool():  # have template
-        treeModel.templatePage = __readTemplate(stream, instructions)
-    
+    if stream.licFileVersion >= 6:
+        template = __readTemplate(stream, instructions)
+    else:
+        if stream.readBool():  # have template
+            template = __readTemplate(stream, instructions)
+
     __readInstructions(stream, instructions)
 
-    if treeModel.templatePage:
-        treeModel.templatePage.subModel = instructions.mainModel
+    if template:
+        template.subModel = instructions.mainModel
 
-    treeModel.templatePage.lockIcon.resetPosition()
+    template.lockIcon.resetPosition()
+    instructions.mainModel.template = template
 
     if fh is not None:
         fh.close()
@@ -125,7 +129,7 @@ def __readInstructions(stream, instructions):
         model = __readSubmodel(stream, instructions)
         submodelDictionary[model.filename] = model
 
-    instructions.mainModel = __readSubmodel(stream, instructions)
+    instructions.mainModel = __readSubmodel(stream, instructions, True)
 
     guideCount = stream.readInt32()
     for i in range(0, guideCount):
@@ -148,9 +152,9 @@ def __readInstructions(stream, instructions):
 
     instructions.initGLDisplayLists()
 
-def __readSubmodel(stream, instructions):
+def __readSubmodel(stream, instructions, createMainmodel = False):
 
-    submodel = __readPartOGL(stream, True)
+    submodel = __readPartOGL(stream, True, createMainmodel)
     submodel.instructions = instructions
 
     pageCount = stream.readInt32()
@@ -186,9 +190,15 @@ def __readPartDictionary(stream, partDictionary):
         for part in partOGL.parts:
             part.partOGL = partDictionary[part.filename]
 
-def __readPartOGL(stream, createSubmodel = False):
+def __readPartOGL(stream, createSubmodel = False, createMainmodel = False):
 
-    part = Submodel() if createSubmodel else PartOGL()
+    if createMainmodel:
+        part = Mainmodel()
+    elif createSubmodel:
+        part = Submodel()
+    else:
+        part = PartOGL()
+
     part.filename = str(stream.readQString())
     part.name = str(stream.readQString())
 

@@ -3,19 +3,14 @@ from PyQt4.QtCore import *
 from Model import *
 import Layout
 
-def saveLicFile(filename, instructions, template = None):
+def saveLicFile(filename, instructions, template):
 
     fh, stream = __createStream(filename)
 
     # Need to explicitly de-select parts so they refresh the CSI pixmap
     instructions.scene.clearSelectedParts()
 
-    if template:
-        stream.writeBool(True)
-        __writeTemplate(stream, template)
-    else:
-        stream.writeBool(False)
-
+    __writeTemplate(stream, template)
     __writeInstructions(stream, instructions)
 
     if fh is not None:

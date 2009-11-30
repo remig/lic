@@ -1,5 +1,6 @@
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
+
 import LDrawColors
 import Helpers
 
@@ -9,12 +10,7 @@ class LicTreeModel(QAbstractItemModel):
         QAbstractItemModel.__init__(self, parent)
         
         self.root = None
-        self.templatePage = None
 
-    def setTemplatePage(self, templatePage):
-        self.templatePage = templatePage
-        self.root.incrementRows(1)
-    
     def data(self, index, role = Qt.DisplayRole):
         if role != Qt.DisplayRole or not index.isValid():
             return QVariant()
@@ -25,8 +21,7 @@ class LicTreeModel(QAbstractItemModel):
     def rowCount(self, parent):
 
         if not parent.isValid():
-            offset = 1 if self.templatePage else 0
-            return offset + self.root.rowCount() if self.root else 0
+            return self.root.rowCount() if self.root else 0
 
         item = parent.internalPointer()
         if hasattr(item, "rowCount"):
@@ -103,9 +98,6 @@ class LicTreeModel(QAbstractItemModel):
         if row < 0 or column != 0:
             return QModelIndex()
         
-        if not parent.isValid() and self.templatePage and row == 0:
-            return self.createIndex(row, column, self.templatePage)
-
         if parent.isValid():
             parentItem = parent.internalPointer()
         else:
@@ -375,7 +367,17 @@ class SubmodelTreeManager(BaseTreeManager):
 
     def data(self, index):
         return self.filename
-    
+
+class MainModelTreeManager(SubmodelTreeManager):
+
+    def child(self, row):
+        if row == 0:
+            return self.template
+        return SubmodelTreeManager.child(self, row)
+
+    def rowCount(self):
+        return len(self.pages) + len(self.submodels) + 1
+
 class PartTreeItemTreeManager(BaseTreeManager):
 
     def child(self, row):

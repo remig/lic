@@ -1038,12 +1038,12 @@ class LicWindow(QMainWindow):
             return
         
         if doRescale:
-            self.treeModel.templatePage.scaleAllItems(newScale)
+            self.templatePage.scaleAllItems(newScale)
         
         Page.PageSize = newPageSize
         Page.Resolution = newResolution
-        self.treeModel.templatePage.setRect(0, 0, newPageSize.width(), newPageSize.height())
-        self.treeModel.templatePage.initLayout()
+        self.templatePage.setRect(0, 0, newPageSize.width(), newPageSize.height())
+        self.templatePage.initLayout()
         self.instructions.setPageSize(Page.PageSize)
         self.scene.refreshView()
 
@@ -1166,7 +1166,7 @@ class LicWindow(QMainWindow):
     def loadLicFile(self, filename):
         
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-        LicBinaryReader.loadLicFile(filename, self.instructions, self.treeModel)
+        LicBinaryReader.loadLicFile(filename, self.instructions)
         self.treeModel.root = self.instructions.mainModel
         self.scene.emit(SIGNAL("layoutChanged()"))
         
@@ -1204,12 +1204,12 @@ class LicWindow(QMainWindow):
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.treeModel.root = self.instructions.mainModel
 
-        templatePage = LicBinaryReader.loadLicTemplate(r"C:\lic\dynamic_template.lit", self.instructions)
-        #templatePage = LicTemplate.TemplatePage(self.instructions.mainModel, self.instructions)
-        #templatePage.createBlankTemplate(self.glWidget)
-
-        self.treeModel.setTemplatePage(templatePage)
-        self.treeModel.templatePage.applyFullTemplate(False)
+        self.templatePage = LicBinaryReader.loadLicTemplate(r"C:\lic\dynamic_template.lit", self.instructions)
+        #self.templatePage = LicTemplate.TemplatePage(self.instructions.mainModel, self.instructions)
+        #self.templatePage.createBlankTemplate(self.glWidget)
+        
+        self.instructions.setTemplate(self.templatePage)
+        self.templatePage.applyFullTemplate(False)
         
         self.scene.emit(SIGNAL("layoutChanged()"))
         self.scene.selectPage(1)
@@ -1250,7 +1250,7 @@ class LicWindow(QMainWindow):
         if self.filename == "":
             return self.fileSaveAs()
         try:
-            LicBinaryWriter.saveLicFile(self.filename, self.instructions, self.treeModel.templatePage)
+            LicBinaryWriter.saveLicFile(self.filename, self.instructions, self.templatePage)
             self.undoStack.setClean()
             self.addRecentFile(self.filename)
             self.statusBar().showMessage("Saved to: " + self.filename)
@@ -1260,7 +1260,7 @@ class LicWindow(QMainWindow):
         return False
 
     def fileSaveTemplate(self):
-        template = self.treeModel.templatePage
+        template = self.templatePage
         try:
             LicBinaryWriter.saveLicTemplate(template)
             self.statusBar().showMessage("Saved Template to: " + template.filename)
@@ -1268,7 +1268,7 @@ class LicWindow(QMainWindow):
             QMessageBox.warning(self, "Lic - Save Error", "Failed to save %s: %s" % (template.filename, e))
     
     def fileSaveTemplateAs(self):
-        template = self.treeModel.templatePage
+        template = self.templatePage
         f = template.filename if template.filename else "template.lic"
 
         filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Safe Template As", f, "Lic Template files (*.lit)"))
@@ -1278,7 +1278,7 @@ class LicWindow(QMainWindow):
             return self.fileSaveTemplate()
     
     def fileLoadTemplate(self):
-        templateName = self.treeModel.templatePage.filename
+        templateName = self.templatePage.filename
         dir = os.path.dirname(templateName) if templateName is not None else "."
         newFilename = unicode(QFileDialog.getOpenFileName(self, "Lic - Load Template", dir, "Lic Template files (*.lit)"))
         if newFilename and newFilename != templateName:
@@ -1288,8 +1288,8 @@ class LicWindow(QMainWindow):
                 QMessageBox.warning(self, "Lic - Load Template Error", "Failed to open %s: %s" % (newFilename, e))
             else:
                 self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-                self.treeModel.templatePage = newTemplate
-                self.treeModel.templatePage.applyFullTemplate()
+                self.templatePage = newTemplate
+                self.templatePage.applyFullTemplate()
                 self.scene.emit(SIGNAL("layoutChanged()"))
                 self.setWindowModified(True)
     

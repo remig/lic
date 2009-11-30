@@ -35,7 +35,7 @@ from RectanglePacker import CygonRectanglePacker
 from LDrawFileFormat import *
 
 MagicNumber = 0x14768126
-FileVersion = 5
+FileVersion = 6
 
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 submodelDictionary = {}  # {'filename': Submodel()}
@@ -90,8 +90,7 @@ class Instructions(QObject):
         global currentModelFilename, submodelDictionary
         currentModelFilename = filename
 
-        # TODO: Add new MainModel class, which will extend Submodel by adding template, title and part list pages
-        self.mainModel = Submodel(self, self, filename)
+        self.mainModel = Mainmodel(self, self, filename)
         self.mainModel.importModel()
         
         self.mainModel.syncPageNumbers()
@@ -315,6 +314,10 @@ class Instructions(QObject):
             for page in submodel.pages:
                 page.resetSubmodelImage()
                 page.initLayout()
+
+    def setTemplate(self, template):
+        self.mainModel.template = template
+        self.mainModel.incrementRows(1)
 
     def exportToPOV(self):
         global submodelDictionary
@@ -2767,7 +2770,7 @@ class BoundingBox(object):
 
     def zSize(self):
         return abs(self.z2 - self.z1)
-    
+
 class Submodel(SubmodelTreeManager, PartOGL):
     """ A Submodel is just a PartOGL that also has pages & steps, and can be inserted into a tree. """
     itemClassName = "Submodel"
@@ -3198,16 +3201,27 @@ class Submodel(SubmodelTreeManager, PartOGL):
             menu.addAction("Change Submodel to Callout", self.convertToCalloutSignal)
             menu.addAction("Change Submodel to Sub Assembly", self.convertToSubAssemblySignal)
         menu.exec_(event.screenPos())
-        
+
     def convertToCalloutSignal(self):
         self.pages[0].scene().undoStack.push(SubmodelToCalloutCommand(self))
-        
+
     def convertToSubAssemblySignal(self):
         self.pages[0].scene().undoStack.push(SubmodelToFromSubAssembly(self, True))
-        
+
     def convertFromSubAssemblySignal(self):
         self.pages[0].scene().undoStack.push(SubmodelToFromSubAssembly(self, False))
-    
+
+class Mainmodel(MainModelTreeManager, Submodel):
+    """ A MainModel is a Submodel plus a template, title & part list pages. It's used as the root of a tree mdoel. """
+    itemClassName = "Mainmodel"
+
+    def __init__(self, parent = None, instructions = None, filename = ""):
+        Submodel.__init__(self, parent, instructions, filename)
+
+        self.template = None
+        self.titlePage = None
+        self.partListPage = None
+
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
     itemClassName = "Part Tree Item"
 

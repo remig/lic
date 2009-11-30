@@ -1,7 +1,6 @@
 int32 magic number
 int8  file version
-bool hasTemplate
-Template if hasTemplate
+Template
 Instructions
 eof
 
@@ -32,7 +31,7 @@ Instructions:
   int32 length of submodel dictionary
   ... Submodel 0..n ...
  
-  Submodel instructions.mainModel
+  Mainmodel instructions.mainModel
  
   int32 length of scene.guides 
   ... QPointF guide.pos ...
