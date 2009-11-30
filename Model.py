@@ -1054,6 +1054,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         csi = callout.parentItem().csi
         calloutRect = self.mapFromItem(callout, callout.rect()).boundingRect()
         csiRect = self.mapFromItem(csi, csi.rect()).boundingRect()
+        self.internalPoints = []  # Reset cached internal points
 
         if csiRect.right() < calloutRect.left():  # Callout right of CSI
             self.tipRect.point = csiRect.topRight() + QPointF(0.0, csiRect.height() / 2.0)
@@ -1596,7 +1597,9 @@ class Step(StepTreeManager, QGraphicsRectItem):
         return self.parentItem().getStep(self.number - 1)
 
     def enableNumberItem(self):
-        self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
+        if self.numberItem is None:
+            self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
+        self.numberItem.setText(str(self._number))
         self.numberItem.itemClassName = "Step Number"
         self.numberItem.setPos(0, 0)
         self.numberItem.setFont(QFont("Arial", 15))

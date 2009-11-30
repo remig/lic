@@ -89,12 +89,16 @@ class LicGraphicsScene(QGraphicsScene):
             page.drawAnnotations(painter, rect)
     
     def pageUp(self):
-        self.selectPage(max(self.currentPage._number - 1, self.pages[0]._number))
-        self.currentPage.setSelected(True)
+        if self.pages and self.currentPage:
+            self.selectPage(max(self.currentPage._number - 1, self.pages[0]._number))
+            self.currentPage.setSelected(True)
+            self.emit(SIGNAL("sceneClick"))
 
     def pageDown(self):
-        self.selectPage(min(self.pages[-1]._number, self.currentPage._number + 1))
-        self.currentPage.setSelected(True)
+        if self.pages and self.currentPage:
+            self.selectPage(min(self.pages[-1]._number, self.currentPage._number + 1))
+            self.currentPage.setSelected(True)
+            self.emit(SIGNAL("sceneClick"))
 
     def selectFirstPage(self):
         self.selectPage(1)
