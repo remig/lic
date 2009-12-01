@@ -487,7 +487,6 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     def __init__(self, subModel, instructions, number, row):
         GraphicsRoundRectItem.__init__(self, None)
 
-        # Position this rectangle inset from the containing scene
         self.setPos(0, 0)
         self.setRect(0, 0, self.PageSize.width(), self.PageSize.height())
         self.setFlags(NoMoveFlags)
