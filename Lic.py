@@ -90,12 +90,14 @@ class LicGraphicsScene(QGraphicsScene):
             page.drawAnnotations(painter, rect)
     
     def pageUp(self):
+        self.clearSelection()
         if self.pages and self.currentPage:
             self.selectPage(max(self.currentPage._number - 1, self.pages[0]._number))
             self.currentPage.setSelected(True)
             self.emit(SIGNAL("sceneClick"))
 
     def pageDown(self):
+        self.clearSelection()
         if self.pages and self.currentPage:
             self.selectPage(min(self.pages[-1]._number, self.currentPage._number + 1))
             self.currentPage.setSelected(True)
@@ -124,13 +126,29 @@ class LicGraphicsScene(QGraphicsScene):
                 page.setPos(0, 0)
                 page.show()
                 self.currentPage = page
-            elif self.pagesToDisplay == 2 and page._number == pageNumber:
-                page.setPos(10, 0)
-                page.show()
-                self.currentPage = page
-            elif self.pagesToDisplay == 2 and page._number == pageNumber + 1:
-                page.show()
-                page.setPos(Page.PageSize.width() + 20, 0)
+            elif self.pagesToDisplay == 2:
+                if pageNumber % 2:  # odd pages on right
+                    if page._number == pageNumber:
+                        page.setPos(Page.PageSize.width() + 20, 0)
+                        page.show()
+                        self.currentPage = page
+                    elif page._number == pageNumber - 1:
+                        page.show()
+                        page.setPos(10, 0)
+                    else:
+                        page.hide()
+                        page.setPos(0, 0)
+                else:  # even pages on left
+                    if page._number == pageNumber:
+                        page.setPos(10, 0)
+                        page.show()
+                        self.currentPage = page
+                    elif page._number == pageNumber + 1:
+                        page.setPos(Page.PageSize.width() + 20, 0)
+                        page.show()
+                    else:
+                        page.hide()
+                        page.setPos(0, 0)
             elif self.pagesToDisplay == self.PageViewContinuous or self.pagesToDisplay == self.PageViewContinuousFacing:
                 if page._number == pageNumber:
                     self.currentPage = page
@@ -162,6 +180,7 @@ class LicGraphicsScene(QGraphicsScene):
         view.setInteractive(False)
         view.centerOn(page)
         view.setInteractive(True)
+        self.currentPage = page
         
     def showOnePage(self):
         self.pagesToDisplay = 1

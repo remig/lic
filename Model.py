@@ -98,7 +98,8 @@ class Instructions(QObject):
             self.mainModel.addInitialPagesAndSteps()
         
         t1, partStepCount, t2 = self.getPartDimensionListAndCount() 
-        pageList = self.getPageList()
+        pageList = self.mainModel.getPageList()
+        pageList.sort(key = lambda x: x._number)
         totalCount = (len(pageList) * 2) + 11 + partStepCount
         currentCount = 2
         
@@ -149,9 +150,7 @@ class Instructions(QObject):
         return self.mainModel.filename
 
     def getPageList(self):
-        pageList = self.mainModel.getPageList()
-        pageList.sort(key = lambda x: x._number)
-        return pageList
+        return self.mainModel.getFullPageList()
 
     def initGLDisplayLists(self):
         global GlobalGLContext
@@ -377,7 +376,8 @@ class Instructions(QObject):
     
         # Render & save each page, storing the created filename to return later
         pageFileNames = []
-        pageList = self.getPageList()
+        pageList = self.mainModel.getPageList()
+        pageList.sort(key = lambda x: x._number)
         for page in pageList:
 
             page.lockIcon.hide()
@@ -646,6 +646,12 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         for child in self.getAllChildItems():
             child.setFlags(NoMoveFlags if isLocked else AllFlags)
     
+    def show(self):
+        GraphicsRoundRectItem.show(self)
+        for step in self.steps:
+            if step._hasPLI:
+                step.pli.show()
+
     def addChild(self, index, child):
 
         self.children.insert(index, child)
@@ -1555,7 +1561,8 @@ class Step(StepTreeManager, QGraphicsRectItem):
     
     def enablePLI(self):
         self._hasPLI = True
-        self.pli.show()
+        if self.isVisible():
+            self.pli.show()
     
     def disablePLI(self):
         self._hasPLI = False
@@ -3147,10 +3154,12 @@ class Submodel(SubmodelTreeManager, PartOGL):
 
         return csiList
 
-    def showHidePLIs(self, show):
+    def showHidePLIs(self, show, doLayout = False):
         for page in self.pages:
             for step in page.steps:
                 step.enablePLI() if show else step.disablePLI()
+            if doLayout:
+                page.initLayout()
 
     def pageCount(self):
         pageCount = len(self.pages)
@@ -3163,7 +3172,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
         for submodel in self.submodels:
             pageList += submodel.getPageList()
         return pageList
-        
+
     def addSubmodelImages(self):
         self.pages[0].addSubmodelImage()
         for submodel in self.submodels:
@@ -3220,6 +3229,9 @@ class Mainmodel(MainModelTreeManager, Submodel):
         self.template = None
         self.titlePage = None
         self.partListPages = []
+
+    def getFullPageList(self):
+        return Submodel.getPageList(self) + self.partListPages
 
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
     itemClassName = "Part Tree Item"

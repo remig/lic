@@ -658,13 +658,13 @@ class SetItemFontsCommand(QUndoCommand):
                 for step in page.steps:
                     step.numberItem.setFont(font)
                     
-        elif self.target == 'PLI Item':
+        elif self.target == 'PLIItem':
             for item in self.template.steps[0].pli.pliItems:
                 item.numberItem.setFont(font)
             for page in self.template.instructions.getPageList():
-                for step in page.steps:
-                    for item in step.pli.pliItems:
-                        item.numberItem.setFont(font)
+                for child in page.getAllChildItems():
+                    if self.target == child.itemClassName:
+                        child.numberItem.setFont(font)
 
 class TogglePLIs(QUndoCommand):
 
@@ -677,9 +677,11 @@ class TogglePLIs(QUndoCommand):
     def doAction(self, redo):
         self.template.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         if (redo and self.enablePLIs) or (not redo and not self.enablePLIs):
-            self.template.enablePLI()
+            self.template.steps[0].enablePLI()
+            self.template.instructions.mainModel.showHidePLIs(True, True)
         else:
-            self.template.disablePLI()
+            self.template.steps[0].disablePLI()
+            self.template.instructions.mainModel.showHidePLIs(False, True)
         self.template.scene().emit(SIGNAL("layoutChanged()"))
         self.template.initLayout()
                 

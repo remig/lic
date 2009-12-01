@@ -5,6 +5,7 @@ from Model import *
 from LicTreeModel import PartListPageTreeManager
 
 class PartListPLI(PLI):
+    itemClassName = "PartListPLI"
 
     def __init__(self, parent):
         PLI.__init__(self, parent)
@@ -92,6 +93,15 @@ class PartListPage(PartListPageTreeManager, Page):
     def glItemIterator(self):
         for pliItem in self.pli.pliItems:
             yield pliItem
+
+    def getAllChildItems(self):
+
+        items = [self, self.numberItem, self.pli]
+
+        for pliItem in self.pli.pliItems:
+            items.append(pliItem)
+            items.append(pliItem.numberItem)
+        return items
 
 def createPartListPages(instructions):
 

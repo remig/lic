@@ -151,7 +151,7 @@ class TemplatePage(TemplateRectItem, Page):
         if step.hasPLI():
             for item in step.pli.pliItems:
                 item.__class__ = TemplatePLIItem
-                item.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'PLI Item'))
+                item.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'PLIItem'))
                 item.numberItem.contextMenuEvent = lambda event, i = item: self.fontMenuEvent(event, i.numberItem)
         
         # Set all page elements so they can't move
@@ -222,7 +222,7 @@ class TemplatePage(TemplateRectItem, Page):
         
         stack.push(SetItemFontsCommand(self, originalPage.numberItem.font(), self.numberItem.font(), 'Page'))
         stack.push(SetItemFontsCommand(self, originalPage.steps[0].numberItem.font(), self.steps[0].numberItem.font(), 'Step'))
-        stack.push(SetItemFontsCommand(self, originalPage.steps[0].pli.pliItems[0].numberItem.font(), self.steps[0].pli.pliItems[0].numberItem.font(), 'PLI Item'))
+        stack.push(SetItemFontsCommand(self, originalPage.steps[0].pli.pliItems[0].numberItem.font(), self.steps[0].pli.pliItems[0].numberItem.font(), 'PLIItem'))
 
         step = self.steps[0]
         if step.pli:
@@ -381,7 +381,7 @@ class TemplateStep(Step):
         menu.exec_(event.screenPos())
 
     def togglePLIs(self):
-        self.scene().undoStack.push(TogglePLIs(self, not self.hasPLI()))
+        self.scene().undoStack.push(TogglePLIs(self.getPage(), not self.hasPLI()))
     
     def formatBackground(self):
         pass
