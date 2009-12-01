@@ -9,7 +9,7 @@ class PartListPLI(PLI):
     def __init__(self, parent):
         PLI.__init__(self, parent)
         self.dataText = "Part List PLI"
-        self._row = 0
+        self._row = 1
         self.setPen(QPen(Qt.NoPen))
         self.setBrush(QBrush(Qt.NoBrush))
 
@@ -59,15 +59,15 @@ class PartListPLI(PLI):
 
 class PartListPage(PartListPageTreeManager, Page):
     
-    def __init__(self, instructions, prevPage = None):
+    def __init__(self, instructions, number = None, row = None):
 
         parentModel = instructions.mainModel
-        if prevPage is None:
-            prevPage = parentModel.pages[-1]
-
-        number, row = prevPage._number + 1, prevPage._row + 1
+        if number is None and row is None:
+            number = parentModel.pages[-1]._number + 1
+            row = parentModel.pages[-1]._row + 1
         Page. __init__(self, parentModel, instructions, number, row)
-        
+
+        self.numberItem._row = 0
         self.pli = PartListPLI(self)
 
     def initFullPartList(self):
@@ -94,14 +94,14 @@ class PartListPage(PartListPageTreeManager, Page):
             yield pliItem
 
 def createPartListPages(instructions):
-    
+
     page = PartListPage(instructions)
     page.initFullPartList()
     pageList = [page]
     overflowList = page.doOverflowLayout()
 
     while overflowList != []:
-        page = PartListPage(instructions, pageList[-1])
+        page = PartListPage(instructions, pageList[-1]._number + 1, pageList[-1]._row + 1)
         page.initPartialItemList(overflowList)
         pageList.append(page)
         overflowList = page.doOverflowLayout()

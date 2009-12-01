@@ -2,6 +2,7 @@ from PyQt4.QtCore import *
 
 from Model import *
 from LicTemplate import *
+from LicPartListPage import *
 import Layout
 import GLHelpers
 
@@ -130,6 +131,12 @@ def __readInstructions(stream, instructions):
         submodelDictionary[model.filename] = model
 
     instructions.mainModel = __readSubmodel(stream, instructions, True)
+
+    if stream.licFileVersion >= 7:
+        pageCount = stream.readInt32()
+        for i in range(0, pageCount):
+            newPage = __readPartListPage(stream, instructions)
+            instructions.mainModel.partListPages.append(newPage)
 
     guideCount = stream.readInt32()
     for i in range(0, guideCount):
@@ -327,6 +334,23 @@ def __readPage(stream, parent, instructions, templateModel = None):
 
     return page
 
+def __readPartListPage(stream, instructions):
+
+    number = stream.readInt32()
+    row = stream.readInt32()
+
+    page = PartListPage(instructions, number, row)
+
+    __readRoundedRectItem(stream, page)
+    page.color = stream.readQColor()
+
+    page.numberItem.setPos(stream.readQPointF())
+    page.numberItem.setFont(stream.readQFont())
+
+    page.pli = __readPLI(stream, page, True)
+
+    return page
+
 def __readStep(stream, parent):
     
     stepNumber = stream.readInt32()
@@ -434,9 +458,12 @@ def __readCSI(stream, step):
 
     return csi
 
-def __readPLI(stream, parent):
+def __readPLI(stream, parent, makePartListPLI = False):
 
-    pli = PLI(parent)
+    if makePartListPLI:
+        pli = PartListPLI(parent)
+    else:
+        pli = PLI(parent)
     __readRoundedRectItem(stream, pli)
     
     itemCount = stream.readInt32()

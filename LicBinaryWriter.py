@@ -91,6 +91,10 @@ def __writeInstructions(stream, instructions):
 
     __writeSubmodel(stream, instructions.mainModel)
 
+    stream.writeInt32(len(instructions.mainModel.partListPages))
+    for page in instructions.mainModel.partListPages:
+        __writePartListPage(stream, page)
+
     stream.writeInt32(len(instructions.scene.guides))
     for guide in instructions.scene.guides:
         stream << guide.pos()
@@ -206,6 +210,17 @@ def __writePage(stream, page):
     for border in page.separators:
         stream.writeInt32(border.row())
         stream << border.pos() << border.rect() << border.pen()
+
+def __writePartListPage(stream, page):
+    stream.writeInt32(page.number)
+    stream.writeInt32(page._row)
+
+    __writeRoundedRectItem(stream, page)
+    stream << page.color
+
+    stream << page.numberItem.pos() << page.numberItem.font()
+
+    __writePLI(stream, page.pli)
 
 def __writeStep(stream, step):
     

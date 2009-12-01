@@ -32,6 +32,9 @@ Instructions:
   ... Submodel 0..n ...
  
   Mainmodel instructions.mainModel
+  
+  int32 length of mainModel.partListPages v7
+  ... PartListPage 0..n ...  v7
  
   int32 length of scene.guides 
   ... QPointF guide.pos ...
@@ -120,6 +123,18 @@ Page:
 
   int32 number of borders
   ... Border 0..n ...
+
+PartListPage:  v7
+  int32 number
+  int32 _row
+  
+  RoundedRectItem pos, rect, pen, brush, cornerRadius
+  QColor color
+  
+  QPointF number.pos
+  QFont number.font
+
+  PLI pli
 
 Border:
   int32 child row

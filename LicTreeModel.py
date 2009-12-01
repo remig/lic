@@ -184,12 +184,14 @@ class PageTreeManager(BaseTreeManager):
 class PartListPageTreeManager(BaseTreeManager):
 
     def child(self, row):
-        if row != 0:
-            return None
-        return self.pli
+        if row == 0:
+            return self.numberItem
+        if row == 1:
+            return self.pli
+        return None
 
     def rowCount(self):
-        return 1
+        return 2
 
     def data(self, index):
         return "Part List Page %d" % (self.subModel.partListPages.index(self) + 1)
