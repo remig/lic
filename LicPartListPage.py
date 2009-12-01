@@ -19,7 +19,7 @@ class PartListPLI(PLI):
         rect = self.parentItem().rect().adjusted(0, 0, -inset * 2, -inset * 2)
         self.setRect(rect)
 
-    def initLayout(self):
+    def doOverflowLayout(self):
 
         self.resetRect()
 
@@ -47,35 +47,63 @@ class PartListPLI(PLI):
                 y = my
                 columnWidth = item.rect().width()
                 
+            if x + item.rect().width() > self.rect().width():  # This item overflowed the right edge of page - abort
+                index = partList.index(item)
+                return partList[index:]
+
             item.setPos(x, y)
             y += newHeight
             columnWidth = max(columnWidth, item.rect().width())
 
+        return []  # All items fit on this page
+
 class PartListPage(PartListPageTreeManager, Page):
     
-    def __init__(self, instructions):
+    def __init__(self, instructions, prevPage = None):
+
         parentModel = instructions.mainModel
-        number = parentModel.pages[-1]._number + 1
-        row = parentModel.pages[-1]._row + 1
+        if prevPage is None:
+            prevPage = parentModel.pages[-1]
+
+        number, row = prevPage._number + 1, prevPage._row + 1
         Page. __init__(self, parentModel, instructions, number, row)
         
         self.pli = PartListPLI(self)
 
-        self.initPartList()
-        self.initLayout()
-        
-    def initPartList(self):
-
+    def initFullPartList(self):
         for part in [p for p in self.subModel.parts if not p.isSubmodel()]:
             self.pli.addPart(part)
         for submodel in self.subModel.submodels:
             for part in [p for p in submodel.parts if not p.isSubmodel()]:
                 self.pli.addPart(part)
 
-    def initLayout(self):
-        self.pli.initLayout()
+    def initPartialItemList(self, itemList):
+        self.pli.pliItems = itemList
+        for item in itemList:
+            item.setParentItem(self.pli)
+
+    def doOverflowLayout(self):
+        overflowItems = self.pli.doOverflowLayout()
+        if overflowItems:
+            for item in overflowItems:
+                self.pli.pliItems.remove(item)
+        return overflowItems
 
     def glItemIterator(self):
         for pliItem in self.pli.pliItems:
             yield pliItem
 
+def createPartListPages(instructions):
+    
+    page = PartListPage(instructions)
+    page.initFullPartList()
+    pageList = [page]
+    overflowList = page.doOverflowLayout()
+
+    while overflowList != []:
+        page = PartListPage(instructions, pageList[-1])
+        page.initPartialItemList(overflowList)
+        pageList.append(page)
+        overflowList = page.doOverflowLayout()
+
+    return pageList

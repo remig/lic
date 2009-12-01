@@ -3219,7 +3219,7 @@ class Mainmodel(MainModelTreeManager, Submodel):
 
         self.template = None
         self.titlePage = None
-        self.partListPage = None
+        self.partListPages = []
 
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
     itemClassName = "Part Tree Item"

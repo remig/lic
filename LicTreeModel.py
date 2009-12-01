@@ -192,7 +192,7 @@ class PartListPageTreeManager(BaseTreeManager):
         return 1
 
     def data(self, index):
-        return "Part List Page %d" % self._number
+        return "Part List Page %d" % (self.subModel.partListPages.index(self) + 1)
 
     def dragDropFlags(self):
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable
@@ -389,12 +389,13 @@ class MainModelTreeManager(SubmodelTreeManager):
     def child(self, row):
         if row == 0:
             return self.template
-        if row == self.rowCount() - 1:
-            return self.partListPage
+        offset = len(self.pages) + len(self.submodels) + 1
+        if row >= offset:
+            return self.partListPages[row - offset]
         return SubmodelTreeManager.child(self, row)
 
     def rowCount(self):
-        return len(self.pages) + len(self.submodels) + 2
+        return len(self.pages) + len(self.submodels) + len(self.partListPages) + 1
 
 class PartTreeItemTreeManager(BaseTreeManager):
 

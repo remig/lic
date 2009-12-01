@@ -1210,7 +1210,7 @@ class LicWindow(QMainWindow):
         #self.templatePage.createBlankTemplate(self.glWidget)
         
         self.instructions.setTemplate(self.templatePage)
-        self.instructions.mainModel.partListPage = LicPartListPage.PartListPage(self.instructions)
+        self.instructions.mainModel.partListPages = LicPartListPage.createPartListPages(self.instructions)
         self.templatePage.applyFullTemplate(False)
         
         self.scene.emit(SIGNAL("layoutChanged()"))
