@@ -2091,6 +2091,7 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
         self.removePart(part)
         part.color = newColor
         self.addPart(part)
+        self.initLayout()
     
     def resetPixmap(self):
         
@@ -3636,6 +3637,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.color = newColor
         self.getCSI().isDirty = True
         self.getCSI().nextCSIIsDirty = True
+        self._dataString = None
         self.scene().update()
     
     def acceptColor(self, oldColor):

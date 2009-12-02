@@ -694,10 +694,12 @@ class ChangePartColorCommand(QUndoCommand):
         self.part, self.oldColor, self.newColor = part, oldColor, newColor
 
     def doAction(self, redo):
+        self.part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         oldColor, newColor = (self.oldColor, self.newColor) if redo else (self.newColor, self.oldColor)
         self.part.changeColor(newColor)
         if self.part.getStep().pli:
             self.part.getStep().pli.changePartColor(self.part, oldColor, newColor)
+        self.part.scene().emit(SIGNAL("layoutChanged()"))
 
 class ChangePartOGLCommand(QUndoCommand):
     
