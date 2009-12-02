@@ -699,6 +699,7 @@ class ChangePartColorCommand(QUndoCommand):
         self.part.changeColor(newColor)
         if self.part.getStep().pli:
             self.part.getStep().pli.changePartColor(self.part, oldColor, newColor)
+        self.part.getPage().instructions.mainModel.updatePartList()
         self.part.scene().emit(SIGNAL("layoutChanged()"))
 
 class ChangePartOGLCommand(QUndoCommand):
@@ -729,6 +730,7 @@ class ChangePartOGLCommand(QUndoCommand):
             part.partOGL.resetPixmap()
             
         step.addPart(part)
+        step.getPage().instructions.mainModel.updatePartList()
         step.csi.isDirty = True
         step.csi.nextCSIIsDirty = True
         step.initLayout()

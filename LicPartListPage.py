@@ -106,17 +106,18 @@ class PartListPage(PartListPageTreeManager, Page):
     def contextMenuEvent(self, event):
         pass  # PartListPage has no context menu, yet
 
-def createPartListPages(instructions):
+    @staticmethod
+    def createPartListPages(instructions):
 
-    page = PartListPage(instructions)
-    page.initFullPartList()
-    pageList = [page]
-    overflowList = page.doOverflowLayout()
-
-    while overflowList != []:
-        page = PartListPage(instructions, pageList[-1]._number + 1, pageList[-1]._row + 1)
-        page.initPartialItemList(overflowList)
-        pageList.append(page)
+        page = PartListPage(instructions)
+        page.initFullPartList()
+        pageList = [page]
         overflowList = page.doOverflowLayout()
-
-    return pageList
+    
+        while overflowList != []:
+            page = PartListPage(instructions, pageList[-1]._number + 1, pageList[-1]._row + 1)
+            page.initPartialItemList(overflowList)
+            pageList.append(page)
+            overflowList = page.doOverflowLayout()
+    
+        return pageList

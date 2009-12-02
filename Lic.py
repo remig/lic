@@ -9,11 +9,11 @@ from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
 
 from Model import *
+from LicPartListPage import PartListPage
 import LicTreeModel
 import LicBinaryReader
 import LicBinaryWriter
 import LicTemplate
-import LicPartListPage
 import config
 import l3p
 import povray
@@ -1224,7 +1224,7 @@ class LicWindow(QMainWindow):
         #self.templatePage.createBlankTemplate(self.glWidget)
         
         self.instructions.setTemplate(self.templatePage)
-        self.instructions.mainModel.partListPages = LicPartListPage.createPartListPages(self.instructions)
+        self.instructions.mainModel.partListPages = PartListPage.createPartListPages(self.instructions)
         self.templatePage.applyFullTemplate(False)
         
         self.scene.emit(SIGNAL("layoutChanged()"))

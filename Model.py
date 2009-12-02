@@ -484,6 +484,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     defaultPen = QPen(Qt.NoPen)
     defaultPen.cornerRadius = 0
 
+    #TODO: save / load the horizontal / vertical layout of each Page
     def __init__(self, subModel, instructions, number, row):
         GraphicsRoundRectItem.__init__(self, None)
 
@@ -2538,7 +2539,7 @@ class PartOGL(object):
     def _loadOneLDrawLineCommand(self, line):
 
         if isValidPartLine(line):
-            self.addPartFromLine(lineToPart(line), line)
+            self.addPartFromLine(lineToPart(line))
 
         elif isValidLineLine(line):
             self.addPrimitive(lineToLine(line), GL.GL_LINES)
@@ -2555,7 +2556,7 @@ class PartOGL(object):
             elif line [3] == 'INVERTNEXT':
                 self.invertNext = True
 
-    def addPartFromLine(self, p, line):
+    def addPartFromLine(self, p):
         try:
             part = Part(p['filename'], p['color'], p['matrix'], False)
             part.setInversion(self.invertNext)
@@ -2827,7 +2828,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
                 self.hasImportedSteps = True
                 newPage = self.appendBlankPage()
             if isValidPartLine(line):
-                self.addPartFromLine(lineToPart(line), line)
+                self.addPartFromLine(lineToPart(line))
 
     def addInitialPagesAndSteps(self):
 
@@ -3113,13 +3114,13 @@ class Submodel(SubmodelTreeManager, PartOGL):
     def createBlankPart(self):
         return Part(self.filename, matrix = IdentityMatrix())
 
-    def addPartFromLine(self, p, line):
+    def addPartFromLine(self, p):
         
         # First ensure we have a step in this submodel, so we can add the new part to it.
         if not self.pages:
             newPage = self.appendBlankPage()
 
-        part = PartOGL.addPartFromLine(self, p, line)
+        part = PartOGL.addPartFromLine(self, p)
         if not part:
             return  # Error loading part - part .dat file may not exist
         
@@ -3252,6 +3253,14 @@ class Mainmodel(MainModelTreeManager, Submodel):
                 p.number += increment
         Submodel.updatePageNumbers(self, newNumber, increment)
 
+    def updatePartList(self):
+        p1 = self.partListPages[0]
+        scene = p1.scene()
+        for page in self.partListPages:
+            scene.removeItem(page)
+            del(page)
+        self.partListPages = p1.createPartListPages(self.instructions)
+    
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
     itemClassName = "Part Tree Item"
 
