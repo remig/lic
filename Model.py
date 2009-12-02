@@ -880,10 +880,10 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         steps = [s for s in dragItems if isinstance(s, Step)]
         if not steps:
             return False
-        
+
         print "Dropping steps: %d"  %len(steps)
         return True
-            
+
     def contextMenuEvent(self, event):
         
         menu = QMenu(self.scene().views()[0])
@@ -3232,6 +3232,24 @@ class Mainmodel(MainModelTreeManager, Submodel):
 
     def getFullPageList(self):
         return Submodel.getPageList(self) + self.partListPages
+
+    def addPage(self, page):
+        for p in self.partListPages:
+            if p._row >= page._row: 
+                p._row += 1
+        Submodel.addPage(self, page)
+
+    def deletePage(self, page):
+        for p in self.partListPages:
+            if p._row > page._row: 
+                p._row -= 1
+        Submodel.deletePage(self, page)
+
+    def updatePageNumbers(self, newNumber, increment = 1):
+        for p in self.partListPages:
+            if p.number >= newNumber:
+                p.number += increment
+        Submodel.updatePageNumbers(self, newNumber, increment)
 
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
     itemClassName = "Part Tree Item"

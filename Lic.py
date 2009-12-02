@@ -155,12 +155,7 @@ class LicGraphicsScene(QGraphicsScene):
             else:
                 page.hide()
                 page.setPos(0, 0)
-            if self.pagesToDisplay == 2 and pageNumber == self.pages[-1]._number:
-                self.pages[-1].setPos(Page.PageSize.width() + 20, 0)
-                self.pages[-1].show()
-                self.pages[-2].setPos(10, 0)
-                self.pages[-2].show()
-                
+
         self.scrollToPage(self.currentPage)
 
     def selectionChanged(self):

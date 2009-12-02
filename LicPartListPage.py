@@ -103,6 +103,9 @@ class PartListPage(PartListPageTreeManager, Page):
             items.append(pliItem.numberItem)
         return items
 
+    def contextMenuEvent(self, event):
+        pass  # PartListPage has no context menu, yet
+
 def createPartListPages(instructions):
 
     page = PartListPage(instructions)
