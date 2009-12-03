@@ -1183,6 +1183,7 @@ class LicWindow(QMainWindow):
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         LicBinaryReader.loadLicFile(filename, self.instructions)
         self.treeModel.root = self.instructions.mainModel
+        self.templatePage = self.instructions.mainModel.template
         self.scene.emit(SIGNAL("layoutChanged()"))
         
         self.filename = filename

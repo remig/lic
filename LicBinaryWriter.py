@@ -166,8 +166,14 @@ def __writePart(stream, part):
     stream.writeInt32(part.color)
     for point in part.matrix:
         stream.writeFloat(point)
-        
+
     stream.writeBool(part.inCallout)
+
+    pageNumber = stepNumber = -1
+    if part.parentItem() and part.getCSI():
+        pageNumber, stepNumber = part.getCSI().getPageStepNumberPair()
+    stream.writeInt32(pageNumber)
+    stream.writeInt32(stepNumber)
 
     if part.displacement and part.displaceDirection:
         stream.writeBool(True)
@@ -284,12 +290,6 @@ def __writeCSI(stream, csi):
     stream.writeFloat(csi.rotation[0])
     stream.writeFloat(csi.rotation[1])
     stream.writeFloat(csi.rotation[2])
-
-    stream.writeInt32(csi.partCount() - len(csi.arrows))
-    for partItem in csi.parts:
-        for part in partItem.parts:
-            if part.filename != 'arrow':
-                __writePart(stream, part)
 
 def __writePLI(stream, pli):
     __writeRoundedRectItem(stream, pli)

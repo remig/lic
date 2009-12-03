@@ -169,8 +169,9 @@ class TemplatePage(TemplateRectItem, Page):
         
         self.subModelPart = Submodel()
         for part in self.subModel.parts[:5]:
-            step.addPart(part.duplicate())
-            self.subModelPart.parts.append(part)
+            newPart = part.duplicate()
+            step.addPart(newPart)
+            self.subModelPart.parts.append(newPart)
 
         self.subModelPart.createOGLDisplayList()
         self.initOGLDimension(self.subModelPart, glContext)

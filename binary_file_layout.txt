@@ -91,6 +91,9 @@ Part:
   ... 
   float matrix[15]
   
+  int32 page
+  int32 step
+  
   bool inCallout
   bool useDisplacement # if displacement
   
@@ -197,9 +200,6 @@ CSI:
 
   float scale
   float rotation x, y, z
-  
-  int32 number of non-arrow parts
-  ... Part 0..n ...
 
 PLI:
   RoundedRectItem pos, rect, pen, brush, cornerRadius

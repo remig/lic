@@ -84,11 +84,13 @@ def __readTemplate(stream, instructions):
     template = __readPage(stream, instructions.mainModel, instructions, subModelPart)
     template.subModelPart = subModelPart
 
-    for part in template.steps[0].csi.getPartList():
-        part.partOGL = partDictionary[part.filename]
-
     for part in template.subModelPart.parts:
         part.partOGL = partDictionary[part.filename]
+
+        template.steps[0].addPart(part)
+        if hasattr(part, "displaceArrow"):
+            template.steps[0].csi.addPart(part.displaceArrow)
+            template.steps[0].csi.arrows.append(part.displaceArrow)
 
     for partOGL in partDictionary.values():
         if partOGL.oglDispID == GLHelpers.UNINIT_GL_DISPID:
@@ -256,9 +258,15 @@ def __readPart(stream):
 
     for i in range(0, 16):
         matrix.append(stream.readFloat())
-    
+
     inCallout = stream.readBool() if stream.licFileVersion >= 4 else False
 
+    if stream.licFileVersion >= 8:
+        pageNumber = stream.readInt32()
+        stepNumber = stream.readInt32()
+    else:
+        pageNumber = stepNumber = -1
+    
     useDisplacement = stream.readBool()
     if useDisplacement:
         displacement = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
@@ -279,6 +287,8 @@ def __readPart(stream):
     
     part = Part(filename, color, matrix, invert)
     part.inCallout = inCallout
+    part.pageNumber = pageNumber
+    part.stepNumber = stepNumber
     
     if useDisplacement:
         part.displacement = displacement
@@ -439,22 +449,23 @@ def __readCSI(stream, step):
     csi.scaling = stream.readFloat()
     csi.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
 
-    global partDictionary, submodelDictionary
-    partCount = stream.readInt32()
-    for i in range(0, partCount):
-        part = __readPart(stream)
-        if part.filename in partDictionary:
-            part.partOGL = partDictionary[part.filename]
-        elif part.filename in submodelDictionary:
-            part.partOGL = submodelDictionary[part.filename]
-            part.partOGL.used = True
-        else:
-            print "LOAD ERROR: could not find a partOGL for part: " + part.filename
-
-        csi.addPart(part)
-        if hasattr(part, "displaceArrow"):
-            csi.addPart(part.displaceArrow)
-            csi.arrows.append(part.displaceArrow)
+    if stream.licFileVersion < 8:
+        global partDictionary, submodelDictionary
+        partCount = stream.readInt32()
+        for i in range(0, partCount):
+            part = __readPart(stream)
+            if part.filename in partDictionary:
+                part.partOGL = partDictionary[part.filename]
+            elif part.filename in submodelDictionary:
+                part.partOGL = submodelDictionary[part.filename]
+                part.partOGL.used = True
+            else:
+                print "LOAD ERROR: could not find a partOGL for part: " + part.filename
+    
+            csi.addPart(part)
+            if hasattr(part, "displaceArrow"):
+                csi.addPart(part.displaceArrow)
+                csi.arrows.append(part.displaceArrow)
 
     return csi
 
@@ -515,3 +526,12 @@ def __linkModelPartNames(model):
             part.partOGL.used = True
         else:
             print "LOAD ERROR: could not find a partOGL for part: " + part.filename
+            
+    for part in model.parts:
+        if part.pageNumber >= 0 and part.stepNumber >= 0:
+            page = model.getPage(part.pageNumber)
+            step = page.getStep(part.stepNumber)
+            step.addPart(part)
+            if hasattr(part, "displaceArrow"):
+                step.csi.addPart(part.displaceArrow)
+                step.csi.arrows.append(part.displaceArrow)
