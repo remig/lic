@@ -266,6 +266,11 @@ def __writeCallout(stream, callout):
     stream.writeInt32(len(callout.steps))
     for step in callout.steps:
         __writeStep(stream, step)
+
+    partList = callout.getPartList()
+    stream.writeInt32(len(partList))
+    for part in partList:
+        __writePart(stream, part)
     
 def __writeSubmodelItem(stream, submodelItem):
     stream.writeInt32(submodelItem.row())

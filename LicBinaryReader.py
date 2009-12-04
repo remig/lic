@@ -392,14 +392,6 @@ def __readStep(stream, parent):
         callout = __readCallout(stream, step)
         step.callouts.append(callout)
     
-    # Associate each part that has a matching part in a callout to that matching part, and vice versa
-    for part in [p for p in step.csi.getPartList() if p.inCallout]:
-        for callout in step.callouts:
-            for calloutPart in callout.getPartList():
-                if (calloutPart.filename == part.filename) and (calloutPart.matrix == part.matrix) and (calloutPart.color == part.color):
-                    part.calloutPart = calloutPart
-                    calloutPart.originalPart = part
-
     return step
 
 def __readCallout(stream, parent):
@@ -420,6 +412,17 @@ def __readCallout(stream, parent):
     for i in range(0, stepCount):
         step = __readStep(stream, callout)
         callout.steps.append(step)
+
+    if stream.licFileVersion >= 9:
+        partCount = stream.readInt32()
+        for i in range(0, partCount):
+            part = __readPart(stream)
+            part.partOGL = partDictionary[part.filename]
+            step = callout.getStep(part.stepNumber)
+            step.addPart(part)
+            if hasattr(part, "displaceArrow"):
+                step.csi.addPart(part.displaceArrow)
+                step.csi.arrows.append(part.displaceArrow)
 
     return callout
 
@@ -535,3 +538,13 @@ def __linkModelPartNames(model):
             if hasattr(part, "displaceArrow"):
                 step.csi.addPart(part.displaceArrow)
                 step.csi.arrows.append(part.displaceArrow)
+
+    # Associate each part that has a matching part in a callout to that matching part, and vice versa
+    for part in [p for p in model.parts if p.inCallout]:
+        for callout in part.getStep().callouts:
+            for calloutPart in callout.getPartList():
+                if (calloutPart.filename == part.filename) and (calloutPart.matrix == part.matrix) and (calloutPart.color == part.color):
+                    part.calloutPart = calloutPart
+                    calloutPart.originalPart = part
+                    break
+
