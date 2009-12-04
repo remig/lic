@@ -712,28 +712,12 @@ class ChangePartOGLCommand(QUndoCommand):
         self.oldFilename = self.part.filename
 
     def doAction(self, redo):
-        part = self.part
-        step = part.getStep()
         scene = self.part.scene()
-        
         scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         scene.clearSelection()
         
-        part.setParentItem(None) # Temporarily set part's parent, so it doesn't get deleted by Qt
-        step.removePart(part)
-        
-        part.filename = self.newFilename if redo else self.oldFilename
-            
-        part.initializePartOGL()
-        if part.partOGL.oglDispID == GLHelpers.UNINIT_GL_DISPID:
-            part.partOGL.createOGLDisplayList()
-            part.partOGL.resetPixmap()
-            
-        step.addPart(part)
-        step.getPage().instructions.mainModel.updatePartList()
-        step.csi.isDirty = True
-        step.csi.nextCSIIsDirty = True
-        step.initLayout()
+        self.part.changePartOGL(self.newFilename if redo else self.oldFilename)
+        self.part.getPage().instructions.mainModel.updatePartList()
         
         scene.update()
         scene.emit(SIGNAL("layoutChanged()"))

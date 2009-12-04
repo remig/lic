@@ -172,6 +172,8 @@ class TemplatePage(TemplateRectItem, Page):
             newPart = part.duplicate()
             step.addPart(newPart)
             self.subModelPart.parts.append(newPart)
+            if hasattr(newPart, "displaceArrow"):
+                step.csi.addArrow(newPart.displaceArrow)
 
         self.subModelPart.createOGLDisplayList()
         self.initOGLDimension(self.subModelPart, glContext)

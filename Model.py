@@ -482,10 +482,12 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     defaultFillColor = QColor(Qt.white)
     defaultBrush = QBrush(Qt.NoBrush)
     defaultPen = QPen(Qt.NoPen)
-    defaultPen.cornerRadius = 0
 
     #TODO: save / load the horizontal / vertical layout of each Page
     def __init__(self, subModel, instructions, number, row):
+        if not hasattr(Page.defaultPen, "cornerRadius"):
+            Page.defaultPen.cornerRadius = 0
+
         GraphicsRoundRectItem.__init__(self, None)
 
         self.setPos(0, 0)
@@ -1625,7 +1627,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
         if self.hasPLI(): # Do not use on a step with PLI
             return
 
-        if self.csi.rect().width() <= 0.0 or self.csi.rect().height() <= 0.0:
+        if self.csi.isDirty or self.csi.rect().width() <= 0.0 or self.csi.rect().height() <= 0.0:
             self.csi.resetPixmap()
 
         if self.numberItem:
@@ -1693,7 +1695,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         csiWidth = self.csi.rect().width()
         csiHeight = self.csi.rect().height()
-        if csiWidth <= 0.0 or csiHeight <= 0.0:
+        if self.csi.isDirty or csiWidth <= 0.0 or csiHeight <= 0.0:
             self.csi.resetPixmap()
             csiWidth = self.csi.rect().width()
             csiHeight = self.csi.rect().height()
@@ -1848,7 +1850,6 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
     
     def __init__(self, parent, partOGL):
         GraphicsRoundRectItem.__init__(self, parent)
-        self.cornerRadius = 10
         self.rotation = [0.0, 0.0, 0.0]
         self.scaling = 1.0
         self.setFlags(AllFlags)
@@ -2247,7 +2248,6 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
          
         if self.isDirty:
             self.resetPixmap()
-            self.isDirty = False
             if self.nextCSIIsDirty:
                 nextStep = self.parentItem().getNextStep()
                 if nextStep:
@@ -2352,6 +2352,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         dx = (self.rect().width() - oldWidth) / 2.0
         dy = (self.rect().height() - oldHeight) / 2.0
         self.moveBy(-dx, -dy)
+        self.isDirty = False
 
         GlobalGLContext.makeCurrent()
 
@@ -3502,6 +3503,8 @@ class Part(PartTreeManager, QGraphicsRectItem):
         p.setParentItem(self.parentItem())
         p.displacement = list(self.displacement)
         p.displaceDirection = self.displaceDirection
+        if hasattr(self, "displaceArrow"):
+            p.displaceArrow = self.displaceArrow.duplicate()
         return p
 
     def contextMenuEvent(self, event):
@@ -3647,12 +3650,39 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.getCSI().isDirty = True
         self.getCSI().nextCSIIsDirty = True
         self._dataString = None
+        if self.calloutPart:
+            self.calloutPart.changeColor(newColor)
         self.scene().update()
     
     def acceptColor(self, oldColor):
         action = ChangePartColorCommand(self, oldColor, self.color)
         self.scene().undoStack.push(action)
 
+    def changePartOGL(self, filename):
+        
+        step = self.getStep()
+        
+        self.setParentItem(None) # Temporarily set part's parent, so it doesn't get deleted by Qt
+        step.removePart(self)
+        
+        self.filename = filename
+        self.initializePartOGL()
+        
+        if self.partOGL.oglDispID == GLHelpers.UNINIT_GL_DISPID:
+            self.partOGL.createOGLDisplayList()
+            self.partOGL.resetPixmap()
+            
+        if self.calloutPart:
+            self.calloutPart.changePartOGL(filename)
+        
+        step.addPart(self)
+        step.csi.isDirty = True
+        step.csi.nextCSIIsDirty = True
+        if self.originalPart:
+            step.parentItem().initLayout()
+        else:
+            step.initLayout()
+    
     def changeBasePartSignal(self):
         dir = os.path.join(config.LDrawPath, 'PARTS')
         filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open LDraw Part", dir, "LDraw Part Files (*.dat)"))
@@ -3676,7 +3706,7 @@ class Arrow(Part):
         x = [0.0, 20.0, 25.0, 50.0]
         y = [-5.0, -1.0, 0.0, 1.0, 5.0]
 
-        self.tip = [x[0], y[2], 0.0]
+        tip = [x[0], y[2], 0.0]
         topEnd = [x[2], y[0], 0.0]
         botEnd = [x[2], y[4], 0.0]
         joint = [x[1], y[2], 0.0]
@@ -3686,8 +3716,8 @@ class Arrow(Part):
         br = [x[3], y[3], 0.0]
         bl = [x[1], y[3], 0.0]
         
-        tip1 = Primitive(4, self.tip + topEnd + joint, GL.GL_TRIANGLES)
-        tip2 = Primitive(4, self.tip + joint + botEnd, GL.GL_TRIANGLES)
+        tip1 = Primitive(4, tip + topEnd + joint, GL.GL_TRIANGLES)
+        tip2 = Primitive(4, tip + joint + botEnd, GL.GL_TRIANGLES)
         base = Primitive(4, tl + tr + br + bl, GL.GL_QUADS)
 
         self.partOGL.primitives.append(tip1)
@@ -3698,6 +3728,15 @@ class Arrow(Part):
     def data(self, index):
         x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
         return "%s  (%.1f, %.1f, %.1f)" % (self.partOGL.filename, x, y, z)
+
+    def duplicate(self):
+        p = Arrow(self.displaceDirection)
+        p.matrix = list(self.matrix)
+        p.displacement = list(self.displacement)
+        p.axisRotation = self.axisRotation
+        p.setLength(self.getLength())
+        p.setParentItem(self.parentItem())
+        return p
 
     def positionToBox(self, direction, box):
         y = box.getBottomOffset()
