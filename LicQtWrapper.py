@@ -86,21 +86,27 @@ def genericMouseReleaseEvent(className):
 
 # Make QPointF iterable: p[0] is p.x, p[1] is p.y.  Useful for unpacking x & y easily
 def pointIterator(self, index):
-    if key == 0:
+    if index == 0:
         return self.x()
-    if key == 1:
+    if index == 1:
         return self.y()
     raise IndexError
-QPointF.__getItem__ = pointIterator
+QPointF.__getitem__ = pointIterator
 
-def genericGetCorners(self):
+def genericGetSceneCorners(self):
     topLeft = self.mapToScene(self.mapFromParent(self.pos())) # pos is in item.parent coordinates
     bottomRight = topLeft + QPointF(self.boundingRect().width(), self.boundingRect().height())
     return topLeft, bottomRight
 
-def genericGetCornerList(self):
-    tl, br = self.getCorners()
+def genericGetSceneCornerList(self):
+    tl, br = self.getSceneCorners()
     return [tl.x(), tl.y(), br.x(), br.y()]
+
+def genericGetOrderedCornerList(self, margin = None):
+    r, pos = self.rect(), self.pos()
+    if margin:
+        r.adjust(-margin.x(), -margin.y(), margin.x(), margin.y())
+    return [r.topLeft() + pos, r.topRight() + pos, r.bottomRight() + pos, r.bottomLeft() + pos]
 
 def genericGetPage(self):
     return self.parentItem().getPage()
@@ -119,16 +125,17 @@ QGraphicsRectItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeI
 QGraphicsRectItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
 QGraphicsRectItem.getPage = genericGetPage
-QGraphicsRectItem.getCorners = genericGetCorners
-QGraphicsRectItem.getCornerList = genericGetCornerList
+QGraphicsRectItem.getSceneCorners = genericGetSceneCorners
+QGraphicsRectItem.getSceneCornerList = genericGetSceneCornerList
+QGraphicsRectItem.getOrderedCorners = genericGetOrderedCornerList
 
 QGraphicsSimpleTextItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
 QGraphicsSimpleTextItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)
 QGraphicsSimpleTextItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
 QGraphicsSimpleTextItem.getPage = genericGetPage
-QGraphicsSimpleTextItem.getCorners = genericGetCorners
-QGraphicsSimpleTextItem.getCornerList = genericGetCornerList
+QGraphicsSimpleTextItem.getSceneCorners = genericGetSceneCorners
+QGraphicsSimpleTextItem.getSceneCornerList = genericGetSceneCornerList
 
 class MyTextItem(QGraphicsTextItem):
 
@@ -136,8 +143,8 @@ class MyTextItem(QGraphicsTextItem):
     mouseMoveEvent = genericMouseMoveEvent(QGraphicsItem)  # Don't use QGraphicsTextItem here, or else we can't move item
     mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsTextItem)
 
-    getCorners = genericGetCorners
-    getCornerList = genericGetCornerList
+    getSceneCorners = genericGetSceneCorners
+    getSceneCornerList = genericGetSceneCornerList
     getPage = genericGetPage
     
     def __init__(self, text, parent):

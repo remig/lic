@@ -1202,6 +1202,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
     itemClassName = "Callout"
     margin = QPointF(15, 15)
+    RectangleBorder, StepBorder, TightBorder = range(3)
 
     # TODO: When selecting a part in a multi-step callout, all parts in all steps draw selected
      
@@ -1214,6 +1215,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         self.number = number
         self.qtyLabel = None
         self.showStepNumbers = showStepNumbers
+        self.borderShape = Callout.RectangleBorder
         self.layout = GridLayout()
         
         self.setPos(0.0, 0.0)
@@ -1284,6 +1286,9 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         model = Submodel(parentModel, parentModel.instructions, fn)
         submodelDictionary[fn] = model
         return model
+
+    def setBorderShape(self, border):
+        self.borderShape = border
 
     def resetRect(self):
         children = self.children()
@@ -1471,6 +1476,11 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             menu.addAction("Move to Next Step", self.moveToNextStepSignal)
 
         menu.addSeparator()
+        arrowMenu = menu.addMenu("Border Shape")
+        arrowMenu.addAction("Rectangle", lambda: self.setBorderShape(Callout.RectangleBorder))
+        arrowMenu.addAction("Step Fit", lambda: self.setBorderShape(Callout.StepBorder))
+        arrowMenu.addAction("Tight Fit", lambda: self.setBorderShape(Callout.TightBorder))
+        menu.addSeparator()
 
         if self.partCount() > 0:
             menu.addAction("Convert To Submodel", lambda: stack.push(CalloutToSubmodelCommand(self)))
@@ -1478,7 +1488,87 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         else:
             menu.addAction("Delete empty Callout", lambda: stack.push(AddRemoveCalloutCommand(self, False)))
         menu.exec_(event.screenPos())
-        
+
+    def paint(self, painter, option, widget = None):
+
+        if self.borderShape == Callout.RectangleBorder:
+            GraphicsRoundRectItem.paint(self, painter, option, widget)
+            return
+
+        # Get tight border polygon
+        poly = QPolygonF()
+        for step in self.steps:
+            poly = poly.united(QPolygonF(step.getOrderedCorners(Callout.margin)))
+
+        if self.borderShape == Callout.TightBorder:
+            painter.drawPolyline(poly)
+            if self.isSelected():
+                painter.drawSelectionRect(self.rect(), self.cornerRadius)
+            return
+
+        # Cannot iterate over QPolygonF normally - QPolygonF doesn't implement __iter__
+        newPoly = []
+        for i in range(len(poly) - 1):  # Skip last (duplicated) point
+            newPoly.append(poly[i])
+
+        l = t = 2000
+        r = b = -2000
+        for pt in newPoly:
+            l = min(l, pt.x())
+            r = max(r, pt.x())
+            t = min(t, pt.y())
+            b = max(b, pt.y())
+
+        minWidth = minHeight = 2000
+        for step in self.steps:
+            r = step.rect()
+            minWidth = min(minWidth, r.width())
+            minHeight = min(minHeight, r.height())
+
+        for pt in newPoly:
+            if abs(pt.x() - l) < minWidth:
+                pt.setX(l)
+            elif abs(pt.x() - r) < minWidth:
+                pt.setX(r)
+
+            if abs(pt.y() - t) < minHeight:
+                pt.setY(t)
+            elif abs(pt.y() - b) < minHeight:
+                pt.setY(b)
+
+        tops = [p for p in newPoly if p.y() == t]
+        lefts = [p for p in newPoly if p.x() == l]
+        rights = [p for p in newPoly if p.x() == r]
+        bottoms = [p for p in newPoly if p.y() == b]
+
+        t1, t2 = min(tops, key = lambda i: i.x()), max(tops, key = lambda i: i.x()) 
+        r1, r2 = min(rights, key = lambda i: i.y()), max(rights, key = lambda i: i.y()) 
+        b1, b2 = min(bottoms, key = lambda i: i.x()), max(bottoms, key = lambda i: i.x()) 
+        l1, l2 = min(lefts, key = lambda i: i.y()), max(lefts, key = lambda i: i.y())
+
+        newPoly = [t1, t2]
+        if t2.x() != r:
+            newPoly += [QPointF(t2.x(), r1.y()), r1]
+
+        newPoly.append(r2)
+        if r2.y() != b:
+            newPoly += [QPointF(b2.x(), r2.y()), b2]
+
+        newPoly.append(b1)
+        if b1.x() != l:
+            newPoly += [QPointF(b1.x(), l2.y()), l2]
+
+        newPoly.append(l1)
+        if l1.y() != t:
+            newPoly.append(QPointF(t1.x(), l1.y()))
+
+        if newPoly[0] != newPoly[-1]:   # Close possibly open polygon
+            newPoly.append(newPoly[0])
+        painter.drawPolyline(QPolygonF(newPoly))
+
+        if self.isSelected():
+            painter.drawSelectionRect(self.rect(), self.cornerRadius)
+
     def removeCalloutSignal(self):
         scene = self.scene()
         stack = scene.undoStack

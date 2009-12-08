@@ -329,7 +329,7 @@ class LicGraphicsScene(QGraphicsScene):
                     continue
                 if pageItem is item:
                     continue
-                itemDict[pageItem] = pageItem.getCornerList()
+                itemDict[pageItem] = pageItem.getSceneCornerList()
                 
                 if isinstance(pageItem, Page):  # Bump page points inwards so we snap to margin, not outside edge
                     itemDict[pageItem][0] += margin
@@ -341,7 +341,7 @@ class LicGraphicsScene(QGraphicsScene):
             return  # Nothing to snap to
         
         # Get top-left & bottom-right corners of target item
-        tl, br = item.getCorners()
+        tl, br = item.getSceneCorners()
         
         # Placeholders for current nearest corner & item
         nearestX = dx = x = nearestY = dy = y = 100
@@ -390,7 +390,7 @@ class LicGraphicsScene(QGraphicsScene):
         if nearestY < snapDistance:
             item.moveBy(0, dy)
 
-        tl, br = item.getCorners() # Get top-left & bottom-right corners of newly positioned item
+        tl, br = item.getSceneCorners() # Get top-left & bottom-right corners of newly positioned item
     
         # Position a little snap guide line between item & snapped-to item
         if nearestX < snapDistance:
@@ -1374,7 +1374,7 @@ def main():
     #filename = unicode("C:/lic/template.dat")
     #filename = unicode("C:/lic/pins.ldr")
     #filename = unicode("C:/lic/stack.lic")
-    #filename = unicode("C:/lic/1x1x2.dat")
+    #filename = unicode("C:/lic/1x1.dat")
     #filename = unicode("C:/lic/headlight_simple.dat")
     #filename = unicode("C:/lic/headlight.dat")
     #filename = unicode("C:/lic/displace.lic")
