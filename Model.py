@@ -648,7 +648,8 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     def lock(self, isLocked):
         for child in self.getAllChildItems():
             child.setFlags(NoMoveFlags if isLocked else AllFlags)
-    
+        self.setFlags(NoMoveFlags)
+
     def show(self):
         GraphicsRoundRectItem.show(self)
         for step in self.steps:
@@ -830,7 +831,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         painter.setBrush(self.brush())
         painter.drawRoundedRect(self.insetRect(), self.cornerRadius, self.cornerRadius)
 
-    def drawGLItems(self, painter, rect):
+    def drawGLItems(self, rect):
         
         GLHelpers.pushAllGLMatrices()
         vx = self.pos().x() - rect.x()
@@ -990,6 +991,8 @@ class LockIcon(QGraphicsPixmapItem):
 class CalloutArrowEndItem(QGraphicsRectItem):
     itemClassName = "CalloutArrowEndItem"
     
+    # TODO: When target CSI is moved, arrow tip no longer follows it
+    
     def __init__(self, parent, width, height, dataText, row):
         QGraphicsRectItem.__init__(self, parent)
         self.setRect(0, 0, width, height)
@@ -1006,12 +1009,7 @@ class CalloutArrowEndItem(QGraphicsRectItem):
     
     def paintAsAnnotation(self, painter):
         if self.isSelected():
-            painter.save()
-            painter.setPen(QPen(Qt.DashLine))
-            painter.setBrush(Qt.NoBrush)
-            painter.translate(self.pos())
-            painter.drawRect(self.rect())
-            painter.restore()
+            painter.drawSelectionRect(self.rect().translated(self.pos()))
 
     def mousePressEvent(self, event):
         if event.button() == Qt.RightButton:
@@ -1184,13 +1182,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         painter.translate(scenePos.x(), scenePos.y())
         
         if self.isSelected():
-            painter.save()
-            pen = QPen(Qt.DashLine)
-            pen.setWidth(2)
-            painter.setPen(pen)
-            painter.setBrush(Qt.NoBrush)
-            painter.drawRect(self.rect())
-            painter.restore()
+            painter.drawSelectionRect(self.rect())
 
         self.tipRect.paintAsAnnotation(painter)
         self.baseRect.paintAsAnnotation(painter)
@@ -1211,6 +1203,8 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
     itemClassName = "Callout"
     margin = QPointF(15, 15)
 
+    # TODO: When selecting a part in a multi-step callout, all parts in all steps draw selected
+     
     def __init__(self, parent, number = 1, showStepNumbers = False):
         GraphicsRoundRectItem.__init__(self, parent)
 
@@ -2263,6 +2257,11 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         GLHelpers.rotateView(*self.rotation)
 
         GL.glCallList(self.oglDispID)
+        
+        #for partItem in self.parts:
+        #    for part in partItem.parts:
+        #        part.callGLDisplayList()
+                
         GLHelpers.popAllGLMatrices()
 
     def addPart(self, part):
@@ -2302,7 +2301,10 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         # Call all previous step's CSI display list
         prevStep = self.parentItem().getPrevStep()
         if prevStep:
+            #if prevStep.csi.oglDispID == GLHelpers.UNINIT_GL_DISPID:
             prevStep.csi.__callPreviousOGLDisplayLists(False)
+            #else:
+            #    GL.glCallList(prevStep.csi.oglDispID)
 
         # Draw all the parts in this CSI
         for partItem in self.parts:
@@ -2545,6 +2547,9 @@ class PartOGL(object):
         elif isValidLineLine(line):
             self.addPrimitive(lineToLine(line), GL.GL_LINES)
         
+        elif isValidConditionalLine(line):
+            self.addPrimitive(lineToLine(line), GL.GL_LINES)
+        
         elif isValidTriangleLine(line):
             self.addPrimitive(lineToTriangle(line), GL.GL_TRIANGLES)
 
@@ -2561,6 +2566,11 @@ class PartOGL(object):
         try:
             part = Part(p['filename'], p['color'], p['matrix'], False)
             part.setInversion(self.invertNext)
+            #if self.filename == "stud.dat" and part.filename == "4-4cyli.dat":
+            #    part.color = 512
+            #elif self.filename == "stud4.dat" and part.filename == "4-4cyli.dat" and self.invertNext:
+            #    part.color = 512
+
             part.initializePartOGL()
             if self.invertNext:
                 self.invertNext = False
@@ -2596,6 +2606,13 @@ class PartOGL(object):
 
         GL.glEndList()
 
+    def drawConditionalLines(self):
+        for part in self.parts:
+            part.partOGL.drawConditionalLines()
+            
+        for primitive in self.primitives:
+            primitive.drawConditionalLines()
+    
     def buildSubPartOGLDict(self, partDict):
             
         for part in self.parts:
@@ -3230,7 +3247,7 @@ class Mainmodel(MainModelTreeManager, Submodel):
         Submodel.__init__(self, parent, instructions, filename)
 
         self.template = None
-        self.titlePage = None
+        self.titlePage = None  # TODO: Add ability to add / remove title page at will
         self.partListPages = []
 
     def getFullPageList(self):
@@ -3261,6 +3278,9 @@ class Mainmodel(MainModelTreeManager, Submodel):
             scene.removeItem(page)
             del(page)
         self.partListPages = p1.createPartListPages(self.instructions)
+        
+    def syncPageNumbers(self, firstPageNumber = 1):
+        Submodel.syncPageNumbers(self, firstPageNumber + 1)
     
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
     itemClassName = "Part Tree Item"
@@ -3456,6 +3476,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
             GL.glPopAttrib()
 
         GL.glCallList(self.partOGL.oglDispID)
+        #self.partOGL.drawConditionalLines()
 
         if self.matrix:
             GL.glPopMatrix()
@@ -3922,11 +3943,31 @@ class Primitive(object):
             Az /= l
         return [Ax, Ay, Az]
 
+    def pointWinding(self, p0, p1, p2):
+        
+        dx1 = p1[0] - p0[0]
+        dy1 = p1[1] - p0[1]
+        dx2 = p2[0] - p0[0]
+        dy2 = p2[1] - p0[1]
+        
+        if (dx1*dy2 > dy1*dx2):
+            return +1
+        if (dx1*dy2 < dy1*dx2):
+            return -1
+        if ((dx1*dx2 < 0) or (dy1*dy2 < 0)):
+            return -1
+        if ((dx1*dx1 + dy1*dy1) < (dx2*dx2 + dy2*dy2)):
+            return +1
+        return 0
+    
     def callGLDisplayList(self):
 
         # must be called inside a glNewList/EndList pair
         p = self.points
         if self.type == GL.GL_LINES:
+            if len(self.points) > 6:  # This is a conditional line
+                return
+
             GL.glPushAttrib(GL.GL_CURRENT_BIT)
             GL.glColor4f(0.0, 0.0, 0.0, 1.0)
             GL.glBegin(self.type)
@@ -3941,7 +3982,6 @@ class Primitive(object):
         if color != LDrawColors.CurrentColor:
             GL.glPushAttrib(GL.GL_CURRENT_BIT)
             GL.glColor4fv(color)
-
 
         if self.winding == GL.GL_CCW:
             normal = self.addNormal(p[0:3], p[3:6], p[6:9])
@@ -3977,3 +4017,26 @@ class Primitive(object):
 
         if color != LDrawColors.CurrentColor:
             GL.glPopAttrib()
+
+    def drawConditionalLines(self):
+        if self.type != GL.GL_LINES or len(self.points) != 12:
+            return  # Not a conditional line
+        
+        p = self.points
+        p0 = GLU.gluProject(p[0], p[1], p[2])
+        p1 = GLU.gluProject(p[3], p[4], p[5])
+        c0 = GLU.gluProject(p[6], p[7], p[8])
+        c1 = GLU.gluProject(p[9], p[10], p[11])
+        
+        winding1 = self.pointWinding(p0, p1, c0)
+        winding2 = self.pointWinding(p0, p1, c1)
+        if winding1 != winding2:
+            return
+    
+        GL.glPushAttrib(GL.GL_CURRENT_BIT)
+        GL.glColor4f(1.0, 1.0, 0.0, 1.0)
+        GL.glBegin(self.type)
+        GL.glVertex3f(p[0], p[1], p[2])
+        GL.glVertex3f(p[3], p[4], p[5])
+        GL.glEnd()
+        GL.glPopAttrib()

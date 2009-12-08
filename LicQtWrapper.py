@@ -1,6 +1,20 @@
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
+def genericDrawSelectionRect(self, rect, cornerRadius = 0):
+    self.save()
+    pen = QPen(Qt.DashLine)
+    pen.setWidth(2)
+    self.setPen(pen)
+    self.setBrush(Qt.NoBrush)
+    if cornerRadius:
+        self.drawRoundedRect(rect, cornerRadius, cornerRadius)
+    else:
+        self.drawRect(rect)
+    self.restore()
+
+QPainter.drawSelectionRect = genericDrawSelectionRect
+
 class GraphicsRoundRectItem(QGraphicsRectItem):
     
     defaultPen = QPen(Qt.black)
@@ -19,13 +33,7 @@ class GraphicsRoundRectItem(QGraphicsRectItem):
             painter.setBrush(self.brush())
             painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
             if self.isSelected():
-                painter.save()
-                pen = QPen(Qt.DashLine)
-                pen.setWidth(2)
-                painter.setPen(pen)
-                painter.setBrush(Qt.NoBrush)
-                painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
-                painter.restore()
+                painter.drawSelectionRect(self.rect(), self.cornerRadius)
         else:
             QGraphicsRectItem.paint(self, painter, option, widget)
     
@@ -121,3 +129,41 @@ QGraphicsSimpleTextItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGr
 QGraphicsSimpleTextItem.getPage = genericGetPage
 QGraphicsSimpleTextItem.getCorners = genericGetCorners
 QGraphicsSimpleTextItem.getCornerList = genericGetCornerList
+
+class MyTextItem(QGraphicsTextItem):
+
+    mousePressEvent = genericMousePressEvent(QGraphicsTextItem)
+    mouseMoveEvent = genericMouseMoveEvent(QGraphicsItem)  # Don't use QGraphicsTextItem here, or else we can't move item
+    mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsTextItem)
+
+    getCorners = genericGetCorners
+    getCornerList = genericGetCornerList
+    getPage = genericGetPage
+    
+    def __init__(self, text, parent):
+        QGraphicsTextItem.__init__(self, text, parent)
+
+    def paint(self, painter, option, widget = None):
+        painter.save()
+        ctx = QAbstractTextDocumentLayout.PaintContext()
+        
+        if self.isSelected():
+            cursor = self.textCursor()
+            ctx.cursorPosition = cursor.position()
+            if cursor.hasSelection():
+                selection = QAbstractTextDocumentLayout.Selection()
+                selection.cursor = cursor
+                cg = QPalette.Active
+                selection.format.setBackground(ctx.palette.brush(cg, QPalette.Highlight))
+                selection.format.setForeground(ctx.palette.brush(cg, QPalette.HighlightedText))
+                ctx.selections = [selection]
+        
+        self.document().documentLayout().draw(painter, ctx)
+        if ctx.selections:
+            ctx.selections[0].cursor = QTextCursor()
+            ctx.selections = []
+            
+        painter.restore()
+
+        if self.isSelected():
+            painter.drawSelectionRect(self.boundingRect())

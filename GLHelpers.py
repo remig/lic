@@ -43,6 +43,7 @@ def setupLight(light):
 
 def setupLighting():
     glDisable(GL_NORMALIZE)
+    #glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [1.0, 1.0, 1.0, 1.0])
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
     glEnable(GL_LIGHTING)
     
@@ -69,6 +70,7 @@ def initFreshContext(doClear):
     glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 0)
     glShadeModel(GL_SMOOTH)
     glEnable(GL_MULTISAMPLE)
+    glEnable(GL_LINE_SMOOTH)
 
     setupLighting()
     setupMaterial()
@@ -77,6 +79,9 @@ def initFreshContext(doClear):
         glClearColor(0.0, 0.0, 0.0, 0.0)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
+    #glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
+    #glLineWidth(1.5)  # Make part lines a bit thicker for higher res output 
+    glDepthFunc(GL_LEQUAL)
     glEnable(GL_DEPTH_TEST)
     glEnable(GL_NORMALIZE)
 

@@ -155,6 +155,7 @@ class BaseTreeManager(object):
 
 QGraphicsSimpleTextItem.__bases__ += (BaseTreeManager,)
 QGraphicsRectItem.__bases__ += (BaseTreeManager,)
+QGraphicsTextItem.__bases__ += (BaseTreeManager,)
 
 class PageTreeManager(BaseTreeManager):
 
@@ -196,8 +197,20 @@ class PartListPageTreeManager(BaseTreeManager):
     def data(self, index):
         return "Part List Page %d" % (self.subModel.partListPages.index(self) + 1)
 
-    def dragDropFlags(self):
-        return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+class TitlePageTreeManager(BaseTreeManager):
+
+    def child(self, row):
+        if row == 0:
+            return self.submodelItem
+        if row == 1:
+            return self.setNumberItem
+        return None
+
+    def rowCount(self):
+        return 2
+
+    def data(self, index):
+        return "Title Page"
 
 class CalloutArrowTreeManager(BaseTreeManager):
 
@@ -296,13 +309,10 @@ class SubmodelPreviewTreeManager(BaseTreeManager):
         return self.pli if (self.pli is not None) and self.isSubAssembly and row == 0 else None
 
     def rowCount(self):
-        if (self.pli is not None) and self.isSubAssembly:
-            return 1
-        return 0
+        return 1 if (self.pli is not None) and self.isSubAssembly else 0
 
     def getChildRow(self, child):
-        if child is self.pli:
-            return 0
+        return 0 if child is self.pli else None
 
     def data(self, index):
         return "Sub-Assembly" if self.isSubAssembly else "Submodel Preview"
@@ -391,13 +401,16 @@ class MainModelTreeManager(SubmodelTreeManager):
     def child(self, row):
         if row == 0:
             return self.template
-        offset = len(self.pages) + len(self.submodels) + 1
+        if row == 1 and self.titlePage:
+            return self.titlePage
+
+        offset = len(self.pages) + len(self.submodels) + 1 + (1 if self.titlePage else 0)
         if row >= offset:
             return self.partListPages[row - offset]
         return SubmodelTreeManager.child(self, row)
 
     def rowCount(self):
-        return len(self.pages) + len(self.submodels) + len(self.partListPages) + 1
+        return len(self.pages) + len(self.submodels) + len(self.partListPages) + 1 + (1 if self.titlePage else 0)
 
 class PartTreeItemTreeManager(BaseTreeManager):
 

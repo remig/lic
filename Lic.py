@@ -2,6 +2,7 @@
 import random
 import sys
 import math
+import time
 import os.path
 
 from PyQt4.QtCore import *
@@ -10,6 +11,7 @@ from PyQt4.QtOpenGL import *
 
 from Model import *
 from LicPartListPage import PartListPage
+from LicTitlePage import TitlePage
 import LicTreeModel
 import LicBinaryReader
 import LicBinaryWriter
@@ -83,7 +85,7 @@ class LicGraphicsScene(QGraphicsScene):
                 pagesToDraw.append(page)
                 
         for page in pagesToDraw:
-            page.drawGLItems(painter, rect)
+            page.drawGLItems(rect)
 
         GLHelpers.setupForQtPainter()
         for page in pagesToDraw:
@@ -455,18 +457,12 @@ class LicGraphicsScene(QGraphicsScene):
             return selList[-1].contextMenuEvent(event)
         event.ignore()
 
-    def keyPressEvent(self, event):
-        if not self.selectedItems():
-            event.ignore()
-        else:
-            event.accept()
-        
     def keyReleaseEvent(self, event):
         if not self.pages:
             return  # No pages = nothing to do here
 
         for item in self.selectedItems():
-            if isinstance(item, Part):
+            if isinstance(item, Part) or isinstance(item, QGraphicsTextItem):
                 item.keyReleaseEvent(event)
                 return
 
@@ -1180,6 +1176,7 @@ class LicWindow(QMainWindow):
 
     def loadLicFile(self, filename):
         
+        startTime = time.time()
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         LicBinaryReader.loadLicFile(filename, self.instructions)
         self.treeModel.root = self.instructions.mainModel
@@ -1190,6 +1187,8 @@ class LicWindow(QMainWindow):
         self.addRecentFile(filename)
         self.scene.selectPage(1)
         self.copySettingsToScene()
+        endTime = time.time()
+        print "Total load time: %.2f" % (endTime - startTime)
     
     def importLDrawModel(self, filename):
 
@@ -1226,6 +1225,7 @@ class LicWindow(QMainWindow):
         
         self.instructions.setTemplate(self.templatePage)
         self.instructions.mainModel.partListPages = PartListPage.createPartListPages(self.instructions)
+        self.instructions.mainModel.titlePage = TitlePage(self.instructions)
         self.templatePage.applyFullTemplate(False)
         
         self.scene.emit(SIGNAL("layoutChanged()"))

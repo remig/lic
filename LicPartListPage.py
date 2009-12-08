@@ -13,6 +13,7 @@ class PartListPLI(PLI):
         self._row = 1
         self.setPen(QPen(Qt.NoPen))
         self.setBrush(QBrush(Qt.NoBrush))
+        self.cornerRadius = 0
 
     def resetRect(self):
         inset = Page.margin.x()

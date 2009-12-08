@@ -58,15 +58,15 @@ def lineToQuad(line):
 def isValidConditionalLine(line):
     return (len(line) == 15) and (line[1] == ConditionalLineCommand)
 
-def isValidLineLine(line):
-    return (len(line) == 9) and (line[1] == LineCommand)
-
 def lineToConditionalLine(line):
     d = {}
     d['color'] = float(line[2])
     d['points'] = [float(x) for x in line[3:9]]
     d['control points'] = [float(x) for x in line[9:]]
     return d
+
+def isValidLineLine(line):
+    return (len(line) == 9) and (line[1] == LineCommand)
 
 def lineToLine(line):
     d = {}
@@ -104,8 +104,7 @@ def isValidPartLine(line):
 def lineToPart(line):
     return {'filename': line[15],
             'color': int(line[2]),
-            'matrix': LDToOGLMatrix(line[3:15]),
-            'ghost': False}
+            'matrix': LDToOGLMatrix(line[3:15])}
 
 def createPartLine(color, matrix, filename):
     l = [PartCommand, str(color)]
