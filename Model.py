@@ -35,7 +35,7 @@ from RectanglePacker import CygonRectanglePacker
 from LDrawFileFormat import *
 
 MagicNumber = 0x14768126
-FileVersion = 9
+FileVersion = 10
 
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 submodelDictionary = {}  # {'filename': Submodel()}
@@ -1202,7 +1202,9 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
     itemClassName = "Callout"
     margin = QPointF(15, 15)
-    RectangleBorder, StepBorder, TightBorder = range(3)
+    DefaultBorder, RectangleBorder, StepBorder, TightBorder = range(4)
+
+    defaultBorderFit = RectangleBorder
 
     # TODO: When selecting a part in a multi-step callout, all parts in all steps draw selected
      
@@ -1215,7 +1217,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         self.number = number
         self.qtyLabel = None
         self.showStepNumbers = showStepNumbers
-        self.borderShape = Callout.RectangleBorder
+        self.borderFit = Callout.DefaultBorder
         self.layout = GridLayout()
         
         self.setPos(0.0, 0.0)
@@ -1287,8 +1289,8 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         submodelDictionary[fn] = model
         return model
 
-    def setBorderShape(self, border):
-        self.borderShape = border
+    def setBorderFit(self, fit):
+        self.borderFit = fit
 
     def resetRect(self):
         children = self.children()
@@ -1477,9 +1479,10 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
         menu.addSeparator()
         arrowMenu = menu.addMenu("Border Shape")
-        arrowMenu.addAction("Rectangle", lambda: self.setBorderShape(Callout.RectangleBorder))
-        arrowMenu.addAction("Step Fit", lambda: self.setBorderShape(Callout.StepBorder))
-        arrowMenu.addAction("Tight Fit", lambda: self.setBorderShape(Callout.TightBorder))
+        arrowMenu.addAction("Rectangle", lambda: stack.push(CalloutBorderFitCommand(self, self.borderFit, Callout.RectangleBorder)))
+        arrowMenu.addAction("Step Fit", lambda: stack.push(CalloutBorderFitCommand(self, self.borderFit, Callout.StepBorder)))
+        arrowMenu.addAction("Tight Fit", lambda: stack.push(CalloutBorderFitCommand(self, self.borderFit, Callout.TightBorder)))
+        arrowMenu.addAction("Default", lambda: stack.push(CalloutBorderFitCommand(self, self.borderFit, Callout.DefaultBorder)))
         menu.addSeparator()
 
         if self.partCount() > 0:
@@ -1491,7 +1494,8 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
     def paint(self, painter, option, widget = None):
 
-        if self.borderShape == Callout.RectangleBorder:
+        fit = Callout.defaultBorderFit if self.borderFit == Callout.DefaultBorder else self.borderFit
+        if fit == Callout.RectangleBorder:
             GraphicsRoundRectItem.paint(self, painter, option, widget)
             return
 
@@ -1508,7 +1512,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         for i in range(len(poly) - 1):  # Skip last (duplicated) point
             newPoly.append(poly[i])
 
-        if self.borderShape == Callout.TightBorder:
+        if fit == Callout.TightBorder:
             path = Helpers.polygonToCurvedPath(newPoly, self.cornerRadius * 2.5)
             painter.drawPath(path)
             if self.isSelected():

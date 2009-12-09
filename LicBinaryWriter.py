@@ -252,6 +252,7 @@ def __writeStep(stream, step):
 def __writeCallout(stream, callout):
     stream.writeInt32(callout.number)
     stream.writeBool(callout.showStepNumbers)
+    stream.writeInt32(callout.borderFit)
 
     __writeRoundedRectItem(stream, callout)
     stream << callout.arrow.tipRect.point

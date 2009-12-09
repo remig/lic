@@ -366,6 +366,20 @@ class TemplateCallout(TemplateRectItem, Callout):
         Callout.setBrush(self, newBrush)
         Callout.defaultBrush = newBrush
 
+    def setBorderFit(self, fit):
+        Callout.defaultBorderFit = fit
+        self.borderFit = fit
+
+    def contextMenuEvent(self, event):
+        stack = self.scene().undoStack
+        menu = TemplateRectItem.getContextMenu(self)
+        menu.addSeparator()
+        arrowMenu = menu.addMenu("Border Shape")
+        arrowMenu.addAction("Rectangle", lambda: stack.push(CalloutBorderFitCommand(self, self.borderFit, Callout.RectangleBorder)))
+        arrowMenu.addAction("Step Fit", lambda: stack.push(CalloutBorderFitCommand(self, self.borderFit, Callout.StepBorder)))
+        arrowMenu.addAction("Tight Fit", lambda: stack.push(CalloutBorderFitCommand(self, self.borderFit, Callout.TightBorder)))
+        menu.exec_(event.screenPos())
+
 class TemplateStep(Step):
     
     def postLoadInit(self):

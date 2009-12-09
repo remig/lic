@@ -397,6 +397,8 @@ def __readStep(stream, parent):
 def __readCallout(stream, parent):
     
     callout = Callout(parent, stream.readInt32(), stream.readBool())
+    if stream.licFileVersion >= 10:
+        callout.borderFit = stream.readInt32()
     __readRoundedRectItem(stream, callout)
     
     callout.arrow.tipRect.point = stream.readQPointF()

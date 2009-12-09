@@ -81,6 +81,18 @@ class CalloutArrowMoveCommand(QUndoCommand):
         self.part.point = self.newPoint
         self.part.scene().invalidate(self.part.parentItem().boundingRect())
 
+class CalloutBorderFitCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, callout, oldBorder, newBorder):
+        QUndoCommand.__init__(self, "Callout Border fit")
+        self.callout, self.oldBorder, self.newBorder = callout, oldBorder, newBorder
+
+    def doAction(self, redo):
+        self.callout.setBorderFit(self.newBorder if redo else self.oldBorder)
+        self.callout.scene().update()
+
 class DisplacePartCommand(QUndoCommand):
 
     _id = getNewCommandID()
@@ -511,7 +523,7 @@ class AdjustArrowRotation(QUndoCommand):
     def doAction(self, redo):
         self.arrow.axisRotation = self.newRotation if redo else self.oldRotation
         self.arrow.getCSI().resetPixmap()
-        
+
 class ScaleItemCommand(QUndoCommand):
 
     _id = getNewCommandID()
@@ -524,7 +536,7 @@ class ScaleItemCommand(QUndoCommand):
         self.target.scaling = self.newScale if redo else self.oldScale
         self.target.resetPixmap() 
         self.target.getPage().initLayout()
-    
+
 class RotateItemCommand(QUndoCommand):
 
     _id = getNewCommandID()

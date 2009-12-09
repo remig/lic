@@ -166,6 +166,7 @@ Step:
 Callout:
   int32 number
   bool showStepNumbers
+  in32 borderFit v10
   
   RoundedRectItem pos, rect, pen, brush, cornerRadius
   
