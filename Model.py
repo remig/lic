@@ -1495,21 +1495,25 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             GraphicsRoundRectItem.paint(self, painter, option, widget)
             return
 
+        painter.setPen(self.pen())
+        painter.setBrush(self.brush())
+
         # Get tight border polygon
         poly = QPolygonF()
         for step in self.steps:
             poly = poly.united(QPolygonF(step.getOrderedCorners(Callout.margin)))
 
-        if self.borderShape == Callout.TightBorder:
-            painter.drawPolyline(poly)
-            if self.isSelected():
-                painter.drawSelectionRect(self.rect(), self.cornerRadius)
-            return
-
         # Cannot iterate over QPolygonF normally - QPolygonF doesn't implement __iter__
         newPoly = []
         for i in range(len(poly) - 1):  # Skip last (duplicated) point
             newPoly.append(poly[i])
+
+        if self.borderShape == Callout.TightBorder:
+            path = Helpers.polygonToCurvedPath(newPoly, self.cornerRadius * 2.5)
+            painter.drawPath(path)
+            if self.isSelected():
+                painter.drawSelectionRect(self.rect(), self.cornerRadius)
+            return
 
         l = t = 2000
         r = b = -2000
@@ -1521,9 +1525,9 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
         minWidth = minHeight = 2000
         for step in self.steps:
-            r = step.rect()
-            minWidth = min(minWidth, r.width())
-            minHeight = min(minHeight, r.height())
+            rect = step.rect()
+            minWidth = min(minWidth, rect.width())
+            minHeight = min(minHeight, rect.height())
 
         for pt in newPoly:
             if abs(pt.x() - l) < minWidth:
@@ -1558,13 +1562,13 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         if b1.x() != l:
             newPoly += [QPointF(b1.x(), l2.y()), l2]
 
-        newPoly.append(l1)
-        if l1.y() != t:
-            newPoly.append(QPointF(t1.x(), l1.y()))
+        if l1 != t1:
+            newPoly.append(l1)
+            if l1.y() != t:
+                newPoly.append(QPointF(t1.x(), l1.y()))
 
-        if newPoly[0] != newPoly[-1]:   # Close possibly open polygon
-            newPoly.append(newPoly[0])
-        painter.drawPolyline(QPolygonF(newPoly))
+        path = Helpers.polygonToCurvedPath(newPoly, self.cornerRadius * 2.5)
+        painter.drawPath(path)
 
         if self.isSelected():
             painter.drawSelectionRect(self.rect(), self.cornerRadius)

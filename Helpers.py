@@ -1,4 +1,5 @@
-from PyQt4.QtCore import Qt
+from PyQt4.QtCore import Qt, QPointF
+from PyQt4.QtGui import QPainterPath
 
 # lambda is bound dynamically to the last variable used, so we can't 
 # use it in a loop for creating menu actions.  Use this instead.
@@ -168,3 +169,40 @@ def snapToGrid(item):
     x = gridSpacing * int(item.pos().x() / gridSpacing)
     y = gridSpacing * int(item.pos().y() / gridSpacing)
     item.setPos(x, y)
+
+def polygonToCurvedPath(polygon, radius):
+    
+    path = QPainterPath()
+    for i, pt in enumerate(polygon):
+        
+        # TODO: if two points are too close to draw the desired radius, either remove those points or draw at smaller radius
+        px, py = polygon[i-1] if i > 0 else polygon[-1]
+        nx, ny = polygon[i+1] if i < len(polygon) - 1 else polygon[0]
+        x, y = pt
+        
+        if px == x:
+            dy = y - py
+            r = radius if dy < 0 else -radius
+            p1 = QPointF(x, y + r)
+        else:
+            dx = x - px
+            r = radius if dx < 0 else -radius
+            p1 = QPointF(x + r, y)
+        
+        if x == nx:
+            dy = y - ny
+            r = radius if dy < 0 else -radius
+            p2 = QPointF(x, y + r)
+        else:
+            dx = x - nx
+            r = radius if dx < 0 else -radius
+            p2 = QPointF(x + r, y)
+        
+        if i == 0:
+            path.moveTo(p1)
+        else:
+            path.lineTo(p1)
+        path.cubicTo(pt, pt, p2)
+
+    path.closeSubpath()
+    return path
