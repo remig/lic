@@ -106,12 +106,14 @@ class LicGraphicsScene(QGraphicsScene):
             self.emit(SIGNAL("sceneClick"))
 
     def selectFirstPage(self):
-        self.selectPage(1)
-        self.currentPage.setSelected(True)
+        if self.pages:
+            self.selectPage(1)
+            self.currentPage.setSelected(True)
 
     def selectLastPage(self):
-        self.selectPage(self.pages[-1]._number)
-        self.currentPage.setSelected(True)
+        if self.pages:
+            self.selectPage(self.pages[-1]._number)
+            self.currentPage.setSelected(True)
 
     def selectCurrentPage(self):
         if self.currentPage:
@@ -173,6 +175,8 @@ class LicGraphicsScene(QGraphicsScene):
         self.emit(SIGNAL("sceneClick"))
 
     def scrollToPage(self, page):
+        if page is None:
+            return
         view = self.views()[0]
         view.setInteractive(False)
         view.centerOn(page)
@@ -462,7 +466,7 @@ class LicGraphicsScene(QGraphicsScene):
             return  # No pages = nothing to do here
 
         for item in self.selectedItems():
-            if isinstance(item, Part) or isinstance(item, QGraphicsTextItem):
+            if isinstance(item, Part):
                 item.keyReleaseEvent(event)
                 return
 

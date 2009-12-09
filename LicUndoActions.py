@@ -85,6 +85,17 @@ class CalloutBorderFitCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
+    def __init__(self, label, oldText, newText):
+        QUndoCommand.__init__(self, "Change Label Text")
+        self.label, self.oldText, self.newText = label, oldText, newText
+
+    def doAction(self, redo):
+        self.label.setText(self.newText if redo else self.oldText)
+
+class SetTextCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
     def __init__(self, callout, oldBorder, newBorder):
         QUndoCommand.__init__(self, "Callout Border fit")
         self.callout, self.oldBorder, self.newBorder = callout, oldBorder, newBorder
