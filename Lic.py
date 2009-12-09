@@ -10,8 +10,7 @@ from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
 
 from Model import *
-from LicPartListPage import PartListPage
-from LicTitlePage import TitlePage
+from LicCustomPages import *
 import LicTreeModel
 import LicBinaryReader
 import LicBinaryWriter

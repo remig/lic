@@ -383,12 +383,6 @@ class SubmodelTreeManager(BaseTreeManager):
     def setRow(self, row):
         self._row = row
         
-    def incrementRows(self, increment):
-        for page in self.pages:
-            page._row += increment
-        for submodel in self.submodels:
-            submodel._row += increment
-
     def rowCount(self):
         return len(self.pages) + len(self.submodels)
 
@@ -410,6 +404,14 @@ class MainModelTreeManager(SubmodelTreeManager):
 
     def rowCount(self):
         return len(self.pages) + len(self.submodels) + len(self.partListPages) + 1 + (1 if self.titlePage else 0)
+
+    def incrementRows(self, increment):
+        for page in self.pages:
+            page._row += increment
+        for submodel in self.submodels:
+            submodel._row += increment
+        for page in self.partListPages:
+            page._row += increment
 
 class PartTreeItemTreeManager(BaseTreeManager):
 

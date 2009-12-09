@@ -2,7 +2,8 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 from Model import *
-from LicTreeModel import PartListPageTreeManager
+from LicUndoActions import *
+from LicTreeModel import *
 
 class PartListPLI(PLI):
     itemClassName = "PartListPLI"
@@ -122,3 +123,48 @@ class PartListPage(PartListPageTreeManager, Page):
             overflowList = page.doOverflowLayout()
     
         return pageList
+
+class EditableTextItem(QGraphicsSimpleTextItem):
+    
+    def __init__(self, text, parent):
+        QGraphicsSimpleTextItem.__init__(self, text, parent)
+        
+    def contextMenuEvent(self, event):
+        
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Set Text", self.setTextSignal)
+        menu.exec_(event.screenPos())
+        
+    def setTextSignal(self):
+        newText, ok = QInputDialog.getText(self.scene().views()[0], "Set Text", "New Text:", 
+                                           QLineEdit.Normal, self.text(), Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        if ok:
+            self.scene().undoStack.push(CalloutBorderFitCommand(self, self.text(), newText))
+
+class TitlePage(TitlePageTreeManager, Page):
+    
+    def __init__(self, instructions):
+        Page. __init__(self, instructions.mainModel, instructions, 1, 1)
+        instructions.mainModel.incrementRows(1)
+        self.numberItem.hide()
+        
+        self.addSubmodelImage()
+        si = self.submodelItem
+        si._row = 0
+        si.setPen(QPen(Qt.NoPen))
+        si.setBrush(QBrush(Qt.NoBrush))
+        x = (Page.PageSize.width() / 2.0) - (si.rect().width() / 2.0)
+        y = (Page.PageSize.height() / 2.0) - (si.rect().height() / 2.0)
+        si.setPos(x, y)
+
+        si = self.setNumberItem = EditableTextItem("1001", self)
+        si._row = 1
+        si.setFont(QFont("Arial", 15))
+        si.setFlags(AllFlags)
+        si.dataText = "Set Number Label"
+        si.itemClassName = "Page Number"
+        si.setPos(Page.margin.x(), Page.margin.y())
+        #si.setTextInteractionFlags(Qt.TextEditorInteraction)
+
+    def getAllChildItems(self):
+        return [self, self.submodelItem, self.setNumberItem]

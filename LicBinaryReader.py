@@ -2,7 +2,7 @@ from PyQt4.QtCore import *
 
 from Model import *
 from LicTemplate import *
-from LicPartListPage import *
+from LicCustomPages import *
 import Layout
 import GLHelpers
 
