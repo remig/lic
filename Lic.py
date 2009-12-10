@@ -25,7 +25,7 @@ import GLHelpers
 
 from modeltest import ModelTest
 
-__version__ = 0.1
+__version__ = 0.5
 
 class LicGraphicsScene(QGraphicsScene):
 
@@ -1229,6 +1229,8 @@ class LicWindow(QMainWindow):
         self.instructions.setTemplate(self.templatePage)
         self.instructions.mainModel.partListPages = PartListPage.createPartListPages(self.instructions)
         self.instructions.mainModel.titlePage = TitlePage(self.instructions)
+        self.instructions.mainModel.titlePage.addInitialContent()
+        self.instructions.mainModel.incrementRows(1)
         self.templatePage.applyFullTemplate(False)
         
         self.scene.emit(SIGNAL("layoutChanged()"))

@@ -211,7 +211,7 @@ class TitlePageTreeManager(BaseTreeManager):
     def getChildRow(self, child):
         if child is self.submodelItem:
             return 0
-        return self.labels.index(child)
+        return 1 + self.labels.index(child)
 
     def data(self, index):
         return "Title Page"

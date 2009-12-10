@@ -127,6 +127,20 @@ Page:
   int32 number of borders
   ... Border 0..n ...
 
+TitlePage: v11
+  bool hasTitlePage (return if False)
+  RoundedRectItem pos, rect, pen, brush, cornerRadius
+  QColor color
+
+  bool hasSubmodelItem
+  SubmodelItem submodelItem, if it exists
+
+  int32 number of labels
+     ... for label 0..n:
+     QPointF label.pos
+     QFont label.font
+     QString label.text
+  
 PartListPage:  v7
   int32 number
   int32 _row

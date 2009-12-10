@@ -35,7 +35,7 @@ from RectanglePacker import CygonRectanglePacker
 from LDrawFileFormat import *
 
 MagicNumber = 0x14768126
-FileVersion = 10
+FileVersion = 11
 
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 submodelDictionary = {}  # {'filename': Submodel()}
@@ -664,7 +664,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         length = len(self.children)
         for i, item in enumerate(self.children):
             item.setZValue(length - i)
-        self.lockIcon.setZValue(len(self.children) + 1)
+        self.lockIcon.setZValue(length + 1)
 
     def addStepSeparator(self, index, rect = None):
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
@@ -2645,8 +2645,8 @@ class PartOGL(object):
         elif isValidLineLine(line):
             self.addPrimitive(lineToLine(line), GL.GL_LINES)
         
-        elif isValidConditionalLine(line):
-            self.addPrimitive(lineToLine(line), GL.GL_LINES)
+        #elif isValidConditionalLine(line):
+        #    self.addPrimitive(lineToLine(line), GL.GL_LINES)
         
         elif isValidTriangleLine(line):
             self.addPrimitive(lineToTriangle(line), GL.GL_TRIANGLES)

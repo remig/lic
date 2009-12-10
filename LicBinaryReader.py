@@ -126,22 +126,22 @@ def __readInstructions(stream, instructions):
     SubmodelPreview.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
 
     __readPartDictionary(stream, partDictionary)
-    
-    submodelCount = stream.readInt32()
-    for i in range(0, submodelCount):
+
+    for i in range(stream.readInt32()):
         model = __readSubmodel(stream, instructions)
         submodelDictionary[model.filename] = model
 
     instructions.mainModel = __readSubmodel(stream, instructions, True)
 
+    if stream.licFileVersion >= 11:
+        instructions.mainModel.titlePage = __readTitlePage(stream, instructions)
+
     if stream.licFileVersion >= 7:
-        pageCount = stream.readInt32()
-        for i in range(0, pageCount):
+        for i in range(stream.readInt32()):
             newPage = __readPartListPage(stream, instructions)
             instructions.mainModel.partListPages.append(newPage)
 
-    guideCount = stream.readInt32()
-    for i in range(0, guideCount):
+    for i in range(stream.readInt32()):
         pos = stream.readQPointF()
         orientation = Layout.Horizontal if stream.readBool() else Layout.Vertical
         instructions.scene.addGuide(orientation, pos)
@@ -166,14 +166,12 @@ def __readSubmodel(stream, instructions, createMainmodel = False):
     submodel = __readPartOGL(stream, True, createMainmodel)
     submodel.instructions = instructions
 
-    pageCount = stream.readInt32()
-    for i in range(0, pageCount):
+    for i in range(stream.readInt32()):
         page = __readPage(stream, submodel, instructions)
         submodel.pages.append(page)
 
-    submodelCount = stream.readInt32()
-    for i in range(0, submodelCount):
-        filename = str(stream.readQString())
+    for i in range(stream.readInt32()):
+        filename = str(stream.readQString())  # TODO: Test this!
         model = submodelDictionary[filename]
         model.used = True
         submodel.submodels.append(model)
@@ -188,8 +186,7 @@ def __readSubmodel(stream, instructions, createMainmodel = False):
 
 def __readPartDictionary(stream, partDictionary):
 
-    partCount = stream.readInt32()
-    for i in range(0, partCount):
+    for i in range(stream.readInt32()):
         partOGL = __readPartOGL(stream)
         partDictionary[partOGL.filename] = partOGL
 
@@ -220,14 +217,12 @@ def __readPartOGL(stream, createSubmodel = False, createMainmodel = False):
 
     part.pliScale = stream.readFloat()
     part.pliRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
-    
-    primitiveCount = stream.readInt32()
-    for i in range(0, primitiveCount):
+
+    for i in range(stream.readInt32()):
         p = __readPrimitive(stream)
         part.primitives.append(p)
-        
-    partCount = stream.readInt32()
-    for i in range(0, partCount):
+
+    for i in range(stream.readInt32()):
         p = __readPart(stream)
         part.parts.append(p)
     return part
@@ -245,7 +240,7 @@ def __readPrimitive(stream):
         count = 12
     
     points = []
-    for i in range(0, count):
+    for i in range(count):
         points.append(stream.readFloat())
     return Primitive(color, points, type, winding)
 
@@ -316,27 +311,23 @@ def __readPage(stream, parent, instructions, templateModel = None):
         page.setPos(stream.readQPointF())
         page.setRect(stream.readQRectF())
         page.color = stream.readQColor()
-        hasBrush = stream.readBool()
-        if hasBrush:
+        if stream.readBool():
             page.brush = stream.readQBrush()
-    
+
     page.numberItem.setPos(stream.readQPointF())
     page.numberItem.setFont(stream.readQFont())
-    
+
     # Read in each step in this page
-    stepCount = stream.readInt32()
-    for i in range(0, stepCount):
+    for i in range(stream.readInt32()):
         page.addStep(__readStep(stream, page))
 
     # Read in the optional submodel preview image
-    hasSubmodelItem = stream.readBool()
-    if hasSubmodelItem:
+    if stream.readBool():
         page.submodelItem = __readSubmodelItem(stream, page)
         page.addChild(page.submodelItem._row, page.submodelItem)
 
     # Read in any page separator lines
-    borderCount = stream.readInt32()
-    for i in range(0, borderCount):
+    for i in range(stream.readInt32()):
         border = page.addStepSeparator(stream.readInt32())
         border.setPos(stream.readQPointF())
         border.setRect(stream.readQRectF())
@@ -344,12 +335,26 @@ def __readPage(stream, parent, instructions, templateModel = None):
 
     return page
 
+def __readTitlePage(stream, instructions):
+    if not stream.readBool():
+        return None
+
+    page = TitlePage(instructions)
+
+    __readRoundedRectItem(stream, page)
+    page.color = stream.readQColor()
+
+    if stream.readBool():
+        page.submodelItem = __readSubmodelItem(stream, page)
+
+    for i in range(stream.readInt32()):
+        page.addLabel(stream.readQPointF(), stream.readQFont(), str(stream.readQString()))
+
+    return page
+
 def __readPartListPage(stream, instructions):
 
-    number = stream.readInt32()
-    row = stream.readInt32()
-
-    page = PartListPage(instructions, number, row)
+    page = PartListPage(instructions, stream.readInt32(), stream.readInt32())
 
     __readRoundedRectItem(stream, page)
     page.color = stream.readQColor()
@@ -374,24 +379,23 @@ def __readStep(stream, parent):
     step.maxRect = stream.readQRectF()
 
     step.csi = __readCSI(stream, step)
-    
+
     if pliExists:
         step.pli = __readPLI(stream, step)
-    
+
     if stream.licFileVersion >= 3:
         step._hasPLI = stream.readBool()
         if not step._hasPLI and step.pli:
             step.disablePLI()
-        
+
     if hasNumberItem:
         step.numberItem.setPos(stream.readQPointF())
         step.numberItem.setFont(stream.readQFont())
 
-    calloutCount = stream.readInt32()
-    for i in range(0, calloutCount):
+    for i in range(stream.readInt32()):
         callout = __readCallout(stream, step)
         step.callouts.append(callout)
-    
+
     return step
 
 def __readCallout(stream, parent):
@@ -409,15 +413,13 @@ def __readCallout(stream, parent):
     if stream.readBool():  # has quantity label
         callout.addQuantityLabel(stream.readQPointF(), stream.readQFont())
         callout.setQuantity(stream.readInt32())
-        
-    stepCount = stream.readInt32()
-    for i in range(0, stepCount):
+
+    for i in range(stream.readInt32()):
         step = __readStep(stream, callout)
         callout.steps.append(step)
 
     if stream.licFileVersion >= 9:
-        partCount = stream.readInt32()
-        for i in range(0, partCount):
+        for i in range(stream.readInt32()):
             part = __readPart(stream)
             part.partOGL = partDictionary[part.filename]
             step = callout.getStep(part.stepNumber)
@@ -456,8 +458,8 @@ def __readCSI(stream, step):
 
     if stream.licFileVersion < 8:
         global partDictionary, submodelDictionary
-        partCount = stream.readInt32()
-        for i in range(0, partCount):
+
+        for i in range(stream.readInt32()):
             part = __readPart(stream)
             if part.filename in partDictionary:
                 part.partOGL = partDictionary[part.filename]
@@ -481,16 +483,15 @@ def __readPLI(stream, parent, makePartListPLI = False):
     else:
         pli = PLI(parent)
     __readRoundedRectItem(stream, pli)
-    
-    itemCount = stream.readInt32()
-    for i in range(0, itemCount):
+
+    for i in range(stream.readInt32()):
         pliItem = __readPLIItem(stream, pli)
         pli.pliItems.append(pliItem)
 
     return pli
 
 def __readPLIItem(stream, pli):
-    
+
     filename = str(stream.readQString())
 
     global partDictionary, submodelDictionary

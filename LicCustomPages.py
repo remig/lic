@@ -150,13 +150,13 @@ class EditableTextItem(QGraphicsSimpleTextItem):
         self.setTextSignal()
 
 class TitlePage(TitlePageTreeManager, Page):
-    
+
     def __init__(self, instructions):
         Page. __init__(self, instructions.mainModel, instructions, 1, 1)
-        instructions.mainModel.incrementRows(1)
-        self.numberItem.hide()
-        
         self.labels = []
+        self.numberItem.hide()
+
+    def addInitialContent(self):
 
         self.addSubmodelImage()
         si = self.submodelItem
@@ -164,13 +164,15 @@ class TitlePage(TitlePageTreeManager, Page):
         si.setPen(QPen(Qt.NoPen))
         si.setBrush(QBrush(Qt.NoBrush))
 
-        si = EditableTextItem(self.subModel.getSimpleName(), self)
-        si.setFont(QFont("Arial", 25))
-        self.labels.append(si)
+        self.addLabel(None, QFont("Arial", 25), self.subModel.getSimpleName())
+        self.addLabel(Page.margin * 2, None, "1001")
+        self.initLayout()
 
-        si = EditableTextItem("1001", self)
-        si.setPos(Page.margin * 2)
-        self.labels.append(si)
+    def initLayout(self):
+
+        self.lockIcon.resetPosition()
+        if self.lockIcon.isLocked:
+            return  # Don't make any layout changes to locked pages
 
         pw2, ph2 = Page.PageSize.width() / 2.0, Page.PageSize.height() / 2.0
         pmy = Page.margin.y()
@@ -178,7 +180,7 @@ class TitlePage(TitlePageTreeManager, Page):
         x = pw2 - (self.submodelItem.rect().width() / 2.0)
         y = ph2 - (self.submodelItem.rect().height() / 2.0) + (title.boundingRect().height() / 2.0) + (pmy * 2)
         self.submodelItem.setPos(x, y)
-        
+
         x = pw2 - (title.boundingRect().width() / 2.0)
         y = self.submodelItem.pos().y() - title.boundingRect().height() - (pmy * 3)
         title.setPos(x, y)
@@ -191,8 +193,10 @@ class TitlePage(TitlePageTreeManager, Page):
         menu.addAction("Add Label", lambda: self.addLabel(event.scenePos()))
         menu.exec_(event.screenPos())
 
-    def addLabel(self, pos = None):
-        si = EditableTextItem("Blank Label", self)
+    def addLabel(self, pos = None, font = None, text = "Blank Label"):
+        label = EditableTextItem(text, self)
         if pos:
-            si.setPos(pos)
-        self.labels.append(si)
+            label.setPos(pos)
+        if font:
+            label.setFont(font)
+        self.labels.append(label)

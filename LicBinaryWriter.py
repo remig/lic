@@ -91,6 +91,8 @@ def __writeInstructions(stream, instructions):
 
     __writeSubmodel(stream, instructions.mainModel)
 
+    __writeTitlePage(stream, instructions.mainModel.titlePage)
+
     stream.writeInt32(len(instructions.mainModel.partListPages))
     for page in instructions.mainModel.partListPages:
         __writePartListPage(stream, page)
@@ -104,7 +106,7 @@ def __writeSubmodel(stream, submodel):
 
     for model in submodel.submodels:
         if not model.writtenToFile:
-            __writeSubmodel(stream, model)
+            __writeSubmodel(stream, model) # TODO: Test this!! probably doesn't work
             model.writtenToFile = True
 
     __writePartOGL(stream, submodel)
@@ -216,6 +218,26 @@ def __writePage(stream, page):
     for border in page.separators:
         stream.writeInt32(border.row())
         stream << border.pos() << border.rect() << border.pen()
+
+def __writeTitlePage(stream, page):
+    
+    if page is None:
+        stream.writeBool(False)
+        return
+    
+    stream.writeBool(True)
+    __writeRoundedRectItem(stream, page)
+    stream << page.color
+
+    if page.submodelItem:
+        stream.writeBool(True)
+        __writeSubmodelItem(stream, page.submodelItem)
+    else:
+        stream.writeBool(False)
+        
+    stream.writeInt32(len(page.labels))
+    for label in page.labels:
+        stream << label.pos() << label.font() << label.text()
 
 def __writePartListPage(stream, page):
     stream.writeInt32(page.number)
