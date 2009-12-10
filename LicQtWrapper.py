@@ -49,7 +49,6 @@ class GraphicsRoundRectItem(QGraphicsRectItem):
 
 def genericMousePressEvent(className):
     def _tmp(self, event):
-
         if event.button() == Qt.RightButton:
             return
         className.mousePressEvent(self, event)
@@ -61,7 +60,7 @@ def genericMousePressEvent(className):
 def genericMouseMoveEvent(className):
     
     def _tmp(self, event):
-        if event.buttons() == Qt.RightButton:
+        if event.buttons() == Qt.RightButton or self.oldPos is None:
             return
         className.mouseMoveEvent(self, event)
         if (self.flags() & QGraphicsItem.ItemIsMovable) == QGraphicsItem.ItemIsMovable:
@@ -72,13 +71,13 @@ def genericMouseMoveEvent(className):
 def genericMouseReleaseEvent(className):
     
     def _tmp(self, event):
-
         if event.button() == Qt.RightButton:
             return
         scene = self.scene()
         className.mouseReleaseEvent(self, event)
-        if hasattr(self, 'oldPos') and self.pos() != self.oldPos:
+        if self.oldPos and self.pos() != self.oldPos:
             scene.emit(SIGNAL("itemsMoved"), scene.selectedItems())
+        self.oldPos = None
         scene.xSnapLine.hide()
         scene.ySnapLine.hide()
 

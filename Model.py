@@ -2913,6 +2913,9 @@ class Submodel(SubmodelTreeManager, PartOGL):
         self._parent = parent
         self.isSubmodel = True
         self.isSubAssembly = False
+
+    def getSimpleName(self):
+        return os.path.splitext(os.path.basename(self.name))[0]
         
     def setSelected(self, selected):
         self.pages[0].setSelected(selected)

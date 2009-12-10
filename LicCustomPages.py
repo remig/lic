@@ -126,8 +126,13 @@ class PartListPage(PartListPageTreeManager, Page):
 
 class EditableTextItem(QGraphicsSimpleTextItem):
     
+    itemClassName = "Page Number"
+
     def __init__(self, text, parent):
         QGraphicsSimpleTextItem.__init__(self, text, parent)
+        self.setFlags(AllFlags)
+        self.dataText = "Label: " + text
+        self.setFont(QFont("Arial", 15))
         
     def contextMenuEvent(self, event):
         
@@ -141,6 +146,9 @@ class EditableTextItem(QGraphicsSimpleTextItem):
         if ok:
             self.scene().undoStack.push(CalloutBorderFitCommand(self, self.text(), newText))
 
+    def mouseDoubleClickEvent(self, event):
+        self.setTextSignal()
+
 class TitlePage(TitlePageTreeManager, Page):
     
     def __init__(self, instructions):
@@ -148,23 +156,43 @@ class TitlePage(TitlePageTreeManager, Page):
         instructions.mainModel.incrementRows(1)
         self.numberItem.hide()
         
+        self.labels = []
+
         self.addSubmodelImage()
         si = self.submodelItem
         si._row = 0
         si.setPen(QPen(Qt.NoPen))
         si.setBrush(QBrush(Qt.NoBrush))
-        x = (Page.PageSize.width() / 2.0) - (si.rect().width() / 2.0)
-        y = (Page.PageSize.height() / 2.0) - (si.rect().height() / 2.0)
-        si.setPos(x, y)
 
-        si = self.setNumberItem = EditableTextItem("1001", self)
-        si._row = 1
-        si.setFont(QFont("Arial", 15))
-        si.setFlags(AllFlags)
-        si.dataText = "Set Number Label"
-        si.itemClassName = "Page Number"
-        si.setPos(Page.margin.x(), Page.margin.y())
-        #si.setTextInteractionFlags(Qt.TextEditorInteraction)
+        si = EditableTextItem(self.subModel.getSimpleName(), self)
+        si.setFont(QFont("Arial", 25))
+        self.labels.append(si)
+
+        si = EditableTextItem("1001", self)
+        si.setPos(Page.margin * 2)
+        self.labels.append(si)
+
+        pw2, ph2 = Page.PageSize.width() / 2.0, Page.PageSize.height() / 2.0
+        pmy = Page.margin.y()
+        title = self.labels[0]
+        x = pw2 - (self.submodelItem.rect().width() / 2.0)
+        y = ph2 - (self.submodelItem.rect().height() / 2.0) + (title.boundingRect().height() / 2.0) + (pmy * 2)
+        self.submodelItem.setPos(x, y)
+        
+        x = pw2 - (title.boundingRect().width() / 2.0)
+        y = self.submodelItem.pos().y() - title.boundingRect().height() - (pmy * 3)
+        title.setPos(x, y)
 
     def getAllChildItems(self):
-        return [self, self.submodelItem, self.setNumberItem]
+        return [self, self.submodelItem ] + self.labels
+
+    def contextMenuEvent(self, event):
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Add Label", lambda: self.addLabel(event.scenePos()))
+        menu.exec_(event.screenPos())
+
+    def addLabel(self, pos = None):
+        si = EditableTextItem("Blank Label", self)
+        if pos:
+            si.setPos(pos)
+        self.labels.append(si)

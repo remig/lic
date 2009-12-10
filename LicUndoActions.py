@@ -90,7 +90,9 @@ class CalloutBorderFitCommand(QUndoCommand):
         self.label, self.oldText, self.newText = label, oldText, newText
 
     def doAction(self, redo):
-        self.label.setText(self.newText if redo else self.oldText)
+        text = self.newText if redo else self.oldText
+        self.label.setText(text)
+        self.label.dataText = "Label: " + text
 
 class SetTextCommand(QUndoCommand):
 
