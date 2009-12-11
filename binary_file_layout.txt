@@ -33,8 +33,8 @@ Instructions:
  
   Mainmodel instructions.mainModel
   
-  int32 length of mainModel.partListPages v7
-  ... PartListPage 0..n ...  v7
+  int32 length of mainModel.partListPages
+  ... PartListPage 0..n ...
  
   int32 length of scene.guides 
   ... QPointF guide.pos ...
@@ -48,7 +48,7 @@ Submodel:
   ... Submodel filename 0..n ...
   int32 _row
   QString parent (filename of model using this submodel, ie _parent.filename)
-  bool isSubAssembly v3
+  bool isSubAssembly
 
 partDictionary:
   int32 length of part dictionary
@@ -106,7 +106,7 @@ Part:
     
   if part is also Arrow:
     int32 arrow.length
-    float arrow.axisRotation v2
+    float arrow.axisRotation
   
 Page:
   int32 number
@@ -128,7 +128,7 @@ Page:
   int32 number of borders
   ... Border 0..n ...
 
-TitlePage: v11
+TitlePage:
   bool hasTitlePage (return if False)
   RoundedRectItem pos, rect, pen, brush, cornerRadius
   QColor color
@@ -142,7 +142,7 @@ TitlePage: v11
      QFont label.font
      QString label.text
   
-PartListPage:  v7
+PartListPage:
   int32 number
   int32 _row
   
@@ -181,7 +181,7 @@ Step:
 Callout:
   int32 number
   bool showStepNumbers
-  in32 borderFit v10
+  in32 borderFit
   
   RoundedRectItem pos, rect, pen, brush, cornerRadius
   
@@ -208,8 +208,8 @@ SubmodelItem:
   float scale
   float rotation x, y, z
 
-  bool isSubAssembly v3
-  PLI self.pli, if isSubAssembly v3
+  bool isSubAssembly
+  PLI self.pli, if isSubAssembly
   
 CSI:
   QPointF pos
@@ -233,6 +233,13 @@ PLIItem:
   QRectF rect
   QPointF numberItem.pos
   QFont numberItem.font
+
+  bool hasLengthIndicator v2
+    QPointF lengthIndicator.pos
+    QRectF lengthIndicator.rect
+    QFont lengthIndicator.font
+    QString lengthIndicator.lengthText
+    QColor lengthIndicator.labelColor
   
 RoundedRectItem:
   QPointF pos

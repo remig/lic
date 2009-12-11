@@ -36,7 +36,7 @@ from RectanglePacker import CygonRectanglePacker
 from LDrawFileFormat import *
 
 MagicNumber = 0x14768126
-FileVersion = 1
+FileVersion = 2
 
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 submodelDictionary = {}  # {'filename': Submodel()}
@@ -2038,7 +2038,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         name = self.partOGL.filename.lower()
         length = PartLengths.partLengths.get(name)
         if length:
-            self.lengthIndicator = GraphicsCircleLabelItem(self, length, 18)
+            self.lengthIndicator = GraphicsCircleLabelItem(self, str(length), 18)
             self.lengthIndicator.setFlags(AllFlags)
 
     def __getRotation(self):
@@ -2931,7 +2931,8 @@ class Submodel(SubmodelTreeManager, PartOGL):
         self.isSubAssembly = False
 
     def getSimpleName(self):
-        return os.path.splitext(os.path.basename(self.name))[0]
+        name = os.path.splitext(os.path.basename(self.name))[0]
+        return name.replace('_', ' ')
         
     def setSelected(self, selected):
         self.pages[0].setSelected(selected)

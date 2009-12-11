@@ -466,6 +466,15 @@ def __readPLIItem(stream, pli):
 
     pliItem.numberItem.setPos(stream.readQPointF())
     pliItem.numberItem.setFont(stream.readQFont())
+
+    if stream.licFileVersion >= 2:
+        if stream.readBool():  # Have a length indicator
+            pliItem.lengthIndicator.setPos(stream.readQPointF())
+            pliItem.lengthIndicator.setRect(stream.readQRectF())
+            pliItem.lengthIndicator.font = stream.readQFont()
+            pliItem.lengthText = str(stream.readQString())
+            pliItem.labelColor = stream.readQColor()
+
     return pliItem
 
 def __readRoundedRectItem(stream, parent):

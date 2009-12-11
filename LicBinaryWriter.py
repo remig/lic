@@ -333,6 +333,13 @@ def __writePLIItem(stream, pliItem):
     stream << pliItem.pos() << pliItem.rect()
     stream << pliItem.numberItem.pos() << pliItem.numberItem.font()
 
+    if pliItem.lengthIndicator:
+        stream.writeBool(True)
+        li = pliItem.lengthIndicator
+        stream << li.pos() << li.rect() << li.font << QString(li.lengthText) << li.labelColor
+    else:
+        stream.writeBool(False)
+
 def __writeRoundedRectItem(stream, parent):
     stream << parent.pos() << parent.rect() << parent.pen() << parent.brush()
     stream.writeInt16(parent.cornerRadius)
