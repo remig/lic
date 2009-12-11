@@ -573,6 +573,12 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
         return items
 
+    def getAllParts(self):
+        parts = []
+        for step in self.steps:
+            parts += step.csi.getPartList()
+        return parts
+
     def getExportFilename(self):
         return os.path.join(config.config['imgPath'], "Page_%d.png" % self._number)
     
@@ -2965,8 +2971,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
             #partList.sort(key = lambda x: x.getXYZSortOrder())
             partList.sort(cmp = Helpers.compareParts)
             
-            currentPart = 0
-            part = partList[currentPart]
+            part = partList[0]
             y, dy = part.by(), part.ySize()
             currentPart = 1
             
@@ -2980,11 +2985,14 @@ class Submodel(SubmodelTreeManager, PartOGL):
                         break
                     nextPart = partList[currentPart]
                     
+                # Here, currentPart points to the next potential splice point
                 if currentPart > PARTS_PER_STEP_MAX:
                     
                     # Have lots of parts in this layer: keep most popular part here, bump rest to next step
                     partCounts = {}
                     for part in partList[:currentPart]:
+                        if part.isSubmodel():
+                            continue
                         if part.partOGL.name in partCounts:
                             partCounts[part.partOGL.name] += 1
                         else:
@@ -2993,7 +3001,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
                     partList = [x for x in partList[:currentPart] if x.partOGL.name != popularPartName] + partList[currentPart:]
                     currentPart = 0
                     
-                elif currentPart == 1:
+                elif currentPart == 1 and not partList[0].isSubmodel():
                     
                     # Have only one part in this layer: search forward until we hit a layer with several parts
                     part = partList[0]
@@ -3021,7 +3029,20 @@ class Submodel(SubmodelTreeManager, PartOGL):
             newPage = Page(self, self.instructions, self.pages[-1]._number + 1, self.pages[-1]._row + 1)
             newPage.addBlankStep()
             self.addPage(newPage)
+
+            # Want submodels to be inserted in their own Step, so split those off
+            submodelList = [part for part in partList[:currentPart] if part.isSubmodel()]
+            if submodelList and len(submodelList) != currentPart:
+                partList = submodelList + partList[currentPart:]
+                currentPart = 0
             
+            # Want all identical submodels inserted in same step, so group them all
+            if partList[0].isSubmodel():
+                partList = [part for part in partList if part.filename != partList[0].filename]
+                currentPart = 0
+            
+            # Here, partList is all parts not yet allocated to a Step, and currentPart is an index into  
+            # that list; parts before currentPart stay in this Step, parts after get bumped to next Step
             for part in partList[currentPart: ]:  # Move all but the first x parts to next step
                 currentStep = part.getStep()
                 part.setParentItem(newPage)
@@ -3043,19 +3064,30 @@ class Submodel(SubmodelTreeManager, PartOGL):
         
         while True:   # yeah yeah, nested infinite loops of nastiness
             while True:
-                nextPage.steps[0].moveToPage(currentPage, False)
-                currentPage.initLayout()  # TODO: Try both horizontal and vertical layout here
-                if currentPage.checkForLayoutOverlaps():  # Have overlap - move back & redo layouts
-                    currentPage.steps[-1].moveToPage(nextPage, False)
-                    currentPage.initLayout()
-                    nextPage.initLayout()
-                    break  # This page is full: move on to the next
-                else:
-                    tmp = nextPage.nextPage()  # No overlap - delete empty page & move on
-                    self.deletePage(nextPage)
-                    if tmp is None:  # At last page - all done
-                        return
-                    nextPage = tmp
+                if all(part.isSubmodel() for part in nextPage.getAllParts()):  # Check if next Step is full of Submodels
+                    nextPage.steps[0].disablePLI()  # Leave Submodel steps as first on page, and hide their PLI.
+                    break
+
+                nextPage.steps[0].moveToPage(currentPage, False) # Move first step on next page to current page
+
+                currentLayout = currentPage.layout.orientation
+                currentPage.useHorizontalLayout()  # Try horizontal layout
+                if currentPage.checkForLayoutOverlaps(): 
+
+                    currentPage.useVerticalLayout()  # Try vertical layout
+                    if currentPage.checkForLayoutOverlaps():
+
+                        currentPage.steps[-1].moveToPage(nextPage, False)  # move Step back & redo layouts
+                        currentPage.layout.orientation = currentLayout
+                        currentPage.initLayout()
+                        nextPage.initLayout()
+                        break  # This page is full: move on to the next
+                    
+                tmp = nextPage.nextPage()  # No overlap - delete empty page & move on
+                self.deletePage(nextPage)
+                if tmp is None:  # At last page - all done
+                    return
+                nextPage = tmp
                     
             currentPage = nextPage
             nextPage = nextPage.nextPage()

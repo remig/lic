@@ -44,7 +44,7 @@ def setupLight(light):
 def setupLighting():
     glDisable(GL_NORMALIZE)
     #glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [1.0, 1.0, 1.0, 1.0])
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.2, 0.2, 0.2, 1.0])
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.3, 0.3, 0.3, 1.0])
     glEnable(GL_LIGHTING)
     
     maxLights = glGetIntegerv(GL_MAX_LIGHTS)
