@@ -47,6 +47,24 @@ class GraphicsRoundRectItem(QGraphicsRectItem):
         if hasattr(newPen, "cornerRadius"):  # Need this check because some setPen() calls come from Qt directly
             self.cornerRadius = newPen.cornerRadius
 
+class GraphicsCircleLabelItem(QGraphicsEllipseItem):
+
+    def __init__(self, parent, length = "10", diameter = 0):
+        QGraphicsEllipseItem.__init__(self, 0, 0, diameter, diameter, parent)
+        self.setPen(QPen(Qt.black))
+        self.setBrush(QBrush(Qt.white))
+        self._row = 1
+        self.font = QFont("Arial", 8)
+        self.lengthText = length
+        self.labelColor = Qt.blue
+        self.dataText = "Length Indicator (%s)" % length
+
+    def paint(self, painter, option, widget = None):
+        QGraphicsEllipseItem.paint(self, painter, option, widget)
+        painter.setPen(QPen(self.labelColor))
+        painter.setFont(self.font)
+        painter.drawText(self.rect(), Qt.AlignCenter, self.lengthText)
+
 def genericMousePressEvent(className):
     def _tmp(self, event):
         if event.button() == Qt.RightButton:
@@ -127,6 +145,15 @@ QGraphicsRectItem.getPage = genericGetPage
 QGraphicsRectItem.getSceneCorners = genericGetSceneCorners
 QGraphicsRectItem.getSceneCornerList = genericGetSceneCornerList
 QGraphicsRectItem.getOrderedCorners = genericGetOrderedCornerList
+
+QGraphicsEllipseItem.getPage = genericGetPage
+QGraphicsEllipseItem.getSceneCorners = genericGetSceneCorners
+QGraphicsEllipseItem.getSceneCornerList = genericGetSceneCornerList
+QGraphicsEllipseItem.getOrderedCorners = genericGetOrderedCornerList
+
+QGraphicsEllipseItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
+QGraphicsEllipseItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)
+QGraphicsEllipseItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
 QGraphicsSimpleTextItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
 QGraphicsSimpleTextItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)

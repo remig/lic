@@ -28,8 +28,9 @@ import povray
 import LDrawColors
 import Helpers
 import LicDialogs
+import PartLengths
 import resources  # Needed for ":/resource" type paths to work
-from LicQtWrapper import GraphicsRoundRectItem
+from LicQtWrapper import GraphicsRoundRectItem, GraphicsCircleLabelItem
 from RectanglePacker import CygonRectanglePacker
 
 from LDrawFileFormat import *
@@ -1952,8 +1953,8 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
         self.scaling = 1.0
         self.setFlags(AllFlags)
         self.setPartOGL(partOGL)
-        self.pli = None
-        self.isSubAssembly = False
+        self.pli = None             # TODO: Need to support both sub-model pic and sub-assembly PLI
+        self.isSubAssembly = False  # TODO: Need to include main step number under this sub-assembly drawing
         
     def resetPixmap(self):
         self.partOGL.resetPixmap(self.rotation, self.scaling)
@@ -2032,6 +2033,14 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.numberItem.setFlags(AllFlags)        
         self.setQuantity(quantity)
 
+        # Initialize the circular length indicator, if there should be one on this part
+        self.lengthIndicator = None
+        name = self.partOGL.filename.lower()
+        length = PartLengths.partLengths.get(name)
+        if length:
+            self.lengthIndicator = GraphicsCircleLabelItem(self, length, 18)
+            self.lengthIndicator.setFlags(AllFlags)
+
     def __getRotation(self):
         return self.partOGL.pliRotation
     
@@ -2085,16 +2094,17 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
                 dy = slope * (li - lblWidth)
                 self.numberItem.moveBy(0, -dy)
 
-        # Set this item to the union of its image and qty label rects
-        partRect = QRectF(0.0, 0.0, self.partOGL.width, self.partOGL.height)
-        numberRect = self.numberItem.boundingRect().translated(self.numberItem.pos())
-        self.setRect(partRect | numberRect)
-        self.moveBy(-self.rect().x(), -self.rect().y())
+        if self.lengthIndicator: 
+            self.lengthIndicator.setPos(self.partOGL.width, 0)  # Top left corner of PLIItem
+            self.numberItem.moveBy(0, self.lengthIndicator.rect().height())
+
+        self.resetRect()
 
     def paintGL(self, f = 1.0):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.partOGL.width / 2.0)
         dy = -Page.PageSize.height() + pos.y() + (self.partOGL.height / 2.0)
+        dy += (self.lengthIndicator.rect().height() if self.lengthIndicator else 0)
         self.partOGL.paintGL(dx * f, dy * f, scaling = f, color = self.color)
 
     """

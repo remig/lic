@@ -154,6 +154,7 @@ class BaseTreeManager(object):
         return self.parentItem().getChildRow(self)
 
 QGraphicsSimpleTextItem.__bases__ += (BaseTreeManager,)
+QGraphicsEllipseItem.__bases__ += (BaseTreeManager,)
 QGraphicsRectItem.__bases__ += (BaseTreeManager,)
 
 class PageTreeManager(BaseTreeManager):
@@ -324,10 +325,14 @@ class SubmodelPreviewTreeManager(BaseTreeManager):
 class PLIItemTreeManager(BaseTreeManager):
     
     def child(self, row):
-        return self.numberItem if row == 0 else None
+        if row == 0:
+            return self.numberItem
+        if row == 1 and self.lengthIndicator:
+            return self.lengthIndicator
+        return None
 
     def rowCount(self):
-        return 1
+        return 2 if self.lengthIndicator else 1
 
     def row(self):
         return self.parentItem().pliItems.index(self)

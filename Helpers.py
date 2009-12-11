@@ -125,7 +125,6 @@ def distanceToDisplacement(distance, direction):
 
     return displacement
 
-
 def getDisplacementOffset(direction, initialOffset, box):
 
     offset = 80.0 if initialOffset else 50.0

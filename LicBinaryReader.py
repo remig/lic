@@ -88,7 +88,7 @@ def __readTemplate(stream, instructions):
     for part in template.subModelPart.parts:
         part.partOGL = partDictionary[part.filename]
 
-        template.steps[0].addPart(part)
+        template.steps[0].csi.addPart(part)
         if hasattr(part, "displaceArrow"):
             template.steps[0].csi.addPart(part.displaceArrow)
             template.steps[0].csi.arrows.append(part.displaceArrow)
