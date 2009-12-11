@@ -99,8 +99,8 @@ def __writeInstructions(stream, instructions):
 
     stream.writeInt32(len(instructions.scene.guides))
     for guide in instructions.scene.guides:
-        stream << guide.pos()
         stream.writeInt32(guide.orientation)
+        stream << guide.pos()
 
 def __writeSubmodel(stream, submodel):
 

@@ -1191,7 +1191,7 @@ class LicWindow(QMainWindow):
         self.scene.selectPage(1)
         self.copySettingsToScene()
         endTime = time.time()
-        print "Total load time: %.2f" % (endTime - startTime)
+        #print "Total load time: %.2f" % (endTime - startTime)
     
     def importLDrawModel(self, filename):
 
@@ -1388,10 +1388,13 @@ def main():
     #filename = unicode("C:/lic/viper_white.lic")
     #filename = unicode("C:/lic/2bricks.lic")
     #filename = unicode("C:/lic/pyramid_callout.lic")
+    #filename = unicode("C:/lic/viper_body.mpd")
 
     if filename:
         QTimer.singleShot(50, lambda: loadFile(window, filename))
 
+    #updateAllSavedLicFiles(window)
+    
     sys.exit(app.exec_())
 
 def loadFile(window, filename):
@@ -1410,7 +1413,19 @@ def recompileResources():
     import os
     ret = os.spawnl(os.P_WAIT, r"C:\Python25\Lib\site-packages\PyQt4\pyrcc4.exe", "pyrcc4.exe", "-o", r"c:\lic\resources.py", r"c:\lic\resources.qrc")
     print ret
-    
+
+def updateAllSavedLicFiles(window):
+    for root, folder, files in os.walk("C:\\lic"):
+        for f in files:
+            if f[-3:] == 'lic':
+                fn = os.path.join(root, f)
+                print "Trying  to  open %s" % fn
+                window.fileOpen(fn)
+                if window.instructions.licFileVersion != FileVersion:
+                    window.fileSave()
+                    print "Successfull save %s" % fn
+                window.fileClose()
+                    
 if __name__ == '__main__':
     #import cProfile
     #cProfile.run('main()', 'profile_run')

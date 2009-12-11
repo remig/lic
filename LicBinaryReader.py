@@ -21,17 +21,18 @@ QDataStream.readQString = lambda self: ro(self, QString)
 QDataStream.readQSizeF = lambda self: ro(self, QSizeF)
 QDataStream.readQSize = lambda self: ro(self, QSize)
 
+# To check file version:
+#    if stream.licFileVersion >= 6:
+#        do whatever
+
 def loadLicFile(filename, instructions):
 
     fh, stream = __createStream(filename)
-    
-    if stream.licFileVersion >= 6:
-        template = __readTemplate(stream, instructions)
-    else:
-        if stream.readBool():  # have template
-            template = __readTemplate(stream, instructions)
+
+    template = __readTemplate(stream, instructions)
 
     __readInstructions(stream, instructions)
+    instructions.licFileVersion = stream.licFileVersion
 
     if template:
         template.subModel = instructions.mainModel
@@ -133,21 +134,14 @@ def __readInstructions(stream, instructions):
 
     instructions.mainModel = __readSubmodel(stream, instructions, True)
 
-    if stream.licFileVersion >= 11:
-        instructions.mainModel.titlePage = __readTitlePage(stream, instructions)
-
-    if stream.licFileVersion >= 7:
-        for i in range(stream.readInt32()):
-            newPage = __readPartListPage(stream, instructions)
-            instructions.mainModel.partListPages.append(newPage)
+    instructions.mainModel.titlePage = __readTitlePage(stream, instructions)
 
     for i in range(stream.readInt32()):
-        pos = stream.readQPointF()
-        if stream.licFileVersion < 12:
-            orientation = Layout.Horizontal if stream.readBool() else Layout.Vertical
-            instructions.scene.addGuide(orientation, pos)
-        else:
-            instructions.scene.addGuide(stream.readInt32(), pos)
+        newPage = __readPartListPage(stream, instructions)
+        instructions.mainModel.partListPages.append(newPage)
+
+    for i in range(stream.readInt32()):
+        instructions.scene.addGuide(stream.readInt32(), stream.readQPointF())
 
     for model in submodelDictionary.values():
         __linkModelPartNames(model)
@@ -181,9 +175,7 @@ def __readSubmodel(stream, instructions, createMainmodel = False):
 
     submodel._row = stream.readInt32()
     submodel._parent = str(stream.readQString())
-    
-    if stream.licFileVersion >= 3:
-        submodel.isSubAssembly = stream.readBool()
+    submodel.isSubAssembly = stream.readBool()
 
     return submodel
 
@@ -257,14 +249,10 @@ def __readPart(stream):
     for i in range(0, 16):
         matrix.append(stream.readFloat())
 
-    inCallout = stream.readBool() if stream.licFileVersion >= 4 else False
+    inCallout = stream.readBool()
+    pageNumber = stream.readInt32()
+    stepNumber = stream.readInt32()
 
-    if stream.licFileVersion >= 8:
-        pageNumber = stream.readInt32()
-        stepNumber = stream.readInt32()
-    else:
-        pageNumber = stepNumber = -1
-    
     useDisplacement = stream.readBool()
     if useDisplacement:
         displacement = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
@@ -277,10 +265,7 @@ def __readPart(stream):
         arrow.matrix = matrix
         arrow.displacement = displacement
         arrow.setLength(stream.readInt32())
-        
-        if stream.licFileVersion >= 2:
-            arrow.axisRotation = stream.readFloat()
-        
+        arrow.axisRotation = stream.readFloat()
         return arrow
     
     part = Part(filename, color, matrix, invert)
@@ -307,18 +292,9 @@ def __readPage(stream, parent, instructions, templateModel = None):
     else:
         page = Page(parent, instructions, number, row)
 
-    if stream.licFileVersion >= 5:
-        __readRoundedRectItem(stream, page)
-        page.color = stream.readQColor()
-    else:
-        page.setPos(stream.readQPointF())
-        page.setRect(stream.readQRectF())
-        page.color = stream.readQColor()
-        if stream.readBool():
-            page.brush = stream.readQBrush()
-
-    if stream.licFileVersion >= 12:
-        page.layout.orientation = stream.readInt32()
+    __readRoundedRectItem(stream, page)
+    page.color = stream.readQColor()
+    page.layout.orientation = stream.readInt32()
     page.numberItem.setPos(stream.readQPointF())
     page.numberItem.setFont(stream.readQFont())
 
@@ -388,10 +364,9 @@ def __readStep(stream, parent):
     if pliExists:
         step.pli = __readPLI(stream, step)
 
-    if stream.licFileVersion >= 3:
-        step._hasPLI = stream.readBool()
-        if not step._hasPLI and step.pli:
-            step.disablePLI()
+    step._hasPLI = stream.readBool()
+    if not step._hasPLI and step.pli:
+        step.disablePLI()
 
     if hasNumberItem:
         step.numberItem.setPos(stream.readQPointF())
@@ -406,8 +381,7 @@ def __readStep(stream, parent):
 def __readCallout(stream, parent):
     
     callout = Callout(parent, stream.readInt32(), stream.readBool())
-    if stream.licFileVersion >= 10:
-        callout.borderFit = stream.readInt32()
+    callout.borderFit = stream.readInt32()
     __readRoundedRectItem(stream, callout)
     
     callout.arrow.tipRect.point = stream.readQPointF()
@@ -423,15 +397,14 @@ def __readCallout(stream, parent):
         step = __readStep(stream, callout)
         callout.steps.append(step)
 
-    if stream.licFileVersion >= 9:
-        for i in range(stream.readInt32()):
-            part = __readPart(stream)
-            part.partOGL = partDictionary[part.filename]
-            step = callout.getStep(part.stepNumber)
-            step.addPart(part)
-            if hasattr(part, "displaceArrow"):
-                step.csi.addPart(part.displaceArrow)
-                step.csi.arrows.append(part.displaceArrow)
+    for i in range(stream.readInt32()):
+        part = __readPart(stream)
+        part.partOGL = partDictionary[part.filename]
+        step = callout.getStep(part.stepNumber)
+        step.addPart(part)
+        if hasattr(part, "displaceArrow"):
+            step.csi.addPart(part.displaceArrow)
+            step.csi.arrows.append(part.displaceArrow)
 
     return callout
 
@@ -442,11 +415,9 @@ def __readSubmodelItem(stream, page):
     __readRoundedRectItem(stream, submodelItem)
     submodelItem.scaling = stream.readFloat()
     submodelItem.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
-    
-    if stream.licFileVersion >= 3:
-        submodelItem.isSubAssembly = stream.readBool()
-        if submodelItem.isSubAssembly:
-            submodelItem.pli = __readPLI(stream, submodelItem)
+    submodelItem.isSubAssembly = stream.readBool()
+    if submodelItem.isSubAssembly:
+        submodelItem.pli = __readPLI(stream, submodelItem)
 
     return submodelItem
 
@@ -460,24 +431,6 @@ def __readCSI(stream, step):
 
     csi.scaling = stream.readFloat()
     csi.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
-
-    if stream.licFileVersion < 8:
-        global partDictionary, submodelDictionary
-
-        for i in range(stream.readInt32()):
-            part = __readPart(stream)
-            if part.filename in partDictionary:
-                part.partOGL = partDictionary[part.filename]
-            elif part.filename in submodelDictionary:
-                part.partOGL = submodelDictionary[part.filename]
-                part.partOGL.used = True
-            else:
-                print "LOAD ERROR: could not find a partOGL for part: " + part.filename
-    
-            csi.addPart(part)
-            if hasattr(part, "displaceArrow"):
-                csi.addPart(part.displaceArrow)
-                csi.arrows.append(part.displaceArrow)
 
     return csi
 
