@@ -143,8 +143,11 @@ def __readInstructions(stream, instructions):
 
     for i in range(stream.readInt32()):
         pos = stream.readQPointF()
-        orientation = Layout.Horizontal if stream.readBool() else Layout.Vertical
-        instructions.scene.addGuide(orientation, pos)
+        if stream.licFileVersion < 12:
+            orientation = Layout.Horizontal if stream.readBool() else Layout.Vertical
+            instructions.scene.addGuide(orientation, pos)
+        else:
+            instructions.scene.addGuide(stream.readInt32(), pos)
 
     for model in submodelDictionary.values():
         __linkModelPartNames(model)
@@ -314,6 +317,8 @@ def __readPage(stream, parent, instructions, templateModel = None):
         if stream.readBool():
             page.brush = stream.readQBrush()
 
+    if stream.licFileVersion >= 12:
+        page.layout.orientation = stream.readInt32()
     page.numberItem.setPos(stream.readQPointF())
     page.numberItem.setFont(stream.readQFont())
 
@@ -536,11 +541,11 @@ def __linkModelPartNames(model):
     for part in model.parts:
         if part.pageNumber >= 0 and part.stepNumber >= 0:
             page = model.getPage(part.pageNumber)
-            step = page.getStep(part.stepNumber)
-            step.addPart(part)
+            csi = page.getStep(part.stepNumber).csi
+            csi.addPart(part)
             if hasattr(part, "displaceArrow"):
-                step.csi.addPart(part.displaceArrow)
-                step.csi.arrows.append(part.displaceArrow)
+                csi.addPart(part.displaceArrow)
+                csi.arrows.append(part.displaceArrow)
 
     # Associate each part that has a matching part in a callout to that matching part, and vice versa
     for part in [p for p in model.parts if p.inCallout]:

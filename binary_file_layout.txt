@@ -38,7 +38,7 @@ Instructions:
  
   int32 length of scene.guides 
   ... QPointF guide.pos ...
-  ... bool guide.orientation (True = Horizontal) ...
+  ... int32 guide.orientation ...
 
 Submodel:
   PartOGL self
@@ -114,6 +114,7 @@ Page:
   
   RoundedRectItem pos, rect, pen, brush, cornerRadius
   QColor color
+  int32 layout.orientation
   
   QPointF number.pos
   QFont number.font

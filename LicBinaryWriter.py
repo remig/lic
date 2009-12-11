@@ -100,7 +100,7 @@ def __writeInstructions(stream, instructions):
     stream.writeInt32(len(instructions.scene.guides))
     for guide in instructions.scene.guides:
         stream << guide.pos()
-        stream.writeBool(True if guide.orientation == Layout.Horizontal else False)
+        stream.writeInt32(guide.orientation)
 
 def __writeSubmodel(stream, submodel):
 
@@ -198,7 +198,8 @@ def __writePage(stream, page):
     
     __writeRoundedRectItem(stream, page)
     stream << page.color
-    
+
+    stream.writeInt32(page.layout.orientation)
     stream << page.numberItem.pos() << page.numberItem.font()
 
     # Write out each step in this page
