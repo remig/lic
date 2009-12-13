@@ -2,6 +2,7 @@ from Model import *
 from LicUndoActions import *
 from GLHelpers import getGLFormat
 from GradientDialog import GradientDialog
+from LicQtWrapper import *
 
 class TemplateLineItem(object):
 
@@ -41,8 +42,8 @@ class TemplateRectItem(TemplateLineItem):
     
     def getContextMenu(self, prependActions = []):
         menu = QMenu(self.scene().views()[0])
-        for action in prependActions:
-            menu.addAction(action[0], action[1])
+        for text, action in prependActions:
+            menu.addAction(text, action)
         if prependActions:
             menu.addSeparator()
         menu.addAction("Format Border", self.formatBorder)
@@ -135,7 +136,7 @@ class TemplatePage(TemplateRectItem, Page):
         step.postLoadInit()
         step.csi.__class__ = TemplateCSI
         step.csi.target, step.csi.name = CSI, "CSI"
-        
+
         if step.pli:
             step.pli.__class__ = TemplatePLI
             step.pli.target, step.pli.name = PLI, "PLI"
@@ -147,7 +148,7 @@ class TemplatePage(TemplateRectItem, Page):
             step.callouts[0].arrow.__class__ = TemplateCalloutArrow
             step.callouts[0].steps[0].csi.__class__ = TemplateCSI
             step.callouts[0].steps[0].csi.target, step.callouts[0].steps[0].csi.name = CSI, "CSI"
-                
+
         self.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Page'))
         step.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Step'))
         self.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, self.numberItem)
@@ -158,7 +159,9 @@ class TemplatePage(TemplateRectItem, Page):
                 item.__class__ = TemplatePLIItem
                 item.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'PLIItem'))
                 item.numberItem.contextMenuEvent = lambda event, i = item: self.fontMenuEvent(event, i.numberItem)
-        
+                if item.lengthIndicator:
+                    item.lengthIndicator.__class__ = TemplateCircleLabel
+
         # Set all page elements so they can't move
         for item in self.getAllChildItems():
             item.setFlags(NoMoveFlags)
@@ -416,8 +419,8 @@ class TemplatePLIItem(PLIItem):
 class TemplatePLI(TemplateRectItem, PLI, TemplateRotateScaleSignalItem):
     
     def contextMenuEvent(self, event):
-        actions = [["Change Default PLI Rotation", self.rotateDefaultSignal],
-                   ["Change Default PLI Scale", self.scaleDefaultSignal]]
+        actions = [("Change Default PLI Rotation", self.rotateDefaultSignal),
+                   ("Change Default PLI Scale", self.scaleDefaultSignal)]
         menu = TemplateRectItem.getContextMenu(self, actions)
         menu.exec_(event.screenPos())
     
@@ -432,8 +435,8 @@ class TemplatePLI(TemplateRectItem, PLI, TemplateRotateScaleSignalItem):
 class TemplateSubmodelPreview(TemplateRectItem, SubmodelPreview, TemplateRotateScaleSignalItem):
 
     def contextMenuEvent(self, event):
-        actions = [["Change Default Submodel Rotation", self.rotateDefaultSignal],
-                   ["Change Default Submodel Scale", self.scaleDefaultSignal]]
+        actions = [("Change Default Submodel Rotation", self.rotateDefaultSignal),
+                   ("Change Default Submodel Scale", self.scaleDefaultSignal)]
         menu = TemplateRectItem.getContextMenu(self, actions)
         menu.exec_(event.screenPos())
         
@@ -452,3 +455,30 @@ class TemplateCSI(CSI, TemplateRotateScaleSignalItem):
         menu.addAction("Change Default CSI Rotation", self.rotateDefaultSignal)
         menu.addAction("Change Default CSI Scale", self.scaleDefaultSignal)
         menu.exec_(event.screenPos())
+
+class TemplateCircleLabel(GraphicsCircleLabelItem, TemplateRectItem):
+    
+    def contextMenuEvent(self, event):
+        actions = [("Set Font", self.setItemFont), ("Set Size", self.setItemDiameter)]
+        menu = TemplateRectItem.getContextMenu(self, actions)
+        menu.exec_(event.screenPos())
+        
+    def setPen(self, newPen):
+        GraphicsCircleLabelItem.setPen(self, newPen)
+        GraphicsCircleLabelItem.defaultPen = newPen
+
+    def setBrush(self, newBrush):
+        GraphicsCircleLabelItem.setBrush(self, newBrush)
+        GraphicsCircleLabelItem.defaultBrush = newBrush
+
+    def setItemFont(self):
+        oldFont = self.font()
+        newFont, ok = QFontDialog.getFont(oldFont)
+        if ok:
+            self.scene().undoStack.push(SetItemFontsCommand(self.getPage(), oldFont, newFont, "GraphicsCircleLabelItem"))
+
+    def setItemDiameter(self):
+        oldDiameter = self.rect().width()
+        newDiameter, ok = QInputDialog.getInteger(self.scene().views()[0], "Get Circle Size", "New Circle Size:", oldDiameter, 0, 50)
+        if ok:
+            self.scene().undoStack.push(SetDefaultDiameterCommand(self, oldDiameter, newDiameter))

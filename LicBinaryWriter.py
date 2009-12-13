@@ -336,7 +336,7 @@ def __writePLIItem(stream, pliItem):
     if pliItem.lengthIndicator:
         stream.writeBool(True)
         li = pliItem.lengthIndicator
-        stream << li.pos() << li.rect() << li.font << QString(li.lengthText) << li.labelColor
+        stream << li.pos() << li.rect() << li.font() << QString(li.lengthText) << li.labelColor << li.pen() << li.brush()
     else:
         stream.writeBool(False)
 

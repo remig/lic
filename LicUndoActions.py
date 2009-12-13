@@ -106,6 +106,27 @@ class SetTextCommand(QUndoCommand):
         self.callout.setBorderFit(self.newBorder if redo else self.oldBorder)
         self.callout.update()
 
+class SetDefaultDiameterCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, circle, oldDiameter, newDiameter):
+        QUndoCommand.__init__(self, "circle Diameter")
+        self.circle, self.oldDiameter, self.newDiameter = circle, oldDiameter, newDiameter
+
+    def doAction(self, redo):
+        diameter = self.newDiameter if redo else self.oldDiameter
+        template = self.circle.getPage()
+        self.circle.setDiameter(diameter)
+        self.circle.update()
+        template.initLayout()
+        for page in template.instructions.getPageList():
+            for child in page.getAllChildItems():
+                if self.circle.itemClassName == child.itemClassName:
+                    child.setDiameter(diameter)
+                    child.update()
+                    child.getPage().initLayout()
+
 class DisplacePartCommand(QUndoCommand):
 
     _id = getNewCommandID()
@@ -690,6 +711,15 @@ class SetItemFontsCommand(QUndoCommand):
                 for child in page.getAllChildItems():
                     if self.target == child.itemClassName:
                         child.numberItem.setFont(font)
+
+        elif self.target == 'GraphicsCircleLabelItem':
+            for item in self.template.steps[0].pli.pliItems:
+                if item.lengthIndicator:
+                    item.lengthIndicator.setFont(font)
+            for page in self.template.instructions.getPageList():
+                for child in page.getAllChildItems():
+                    if self.target == child.itemClassName:
+                        child.setFont(font)
 
 class TogglePLIs(QUndoCommand):
 

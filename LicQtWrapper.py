@@ -18,7 +18,7 @@ QPainter.drawSelectionRect = genericDrawSelectionRect
 class GraphicsRoundRectItem(QGraphicsRectItem):
     
     defaultPen = QPen(Qt.black)
-    defaultBrush = QBrush(Qt.transparent)
+    defaultBrush = QBrush(Qt.white)
     
     def __init__(self, parent):
         QGraphicsRectItem.__init__(self, parent)
@@ -49,12 +49,18 @@ class GraphicsRoundRectItem(QGraphicsRectItem):
 
 class GraphicsCircleLabelItem(QGraphicsEllipseItem):
 
-    def __init__(self, parent, length = "10", diameter = 0):
-        QGraphicsEllipseItem.__init__(self, 0, 0, diameter, diameter, parent)
-        self.setPen(QPen(Qt.black))
-        self.setBrush(QBrush(Qt.white))
+    itemClassName = "GraphicsCircleLabelItem"
+    defaultPen = QPen(Qt.black)
+    defaultBrush = QBrush(Qt.white)
+    defaultDiameter = 18
+
+    def __init__(self, parent, length = "10"):
+        QGraphicsEllipseItem.__init__(self, 0, 0, self.defaultDiameter, self.defaultDiameter, parent)
+        self.setPen(self.defaultPen)
+        self.setBrush(self.defaultBrush)
+
         self._row = 1
-        self.font = QFont("Arial", 8)
+        self.setFont(QFont("Arial", 8))
         self.lengthText = length
         self.labelColor = QColor(Qt.blue)
         self.dataText = "Length Indicator (%s)" % length
@@ -62,8 +68,18 @@ class GraphicsCircleLabelItem(QGraphicsEllipseItem):
     def paint(self, painter, option, widget = None):
         QGraphicsEllipseItem.paint(self, painter, option, widget)
         painter.setPen(QPen(self.labelColor))
-        painter.setFont(self.font)
-        painter.drawText(self.rect(), Qt.AlignCenter, self.lengthText)
+        painter.setFont(self.font())
+        textRect = painter.boundingRect(self.rect(), Qt.AlignCenter, self.lengthText)
+        painter.drawText(textRect, Qt.AlignCenter, self.lengthText)
+
+    def setDiameter(self, diameter):
+        self.setRect(0, 0, diameter, diameter)
+
+    def setFont(self, font):
+        self._font = font
+        
+    def font(self):
+        return self._font
 
 def genericMousePressEvent(className):
     def _tmp(self, event):

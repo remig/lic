@@ -319,7 +319,7 @@ class Instructions(QObject):
         self.mainModel.template = template
         self.mainModel.incrementRows(1)
 
-    def exportToPOV(self):
+    def exportToPOV(self):  # TODO: Fix POV Export so it works with the last year's worth of updates
         global submodelDictionary
         for model in submodelDictionary.values():
             if model.used:
@@ -432,6 +432,8 @@ class Instructions(QObject):
     def exportToPDF(self):
 
         # Create an image for each page
+        # TODO: Test export to PDF with new higher resolution settings.
+        # TODO: Connect PDF export to page resolution settings
         pageList = self.exportImages(3)
         filename = os.path.join(config.config['PDFPath'], os.path.basename(self.filename)[:-3] + "pdf")
         
@@ -553,6 +555,8 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
                 for pliItem in step.pli.pliItems:
                     items.append(pliItem)
                     items.append(pliItem.numberItem)
+                    if pliItem.lengthIndicator:
+                        items.append(pliItem.lengthIndicator)
             for callout in step.callouts:
                 items.append(callout)
                 items.append(callout.arrow)
@@ -2038,7 +2042,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         name = self.partOGL.filename.lower()
         length = PartLengths.partLengths.get(name)
         if length:
-            self.lengthIndicator = GraphicsCircleLabelItem(self, str(length), 18)
+            self.lengthIndicator = GraphicsCircleLabelItem(self, str(length))
             self.lengthIndicator.setFlags(AllFlags)
 
     def __getRotation(self):
@@ -3395,7 +3399,8 @@ class Mainmodel(MainModelTreeManager, Submodel):
         self.partListPages = []
 
     def getFullPageList(self):
-        return Submodel.getPageList(self) + self.partListPages
+        pages = [self.titlePage] if self.titlePage else []
+        return pages + Submodel.getPageList(self) + self.partListPages
 
     def addPage(self, page):
         for p in self.partListPages:
@@ -3855,7 +3860,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         if fn and fn != self.filename:
             self.scene().undoStack.push(ChangePartOGLCommand(self, fn))
 
-class Arrow(Part):
+class Arrow(Part):  # TODO: If maintaining separate list of arrows in CSI gets annoying, move this to a part inside Part
     itemClassName = "Arrow"
 
     def __init__(self, direction):

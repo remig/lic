@@ -85,6 +85,9 @@ class PartListPage(PartListPageTreeManager, Page):
         for item in itemList:
             item.setParentItem(self.pli)
 
+    def initLayout(self):
+        pass  # TODO: Need to handle bumping items from page to page, so can do post-loaded auto-layouts
+
     def doOverflowLayout(self):
         overflowItems = self.pli.doOverflowLayout()
         if overflowItems:
@@ -103,6 +106,8 @@ class PartListPage(PartListPageTreeManager, Page):
         for pliItem in self.pli.pliItems:
             items.append(pliItem)
             items.append(pliItem.numberItem)
+            if pliItem.lengthIndicator:
+                items.append(pliItem.lengthIndicator)
         return items
 
     def contextMenuEvent(self, event):
