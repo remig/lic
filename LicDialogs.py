@@ -396,6 +396,7 @@ class PenDlg(QDialog):
         self.setAttribute(Qt.WA_DeleteOnClose)
 
         self.originalPen, self.hasRadius, self.fillColor = originalPen, hasRadius, fillColor
+        self.originalBrush = QBrush(self.fillColor) if self.fillColor else None
 
         self.penWidthSpinBox = QSpinBox()
         self.penWidthSpinBox.setRange(0, 50)
@@ -478,7 +479,7 @@ class PenDlg(QDialog):
             mainLayout.addWidget(self.cornerRadiusSpinBox, 4, 1)
             
         mainLayout.addWidget(self.penColorButton, 5 if self.hasRadius else 4, 0, 1, 2)
-        
+
         if self.fillColor:
             offset += 1
             mainLayout.addWidget(self.fillColorButton, 6 if self.hasRadius else 5, 0, 1, 2)
@@ -498,7 +499,7 @@ class PenDlg(QDialog):
 
         self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
-        
+
         self.penChanged()
         self.setWindowTitle(self.tr("Border Properties"))
 
@@ -512,14 +513,10 @@ class PenDlg(QDialog):
     def getFillColor(self):
         color, value = QColorDialog.getRgba(self.fillColorButton.color.rgba(), self)
         color = QColor.fromRgba(color)
-        if color.isValid(): 
+        if color.isValid():
             self.fillColorButton.color = color
-            self.brushChanged()
-        
-    def brushChanged(self):
-        brush = QBrush(self.fillColorButton.color)
-        self.emit(SIGNAL("brushChanged"), brush)
-        
+            self.penChanged()
+
     def penChanged(self):
         width = self.penWidthSpinBox.value()
         style = Qt.PenStyle(self.penStyleComboBox.itemData(self.penStyleComboBox.currentIndex(), Qt.UserRole).toInt()[0])
@@ -528,10 +525,15 @@ class PenDlg(QDialog):
         color = self.penColorButton.color
         pen = QPen(color, width, style, cap, join)
         pen.cornerRadius = self.cornerRadiusSpinBox.value() if self.hasRadius else 0
-        self.emit(SIGNAL("changed"), pen)
+        brush = QBrush(self.fillColorButton.color) if self.fillColor else None
+        self.emit(SIGNAL("changePen"), pen, brush)
+
+    def accept(self):
+        self.emit(SIGNAL("acceptPen"), self.originalPen, self.originalBrush)
+        QDialog.accept(self)
         
     def reject(self):
-        self.emit(SIGNAL("changed"), self.originalPen)
+        self.emit(SIGNAL("changePen"), self.originalPen, self.originalBrush)
         QDialog.reject(self)
 
 class ScaleDlg(QDialog):

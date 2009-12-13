@@ -104,7 +104,7 @@ class SetTextCommand(QUndoCommand):
 
     def doAction(self, redo):
         self.callout.setBorderFit(self.newBorder if redo else self.oldBorder)
-        self.callout.scene().update()
+        self.callout.update()
 
 class DisplacePartCommand(QUndoCommand):
 
@@ -575,7 +575,7 @@ class ScaleDefaultItemCommand(QUndoCommand):
     def doAction(self, redo):
         self.target.defaultScale = self.newScale if redo else self.oldScale
         self.resetGLItem(self.name, self.template)
-        self.template.scene().update()  # Need this to force full redraw
+        self.template.update()  # Need this to force full redraw
             
 class RotateDefaultItemCommand(QUndoCommand):
 
@@ -646,8 +646,8 @@ class SetBrushCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, target, oldBrush, newBrush = None):
-        QUndoCommand.__init__(self, "change Border")
+    def __init__(self, target, oldBrush, newBrush = None, text = "change Fill"):
+        QUndoCommand.__init__(self, text)
         self.target, self.oldBrush = target, oldBrush
         self.newBrush = newBrush if newBrush else target.brush()
         self.template = target.getPage()

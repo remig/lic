@@ -5,28 +5,33 @@ from GradientDialog import GradientDialog
 
 class TemplateLineItem(object):
 
-    def formatBorder(self, fillColor = False):
+    def formatBorder(self, fillColor = None):
         
         self.setSelected(False)  # Deselect to better see new border changes
         parentWidget = self.scene().views()[0]
         stack = self.scene().undoStack
         dialog = LicDialogs.PenDlg(parentWidget, self.pen(), hasattr(self, 'cornerRadius'), fillColor)
-        
-        penAction = lambda newPen: stack.push(SetPenCommand(self, self.pen(), newPen))
-        parentWidget.connect(dialog, SIGNAL("changed"), penAction)
-        
-        brushAction = lambda newBrush: stack.push(SetBrushCommand(self, self.brush(), newBrush))
-        parentWidget.connect(dialog, SIGNAL("brushChanged"), brushAction)
-        parentWidget.connect(dialog, SIGNAL("reset"), self.resetAction)
-        
-        # TODO: Try messing with the undo stack index to see if we can avoid the 'undo cancel' annoyance
-        stack.beginMacro("change Border")
+
+        parentWidget.connect(dialog, SIGNAL("changePen"), self.changePen)
+        parentWidget.connect(dialog, SIGNAL("acceptPen"), self.acceptPen)
+
         dialog.exec_()
-        stack.endMacro()
-    
-    def resetAction(self):
-        pass
-    
+
+    def changePen(self, newPen, newBrush):
+        self.setPen(newPen)
+        if newBrush:
+            self.setBrush(newBrush)
+        self.update()
+
+    def acceptPen(self, oldPen, oldBrush):
+        stack = self.scene().undoStack
+        if oldBrush:
+            stack.beginMacro("format Callout Arrow")
+        stack.push(SetPenCommand(self, oldPen, self.pen()))
+        if oldBrush:
+            stack.push(SetBrushCommand(self, oldBrush, self.brush()))
+            stack.endMacro()
+
 class TemplateRectItem(TemplateLineItem):
     """ Encapsulates functionality common to all template GraphicItems, like formatting border & fill""" 
 
@@ -51,19 +56,19 @@ class TemplateRectItem(TemplateLineItem):
         menu.exec_(event.screenPos())
 
     def setBackgroundColor(self):
-        color, value = QColorDialog.getRgba(self.brush().color().rgba(), self.scene().views()[0])
+        color, result = QColorDialog.getRgba(self.brush().color().rgba(), self.scene().views()[0])
         color = QColor.fromRgba(color)
-        if color.isValid():
-            self.scene().undoStack.push(SetBrushCommand(self, self.brush(), QBrush(color)))
+        if result and color.isValid():
+            self.scene().undoStack.push(SetBrushCommand(self, self.brush(), QBrush(color), "fill Color"))
     
     def setBackgroundNone(self):
-        self.scene().undoStack.push(SetBrushCommand(self, self.brush(), QBrush(Qt.transparent)))
+        self.scene().undoStack.push(SetBrushCommand(self, self.brush(), QBrush(Qt.transparent), "remove fill"))
         
     def setBackgroundGradient(self):
         g = self.brush().gradient()
         dialog = GradientDialog(self.scene().views()[0], self.rect().size().toSize(), g)
         if dialog.exec_():
-            self.scene().undoStack.push(SetBrushCommand(self, self.brush(), QBrush(dialog.getGradient())))
+            self.scene().undoStack.push(SetBrushCommand(self, self.brush(), QBrush(dialog.getGradient()), "fill Gradient"))
 
 class TemplateRotateScaleSignalItem(QObject):
 

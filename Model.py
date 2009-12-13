@@ -3817,7 +3817,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self._dataString = None
         if self.calloutPart:
             self.calloutPart.changeColor(newColor)
-        self.scene().update()
+        self.update()
     
     def acceptColor(self, oldColor):
         action = ChangePartColorCommand(self, oldColor, self.color)
