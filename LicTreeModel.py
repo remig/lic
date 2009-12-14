@@ -272,15 +272,20 @@ class StepTreeManager(BaseTreeManager):
         offset = row - 1 - (1 if self.hasPLI() else 0) - (1 if self.numberItem else 0)
         if offset < len(self.callouts):
                 return self.callouts[offset]
-            
+
         offset -= len(self.callouts)
-        
+
+        if self.rotateIcon:
+            if offset == 0:
+                return self.rotateIcon
+            offset -= 1
+
         if StepTreeManager.showCSI:
             return None
         return self.csi.child(offset)
 
     def rowCount(self):
-        rows = (1 if self.hasPLI() else 0) + (1 if self.numberItem else 0) + len(self.callouts)
+        rows = (1 if self.hasPLI() else 0) + (1 if self.numberItem else 0) + (1 if self.rotateIcon else 0) + len(self.callouts)
         rows += 1 if StepTreeManager.showCSI else self.csi.rowCount()
         return rows
 
@@ -303,7 +308,9 @@ class StepTreeManager(BaseTreeManager):
             row += 1
         if child in self.callouts:
             return self.callouts.index(child) + row
-        return row + len(self.callouts) + self.csi._subChildRow(child)
+        if child is self.rotateIcon:
+            return row + len(self.callouts)
+        return row + len(self.callouts) + self.csi._subChildRow(child)  # Showing Parts directly in Step
         
     def dragDropFlags(self):
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled

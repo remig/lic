@@ -30,7 +30,7 @@ import Helpers
 import LicDialogs
 import PartLengths
 import resources  # Needed for ":/resource" type paths to work
-from LicQtWrapper import GraphicsRoundRectItem, GraphicsCircleLabelItem
+from LicQtWrapper import *
 from RectanglePacker import CygonRectanglePacker
 
 from LDrawFileFormat import *
@@ -1641,6 +1641,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
         self.pli = PLI(self) if hasPLI else None
         self._hasPLI = hasPLI
         self.callouts = []
+        self.rotateIcon = None
         
         self.maxRect = None
 
@@ -1695,6 +1696,17 @@ class Step(StepTreeManager, QGraphicsRectItem):
         self.scene().removeItem(callout)
         self.callouts.remove(callout)
     
+    def addRotateIcon(self):
+        if self.rotateIcon:
+            return
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.rotateIcon = GraphicsRotateArrowItem(self)
+        self.rotateIcon.setFlags(AllFlags)
+        x = self.csi.pos().x() - self.rotateIcon.rect().width()
+        y = self.csi.pos().y() - self.rotateIcon.rect().height()
+        self.rotateIcon.setPos(x, y)
+        self.scene().emit(SIGNAL("layoutChanged()"))
+
     def resetRect(self):
         if self.maxRect:
             r = QRectF(0.0, 0.0, max(1, self.maxRect.width()), max(1, self.maxRect.height()))
@@ -1929,6 +1941,7 @@ class RotateScaleSignalItem(QObject):
     def acceptRotation(self, oldRotation):
         action = RotateItemCommand(self, oldRotation, self.rotation)
         self.scene().undoStack.push(action)
+        self.parentItem().addRotateIcon()
     
     def scaleSignal(self):
         parentWidget = self.scene().views()[0]

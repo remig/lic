@@ -81,6 +81,62 @@ class GraphicsCircleLabelItem(QGraphicsEllipseItem):
     def font(self):
         return self._font
 
+class GraphicsRotateArrowItem(GraphicsRoundRectItem):
+
+    itemClassName = "GraphicsRotateArrowItem"
+
+    arrowTipLength = 11.0
+    arrowTipHeight = 5.0
+    ArrowHead = QPolygonF([QPointF(),
+                           QPointF(arrowTipLength + 3, -arrowTipHeight),
+                           QPointF(arrowTipLength, 0.0),
+                           QPointF(arrowTipLength + 3, arrowTipHeight)])
+
+    def __init__(self, parent, length = "10"):
+        GraphicsRoundRectItem.__init__(self, parent)
+        self.cornerRadius = 6
+
+        self.arrowPen = QPen(Qt.blue)
+        self.dataText = "Rotation Icon"
+        self.setRect(0, 0, 50, 50)
+
+    def paint(self, painter, option, widget = None):
+        GraphicsRoundRectItem.paint(self, painter, option, widget)
+        painter.setPen(self.arrowPen)
+        painter.setBrush(QBrush(Qt.transparent))
+        
+        w, h2 = self.rect().width(), self.rect().height() / 2.0
+        inset = 6.0
+        i2 = inset / 2.0
+                
+        start = QPointF(inset, h2 - i2)
+        end = QPointF(w - inset, h2 - i2)
+        
+        ix, iy = inset * 1.8, inset * 2.5
+        path = QPainterPath()
+        path.moveTo(start)
+        path.cubicTo(start + QPointF(ix, -iy), end + QPointF(-ix, -iy), end)
+
+        start += QPointF(0, inset)
+        end += QPointF(0, inset)
+        path.moveTo(end)
+        path.cubicTo(end + QPointF(-ix, iy), start + QPointF(ix, iy), start)
+
+        painter.drawPath(path)
+
+        painter.setBrush(QBrush(self.arrowPen.color()))
+        painter.save()
+        painter.translate(w - inset, h2 - i2)
+        painter.rotate(-135)
+        painter.drawPolygon(self.ArrowHead)
+        painter.restore()
+
+        painter.save()
+        painter.translate(inset, h2 + i2)
+        painter.rotate(45)
+        painter.drawPolygon(self.ArrowHead)
+        painter.restore()
+
 def genericMousePressEvent(className):
     def _tmp(self, event):
         if event.button() == Qt.RightButton:
