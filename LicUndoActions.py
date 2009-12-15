@@ -254,6 +254,22 @@ class SwapStepsCommand(QUndoCommand):
             p2.initLayout()
         p1.scene().emit(SIGNAL("layoutChanged()"))
 
+class AddRemoveRotateIconCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, step, addIcon):
+        QUndoCommand.__init__(self, "%s Rotation Icon" % ("add" if addIcon else "delete"))
+        self.step, self.addIcon = step, addIcon
+
+    def doAction(self, redo):
+        self.step.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        if (redo and self.addIcon) or (not redo and not self.addIcon):
+            self.step.addRotateIcon()
+        else:
+            self.step.removeRotateIcon()
+        self.step.scene().emit(SIGNAL("layoutChanged()"))
+
 class AddRemoveStepCommand(QUndoCommand):
 
     _id = getNewCommandID()

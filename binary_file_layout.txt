@@ -177,6 +177,10 @@ Step:
 
   int32 number of Callouts
   ... Callout 0..n ...
+ 
+  bool hasRotateIcon  v3
+  RoundedRectItem icon.pos, icon.rect, icon.pen, icon.brush, icon.cornerRadius
+  QPen icon.arrowPen
 
 Callout:
   int32 number

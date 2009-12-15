@@ -376,6 +376,12 @@ def __readStep(stream, parent):
         callout = __readCallout(stream, step)
         step.callouts.append(callout)
 
+    if stream.licFileVersion >= 3:
+        if stream.readBool():
+            step.addRotateIcon()
+            __readRoundedRectItem(stream, step.rotateIcon)
+            step.rotateIcon.arrowPen = stream.readQPen()
+
     return step
 
 def __readCallout(stream, parent):

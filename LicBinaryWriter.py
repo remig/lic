@@ -272,6 +272,13 @@ def __writeStep(stream, step):
     for callout in step.callouts:
         __writeCallout(stream, callout)
 
+    if step.rotateIcon:
+        stream.writeBool(True)
+        __writeRoundedRectItem(stream, step.rotateIcon)
+        stream << step.rotateIcon.arrowPen
+    else:
+        stream.writeBool(False)
+
 def __writeCallout(stream, callout):
     stream.writeInt32(callout.number)
     stream.writeBool(callout.showStepNumbers)

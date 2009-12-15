@@ -36,7 +36,7 @@ from RectanglePacker import CygonRectanglePacker
 from LDrawFileFormat import *
 
 MagicNumber = 0x14768126
-FileVersion = 2
+FileVersion = 3
 
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 submodelDictionary = {}  # {'filename': Submodel()}
@@ -1695,17 +1695,26 @@ class Step(StepTreeManager, QGraphicsRectItem):
     def removeCallout(self, callout):
         self.scene().removeItem(callout)
         self.callouts.remove(callout)
-    
+
     def addRotateIcon(self):
-        if self.rotateIcon:
-            return
-        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.rotateIcon = GraphicsRotateArrowItem(self)
+
+        def iconContextMenuEvent(event):
+            stack = self.scene().undoStack
+            menu = QMenu(self.scene().views()[0])
+            menu.addAction("Remove", lambda: stack.push(AddRemoveRotateIconCommand(self, False)))
+            menu.exec_(event.screenPos())
+
+        if self.rotateIcon is None:
+            self.rotateIcon = GraphicsRotateArrowItem(self)
+        self.rotateIcon.contextMenuEvent = iconContextMenuEvent
         self.rotateIcon.setFlags(AllFlags)
         x = self.csi.pos().x() - self.rotateIcon.rect().width()
         y = self.csi.pos().y() - self.rotateIcon.rect().height()
         self.rotateIcon.setPos(x, y)
-        self.scene().emit(SIGNAL("layoutChanged()"))
+
+    def removeRotateIcon(self):
+        self.scene().removeItem(self.rotateIcon)
+        self.rotateIcon = None
 
     def resetRect(self):
         if self.maxRect:
@@ -1716,7 +1725,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
     def isInCallout(self):
         return isinstance(self.parentItem(), Callout)
-    
+
     def getNextStep(self):
         return self.parentItem().getStep(self.number + 1)
 
@@ -1732,7 +1741,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
         self.numberItem.setFont(QFont("Arial", 15))
         self.numberItem.setFlags(AllFlags)
         self.numberItem.dataText = "Step Number Label"
-            
+
     def disableNumberItem(self):
         self.scene().removeItem(self.numberItem)
         self.numberItem = None
@@ -1864,6 +1873,10 @@ class Step(StepTreeManager, QGraphicsRectItem):
         menu.addSeparator()
         menu.addAction("Add blank Callout", self.addBlankCalloutSignal)
 
+        if self.rotateIcon is None:
+            menu.addSeparator()
+            menu.addAction("Add Rotate Icon", lambda: undo.push(AddRemoveRotateIconCommand(self, True)))
+
         if not self.csi.parts:
             menu.addAction("&Delete Step", lambda: undo.push(AddRemoveStepCommand(self, False)))
 
@@ -1937,12 +1950,11 @@ class RotateScaleSignalItem(QObject):
     def changeRotation(self, rotation):
         self.rotation = list(rotation)
         self.resetPixmap()
-        
+
     def acceptRotation(self, oldRotation):
         action = RotateItemCommand(self, oldRotation, self.rotation)
         self.scene().undoStack.push(action)
-        self.parentItem().addRotateIcon()
-    
+
     def scaleSignal(self):
         parentWidget = self.scene().views()[0]
         dialog = LicDialogs.ScaleDlg(parentWidget, self.scaling)
@@ -2582,6 +2594,17 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         
         menu.exec_(event.screenPos())
         
+    def acceptRotation(self, oldRotation):
+        stack = self.scene().undoStack 
+        if not self.parentItem().rotateIcon:
+            stack.beginMacro("Item rotation")
+
+        RotateScaleSignalItem.acceptRotation(self, oldRotation)
+
+        if not self.parentItem().rotateIcon:
+            stack.push(AddRemoveRotateIconCommand(self.parentItem(), True))
+            stack.endMacro()
+
     def selectPart(self, part):
         self.scene().clearSelection()
         part.setSelected(True)

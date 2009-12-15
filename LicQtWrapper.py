@@ -85,12 +85,12 @@ class GraphicsRotateArrowItem(GraphicsRoundRectItem):
 
     itemClassName = "GraphicsRotateArrowItem"
 
-    arrowTipLength = 11.0
-    arrowTipHeight = 5.0
+    arrowTipLength = 9.0
+    arrowTipHeight = 4.0
     ArrowHead = QPolygonF([QPointF(),
-                           QPointF(arrowTipLength + 3, -arrowTipHeight),
+                           QPointF(arrowTipLength + 2.5, -arrowTipHeight),
                            QPointF(arrowTipLength, 0.0),
-                           QPointF(arrowTipLength + 3, arrowTipHeight)])
+                           QPointF(arrowTipLength + 2.5, arrowTipHeight)])
 
     def __init__(self, parent, length = "10"):
         GraphicsRoundRectItem.__init__(self, parent)
@@ -107,18 +107,17 @@ class GraphicsRotateArrowItem(GraphicsRoundRectItem):
         
         w, h2 = self.rect().width(), self.rect().height() / 2.0
         inset = 6.0
-        i2 = inset / 2.0
                 
-        start = QPointF(inset, h2 - i2)
-        end = QPointF(w - inset, h2 - i2)
+        start = QPointF(inset, h2 - inset)
+        end = QPointF(w - inset, h2 - inset)
         
-        ix, iy = inset * 1.8, inset * 2.5
+        ix, iy = inset * 1.8, inset * 2.5  # 1.8 & 2.5 entirely qualitative, for a 'nice' curve
         path = QPainterPath()
         path.moveTo(start)
         path.cubicTo(start + QPointF(ix, -iy), end + QPointF(-ix, -iy), end)
 
-        start += QPointF(0, inset)
-        end += QPointF(0, inset)
+        start += QPointF(0, inset + inset)
+        end += QPointF(0, inset + inset)
         path.moveTo(end)
         path.cubicTo(end + QPointF(-ix, iy), start + QPointF(ix, iy), start)
 
@@ -126,13 +125,13 @@ class GraphicsRotateArrowItem(GraphicsRoundRectItem):
 
         painter.setBrush(QBrush(self.arrowPen.color()))
         painter.save()
-        painter.translate(w - inset, h2 - i2)
+        painter.translate(w - inset, h2 - inset)
         painter.rotate(-135)
         painter.drawPolygon(self.ArrowHead)
         painter.restore()
 
         painter.save()
-        painter.translate(inset, h2 + i2)
+        painter.translate(inset, h2 + inset)
         painter.rotate(45)
         painter.drawPolygon(self.ArrowHead)
         painter.restore()
