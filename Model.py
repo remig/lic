@@ -2257,9 +2257,11 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
             return
 
         # Initialize each item in this PLI, so they have good rects and properly positioned quantity labels
+        stepRect = self.parentItem().rect()
         for item in self.pliItems:
             item.initLayout()
-            
+        self.parentItem().setRect(stepRect)  # Save & Restore Step's rect, because it might have changed in PLItem layout
+
         # Sort list of parts to lay out by width (narrowest first), then remove tallest part, to be added first
         partList = list(self.pliItems)
         partList.sort(lambda x, y: cmp(x.rect().width(), y.rect().width()))
@@ -3136,7 +3138,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
             while True:
 
                 nextStep = nextPage.steps[0]
-                partList = nextStep.csi.getPartList() 
+                partList = nextStep.csi.getPartList()
                 submodelList = [p for p in partList if p.isSubmodel()]
                 if submodelList:  # Check if next Step has any Submodels
 
