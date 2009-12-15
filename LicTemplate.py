@@ -148,6 +148,8 @@ class TemplatePage(TemplateRectItem, Page):
             step.callouts[0].arrow.__class__ = TemplateCalloutArrow
             step.callouts[0].steps[0].csi.__class__ = TemplateCSI
             step.callouts[0].steps[0].csi.target, step.callouts[0].steps[0].csi.name = CSI, "CSI"
+        if step.rotateIcon:
+           step.rotateIcon.__class__ = TemplateRotateIcon
 
         self.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Page'))
         step.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Step'))
@@ -197,9 +199,11 @@ class TemplatePage(TemplateRectItem, Page):
         
         self.addSubmodelImage()
         self.submodelItem.setPartOGL(self.subModelPart)
-        
+
+        step.addRotateIcon()
+
         self.initLayout()
-        self.postLoadInit("dynamic_template.lit")
+        self.postLoadInit("test_template.lit")
 
     def initOGLDimension(self, part, glContext):
 
@@ -224,13 +228,13 @@ class TemplatePage(TemplateRectItem, Page):
         else:
             class NoOp():
                 def push(self, x):
-                    pass
+                    x.redo()
             
             stack = NoOp()
-            
+
         stack.push(SetPageBackgroundColorCommand(self, originalPage.color, self.color))
-        stack.push(SetPageBackgroundBrushCommand(self, originalPage.brush, self.brush))
-        
+        stack.push(SetPageBackgroundBrushCommand(self, originalPage.brush(), self.brush()))
+
         stack.push(SetItemFontsCommand(self, originalPage.numberItem.font(), self.numberItem.font(), 'Page'))
         stack.push(SetItemFontsCommand(self, originalPage.steps[0].numberItem.font(), self.steps[0].numberItem.font(), 'Step'))
         stack.push(SetItemFontsCommand(self, originalPage.steps[0].pli.pliItems[0].numberItem.font(), self.steps[0].pli.pliItems[0].numberItem.font(), 'PLIItem'))
@@ -239,7 +243,16 @@ class TemplatePage(TemplateRectItem, Page):
         if step.pli:
             stack.push(SetPenCommand(step.pli, PLI.defaultPen))
             stack.push(SetBrushCommand(step.pli, PLI.defaultBrush))
-        
+
+            for item in step.pli.pliItems:
+                if item.lengthIndicator:
+                    icon = item.lengthIndicator
+                    stack.push(SetPenCommand(icon, GraphicsCircleLabelItem.defaultPen))
+                    stack.push(SetBrushCommand(icon, GraphicsCircleLabelItem.defaultBrush))
+                    stack.push(SetItemFontsCommand(icon.getPage(), GraphicsCircleLabelItem.defaultFont, icon.font(), 'GraphicsCircleLabelItem'))
+                    stack.push(SetDefaultDiameterCommand(icon, GraphicsCircleLabelItem.defaultDiameter, icon.diameter()))
+                    break
+
         if self.submodelItem:
             stack.push(SetPenCommand(self.submodelItem, SubmodelPreview.defaultPen))
             stack.push(SetBrushCommand(self.submodelItem, SubmodelPreview.defaultBrush))
@@ -252,6 +265,12 @@ class TemplatePage(TemplateRectItem, Page):
             arrow = callout.arrow
             stack.push(SetPenCommand(arrow, CalloutArrow.defaultPen))
             stack.push(SetBrushCommand(arrow, CalloutArrow.defaultBrush))
+
+        if step.rotateIcon:
+            icon = step.rotateIcon
+            stack.push(SetPenCommand(icon, GraphicsRotateArrowItem.defaultPen))
+            stack.push(SetBrushCommand(icon, GraphicsRotateArrowItem.defaultBrush))
+            stack.push(SetPenCommand(icon, GraphicsRotateArrowItem.defaultArrowPen, icon.arrowPen, "changeArrowPen"))
 
         if useUndo:
             stack.endMacro()
@@ -471,6 +490,10 @@ class TemplateCircleLabel(GraphicsCircleLabelItem, TemplateRectItem):
         GraphicsCircleLabelItem.setBrush(self, newBrush)
         GraphicsCircleLabelItem.defaultBrush = newBrush
 
+    def setDiameter(self, diameter):
+        GraphicsCircleLabelItem.setDiameter(self, diameter)
+        GraphicsCircleLabelItem.defaultDiameter = diameter
+
     def setItemFont(self):
         oldFont = self.font()
         newFont, ok = QFontDialog.getFont(oldFont)
@@ -482,3 +505,36 @@ class TemplateCircleLabel(GraphicsCircleLabelItem, TemplateRectItem):
         newDiameter, ok = QInputDialog.getInteger(self.scene().views()[0], "Get Circle Size", "New Circle Size:", oldDiameter, 0, 50)
         if ok:
             self.scene().undoStack.push(SetDefaultDiameterCommand(self, oldDiameter, newDiameter))
+
+class TemplateRotateIcon(TemplateRectItem, GraphicsRotateArrowItem):
+    
+    def formatArrowPen(self):
+        
+        self.setSelected(False)  # Deselect to better see new border changes
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.PenDlg(parentWidget, self.arrowPen, False, None)
+
+        parentWidget.connect(dialog, SIGNAL("changePen"), self.changeArrowPen)
+        parentWidget.connect(dialog, SIGNAL("acceptPen"), self.acceptArrowPen)
+
+        dialog.exec_()
+
+    def setPen(self, newPen):
+        GraphicsRotateArrowItem.setPen(self, newPen)
+        GraphicsRotateArrowItem.defaultPen = newPen
+
+    def setBrush(self, newBrush):
+        GraphicsRotateArrowItem.setBrush(self, newBrush)
+        GraphicsRotateArrowItem.defaultBrush = newBrush
+
+    def changeArrowPen(self, newPen, newBrush = None):
+        GraphicsRotateArrowItem.defaultArrowPen = newPen
+        GraphicsRotateArrowItem.changeArrowPen(self, newPen)
+
+    def acceptArrowPen(self, oldPen, oldBrush):
+        self.scene().undoStack.push(SetPenCommand(self, oldPen, self.arrowPen, "changeArrowPen"))
+
+    def contextMenuEvent(self, event):
+        menu = TemplateRectItem.getContextMenu(self)
+        menu.addAction("Format Arrow Pen", self.formatArrowPen)
+        menu.exec_(event.screenPos())

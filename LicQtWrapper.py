@@ -52,6 +52,7 @@ class GraphicsCircleLabelItem(QGraphicsEllipseItem):
     itemClassName = "GraphicsCircleLabelItem"
     defaultPen = QPen(Qt.black)
     defaultBrush = QBrush(Qt.white)
+    defaultFont = QFont("Arial", 8)
     defaultDiameter = 18
 
     def __init__(self, parent, length = "10"):
@@ -60,9 +61,9 @@ class GraphicsCircleLabelItem(QGraphicsEllipseItem):
         self.setBrush(self.defaultBrush)
 
         self._row = 1
-        self.setFont(QFont("Arial", 8))
+        self.setFont(self.defaultFont)
         self.lengthText = length
-        self.labelColor = QColor(Qt.blue)
+        self.labelColor = QColor(Qt.black)  # TODO: implement this
         self.dataText = "Length Indicator (%s)" % length
 
     def paint(self, painter, option, widget = None):
@@ -75,6 +76,9 @@ class GraphicsCircleLabelItem(QGraphicsEllipseItem):
     def setDiameter(self, diameter):
         self.setRect(0, 0, diameter, diameter)
 
+    def diameter(self):
+        return self.rect().width()
+
     def setFont(self, font):
         self._font = font
         
@@ -85,6 +89,7 @@ class GraphicsRotateArrowItem(GraphicsRoundRectItem):
 
     itemClassName = "GraphicsRotateArrowItem"
 
+    defaultArrowPen = QPen(Qt.blue, 0, Qt.SolidLine, Qt.SquareCap, Qt.MiterJoin)
     arrowTipLength = 9.0
     arrowTipHeight = 4.0
     ArrowHead = QPolygonF([QPointF(),
@@ -96,9 +101,13 @@ class GraphicsRotateArrowItem(GraphicsRoundRectItem):
         GraphicsRoundRectItem.__init__(self, parent)
         self.cornerRadius = 6
 
-        self.arrowPen = QPen(Qt.blue)
+        self.arrowPen = self.defaultArrowPen
         self.dataText = "Rotation Icon"
         self.setRect(0, 0, 50, 50)
+
+    def changeArrowPen(self, newPen):
+        self.arrowPen = newPen
+        self.update()
 
     def paint(self, painter, option, widget = None):
         GraphicsRoundRectItem.paint(self, painter, option, widget)

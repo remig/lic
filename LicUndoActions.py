@@ -266,6 +266,7 @@ class AddRemoveRotateIconCommand(QUndoCommand):
         self.step.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         if (redo and self.addIcon) or (not redo and not self.addIcon):
             self.step.addRotateIcon()
+            self.step.positionRotateIcon()
         else:
             self.step.removeRotateIcon()
         self.step.scene().emit(SIGNAL("layoutChanged()"))
@@ -663,20 +664,20 @@ class SetPenCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, target, oldPen, newPen = None):
+    def __init__(self, target, oldPen, newPen = None, penSetter = "setPen"):
         QUndoCommand.__init__(self, "change Border")
-        self.target, self.oldPen = target, oldPen
+        self.target, self.oldPen, self.penSetter = target, oldPen, penSetter
         self.newPen = newPen if newPen else target.pen()
         self.template = target.getPage()
 
     def doAction(self, redo):
         pen = self.newPen if redo else self.oldPen
-        self.target.setPen(pen)
+        self.target.__getattribute__(self.penSetter)(pen)
         self.target.update()
         for page in self.template.instructions.getPageList():
             for child in page.getAllChildItems():
                 if self.target.itemClassName == child.itemClassName:
-                    child.setPen(pen)
+                    child.__getattribute__(self.penSetter)(pen)
                     child.update()
 
 class SetBrushCommand(QUndoCommand):

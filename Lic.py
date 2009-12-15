@@ -1184,6 +1184,7 @@ class LicWindow(QMainWindow):
         LicBinaryReader.loadLicFile(filename, self.instructions)
         self.treeModel.root = self.instructions.mainModel
         self.templatePage = self.instructions.mainModel.template
+        self.templatePage.applyFullTemplate(False)
         self.scene.emit(SIGNAL("layoutChanged()"))
         
         self.filename = filename

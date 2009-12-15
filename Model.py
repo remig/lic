@@ -557,6 +557,8 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
                     items.append(pliItem.numberItem)
                     if pliItem.lengthIndicator:
                         items.append(pliItem.lengthIndicator)
+            if step.rotateIcon:
+                items.append(step.rotateIcon)
             for callout in step.callouts:
                 items.append(callout)
                 items.append(callout.arrow)
@@ -1698,19 +1700,16 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
     def addRotateIcon(self):
 
-        def iconContextMenuEvent(event):
+        def iconContextMenuEvent(self, event):
             stack = self.scene().undoStack
             menu = QMenu(self.scene().views()[0])
-            menu.addAction("Remove", lambda: stack.push(AddRemoveRotateIconCommand(self, False)))
+            menu.addAction("Remove", lambda: stack.push(AddRemoveRotateIconCommand(self.parentItem(), False)))
             menu.exec_(event.screenPos())
 
         if self.rotateIcon is None:
             self.rotateIcon = GraphicsRotateArrowItem(self)
-        self.rotateIcon.contextMenuEvent = iconContextMenuEvent
+        GraphicsRotateArrowItem.contextMenuEvent = iconContextMenuEvent
         self.rotateIcon.setFlags(AllFlags)
-        x = self.csi.pos().x() - self.rotateIcon.rect().width()
-        y = self.csi.pos().y() - self.rotateIcon.rect().height()
-        self.rotateIcon.setPos(x, y)
 
     def removeRotateIcon(self):
         self.scene().removeItem(self.rotateIcon)
@@ -1809,6 +1808,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
             self.numberItem.moveBy(0, pliOffset + Page.margin.y())
 
         self.positionInternalBits()
+        self.resetRect()
 
     def positionInternalBits(self):
 
@@ -1828,6 +1828,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
             x = (r.width() - csiWidth) / 2.0
             y = (r.height() - csiHeight) / 2.0
             self.csi.setPos(x, r.top() + y)
+            self.positionRotateIcon()
             return
 
         for callout in self.callouts:
@@ -1835,8 +1836,15 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         GridLayout.initCrossLayout(r, [self.csi] + self.callouts)
 
+        self.positionRotateIcon()
         for callout in self.callouts:
             callout.initEndPoints()
+
+    def positionRotateIcon(self):
+        if self.rotateIcon:
+            x = self.csi.pos().x() - self.rotateIcon.rect().width()
+            y = self.csi.pos().y() - self.rotateIcon.rect().height()
+            self.rotateIcon.setPos(x, y)
 
     def acceptDragAndDropList(self, dragItems, row):
 
@@ -2059,7 +2067,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.numberItem.itemClassName = "PLIItem Quantity"
         self.numberItem._row = 0
         self.numberItem.setFont(QFont("Arial", 10))
-        self.numberItem.setFlags(AllFlags)        
+        self.numberItem.setFlags(AllFlags)
         self.setQuantity(quantity)
 
         # Initialize the circular length indicator, if there should be one on this part
