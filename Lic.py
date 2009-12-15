@@ -1229,10 +1229,10 @@ class LicWindow(QMainWindow):
         
         self.instructions.setTemplate(self.templatePage)
         self.instructions.mainModel.partListPages = PartListPage.createPartListPages(self.instructions)
+        self.templatePage.applyFullTemplate(False)  # Template should apply to part list but not title pages
         self.instructions.mainModel.titlePage = TitlePage(self.instructions)
         self.instructions.mainModel.titlePage.addInitialContent()
         self.instructions.mainModel.incrementRows(1)
-        self.templatePage.applyFullTemplate(False)
         
         self.scene.emit(SIGNAL("layoutChanged()"))
         self.scene.selectPage(1)

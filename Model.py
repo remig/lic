@@ -1842,8 +1842,11 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
     def positionRotateIcon(self):
         if self.rotateIcon:
-            x = self.csi.pos().x() - self.rotateIcon.rect().width()
-            y = self.csi.pos().y() - self.rotateIcon.rect().height()
+            x = self.csi.pos().x() - self.rotateIcon.rect().width() - Page.margin.x()
+            y = self.csi.pos().y() - self.rotateIcon.rect().height() - Page.margin.y()
+            if self.hasPLI() and y < self.pli.rect().bottom():
+                y = self.csi.pos().y()  # Not enough space to place above CSI, so put beside
+                x -= Page.margin.x()
             self.rotateIcon.setPos(x, y)
 
     def acceptDragAndDropList(self, dragItems, row):
