@@ -580,12 +580,6 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
         return items
 
-    def getAllParts(self):
-        parts = []
-        for step in self.steps:
-            parts += step.csi.getPartList()
-        return parts
-
     def getExportFilename(self):
         return os.path.join(config.config['imgPath'], "Page_%d.png" % self._number)
     
@@ -2546,6 +2540,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
 
         w, h, self.center, x, y = params  # x & y are just ignored place-holders
         self.setRect(0.0, 0.0, w, h)
+        self.isDirty = False
         return result
 
     def createPng(self):
@@ -2969,7 +2964,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
     def __init__(self, parent = None, instructions = None, filename = ""):
         PartOGL.__init__(self, filename)
 
-        self.instructions = instructions
+        self.instructions = instructions  # TODO: is this needed?  Can get to instructions through parent?  What is mainmodel.parent?
         self.used = False
         self.hasImportedSteps = False
 
@@ -2998,14 +2993,27 @@ class Submodel(SubmodelTreeManager, PartOGL):
         # Add any submodels found in this LDraw file to the submodel dictionary, unused
         if submodelList:
             global submodelDictionary
+
+            # Copy all submodel names & their positions and empty submodels from the LDraw file to submodel dictionary
             for submodelFilename, index in submodelList.items():
                 lineArray = ldrawFile.fileArray[index[0]: index[1]]
                 model = Submodel(self, self.instructions, submodelFilename)
-                model.loadFromLineArray(lineArray)
-                submodelDictionary[submodelFilename] = model
+                submodelDictionary[submodelFilename] = (lineArray, model)
+
+            # Load each line array.  This needs to be a two step process to handle nested submodels
+            for submodelFilename, lineModelPair in submodelDictionary.items():
+                Submodel.loadFromTuple(lineModelPair)
 
         # Load the contents of this specific LDraw file into this submodel
         self.loadFromLineArray(ldrawFile.fileArray)
+
+    @staticmethod
+    def loadFromTuple(lineModelPair):
+        global submodelDictionary
+        lineArray, model = lineModelPair
+        model.loadFromLineArray(lineArray)
+        submodelDictionary[model.filename] = model
+        return model
 
     def loadFromLineArray(self, lineArray):
         for line in lineArray[1:]:
@@ -3126,11 +3134,22 @@ class Submodel(SubmodelTreeManager, PartOGL):
         
         while True:   # yeah yeah, nested infinite loops of nastiness
             while True:
-                if all(part.isSubmodel() for part in nextPage.getAllParts()):  # Check if next Step is full of Submodels
-                    nextPage.steps[0].disablePLI()  # Leave Submodel steps as first on page, and hide their PLI.
+
+                nextStep = nextPage.steps[0]
+                partList = nextStep.csi.getPartList() 
+                submodelList = [p for p in partList if p.isSubmodel()]
+                if submodelList:  # Check if next Step has any Submodels
+
+                    if len(submodelList) == len(partList):  # Check if next Step is full of Submodels
+                        nextStep.disablePLI()  # Leave Submodel steps as first on page, and hide their PLI.
+                    else:
+                        for part in submodelList:
+                            nextStep.pli.removePart(part)
+
+                    nextPage.initLayout()
                     break
 
-                nextPage.steps[0].moveToPage(currentPage, False) # Move first step on next page to current page
+                nextStep.moveToPage(currentPage, False) # Move step on next page to current page
 
                 currentLayout = currentPage.layout.orientation
                 currentPage.useHorizontalLayout()  # Try horizontal layout
@@ -3541,6 +3560,9 @@ class Part(PartTreeManager, QGraphicsRectItem):
         fn = self.filename
         if fn in submodelDictionary:
             self.partOGL = submodelDictionary[fn]
+            if isinstance(self.partOGL, tuple):
+                self.partOGL = Submodel.loadFromTuple(self.partOGL)
+
         elif fn in partDictionary:
             self.partOGL = partDictionary[fn]
         elif fn.upper() in partDictionary:
