@@ -2976,13 +2976,13 @@ class Submodel(SubmodelTreeManager, PartOGL):
     def __init__(self, parent = None, instructions = None, filename = ""):
         PartOGL.__init__(self, filename)
 
-        self.instructions = instructions  # TODO: is this needed?  Can get to instructions through parent?  What is mainmodel.parent?
+        self.instructions = instructions
         self.used = False
         self.hasImportedSteps = False
 
         self.pages = []
         self.submodels = []
-        
+
         self._row = 0
         self._parent = parent
         self.isSubmodel = True
@@ -3473,8 +3473,36 @@ class Mainmodel(MainModelTreeManager, Submodel):
         Submodel.__init__(self, parent, instructions, filename)
 
         self.template = None
-        self.titlePage = None  # TODO: Add ability to add / remove title page at will
+
+        self._hasTitlePage = False
+        self.titlePage = None
+
+        self.hasPartListPages = False
         self.partListPages = []
+
+    def hasTitlePage(self):
+        return self._hasTitlePage and self.titlePage is not None
+
+    def addTitlePage(self, titlePage):
+        self._hasTitlePage = True
+        self.titlePage = titlePage
+
+    def showTitlePage(self):
+        self.showHideTitlePage(True)
+
+    def hideTitlePage(self):
+        self.showHideTitlePage(False)
+
+    def showHideTitlePage(self, show = True):
+        scene = self.instructions.scene
+        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        self._hasTitlePage = show
+        self.titlePage.setVisible(show)
+        scene.addItem(self.titlePage) if show else scene.removeItem(self.titlePage)
+        self.updatePageNumbers(1, 1 if show else -1)
+        self. incrementRows(1 if show else -1)
+        scene.selectFirstPage()
+        scene.emit(SIGNAL("layoutChanged()"))
 
     def getFullPageList(self):
         pages = [self.titlePage] if self.titlePage else []
@@ -3508,7 +3536,7 @@ class Mainmodel(MainModelTreeManager, Submodel):
         
     def syncPageNumbers(self, firstPageNumber = 1):
         Submodel.syncPageNumbers(self, firstPageNumber + 1)
-    
+
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
     itemClassName = "Part Tree Item"
 

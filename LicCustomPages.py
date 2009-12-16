@@ -168,6 +168,7 @@ class TitlePage(TitlePageTreeManager, Page):
         si._row = 0
         si.setPen(QPen(Qt.NoPen))
         si.setBrush(QBrush(Qt.NoBrush))
+        si.itemClassName = "TitleSubmodelPreview"  # Override regular name so we don't set this in any template action
 
         self.addLabel(None, QFont("Arial", 25), self.subModel.getSimpleName())
         self.addLabel(Page.margin * 2, None, "1001")
@@ -196,6 +197,7 @@ class TitlePage(TitlePageTreeManager, Page):
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Add Label", lambda: self.addLabel(event.scenePos()))
+        menu.addAction("Remove Title Page", lambda: self.subModel.hideTitlePage())
         menu.exec_(event.screenPos())
 
     def addLabel(self, pos = None, font = None, text = "Blank Label"):

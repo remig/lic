@@ -411,16 +411,16 @@ class MainModelTreeManager(SubmodelTreeManager):
     def child(self, row):
         if row == 0:
             return self.template
-        if row == 1 and self.titlePage:
+        if row == 1 and self.hasTitlePage():
             return self.titlePage
 
-        offset = len(self.pages) + len(self.submodels) + 1 + (1 if self.titlePage else 0)
+        offset = len(self.pages) + len(self.submodels) + 1 + (1 if self.hasTitlePage() else 0)
         if row >= offset:
             return self.partListPages[row - offset]
         return SubmodelTreeManager.child(self, row)
 
     def rowCount(self):
-        return len(self.pages) + len(self.submodels) + len(self.partListPages) + 1 + (1 if self.titlePage else 0)
+        return len(self.pages) + len(self.submodels) + len(self.partListPages) + 1 + (1 if self.hasTitlePage() else 0)
 
     def incrementRows(self, increment):
         for page in self.pages:

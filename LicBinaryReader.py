@@ -134,7 +134,7 @@ def __readInstructions(stream, instructions):
 
     instructions.mainModel = __readSubmodel(stream, instructions, True)
 
-    instructions.mainModel.titlePage = __readTitlePage(stream, instructions)
+    instructions.mainModel.addTitlePage(__readTitlePage(stream, instructions))
 
     for i in range(stream.readInt32()):
         newPage = __readPartListPage(stream, instructions)
@@ -327,6 +327,7 @@ def __readTitlePage(stream, instructions):
 
     if stream.readBool():
         page.submodelItem = __readSubmodelItem(stream, page)
+        page.submodelItem.itemClassName = "TitleSubmodelPreview"  # Override regular name so we don't set this in any template action
 
     for i in range(stream.readInt32()):
         page.addLabel(stream.readQPointF(), stream.readQFont(), str(stream.readQString()))

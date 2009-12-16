@@ -286,7 +286,9 @@ class TemplatePage(TemplateRectItem, Page):
         arrowMenu.addAction("Gradient", self.setBackgroundGradient)
         arrowMenu.addAction("Image", self.setBackgroundImage)
         arrowMenu.addAction("None", self.setBackgroundNone)
-        #menu.addSeparator()
+        if not self.instructions.mainModel.hasTitlePage():
+            menu.addSeparator()
+            menu.addAction("Add Title Page", self.instructions.mainModel.showTitlePage)
         menu.exec_(event.screenPos())
         
     def setColor(self, color):
