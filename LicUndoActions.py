@@ -52,17 +52,24 @@ class MoveCommand(QUndoCommand):
         for item in itemList:
             self.itemList.append((item, item.oldPos, item.pos()))
 
-    def undo(self):
+    def doAction(self, redo):
         for item, oldPos, newPos in self.itemList:
-            item.setPos(oldPos)
+            item.setPos(newPos if redo else oldPos)
+            if hasattr(item, "resetArrow"):
+                item.resetArrow()
             if hasattr(item.parentItem(), "resetRect"):
                 item.parentItem().resetRect()
 
-    def redo(self):
-        for item, oldPos, newPos in self.itemList:
-            item.setPos(newPos)
-            if hasattr(item.parentItem(), "resetRect"):
-                item.parentItem().resetRect()
+class LayoutItemCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, target):
+        QUndoCommand.__init__(self, "auto-layout")
+        self.target = target
+
+    def doAction(self, redo):
+        self.target.initLayout()
 
 class CalloutArrowMoveCommand(QUndoCommand):
 

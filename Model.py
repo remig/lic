@@ -166,7 +166,7 @@ class Instructions(QObject):
         for submodel in submodelDictionary.values():
             submodel.createOGLDisplayList()
             
-        # Initialize the main model display list (TODO: consider just storing this in submodelDictionary?)
+        # Initialize the main model display list
         self.mainModel.createOGLDisplayList()
 
         # Initialize all CSI display lists
@@ -474,19 +474,18 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
 
     itemClassName = "Page"
-    
+
     PageSize = QSize(800, 600)  # Always pixels
     Resolution = 72.0           # Always pixels / inch
-    
+
     defaultPageSize = QSize(800, 600)
     defaultResolution = 72.0
-    
+
     margin = QPointF(15, 15)
     defaultFillColor = QColor(Qt.white)
     defaultBrush = QBrush(Qt.NoBrush)
     defaultPen = QPen(Qt.NoPen)
 
-    #TODO: save / load the horizontal / vertical layout of each Page
     def __init__(self, subModel, instructions, number, row):
         if not hasattr(Page.defaultPen, "cornerRadius"):
             Page.defaultPen.cornerRadius = 0
@@ -1041,6 +1040,7 @@ class CalloutArrowEndItem(QGraphicsRectItem):
 class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
     itemClassName = "CalloutArrow"
     
+    # TODO: cannot undo / redo dragging the Callout arrow ends
     defaultPen = QPen(Qt.black)
     defaultBrush = QBrush(Qt.transparent)  # Fill arrow head
     arrowTipLength = 22.0
@@ -1209,12 +1209,10 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
     itemClassName = "Callout"
     margin = QPointF(15, 15)
-    DefaultBorder, RectangleBorder, StepBorder, TightBorder = range(4)
 
+    DefaultBorder, RectangleBorder, StepBorder, TightBorder = range(4)
     defaultBorderFit = RectangleBorder
 
-    # TODO: When selecting a part in a multi-step callout, all parts in all steps draw selected
-     
     def __init__(self, parent, number = 1, showStepNumbers = False):
         GraphicsRoundRectItem.__init__(self, parent)
 
@@ -1312,6 +1310,9 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             b.adjust(0.0, 0.0, self.qtyLabel.boundingRect().width(), self.qtyLabel.boundingRect().height())
         self.setRect(b.adjusted(-x, -y, x, y))
 
+    def resetArrow(self):
+        self.arrow.internalPoints = []
+
     def getArrowBasePoint(self, side):
         # TODO: arrow base should come out of last step in callout
         r = self.rect()
@@ -1392,6 +1393,10 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         r = self.qtyLabel.boundingRect()
         r.moveBottomRight(self.rect().bottomRight() - Page.margin)
         self.qtyLabel.setPos(r.topLeft())
+
+    def mouseMoveEvent(self, event):
+        GraphicsRoundRectItem.mouseMoveEvent(self, event)
+        self.resetArrow()
 
     def mergeCallout(self, callout, append = False):
         if not append:
@@ -1619,10 +1624,6 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         stack.endMacro()
         self.scene().emit(SIGNAL("layoutChanged()"))
 
-    def mouseMoveEvent(self, event):
-        GraphicsRoundRectItem.mouseMoveEvent(self, event)
-        self.arrow.internalPoints = []
-    
 class Step(StepTreeManager, QGraphicsRectItem):
     """ A single step in an Instruction book.  Contains one optional PLI and exactly one CSI. """
     itemClassName = "Step"
@@ -1759,7 +1760,6 @@ class Step(StepTreeManager, QGraphicsRectItem):
         self.maxRect = self.rect()
 
     def checkForLayoutOverlaps(self):
-        # TODO: Test this with steps that don't have PLIs!
         if self.csi.pos().y() < self.pli.rect().bottom() and self.csi.pos().x() < self.pli.rect().right():
             return True
         if self.csi.pos().y() < self.pli.rect().top():
@@ -2345,6 +2345,8 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
             pliBox.setHeight(maxY)
             self.setRect(pliBox)
             prevItem = item
+            
+        self.pliItems.sort(key = lambda i: i.pos().x())  # Sort pliITems so tree Model list roughly matches item paint order (left to right) 
 
 class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     """ Construction Step Image.  Includes border and positional info. """
@@ -2580,6 +2582,14 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         step = self.parentItem()
         page = step.parentItem()
         return (page.number, step.number)
+
+    def resetArrow(self):
+        for callout in self.parentItem().callouts:
+            callout.resetArrow()
+
+    def mouseMoveEvent(self, event):
+        QGraphicsRectItem.mouseMoveEvent(self, event)
+        self.resetArrow()
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
@@ -3762,7 +3772,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         else:
             menu.addAction("Create Callout from Parts", self.createCalloutSignal)
 
-            if step.callouts:  # TODO: Add support for moving part from callout to callout
+            if step.callouts:
                 subMenu = menu.addMenu("Move Part to Callout")
                 for callout in step.callouts:
                     subMenu.addAction("Callout %d" % callout.number, lambda x = callout: self.moveToCalloutSignal(x))
@@ -3804,12 +3814,13 @@ class Part(PartTreeManager, QGraphicsRectItem):
         menu.exec_(event.screenPos())
 
     def createCalloutSignal(self):
-        self.scene().undoStack.beginMacro("Create new Callout from Parts")
+        stack = self.scene().undoStack
+        stack.beginMacro("Create new Callout from Parts")
         step = self.getStep()
         callout = step.addBlankCalloutSignal(True, False)
         self.moveToCalloutSignal(callout)
-        step.initLayout()
-        self.scene().undoStack.endMacro()
+        stack.push(LayoutItemCommand(step))
+        stack.endMacro()
         self.scene().fullItemSelectionUpdate(callout)
         
     def moveToCalloutSignal(self, callout):

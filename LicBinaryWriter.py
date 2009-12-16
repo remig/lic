@@ -104,9 +104,10 @@ def __writeInstructions(stream, instructions):
 
 def __writeSubmodel(stream, submodel):
 
+    # This doesn't match readSubmodel, because we're not writing entire submodel directory above
     for model in submodel.submodels:
         if not model.writtenToFile:
-            __writeSubmodel(stream, model) # TODO: Test this!! probably doesn't work
+            __writeSubmodel(stream, model)
             model.writtenToFile = True
 
     __writePartOGL(stream, submodel)

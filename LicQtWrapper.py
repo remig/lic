@@ -154,7 +154,7 @@ def genericMousePressEvent(className):
             item.oldPos = item.pos()
 
     return _tmp
-    
+
 def genericMouseMoveEvent(className):
     
     def _tmp(self, event):
@@ -173,13 +173,15 @@ def genericMouseReleaseEvent(className):
             return
         scene = self.scene()
         className.mouseReleaseEvent(self, event)
-        if self.oldPos and self.pos() != self.oldPos:
+        if self.oldPos is not None and self.pos() != self.oldPos:
             scene.emit(SIGNAL("itemsMoved"), scene.selectedItems())
         self.oldPos = None
         scene.xSnapLine.hide()
         scene.ySnapLine.hide()
 
     return _tmp
+
+QGraphicsItem.oldPos = None  # Give all items an oldPos; saves a hasAttr check in mouseRelease
 
 # Make QPointF iterable: p[0] is p.x, p[1] is p.y.  Useful for unpacking x & y easily
 def pointIterator(self, index):

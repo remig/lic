@@ -168,7 +168,7 @@ def __readSubmodel(stream, instructions, createMainmodel = False):
         submodel.pages.append(page)
 
     for i in range(stream.readInt32()):
-        filename = str(stream.readQString())  # TODO: Test this!
+        filename = str(stream.readQString())
         model = submodelDictionary[filename]
         model.used = True
         submodel.submodels.append(model)
