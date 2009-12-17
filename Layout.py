@@ -41,10 +41,7 @@ class GridLayout(object):
         if itemCount % x:
             y += 1
             
-        if self.orientation == Horizontal:
-            return (y, x)
-        else:
-            return (x, y)
+        return (y, x) if self.orientation == Horizontal else (x, y)
     
     @staticmethod
     def initCrossLayout(rect, memberList):
@@ -136,16 +133,20 @@ class GridLayout(object):
         # Divides rect into equally sized rows & columns, and sizes each member to fit inside.
         # If row / col count are -1 (unset), will be set to something appropriate.
         # MemberList is a list of any objects that have an initLayout(rect) method
-        
+
         rows, cols = self.getRowColCount(memberList)
         self.separators = []
-        
+
         colWidth = rect.width() / cols
         rowHeight = rect.height() / rows
         x, y, = rect.x(), rect.y()
-        
+
+        if hasattr(memberList[0], "hasFixedSize"):  # Special case: first item cannot be shrunk
+            colWidth = max(colWidth, memberList[0].rect().width() + self.margin + self.margin)
+            rowHeight = max(rowHeight, memberList[0].rect().height() + self.margin + self.margin)
+
         for i, member in enumerate(memberList):
-            
+
             if i > 0:
                 if self.orientation == Horizontal:
                     if i % cols:  # Add to right of current column

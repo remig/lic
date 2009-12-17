@@ -738,16 +738,16 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         pageRect = self.insetRect()
         mx = Page.margin.x()
         my = Page.margin.y()
-        
+
         label = "Initializing Page: %d" % self._number
         if len(self.steps) <= 0:
             return label # No steps - nothing more to do here
 
-        members = [self.submodelItem] if self.submodelItem else []
+        members = [self.submodelItem] if self.submodelItem else []  # TODO: have SubmodelItem in here now - need to have Step beneath it right up close to it
         self.layout.initGridLayout(pageRect, members + self.steps)
         for index, rect in self.layout.separators:
             self.addStepSeparator(index, rect)
-        
+
         return label
 
     def adjustSubmodelImages(self):
@@ -909,7 +909,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
         menu.addAction("Add blank Step", self.addBlankStepSignal)
         menu.addSeparator()
-        if not self.isLocked() and len(self.steps) > 1:
+        if not self.isLocked() and ((len(self.steps) > 1) or (self.steps and self.submodelItem)):
             if self.layout.orientation == Horizontal:
                 menu.addAction("Use Vertical layout", self.useVerticalLayout)
             else:
@@ -1000,7 +1000,7 @@ class CalloutArrowEndItem(QGraphicsRectItem):
         self._row = row
         
         self.point = QPointF()
-        self.mousePoint = QPointF()
+        self.mousePoint = None
         self.setFlags(AllFlags)
         self.setPen(parent.pen())
         
@@ -1030,11 +1030,11 @@ class CalloutArrowEndItem(QGraphicsRectItem):
             return
         QGraphicsItem.mouseReleaseEvent(self, event)
         self.scene().undoStack.push(CalloutArrowMoveCommand(self, self.oldPoint, self.point))
+        self.mousePoint = None
 
 class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
     itemClassName = "CalloutArrow"
     
-    # TODO: cannot undo / redo dragging the Callout arrow ends
     defaultPen = QPen(Qt.black)
     defaultBrush = QBrush(Qt.transparent)  # Fill arrow head
     arrowTipLength = 22.0
@@ -1131,24 +1131,25 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
             mid1 = QPointF(tip.x(), midY)
             mid2 = QPointF(end.x(), midY)
 
-        l, r, t, b = calloutRect.left(), calloutRect.right(), calloutRect.top(), calloutRect.bottom()
-        mp = self.mapFromItem(self.baseRect, self.baseRect.mousePoint)
-        mx, my = mp.x(), mp.y()
+        if self.baseRect.mousePoint:
+            l, r, t, b = calloutRect.left(), calloutRect.right(), calloutRect.top(), calloutRect.bottom()
+            mp = self.mapFromItem(self.baseRect, self.baseRect.mousePoint)
+            mx, my = mp.x(), mp.y()
 
-        if mx > l and mx < r and my > t and my < b:  # cursor inside callout - lock to closest edge
-            if min(mx - l, r - mx) < min(my - t, b - my):
-                end.setX(l if (mx - l) < (r - mx) else r)  # lock to x
+            if mx > l and mx < r and my > t and my < b:  # cursor inside callout - lock to closest edge
+                if min(mx - l, r - mx) < min(my - t, b - my):
+                    end.setX(l if (mx - l) < (r - mx) else r)  # lock to x
+                else:
+                    end.setY(t if (my - t) < (b - my) else b)  # lock to y
             else:
-                end.setY(t if (my - t) < (b - my) else b)  # lock to y
-        else:
-            if mx < l:
-                end.setX(l)
-            elif mx > r:
-                end.setX(r)
-            if my < t:
-                end.setY(t)
-            elif my > b:
-                end.setY(b)
+                if mx < l:
+                    end.setX(l)
+                elif mx > r:
+                    end.setX(r)
+                if my < t:
+                    end.setY(t)
+                elif my > b:
+                    end.setY(b)
 
         tr = self.tipRect.rect().translated(self.tipRect.pos())
         br = self.baseRect.rect().translated(self.baseRect.pos())
@@ -1974,6 +1975,7 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
     
     defaultScale = 1.0
     defaultRotation = [20.0, 45.0, 0.0]
+    hasFixedSize = True
     
     def __init__(self, parent, partOGL):
         GraphicsRoundRectItem.__init__(self, parent)
