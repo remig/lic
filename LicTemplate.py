@@ -250,7 +250,7 @@ class TemplatePage(TemplateRectItem, Page):
                     stack.push(SetPenCommand(icon, GraphicsCircleLabelItem.defaultPen))
                     stack.push(SetBrushCommand(icon, GraphicsCircleLabelItem.defaultBrush))
                     stack.push(SetItemFontsCommand(icon.getPage(), GraphicsCircleLabelItem.defaultFont, icon.font(), 'GraphicsCircleLabelItem'))
-                    stack.push(SetDefaultDiameterCommand(icon, GraphicsCircleLabelItem.defaultDiameter, icon.diameter()))
+                    stack.push(SetDefaultDiameterCommand(icon, GraphicsCircleLabelItem.defaultDiameter, icon.diameter(), False))
                     break
 
         if self.submodelItem:
@@ -506,7 +506,7 @@ class TemplateCircleLabel(GraphicsCircleLabelItem, TemplateRectItem):
         oldDiameter = self.rect().width()
         newDiameter, ok = QInputDialog.getInteger(self.scene().views()[0], "Get Circle Size", "New Circle Size:", oldDiameter, 0, 50)
         if ok:
-            self.scene().undoStack.push(SetDefaultDiameterCommand(self, oldDiameter, newDiameter))
+            self.scene().undoStack.push(SetDefaultDiameterCommand(self, oldDiameter, newDiameter, True))
 
 class TemplateRotateIcon(TemplateRectItem, GraphicsRotateArrowItem):
     

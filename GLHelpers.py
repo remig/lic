@@ -67,6 +67,7 @@ def setupMaterial():
 
 def initFreshContext(doClear):
     
+    # TODO: Need to export these settings to public UI, settable by user (especially ambient brightness)
     glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 0)
     glShadeModel(GL_SMOOTH)
     glEnable(GL_MULTISAMPLE)

@@ -739,18 +739,12 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         mx = Page.margin.x()
         my = Page.margin.y()
         
-        # Allocate space for the submodel image, if any
-        if self.submodelItem:
-            topLeft = Page.margin + self.insetRect().topLeft()
-            self.submodelItem.setPos(topLeft)
-            self.submodelItem.rect().setTopLeft(topLeft)
-            pageRect.setTop(self.submodelItem.rect().height() + my + my)
-
         label = "Initializing Page: %d" % self._number
         if len(self.steps) <= 0:
             return label # No steps - nothing more to do here
 
-        self.layout.initGridLayout(pageRect, self.steps)
+        members = [self.submodelItem] if self.submodelItem else []
+        self.layout.initGridLayout(pageRect, members + self.steps)
         for index, rect in self.layout.separators:
             self.addStepSeparator(index, rect)
         
@@ -1864,7 +1858,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         if isinstance(parent, Page):
             if parent.prevPage() and parent.steps[0] is self:
-                menu.addAction("Move to &Previous Page", self.moveToPrevPage)
+                menu.addAction("Move to &Previous Page", self.moveToPrevPage)  # TODO: Cannot do this if this step has a submodel (previous page is in that submodel)
             if parent.nextPage() and parent.steps[-1] is self:
                 menu.addAction("Move to &Next Page", self.moveToNextPage)
             
@@ -2011,6 +2005,10 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
         dx = pos.x() + (self.rect().width() / 2.0) - (self.partOGL.center.x() - self.partCenter[0])
         dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0) - (self.partOGL.center.y() - self.partCenter[1])
         self.partOGL.paintGL(dx * f, dy * f, self.rotation, self.scaling * f)
+
+    def initLayout(self, destRect = None):
+        if destRect:
+            self.setPos(destRect.topLeft())
 
     def convertToSubAssembly(self):
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))

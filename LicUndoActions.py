@@ -117,22 +117,24 @@ class SetDefaultDiameterCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, circle, oldDiameter, newDiameter):
+    def __init__(self, circle, oldDiameter, newDiameter, doLayout):
         QUndoCommand.__init__(self, "circle Diameter")
-        self.circle, self.oldDiameter, self.newDiameter = circle, oldDiameter, newDiameter
+        self.circle, self.oldDiameter, self.newDiameter, self.doLayout = circle, oldDiameter, newDiameter, doLayout
 
     def doAction(self, redo):
         diameter = self.newDiameter if redo else self.oldDiameter
         template = self.circle.getPage()
         self.circle.setDiameter(diameter)
         self.circle.update()
-        template.initLayout()
+        if self.doLayout:
+            template.initLayout()
         for page in template.instructions.getPageList():
             for child in page.getAllChildItems():
                 if self.circle.itemClassName == child.itemClassName:
                     child.setDiameter(diameter)
                     child.update()
-                    child.getPage().initLayout()
+                    if self.doLayout:
+                        child.getPage().initLayout()
 
 class DisplacePartCommand(QUndoCommand):
 

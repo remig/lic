@@ -829,7 +829,7 @@ class LicWindow(QMainWindow):
 
         self.instructions = Instructions(self, self.scene, self.glWidget)
         self.treeModel = LicTreeModel.LicTreeModel(self.treeWidget.tree)
-        #self.modelTest = ModelTest(self.treeModel, self)
+        self.modelTest = ModelTest(self.treeModel, self)
         
         self.selectionModel = QItemSelectionModel(self.treeModel)  # MUST keep own reference to selection model here
         self.treeWidget.configureTree(self.scene, self.treeModel, self.selectionModel)
@@ -1179,7 +1179,7 @@ class LicWindow(QMainWindow):
 
     def loadLicFile(self, filename):
         
-        startTime = time.time()
+        startTime = time.time()  # TODO: need to provide a status bar, since some files take forever to load
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         LicBinaryReader.loadLicFile(filename, self.instructions)
         self.treeModel.root = self.instructions.mainModel
@@ -1230,7 +1230,7 @@ class LicWindow(QMainWindow):
         self.instructions.setTemplate(self.templatePage)
         self.instructions.mainModel.partListPages = PartListPage.createPartListPages(self.instructions)
         self.templatePage.applyFullTemplate(False)  # Template should apply to part list but not title pages
-        self.instructions.mainModel.titlePage = TitlePage(self.instructions)
+        self.instructions.mainModel.addTitlePage(TitlePage(self.instructions))
         self.instructions.mainModel.titlePage.addInitialContent()
         self.instructions.mainModel.incrementRows(1)
         
