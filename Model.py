@@ -2245,10 +2245,11 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
             item.initLayout()
         self.parentItem().setRect(stepRect)  # Save & Restore Step's rect, because it might have changed in PLItem layout
 
-        # Sort list of parts to lay out by width (narrowest first), then remove tallest part, to be added first
+        # Sort list of parts to lay out first by color (in reverse order), then by width (narrowest first), then remove tallest part, to be added first
         partList = list(self.pliItems)
-        partList.sort(lambda x, y: cmp(x.rect().width(), y.rect().width()))
-        tallestPart = max(partList, key = lambda x: x.partOGL.height)
+        partList.sort(key = lambda i: i.color, reverse = True)  # Sort by color, reversed 
+        partList.sort(key = lambda i: (i.rect().width(), i.rect().height()))  # Sort by width (then height, for ties)
+        tallestPart = max(reversed(partList), key = lambda x: x.partOGL.height)  # reverse list so we choose last part if two+ parts equally tall
         partList.remove(tallestPart)
         partList.append(tallestPart)
 

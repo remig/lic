@@ -160,6 +160,8 @@ class GridLayout(object):
                 else:
                     if i % rows:  # Add to bottom of current row
                         y += rowHeight
+                        if hasattr(memberList[0], "hasFixedSize") and i < rows:  # Still on first column, with SubmodelItem first.  Bump everything up
+                            y = memberList[i-1].pos().y() + memberList[i-1].rect().height() + self.margin
                     else:  # Start a new column
                         if i // cols == cols - 1:  # Started last column - adjust overall row height
                             rowHeight = rect.height() / (len(memberList) - i)
