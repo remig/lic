@@ -7,49 +7,22 @@ Thoughts on displacing parts:
 
 - Surround optional 3rd party imports in try...catch blocks
 
-- Fix part cache to be one global cache file, based on default rendered image size, not model
-  - Add parts to that one global cache, so cache can be shared by all renderings of that size
-  - Not a priority, since calculating part sizes is usually only a few seconds, at most
-
-- Only create config paths when a file is about to be exported.  No sense creating them on model import!
-
 - Clean up load / save: we're creating a lot of objects only to totally overwrite them later in load
   (like step.pli & csi)
   
 - Still need to handle submodels that are not embedded in the main model file.
 
-- Have a small problem where if you click on a submodel, its node is expanded automatically 
-  and its first page is selected, which is fine.  But if you then use arrow keys to move up or left, 
-  selection is automatically forced back to the first page.  Kinda unnatural.  
-  To fix, when a submodel is selected, do not automatically select the first page, select the submodel itself, and just draw its first page.
-
 - Add status indicator to file->open operation
 
-- Add button toolbar to tree view, to hide all non-part stuff, to make moving parts to / from steps easier
-  - Can add grouping options and sorting options and stuff there too
-  - expand / hide all nodes
-  
 - In step context, add 'append / prepend blank step'
 
   
 For 2.0:
 
-- Title page
-
-- Bill of Materials
-
 - Callouts within callouts
-
-- non-rectangluar callouts
 
 - Step borders / fills
 
 - multiple steps per rect
 
 - multiple GL arrows on part displacement
-
-- Look into GraphViz for some seriously heavy duty auto-layout options. GraphViz's plain-ext output
-  mode could work wonders, especially when creating an entire book from scratch.
-
-- snap-to other page items, like in Flex Builder
-

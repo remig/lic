@@ -888,12 +888,11 @@ class LicWindow(QMainWindow):
         self.__filename = filename
         
         if filename:
-            config.config = self.initConfig()
+            config.filename = filename
             self.setWindowTitle("Lic %s - %s [*]" % (__version__, os.path.basename(filename)))
             self.statusBar().showMessage("Instruction book loaded: " + filename)
             enabled = True
         else:
-            config.config = {}
             self.undoStack.clear()
             self.setWindowTitle("Lic %s [*]" % __version__)
             self.statusBar().showMessage("")
@@ -903,57 +902,15 @@ class LicWindow(QMainWindow):
         self.setWindowModified(False)
         self.enableMenus(enabled)
 
-    filename = property(fget = __getFilename, fset = __setFilename)
-            
-    def initConfig(self, filename = ""):
-        """ 
-        Create cache folders for temp dats, povs & pngs, if necessary.
-        Cache folders are stored as 'LicPath/cache/modelName/[DATs|POVs|PNGs]'
-        """
-        
-        config = {}
-        cachePath = os.path.join(os.getcwd(), 'cache')        
-        if not os.path.isdir(cachePath):
-            os.mkdir(cachePath)
-            
-        fn = filename if self.filename == "" else self.filename
-        modelPath = os.path.join(cachePath, os.path.basename(fn))
-        if not os.path.isdir(modelPath):
-            os.mkdir(modelPath)
-        
-        config['datPath'] = os.path.join(modelPath, 'DATs')
-        if not os.path.isdir(config['datPath']):
-            os.mkdir(config['datPath'])   # Create DAT directory if needed
-
-        config['povPath'] = os.path.join(modelPath, 'POVs')
-        if not os.path.isdir(config['povPath']):
-            os.mkdir(config['povPath'])   # Create POV directory if needed
-
-        config['pngPath'] = os.path.join(modelPath, 'PNGs')
-        if not os.path.isdir(config['pngPath']):
-            os.mkdir(config['pngPath'])   # Create PNG directory if needed
-
-        config['imgPath'] = os.path.join(modelPath, 'Final_Images')
-        if not os.path.isdir(config['imgPath']):
-            os.mkdir(config['imgPath'])   # Create final image directory if needed
-
-        config['GLImgPath'] = os.path.join(modelPath, 'GL_Images')
-        if not os.path.isdir(config['GLImgPath']):
-            os.mkdir(config['GLImgPath'])   # Create directory for GL renderings if needed
-
-        config['PDFPath'] = os.path.join(modelPath, 'PDFs')
-        if not os.path.isdir(config['PDFPath']):
-            os.mkdir(config['PDFPath'])   # Create directory for GL renderings if needed
-
-        return config
+    filename = property(__getFilename, __setFilename)
 
     def initToolBars(self):
         self.toolBar = None
-    
+
     def initMenu(self):
-        
+
         menu = self.menuBar()
-        
+
         # File Menu
         self.fileMenu = menu.addMenu("&File")
         self.connect(self.fileMenu, SIGNAL("aboutToShow()"), self.updateFileMenu)
@@ -1237,7 +1194,7 @@ class LicWindow(QMainWindow):
         self.scene.emit(SIGNAL("layoutChanged()"))
         self.scene.selectPage(1)
 
-        config.config = self.initConfig(filename)
+        config.filename = filename
         self.statusBar().showMessage("Instruction book loaded")
         self.setWindowModified(True)
         self.enableMenus(True)
@@ -1335,7 +1292,7 @@ class LicWindow(QMainWindow):
     def exportImages(self):
         self.instructions.exportImages()
         self.glWidget.makeCurrent()
-        print "\nExported images to: " + config.config['imgPath']
+        print "\nExported images to: " + config.finalImageCachePath()
 
     def exportToPDF(self):
         filename = self.instructions.exportToPDF()

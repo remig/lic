@@ -118,7 +118,7 @@ class TemplatePage(TemplateRectItem, Page):
         self.__filename = filename
         self.dataText = "Template - " + os.path.basename(self.filename)
         
-    filename = property(fget = __getFilename, fset = __setFilename)
+    filename = property(__getFilename, __setFilename)
 
     def postLoadInit(self, filename):
         # TemplatePages are rarely instantiated directly - instead, they're regular Page

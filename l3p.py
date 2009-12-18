@@ -68,7 +68,7 @@ def __runCommand(d):
 def createPovFromDat(datFile, color = None):
     
     rawFilename = os.path.splitext(os.path.basename(datFile))[0]
-    povFile = os.path.join(config.config['povPath'], rawFilename)
+    povFile = os.path.join(config.povCachePath(), rawFilename)
     
     if color is None:
         povFile = "%s.pov" % povFile

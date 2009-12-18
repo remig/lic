@@ -53,9 +53,6 @@ class Instructions(QObject):
     def __init__(self, parent, scene, glWidget, filename = None):
         QObject.__init__(self, parent)
 
-        # Part dimensions cache line format: filename width height center.x center.y leftInset bottomInset
-        self.partDimensionsFilename = "PartDimensions.cache"
-
         self.scene = scene
         self.mainModel = None
         
@@ -192,7 +189,6 @@ class Instructions(QObject):
         """
         Calculates each uninitialized part's display width and height.
         Creates GL buffer to render a temp copy of each part, then uses those raw pixels to determine size.
-        Will append results to the part dimension cache file.
         """
         global GlobalGLContext
 
@@ -203,7 +199,6 @@ class Instructions(QObject):
             return    # If there's no parts to initialize, we're done here
 
         partList2 = []
-        lines = []
         sizes = [128, 256, 512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
 
         for size in sizes:
@@ -216,7 +211,6 @@ class Instructions(QObject):
             for partOGL in partList:
 
                 if partOGL.initSize(size, pBuffer):  # Draw image and calculate its size:                    
-                    lines.append(partOGL.dimensionsToString())
                     currentPartCount += 1
                     if not currentPartCount % partDivCount:
                         currentPartCount = 0
@@ -231,16 +225,6 @@ class Instructions(QObject):
             else:
                 partList = partList2  # Some images rendered out of frame - loop and try bigger frame
                 partList2 = []
-
-        # Append any newly calculated part dimensions to cache file
-        # TODO: fix part cache file
-        """
-        print ""
-        if lines:
-            f = open(self.partDimensionsFilename, 'a')
-            f.writelines(lines)
-            f.close()
-        """
 
     def initCSIDimensions(self, currentCount, repositionCSI = False):
         global GlobalGLContext
@@ -435,7 +419,7 @@ class Instructions(QObject):
         # TODO: Test export to PDF with new higher resolution settings.
         # TODO: Connect PDF export to page resolution settings
         pageList = self.exportImages(3)
-        filename = os.path.join(config.config['PDFPath'], os.path.basename(self.filename)[:-3] + "pdf")
+        filename = os.path.join(config.pdfCachePath(), os.path.basename(self.mainModel.filename)[:-3] + "pdf")
         
         printer = QPrinter(QPrinter.HighResolution)
         printer.setOutputFileName(filename)
@@ -538,7 +522,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     def _getNumber(self):
         return self._number
 
-    number = property(fget = _getNumber, fset = _setNumber)
+    number = property(_getNumber, _setNumber)
 
     def getAllChildItems(self):
 
@@ -580,10 +564,10 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         return items
 
     def getExportFilename(self):
-        return os.path.join(config.config['imgPath'], "Page_%d.png" % self._number)
+        return os.path.join(config.finalImageCachePath(), "Page_%d.png" % self._number)
     
     def getGLImageFilename(self):
-        return os.path.join(config.config['GLImgPath'], "Page_%d.png" % self._number)
+        return os.path.join(config.glImageCachePath(), "Page_%d.png" % self._number)
 
     def getPage(self):
         return self
@@ -990,8 +974,6 @@ class LockIcon(QGraphicsPixmapItem):
     
 class CalloutArrowEndItem(QGraphicsRectItem):
     itemClassName = "CalloutArrowEndItem"
-    
-    # TODO: When target CSI is moved, arrow tip no longer follows it
     
     def __init__(self, parent, width, height, dataText, row):
         QGraphicsRectItem.__init__(self, parent)
@@ -1653,7 +1635,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
     def _getNumber(self):
         return self._number
 
-    number = property(fget = _getNumber, fset = _setNumber)
+    number = property(_getNumber, _setNumber)
 
     def hasPLI(self):
         return self._hasPLI
@@ -1977,6 +1959,7 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
     defaultRotation = [20.0, 45.0, 0.0]
     hasFixedSize = True
     
+    # TODO: Add a quantity label here, for submodels that need to be built more than once
     def __init__(self, parent, partOGL):
         GraphicsRoundRectItem.__init__(self, parent)
         self.rotation = [0.0, 0.0, 0.0]
@@ -2081,7 +2064,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     def __setRotation(self, rotation):
         self.partOGL.pliRotation = rotation
         
-    rotation = property(fget = __getRotation, fset = __setRotation)
+    rotation = property(__getRotation, __setRotation)
 
     def __getScaling(self):
         return self.partOGL.pliScale
@@ -2089,7 +2072,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     def __setScaling(self, scaling):
         self.partOGL.pliScale = scaling
         
-    scaling = property(fget = __getScaling, fset = __setScaling)
+    scaling = property(__getScaling, __setScaling)
 
     def setQuantity(self, quantity):
         self.quantity = quantity
@@ -2165,7 +2148,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             if not os.path.isfile(datFile):
                 datFile = os.path.join(config.LDrawPath, 'MODELS', fn)
                 if not os.path.isfile(datFile):
-                    datFile = os.path.join(config.config['datPath'], fn)
+                    datFile = os.path.join(config.datCachePath(), fn)
                     if not os.path.isfile(datFile):
                         print " *** Error: could not find dat file for part %s" % fn
                         return
@@ -2550,7 +2533,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     def createPng(self):
 
         csiName = self.getDatFilename()
-        datFile = os.path.join(config.config['datPath'], csiName)
+        datFile = os.path.join(config.datCachePath(), csiName)
         
         if not os.path.isfile(datFile):
             fh = open(datFile, 'w')
@@ -2792,11 +2775,6 @@ class PartOGL(object):
                 part.partOGL.buildSubPartOGLDict(partDict)
         partDict[self.filename] = self
     
-    def dimensionsToString(self):
-        if self.isPrimitive:
-            return ""
-        return "%s %d %d %d %d %d %d\n" % (self.filename, self.width, self.height, self.center.x(), self.center.y(), self.leftInset, self.bottomInset)
-
     def resetPixmap(self, extraRotation = None, extraScale = None):
         
         global GlobalGLContext
@@ -3433,7 +3411,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
 
     def createPng(self):
 
-        datFile = os.path.join(config.config['datPath'], self.filename)
+        datFile = os.path.join(config.datCachePath(), self.filename)
 
         if not os.path.isfile(datFile):
             fh = open(datFile, 'w')

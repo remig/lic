@@ -154,7 +154,7 @@ def __fixPovFile(filename, imgWidth, imgHeight, offset, camera):
 def createPngFromPov(povFile, width, height, offset, scale, rotation):
 
     rawFilename = os.path.splitext(os.path.basename(povFile))[0]
-    pngFile = os.path.join(config.config['pngPath'], rawFilename)
+    pngFile = os.path.join(config.pngCachePath(), rawFilename)
     pngFile = "%s.png" % pngFile
     
     if not os.path.isfile(pngFile):
