@@ -1,6 +1,13 @@
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
+import Layout
+
+def genericGetOrientedSize(self, orientation):
+    return self.width() if orientation == Layout.Horizontal else self.height()
+
+QRectF.getOrientedSize = genericGetOrientedSize
+
 def genericDrawSelectionRect(self, rect, cornerRadius = 0):
     self.save()
     pen = QPen(Qt.DashLine)
@@ -182,6 +189,7 @@ def genericMouseReleaseEvent(className):
     return _tmp
 
 QGraphicsItem.oldPos = None  # Give all items an oldPos; saves a hasAttr check in mouseRelease
+QGraphicsItem.fixedSize = False # Give all items an unset FixedSize 
 
 # Make QPointF iterable: p[0] is p.x, p[1] is p.y.  Useful for unpacking x & y easily
 def pointIterator(self, index):

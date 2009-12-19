@@ -28,6 +28,12 @@ class GridLayout(object):
         b = QRectF(x, y + self.margin, 1.0, height - (self.margin * 2))
         self.separators.append((index, b))
 
+    def addSeparator(self, x, y, size, index):
+        if self.orientation == Horizontal:
+            self.addHSeparator(x, y, size, index)
+        else:
+            self.addVSeparator(x, y, size, index)
+
     def getRowColCount(self, memberList):
         
         if self.rowCount != -1 and self.colCount != -1:
@@ -129,47 +135,81 @@ class GridLayout(object):
             if dx > 0 or dy > 0:
                 member.moveBy(dx, dy)
     
+    def _adjustRow(self, rowMembers, length, size, startPoint):
+
+        fixedCount = 0
+        for member in [m for m in rowMembers if m.fixedSize]:
+            offset = member.rect().width() if self.orientation == Horizontal else member.rect().height()
+            length -= (offset + (self.margin * 2))
+            fixedCount += 1;
+
+        length = length / (len(rowMembers) - fixedCount)
+
+        if self.orientation == Vertical:
+            length, size = size, length
+
+        destRects = []
+
+        # First, set each member's width & height and position it in top left corner of destRect
+        for member in rowMembers:
+            if member.fixedSize:
+                destRects.append(member.rect().adjusted(0, 0, self.margin * 2, self.margin * 2))
+                destRects[-1].setTopLeft(startPoint)
+            else:
+                destRects.append(QRectF(startPoint.x(), startPoint.y(), length, size))
+
+        # Move each rect over so it's beside its predecessor
+        for i, member in enumerate(rowMembers[1:]):
+            if self.orientation == Horizontal:
+                destRects[i+1].moveLeft(destRects[i].right())
+            else:
+                destRects[i+1].moveTop(destRects[i].bottom())
+
+        # Now, shrink each member by margin, then do layout
+        for i, member in enumerate(rowMembers):
+            rect = destRects[i].adjusted(self.margin, self.margin, -self.margin, -self.margin)
+            member.initLayout(rect)
+
+    def _getSizeList(self, memberList, interval, intervalCount, maxRect):
+        sizeList = []
+        oID = not self.orientation
+        for i in range(0, len(memberList), interval):
+            rowMembers = memberList[i : i + interval]
+            maxFixedSize = maxSafe([(m.rect().getOrientedSize(oID) + self.margin * 2) for m in rowMembers if m.fixedSize])
+            sizeList.append(maxFixedSize)
+
+        eachRowHeight = ((maxRect.getOrientedSize(oID) - sum(sizeList)) / len([i for i in sizeList if i == 0]))
+        eachRowHeight = min(maxRect.getOrientedSize(oID) / intervalCount, eachRowHeight)  # If calculated height > generic height, shrink
+
+        for i in range(len(sizeList)):
+            sizeList[i] = max(sizeList[i], eachRowHeight)
+
+        return sizeList
+
     def initGridLayout(self, rect, memberList):
         # Divides rect into equally sized rows & columns, and sizes each member to fit inside.
         # If row / col count are -1 (unset), will be set to something appropriate.
         # MemberList is a list of any objects that have an initLayout(rect) method
 
         rows, cols = self.getRowColCount(memberList)
+        startPoint = rect.topLeft()
         self.separators = []
 
-        colWidth = rect.width() / cols
-        rowHeight = rect.height() / rows
-        x, y, = rect.x(), rect.y()
+        oID = self.orientation
+        if oID == Vertical:
+            cols, rows = rows, cols
 
-        if hasattr(memberList[0], "hasFixedSize"):  # Special case: first item cannot be shrunk
-            colWidth = max(colWidth, memberList[0].rect().width() + self.margin + self.margin)
-            rowHeight = max(rowHeight, memberList[0].rect().height() + self.margin + self.margin)
+        sizeList = self._getSizeList(memberList, cols, rows, rect)
 
-        for i, member in enumerate(memberList):
+        for i in range(0, len(memberList), cols):  # Adjust each row
 
-            if i > 0:
-                if self.orientation == Horizontal:
-                    if i % cols:  # Add to right of current column
-                        x += colWidth
-                    else:  # Start a new row
-                        if i // rows == rows - 1:  # Started last row - adjust overall column width
-                            colWidth = rect.width() / (len(memberList) - i)
-                        x = rect.x()
-                        y += rowHeight
-                        self.addHSeparator(x, y, rect.width(), i + 1)
-                else:
-                    if i % rows:  # Add to bottom of current row
-                        y += rowHeight
-                        if hasattr(memberList[0], "hasFixedSize") and i < rows:  # Still on first column, with SubmodelItem first.  Bump everything up
-                            y = memberList[i-1].pos().y() + memberList[i-1].rect().height() + self.margin
-                    else:  # Start a new column
-                        if i // cols == cols - 1:  # Started last column - adjust overall row height
-                            rowHeight = rect.height() / (len(memberList) - i)
-                        y = rect.y()
-                        x += colWidth
-                        self.addVSeparator(x, y, rect.height(), i + 1)
-                        
-            tmpRect = QRectF(x, y, colWidth, rowHeight)
-            tmpRect.adjust(self.margin, self.margin, -self.margin, -self.margin)
-            member.initLayout(tmpRect)
-            
+            rowMembers = memberList[i : i + cols]
+            size = sizeList[i // cols]
+
+            self._adjustRow(rowMembers, rect.getOrientedSize(oID), size, startPoint)  # Position each member in this row
+            childRow = rowMembers[-1].row() + len(self.separators) + 1  # Figure out where step separator should be inserted in tree
+
+            startPoint = QPointF(rect.left(), startPoint.y() + size) if oID == Horizontal else QPointF(startPoint.x() + size, rect.top())
+
+            if rowMembers[-1] != memberList[-1]:
+                self.addSeparator(startPoint.x(), startPoint.y(), rect.getOrientedSize(oID), childRow)

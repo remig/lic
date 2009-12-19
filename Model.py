@@ -691,7 +691,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     def addSubmodelImage(self):
         self.submodelItem = SubmodelPreview(self, self.subModel)
         self.submodelItem.setPos(Page.margin)
-        self.children.append(self.submodelItem)
+        self.addChild(1, self.submodelItem)
         
     def resetSubmodelImage(self):
         if self.submodelItem:
@@ -1957,7 +1957,7 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
     
     defaultScale = 1.0
     defaultRotation = [20.0, 45.0, 0.0]
-    hasFixedSize = True
+    fixedSize = True
     
     # TODO: Add a quantity label here, for submodels that need to be built more than once
     def __init__(self, parent, partOGL):
