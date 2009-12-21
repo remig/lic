@@ -1625,6 +1625,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
         if hasNumberItem:
             self.enableNumberItem()
 
+        self.setAcceptHoverEvents(True)
         self.setFlags(AllFlags)
 
     def _setNumber(self, number):
@@ -1828,6 +1829,58 @@ class Step(StepTreeManager, QGraphicsRectItem):
         self.scene().undoStack.push(MovePartsToStepCommand(parts, self))
         return True
     
+    def hoverMoveEvent(self, event):
+        if self.isSelected():
+            x, y = event.pos()
+            inset = 5
+            if x < inset:
+                self.edge = "left"
+                self.setCursor(Qt.SplitHCursor)
+            elif x > self.rect().width() - inset:
+                self.edge = "right"
+                self.setCursor(Qt.SplitHCursor)
+            elif y < inset:
+                self.edge = "top"
+                self.setCursor(Qt.SplitVCursor)
+            elif y > self.rect().height() - inset:
+                self.edge = "bottom"
+                self.setCursor(Qt.SplitVCursor)
+            else:
+                self.edge = None
+                self.unsetCursor()
+
+    def hoverLeaveEvent(self, event):
+        self.edge = None
+        self.unsetCursor()
+
+    def mousePressEvent(self, event):
+        if self.hasCursor():  # This is a resize move event
+            self.oldRect = self.rect().translated(self.pos())
+        else:
+            QGraphicsRectItem.mousePressEvent(self, event)
+
+    def mouseMoveEvent(self, event):
+        if self.hasCursor():  # This is a resize move event
+            x, y = event.pos()
+            rect = self.rect().translated(self.pos())
+            if self.edge == "left":
+                self.newRect = rect.adjusted(x, 0, 0, 0)
+            elif self.edge == "top":
+                self.newRect = rect.adjusted(0, y, 0, 0)
+            elif self.edge == "right":
+                self.newRect = rect.adjusted(0, 0, x - rect.width(), 0)
+            elif self.edge == "bottom":
+                self.newRect = rect.adjusted(0, 0, 0, y - rect.height())
+            self.initLayout(self.newRect)
+        else:
+            QGraphicsRectItem.mouseMoveEvent(self, event)
+
+    def mouseReleaseEvent(self, event):
+        if self.hasCursor():  # This is a resize move event
+            self.scene().undoStack.push(ResizeCommand(self, self.oldRect, self.newRect))
+        else:
+            QGraphicsRectItem.mouseReleaseEvent(self, event)
+
     def contextMenuEvent(self, event):
 
         selectedSteps = []

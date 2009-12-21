@@ -60,6 +60,18 @@ class MoveCommand(QUndoCommand):
             if hasattr(item.parentItem(), "resetRect"):
                 item.parentItem().resetRect()
 
+class ResizeCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, item, oldRect, newRect):
+        QUndoCommand.__init__(self, "resize Item")
+
+        self.item, self.oldRect, self.newRect = item, oldRect, newRect
+
+    def doAction(self, redo):
+        self.item.initLayout(self.newRect if redo else self.oldRect)
+
 class LayoutItemCommand(QUndoCommand):
 
     _id = getNewCommandID()

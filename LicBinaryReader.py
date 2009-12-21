@@ -330,7 +330,7 @@ def __readTitlePage(stream, instructions):
         page.submodelItem.itemClassName = "TitleSubmodelPreview"  # Override regular name so we don't set this in any template action
 
     for i in range(stream.readInt32()):
-        page.addNewLabel(stream.readQPointF(), stream.readQFont(), str(stream.readQString()), False)
+        page.addNewLabel(stream.readQPointF(), stream.readQFont(), str(stream.readQString()))
 
     return page
 
