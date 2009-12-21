@@ -1654,7 +1654,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
     
     def addPart(self, part):
         self.csi.addPart(part)
-        if self.pli:  # Visibility here is irrelevant
+        if self.pli and not part.isSubmodel():  # Visibility here is irrelevant
             self.pli.addPart(part)
 
     def removePart(self, part):
@@ -3133,9 +3133,6 @@ class Submodel(SubmodelTreeManager, PartOGL):
 
                     if len(submodelList) == len(partList):  # Check if next Step is full of Submodels
                         nextStep.disablePLI()  # Leave Submodel steps as first on page, and hide their PLI.
-                    else:
-                        for part in submodelList:
-                            nextStep.pli.removePart(part)
 
                     nextPage.initLayout()
                     break
@@ -3332,6 +3329,19 @@ class Submodel(SubmodelTreeManager, PartOGL):
             page = submodel.getPage(pageNumber)
             if page:
                 return page
+        return None
+
+    def getFirstPLIItem(self):
+        for page in self.pages:
+            for step in page.steps:
+                if step.pli.pliItems:
+                    return step.pli.pliItems[0]
+
+        for submodel in self.submodels:
+            item = submodel.getFirstPLIItem()
+            if item: 
+                return item
+            
         return None
 
     def createBlankPart(self):

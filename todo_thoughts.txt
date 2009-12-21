@@ -26,3 +26,5 @@ For 2.0:
 - multiple steps per rect
 
 - multiple GL arrows on part displacement
+
+- automatically clone pages / steps from one submodel to another, if they're siimliar enough (mirrored)

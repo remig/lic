@@ -237,7 +237,7 @@ class TemplatePage(TemplateRectItem, Page):
 
         stack.push(SetItemFontsCommand(self, originalPage.numberItem.font(), self.numberItem.font(), 'Page'))
         stack.push(SetItemFontsCommand(self, originalPage.steps[0].numberItem.font(), self.steps[0].numberItem.font(), 'Step'))
-        stack.push(SetItemFontsCommand(self, originalPage.steps[0].pli.pliItems[0].numberItem.font(), self.steps[0].pli.pliItems[0].numberItem.font(), 'PLIItem'))
+        stack.push(SetItemFontsCommand(self, self.instructions.mainModel.getFirstPLIItem().numberItem.font(), self.steps[0].pli.pliItems[0].numberItem.font(), 'PLIItem'))
 
         step = self.steps[0]
         if step.pli:

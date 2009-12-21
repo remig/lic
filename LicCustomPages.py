@@ -143,8 +143,13 @@ class EditableTextItem(QGraphicsSimpleTextItem):
         
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Set Text", self.setTextSignal)
+        menu.addAction("Remove Label", self.remove)
         menu.exec_(event.screenPos())
         
+    def remove(self):
+        action = AddRemoveLabelCommand(self.parentItem(), self, self.parentItem().labels.index(self), False)
+        self.scene().undoStack.push(action)
+
     def setTextSignal(self):
         newText, ok = QInputDialog.getText(self.scene().views()[0], "Set Text", "New Text:", 
                                            QLineEdit.Normal, self.text(), Qt.CustomizeWindowHint | Qt.WindowTitleHint)
@@ -170,8 +175,8 @@ class TitlePage(TitlePageTreeManager, Page):
         si.setBrush(QBrush(Qt.NoBrush))
         si.itemClassName = "TitleSubmodelPreview"  # Override regular name so we don't set this in any template action
 
-        self.addLabel(None, QFont("Arial", 25), self.subModel.getSimpleName())
-        self.addLabel(Page.margin * 2, None, "1001")
+        self.addNewLabel(None, QFont("Arial", 25), self.subModel.getSimpleName())
+        self.addNewLabel(Page.margin * 2, None, "1001")
         self.initLayout()
 
     def initLayout(self):
@@ -196,14 +201,17 @@ class TitlePage(TitlePageTreeManager, Page):
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
-        menu.addAction("Add Label", lambda: self.addLabel(event.scenePos()))
+        menu.addAction("Add Label", lambda: self.addNewLabel(event.scenePos(), useUndo = True))
         menu.addAction("Remove Title Page", lambda: self.subModel.hideTitlePage())
         menu.exec_(event.screenPos())
 
-    def addLabel(self, pos = None, font = None, text = "Blank Label"):
+    def addNewLabel(self, pos = None, font = None, text = "Blank Label", useUndo = False):
         label = EditableTextItem(text, self)
         if pos:
             label.setPos(pos)
         if font:
             label.setFont(font)
-        self.labels.append(label)
+        if useUndo:
+            self.scene().undoStack.push(AddRemoveLabelCommand(self, label, len(self.labels), True))
+        else:
+            self.labels.append(label)

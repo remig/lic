@@ -265,6 +265,25 @@ class SwapStepsCommand(QUndoCommand):
             p2.initLayout()
         p1.scene().emit(SIGNAL("layoutChanged()"))
 
+class AddRemoveLabelCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, page, label, index, addLabel):
+        QUndoCommand.__init__(self, "%s Label" % ("add" if addLabel else "delete"))
+        self.page, self.label, self.index, self.addLabel = page, label, index, addLabel
+
+    def doAction(self, redo):
+        self.page.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        if (redo and self.addLabel) or (not redo and not self.addLabel):
+            self.label.setParentItem(self.page)
+            self.page.labels.insert(self.index, self.label)
+        else:
+            self.page.scene().removeItem(self.label)
+            self.page.labels.remove(self.label)
+            self.label.setParentItem(None)
+        self.page.scene().emit(SIGNAL("layoutChanged()"))
+
 class AddRemoveRotateIconCommand(QUndoCommand):
 
     _id = getNewCommandID()

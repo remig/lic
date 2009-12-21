@@ -139,8 +139,7 @@ class GridLayout(object):
 
         fixedCount = 0
         for member in [m for m in rowMembers if m.fixedSize]:
-            offset = member.rect().width() if self.orientation == Horizontal else member.rect().height()
-            length -= (offset + (self.margin * 2))
+            length -= member.rect().getOrientedSize(self.orientation) + (self.margin * 2)
             fixedCount += 1;
 
         length = length / (len(rowMembers) - fixedCount)
@@ -178,8 +177,10 @@ class GridLayout(object):
             maxFixedSize = maxSafe([(m.rect().getOrientedSize(oID) + self.margin * 2) for m in rowMembers if m.fixedSize])
             sizeList.append(maxFixedSize)
 
-        eachRowHeight = ((maxRect.getOrientedSize(oID) - sum(sizeList)) / len([i for i in sizeList if i == 0]))
-        eachRowHeight = min(maxRect.getOrientedSize(oID) / intervalCount, eachRowHeight)  # If calculated height > generic height, shrink
+        eachRowHeight = maxRect.getOrientedSize(oID) / intervalCount  # size if no members are fixed
+        if any(i == 0 for i in sizeList):  # Have fixed members
+            nonFixedHeight = (maxRect.getOrientedSize(oID) - sum(sizeList)) / sizeList.count(0)  # size of non-fixed rows
+            eachRowHeight = min(eachRowHeight, nonFixedHeight)
 
         for i in range(len(sizeList)):
             sizeList[i] = max(sizeList[i], eachRowHeight)
