@@ -178,17 +178,10 @@ class BeginEndDisplacementCommand(QUndoCommand):
             QUndoCommand.__init__(self, "Begin Part displacement")
         self.part, self.direction = part, direction
 
-    def undo(self):
+    def doAction(self, redo):
         part = self.part
         part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        part.removeDisplacement()
-        part.scene().emit(SIGNAL("layoutChanged()"))
-        part.getCSI().resetPixmap()
-
-    def redo(self):
-        part = self.part
-        part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        part.addNewDisplacement(self.direction)
+        part.addNewDisplacement(self.direction) if redo else part.removeDisplacement()
         part.scene().emit(SIGNAL("layoutChanged()"))
         part.getCSI().resetPixmap()
 
@@ -425,9 +418,6 @@ class MovePartsToStepCommand(QUndoCommand):
             part.setParentItem(None) # Temporarily set part's parent, so it doesn't get deleted by Qt
             startStep.removePart(part)
             endStep.addPart(part)
-            if part.displacement and part.displaceArrow:
-                startStep.csi.removeArrow(part.displaceArrow)
-                endStep.csi.addArrow(part.displaceArrow)
                 
             if part.isSubmodel():
                 redoSubmodelOrder = True

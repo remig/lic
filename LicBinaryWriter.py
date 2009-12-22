@@ -185,7 +185,9 @@ def __writePart(stream, part):
         stream.writeFloat(part.displacement[2])
         stream.writeInt32(part.displaceDirection)
         if part.filename != "arrow":
-            __writePart(stream, part.displaceArrow)
+            stream.writeInt32(len(part.arrows))
+            for arrow in part.arrows:
+                __writePart(stream, arrow)
     else:
         stream.writeBool(False)
         

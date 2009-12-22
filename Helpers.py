@@ -64,26 +64,6 @@ def getOffsetFromBox(direction, box):
     elif direction == Qt.Key_Left or direction == Qt.Key_Right:
         return box.zSize()
 
-def getOffsetFromPart(part):
-
-    direction = part.displaceDirection
-    arrow = part.displaceArrow
-    
-    if direction == Qt.Key_Up:
-        return arrow.x() - part.bx2()
-    elif direction == Qt.Key_Down:
-        return part.bx() - arrow.x()
-    
-    elif direction == Qt.Key_PageUp:
-        return arrow.y() - part.by()
-    elif direction == Qt.Key_PageDown:
-        return part.by2() - arrow.y()
-    
-    elif direction == Qt.Key_Left:
-        return arrow.z() - part.bz2() 
-    elif direction == Qt.Key_Right:
-        return part.bz() - arrow.z()
-
 def displacementToDistance(displacement, direction):
 
     if direction == Qt.Key_Up:

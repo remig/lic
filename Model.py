@@ -36,7 +36,7 @@ from RectanglePacker import CygonRectanglePacker
 from LDrawFileFormat import *
 
 MagicNumber = 0x14768126
-FileVersion = 3
+FileVersion = 4
 
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 submodelDictionary = {}  # {'filename': Submodel()}
@@ -2430,7 +2430,6 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.scaling = 1.0
         
         self.parts = []
-        self.arrows = []
         self.isDirty = True
         self.nextCSIIsDirty = False
 
@@ -2472,11 +2471,6 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         GLHelpers.rotateView(*self.rotation)
 
         GL.glCallList(self.oglDispID)
-        
-        #for partItem in self.parts:
-        #    for part in partItem.parts:
-        #        part.callGLDisplayList()
-                
         GLHelpers.popAllGLMatrices()
 
     def addPart(self, part):
@@ -2502,15 +2496,6 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             self.parts.remove(p)
             p.setParentItem(None)
 
-    def addArrow(self, arrow):
-        self.addPart(arrow)
-        self.arrows.append(arrow)
-        
-    def removeArrow(self, arrow):
-        self.scene().removeItem(arrow)
-        self.removePart(arrow)
-        self.arrows.remove(arrow)
-    
     def __callPreviousOGLDisplayLists(self, isCurrent = False):
 
         # Call all previous step's CSI display list
@@ -3659,6 +3644,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.inCallout = False
         self.calloutPart = None
         self.originalPart = None
+        self.arrows = []
 
         #self.setPos(0.0, 0.0)
         #self.setRect(0.0, 0.0, 30.0, 30.0)
@@ -3747,7 +3733,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         return self.parentItem().parentItem()
     
     def getStep(self):
-        return self.parentItem().parentItem().parentItem()
+        return self.getCSI().parentItem()
 
     def setSelected(self, selected, updatePixmap = True):
         QGraphicsRectItem.setSelected(self, selected)
@@ -3759,18 +3745,18 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.displaceDirection = direction
         self.displacement = Helpers.getDisplacementOffset(direction, True, self.partOGL.getBoundingBox())
         
-        self.displaceArrow = Arrow(direction)
-        self.displaceArrow.setPosition(*Helpers.GLMatrixToXYZ(self.matrix))
-        self.displaceArrow.setLength(Helpers.getOffsetFromPart(self))
-        self.getCSI().addArrow(self.displaceArrow)
+        arrow = Arrow(direction, self)
+        arrow.setPosition(*Helpers.GLMatrixToXYZ(self.matrix))
+        arrow.setLength(arrow.getOffsetFromPart(self))
+        self.arrows.append(arrow)
         self._dataString = None
     
     def removeDisplacement(self):
         self.displaceDirection = None
         self.displacement = []
-        self.getCSI().removeArrow(self.displaceArrow)
+        self.arrows = []
         self._dataString = None
-        
+
     def isSubmodel(self):
         return isinstance(self.partOGL, Submodel)
 
@@ -3816,6 +3802,9 @@ class Part(PartTreeManager, QGraphicsRectItem):
         if color != LDrawColors.CurrentColor:
             GL.glPopAttrib()
 
+        for arrow in self.arrows:
+            arrow.callGLDisplayList(useDisplacement)
+
     def drawGLBoundingBox(self):
         b = self.partOGL.getBoundingBox()
         GL.glBegin(GL.GL_LINE_LOOP)
@@ -3853,8 +3842,8 @@ class Part(PartTreeManager, QGraphicsRectItem):
         p.setParentItem(self.parentItem())
         p.displacement = list(self.displacement)
         p.displaceDirection = self.displaceDirection
-        if hasattr(self, "displaceArrow"):
-            p.displaceArrow = self.displaceArrow.duplicate()
+        for arrow in self.arrows:
+            p.arrows.append(arrow.duplicate(p))
         return p
 
     def contextMenuEvent(self, event):
@@ -3895,6 +3884,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
             #menu.addAction("&Decrease displacement", lambda: self.displaceSignal(Helpers.getOppositeDirection(self.displaceDirection)))
             menu.addAction("&Change displacement", self.adjustDisplaceSignal)
             menu.addAction("&Remove displacement", lambda: self.displaceSignal(None))
+            #menu.addAction("&Add Arrow", self.addArrow)
         else:
             s = self.scene().undoStack
             arrowMenu = menu.addMenu("Displace With &Arrow")
@@ -4041,12 +4031,14 @@ class Part(PartTreeManager, QGraphicsRectItem):
         if fn and fn != self.filename:
             self.scene().undoStack.push(ChangePartOGLCommand(self, fn))
 
-class Arrow(Part):  # TODO: If maintaining separate list of arrows in CSI gets annoying, move this to a part inside Part
+class Arrow(Part):
     itemClassName = "Arrow"
 
-    def __init__(self, direction):
+    def __init__(self, direction, parentPart = None):
         Part.__init__(self, "arrow", 4, None, False)
         
+        if parentPart:
+            self.setParentItem(parentPart)
         self.displaceDirection = direction
         self.displacement = [0.0, 0.0, 0.0]
         self.axisRotation = 0.0
@@ -4080,8 +4072,8 @@ class Arrow(Part):  # TODO: If maintaining separate list of arrows in CSI gets a
         x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
         return "%s  (%.1f, %.1f, %.1f)" % (self.partOGL.filename, x, y, z)
 
-    def duplicate(self):
-        p = Arrow(self.displaceDirection)
+    def duplicate(self, parentPart = None):
+        p = Arrow(self.displaceDirection, parentPart)
         p.matrix = list(self.matrix)
         p.displacement = list(self.displacement)
         p.axisRotation = self.axisRotation
@@ -4151,9 +4143,9 @@ class Arrow(Part):  # TODO: If maintaining separate list of arrows in CSI gets a
             matrix[14] += self.displacement[2]
         GL.glPushMatrix()
         GL.glMultMatrixf(matrix)
-        
+
         #GLHelpers.drawCoordLines()
-        self.doGLRotation()
+        self.doGLRotation() # TODO: This is broken for rotated CSIs, with new Part.callArrowDisplayList setup
 
         if self.isSelected():
             self.drawGLBoundingBox()
@@ -4163,6 +4155,28 @@ class Arrow(Part):  # TODO: If maintaining separate list of arrows in CSI gets a
 
         if color != LDrawColors.CurrentColor:
             GL.glPopAttrib()
+
+    def getOffsetFromPart(self, part):
+    
+        direction = part.displaceDirection
+    
+        if direction == Qt.Key_Up:
+            return self.x() - part.bx2()
+        elif direction == Qt.Key_Down:
+            return part.bx() - self.x()
+    
+        elif direction == Qt.Key_PageUp:
+            return self.y() - part.by()
+        elif direction == Qt.Key_PageDown:
+            return part.by2() - self.y()
+    
+        elif direction == Qt.Key_Left:
+            return self.z() - part.bz2() 
+        elif direction == Qt.Key_Right:
+            return part.bz() - self.z()
+
+    def getCSI(self):
+        return self.parentItem().parentItem().parentItem()  # Part->PartItem->CSI
 
     def getLength(self):
         p = self.partOGL.primitives[-1]

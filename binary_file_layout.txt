@@ -102,12 +102,13 @@ Part:
     float displacement[1] # y
     float displacement[2] # z
     int32 displaceDir
-    Part displaceArrow
-    
+    int32 number of arrows   v4
+    ... Part arrow 0..n ...  v4
+
   if part is also Arrow:
     int32 arrow.length
     float arrow.axisRotation
-  
+
 Page:
   int32 number
   int32 _row

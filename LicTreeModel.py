@@ -439,7 +439,7 @@ class PartTreeItemTreeManager(BaseTreeManager):
 
     def child(self, row):
         if row < 0 or row >= len(self.parts):
-            return None
+            assert False, "Looking up non-existent row %d in Part Item" % (row)
         return self.parts[row]
 
     def getChildRow(self, child):
@@ -488,3 +488,14 @@ class PartTreeManager(BaseTreeManager):
     def dragDropFlags(self):
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled
     
+    def rowCount(self):
+        return len(self.arrows)
+
+    def child(self, row):
+        if row < 0 or row >= len(self.arrows):
+            assert False, "Looking up non-existent row %d in Part" % (row)
+        return self.arrows[row]
+
+    def getChildRow(self, child):
+        assert child in self.arrows, "Looking up non-existent Arrow %s in Part" % (child)
+        return self.arrows.index(child)

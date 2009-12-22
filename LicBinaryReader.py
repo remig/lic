@@ -89,9 +89,6 @@ def __readTemplate(stream, instructions):
         part.partOGL = partDictionary[part.filename]
 
         template.steps[0].csi.addPart(part)
-        if hasattr(part, "displaceArrow"):
-            template.steps[0].csi.addPart(part.displaceArrow)
-            template.steps[0].csi.arrows.append(part.displaceArrow)
 
     for partOGL in partDictionary.values():
         if partOGL.oglDispID == GLHelpers.UNINIT_GL_DISPID:
@@ -258,7 +255,12 @@ def __readPart(stream):
         displacement = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
         displaceDirection = stream.readInt32()
         if filename != 'arrow':
-            displaceArrow = __readPart(stream)
+            arrows = []
+            if stream.licFileVersion >= 4:
+                for i in range(stream.readInt32()):
+                    arrows.append(__readPart(stream))
+            else:
+                arrows.append(__readPart(stream))
         
     if filename == 'arrow':
         arrow = Arrow(displaceDirection)
@@ -276,7 +278,9 @@ def __readPart(stream):
     if useDisplacement:
         part.displacement = displacement
         part.displaceDirection = displaceDirection
-        part.displaceArrow = displaceArrow
+        for arrow in arrows:
+            arrow.setParentItem(part)
+        part.arrows = arrows
 
     return part
 
@@ -409,9 +413,6 @@ def __readCallout(stream, parent):
         part.partOGL = partDictionary[part.filename]
         step = callout.getStep(part.stepNumber)
         step.addPart(part)
-        if hasattr(part, "displaceArrow"):
-            step.csi.addPart(part.displaceArrow)
-            step.csi.arrows.append(part.displaceArrow)
 
     return callout
 
@@ -515,9 +516,6 @@ def __linkModelPartNames(model):
             page = model.getPage(part.pageNumber)
             csi = page.getStep(part.stepNumber).csi
             csi.addPart(part)
-            if hasattr(part, "displaceArrow"):
-                csi.addPart(part.displaceArrow)
-                csi.arrows.append(part.displaceArrow)
 
     # Associate each part that has a matching part in a callout to that matching part, and vice versa
     for part in [p for p in model.parts if p.inCallout]:
