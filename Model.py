@@ -1828,30 +1828,46 @@ class Step(StepTreeManager, QGraphicsRectItem):
             return False
         self.scene().undoStack.push(MovePartsToStepCommand(parts, self))
         return True
-    
+
+    def _setEdge(self, edge, cursor):
+        self.edge = edge
+        if cursor is None:
+            self.unsetCursor()
+            self.setHandlesChildEvents(False)
+        else:
+            self.setCursor(cursor)
+            self.setHandlesChildEvents(True)
+
     def hoverMoveEvent(self, event):
-        if self.isSelected():
-            x, y = event.pos()
-            inset = 5
-            if x < inset:
-                self.edge = "left"
-                self.setCursor(Qt.SplitHCursor)
-            elif x > self.rect().width() - inset:
-                self.edge = "right"
-                self.setCursor(Qt.SplitHCursor)
-            elif y < inset:
-                self.edge = "top"
-                self.setCursor(Qt.SplitVCursor)
+        if not self.isSelected():
+            return
+
+        x, y = event.pos()
+        inset = 5
+
+        if x < inset:
+            if y < inset:
+                self._setEdge("topLeft", Qt.SizeFDiagCursor)
             elif y > self.rect().height() - inset:
-                self.edge = "bottom"
-                self.setCursor(Qt.SplitVCursor)
+                self._setEdge("bottomLeft", Qt.SizeBDiagCursor)
             else:
-                self.edge = None
-                self.unsetCursor()
+                self._setEdge("left", Qt.SplitHCursor)
+        elif x > self.rect().width() - inset:
+            if y < inset:
+                self._setEdge("topRight", Qt.SizeBDiagCursor)
+            elif y > self.rect().height() - inset:
+                self._setEdge("bottomRight", Qt.SizeFDiagCursor)
+            else:
+                self._setEdge("right", Qt.SplitHCursor)
+        elif y < inset:
+            self._setEdge("top", Qt.SplitVCursor)
+        elif y > self.rect().height() - inset:
+            self._setEdge("bottom", Qt.SplitVCursor)
+        else:
+            self._setEdge(None, None)
 
     def hoverLeaveEvent(self, event):
-        self.edge = None
-        self.unsetCursor()
+        self._setEdge(None, None)
 
     def mousePressEvent(self, event):
         if self.hasCursor():  # This is a resize move event
@@ -1861,16 +1877,26 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
     def mouseMoveEvent(self, event):
         if self.hasCursor():  # This is a resize move event
-            x, y = event.pos()
             rect = self.rect().translated(self.pos())
+            x, y = event.pos()
+            w, h = x - rect.width(), y - rect.height()
+
             if self.edge == "left":
                 self.newRect = rect.adjusted(x, 0, 0, 0)
             elif self.edge == "top":
                 self.newRect = rect.adjusted(0, y, 0, 0)
             elif self.edge == "right":
-                self.newRect = rect.adjusted(0, 0, x - rect.width(), 0)
+                self.newRect = rect.adjusted(0, 0, w, 0)
             elif self.edge == "bottom":
-                self.newRect = rect.adjusted(0, 0, 0, y - rect.height())
+                self.newRect = rect.adjusted(0, 0, 0, h)
+            elif self.edge == "topLeft":
+                self.newRect = rect.adjusted(x, y, 0, 0)
+            elif self.edge == "topRight":
+                self.newRect = rect.adjusted(0, y, w, 0)
+            elif self.edge == "bottomLeft":
+                self.newRect = rect.adjusted(x, 0, 0, h)
+            elif self.edge == "bottomRight":
+                self.newRect = rect.adjusted(0, 0, w, h)
             self.initLayout(self.newRect)
         else:
             QGraphicsRectItem.mouseMoveEvent(self, event)
