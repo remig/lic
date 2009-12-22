@@ -253,12 +253,17 @@ class CalloutTreeManager(BaseTreeManager):
 
 class StepTreeManager(BaseTreeManager):
     
-    showCSI = True
+    _showCSI = True
+
+    def getShowCSI(self):
+        return StepTreeManager._showCSI or hasattr(self, "postLoadInit")  # Always show CSIs in Templates
+
+    showCSI = property(getShowCSI)
     
     def child(self, row):
-        if row == 0 and StepTreeManager.showCSI:
+        if row == 0 and self.showCSI:
             return self.csi
-        if not StepTreeManager.showCSI:
+        if not self.showCSI:
             row += 1
         if row == 1:
             if self.hasPLI():
@@ -280,13 +285,13 @@ class StepTreeManager(BaseTreeManager):
                 return self.rotateIcon
             offset -= 1
 
-        if StepTreeManager.showCSI:
-            return None
+        if self.showCSI:
+            assert False, "Looking up non-existent row %d in Step %d" % (row, self._number)
         return self.csi.child(offset)
 
     def rowCount(self):
         rows = (1 if self.hasPLI() else 0) + (1 if self.numberItem else 0) + (1 if self.rotateIcon else 0) + len(self.callouts)
-        rows += 1 if StepTreeManager.showCSI else self.csi.rowCount()
+        rows += 1 if self.showCSI else self.csi.rowCount()
         return rows
 
     def data(self, index):
@@ -296,7 +301,7 @@ class StepTreeManager(BaseTreeManager):
         if child is self.csi:
             return 0
         row = 0
-        if StepTreeManager.showCSI:
+        if self.showCSI:
             row += 1
         if child is self.pli:
             return row
@@ -369,7 +374,7 @@ class CSITreeManager(BaseTreeManager):
             return self.getPartList().index(child)
         
     def getChildRow(self, child):
-        if StepTreeManager.showCSI:
+        if self.parentItem().showCSI:
             return self._subChildRow(child)
         return self.parentItem().getChildRow(child)
     
@@ -441,29 +446,27 @@ class PartTreeItemTreeManager(BaseTreeManager):
         if CSITreeManager.showPartGroupings:
             return self.parts.index(child)
         return self.parentItem().getChildRow(child)
-    
+
     def rowCount(self):
         return len(self.parts)
-    
+
     def parent(self):
-        if StepTreeManager.showCSI:
-            return self.parentItem()
-        return self.parentItem().parentItem()
-    
+        step = self.getStep()
+        return self.parentItem() if step.showCSI else step
+
     def data(self, index):
         if self._dataString:
             return self._dataString
         self._dataString = "%s - x%d" % (self.name, len(self.parts))
         return self._dataString
-        
+
 class PartTreeManager(BaseTreeManager):
 
     def parent(self):
         if CSITreeManager.showPartGroupings:
             return self.parentItem()
-        if StepTreeManager.showCSI:
-            return self.getCSI()
-        return self.getStep()
+        step = self.getStep()
+        return step.csi if step.showCSI else step
 
     def resetDataString(self):  # Useful for reseting dataString inside a lambda
         self._dataString = None

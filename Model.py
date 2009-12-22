@@ -3614,7 +3614,7 @@ class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
         self.parts = []
         self._dataString = None  # Cache data string for tree
         self.setFlags(AllFlags)
-        
+
     def setSelected(self, selected):
         self.parts[0].setSelected(selected)
 
@@ -3622,11 +3622,14 @@ class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
         part.setParentItem(self)
         self._dataString = None
         self.parts.append(part)
-        
+
     def removePart(self, part):
         if part in self.parts:
             self.parts.remove(part)
             self._dataString = None
+
+    def getStep(self):
+        return self.parentItem().parentItem()
 
 class Part(PartTreeManager, QGraphicsRectItem):
     """

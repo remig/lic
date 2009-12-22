@@ -783,7 +783,7 @@ class LicTreeWidget(QWidget):
     def setShowCSI(self, show):
         model = self.tree.model()
         model.emit(SIGNAL("layoutAboutToBeChanged()"))
-        LicTreeModel.StepTreeManager.showCSI = show
+        LicTreeModel.StepTreeManager._showCSI = show
         model.emit(SIGNAL("layoutChanged()"))
         self.resetHiddenRows()
 

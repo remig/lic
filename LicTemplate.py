@@ -428,7 +428,7 @@ class TemplateStep(Step):
 
     def togglePLIs(self):
         self.scene().undoStack.push(TogglePLIs(self.getPage(), not self.hasPLI()))
-    
+
     def formatBackground(self):
         pass
 
