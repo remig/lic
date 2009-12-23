@@ -1208,17 +1208,20 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         else:
             self.insertStep(step)
         
-    def insertStep(self, step):
-        self.steps.append(step)
-        step.setParentItem(self)
-        if len(self.steps) > 1:
-            self.enableStepNumbers()
+    def insertStep(self, newStep):
+        self.steps.insert(newStep._number - 1, newStep)
+        newStep.setParentItem(self)
+        self.syncStepNumbers()
 
     def removeStep(self, step):
         self.scene().removeItem(step)
         self.steps.remove(step)
-        if len(self.steps) <= 1:
-            self.disableStepNumbers()
+        self.syncStepNumbers()
+
+    def syncStepNumbers(self):
+        for i, step in enumerate(self.steps):
+            step.number = i + 1
+        self.enableStepNumbers() if len(self.steps) > 1 else self.disableStepNumbers()
 
     def getStep(self, number):
         for step in self.steps:
@@ -1301,24 +1304,24 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
     def initLayout(self):
 
         if not self.steps:
-            self.setRect(0.0, 0.0, 1.0, 1.0)
+            self.setRect(0.0, 0.0, 10.0, 10.0)
             return  # Nothing to layout here
-        
+
         for step in self.steps:
             step.initMinimumLayout()
-            
+
         self.layout.initLayoutInsideOut(self.steps)
-        
+
         if self.qtyLabel:  # Hide qty label inside step temporarily, so its bounding box is ignored
             self.qtyLabel.setPos(self.steps[0].pos())
 
         self.resetRect()
-        
+
         if self.qtyLabel:
             self.positionQtyLabel()
-            
+
         self.arrow.initializeEndPoints()
-        
+
     def initEndPoints(self):
         self.arrow.initializeEndPoints()
         
@@ -1684,6 +1687,11 @@ class Step(StepTreeManager, QGraphicsRectItem):
         self.scene().removeItem(self.rotateIcon)
         self.rotateIcon = None
 
+    def moveToPage(self, page):
+        self.parentItem().steps.remove(self)
+        self.parentItem().children.remove(self)
+        page.addStep(self)
+
     def resetRect(self):
         if self.maxRect:
             r = QRectF(0.0, 0.0, max(1, self.maxRect.width()), max(1, self.maxRect.height()))
@@ -1731,7 +1739,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
         else:
             self.csi.setPos(0.0, 0.0)
 
-        self.setPos(0.0, 0.0)
+        self.setPos(Page.margin)
         self.maxRect = QRectF()
         self.resetRect()
         self.maxRect = self.rect()
@@ -1935,7 +1943,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         if isinstance(parent, Page):
             if parent.prevPage() and parent.steps[0] is self:
-                menu.addAction("Move to &Previous Page", self.moveToPrevPage)  # TODO: Cannot do this if this step has a submodel (previous page is in that submodel)
+                menu.addAction("Move to &Previous Page", self.moveToPrevPage)
             if parent.nextPage() and parent.steps[-1] is self:
                 menu.addAction("Move to &Next Page", self.moveToNextPage)
             
@@ -1948,6 +1956,8 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         menu.addSeparator()
         menu.addAction("Add blank Callout", self.addBlankCalloutSignal)
+        menu.addAction("Prepend blank Step", lambda: self.addBlankStepSignal(self._number))
+        menu.addAction("Append blank Step", lambda: self.addBlankStepSignal(self._number + 1))
 
         if self.rotateIcon is None:
             menu.addSeparator()
@@ -1957,6 +1967,11 @@ class Step(StepTreeManager, QGraphicsRectItem):
             menu.addAction("&Delete Step", lambda: undo.push(AddRemoveStepCommand(self, False)))
 
         menu.exec_(event.screenPos())
+
+    def addBlankStepSignal(self, number):
+        step = Step(self.parentItem(), number, not self.isInCallout())
+        action = AddRemoveStepCommand(step, True)
+        self.scene().undoStack.push(action)
 
     def addBlankCalloutSignal(self, useUndo = True, useSelection = True):
         number = self.callouts[-1].number + 1 if self.callouts else 1
@@ -1992,17 +2007,6 @@ class Step(StepTreeManager, QGraphicsRectItem):
         if self.scene().currentPage.isEmpty():
             self.scene().undoStack.push(AddRemovePageCommand(self.scene().currentPage, False))
     
-    def moveToPage(self, page, useSignals = True):
-        if useSignals:
-            page.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-            
-        self.parentItem().steps.remove(self)
-        self.parentItem().children.remove(self)
-        
-        page.addStep(self)
-        if useSignals:
-            page.scene().emit(SIGNAL("layoutChanged()"))
-
     def mergeWithStepSignal(self, step):
         scene = self.scene()
         scene.undoStack.push(MovePartsToStepCommand(self.csi.getPartList(), step))
@@ -2511,6 +2515,9 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             self.scene().removeItem(p)
             self.parts.remove(p)
             p.setParentItem(None)
+
+    def containsSubmodel(self):
+        return any(part.isSubmodel() for part in self.getPartList())
 
     def __callPreviousOGLDisplayLists(self, isCurrent = False):
 
@@ -3219,7 +3226,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
                     nextPage.initLayout()
                     break
 
-                nextStep.moveToPage(currentPage, False) # Move step on next page to current page
+                nextStep.moveToPage(currentPage) # Move step on next page to current page
 
                 currentLayout = currentPage.layout.orientation
                 currentPage.useHorizontalLayout()  # Try horizontal layout
@@ -3228,7 +3235,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
                     currentPage.useVerticalLayout()  # Try vertical layout
                     if currentPage.checkForLayoutOverlaps():
 
-                        currentPage.steps[-1].moveToPage(nextPage, False)  # move Step back & redo layouts
+                        currentPage.steps[-1].moveToPage(nextPage)  # move Step back & redo layouts
                         currentPage.layout.orientation = currentLayout
                         currentPage.initLayout()
                         nextPage.initLayout()
@@ -4293,7 +4300,6 @@ class Primitive(object):
     def resetBoundingBox(self):
         self._boundingBox = None
 
-    # TODO: using numpy for all this would probably work a lot better
     def addNormal(self, p1, p2, p3):
         Bx = p2[0] - p1[0]
         By = p2[1] - p1[1]

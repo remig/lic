@@ -1,7 +1,5 @@
 Lic TODO:
 
-Thoughts on displacing parts:
-
 - Need to give user a way to specify:
   - Paths to required apps (LDraw, L3P, Pov-Ray)
   - All OpenGL rendering options, notably ambient light setting
@@ -15,15 +13,13 @@ Thoughts on displacing parts:
 
 - Add status indicator to file->open operation
 
-- In step context, add 'append / prepend blank step'
-
 - Add Snap to Center of page items, not just left / right edges
 
 - Pages that span multiple Submodels (ie, last step of Submodel on same page as MainModel step that adds submodel)
 
 - Fully implement Conditional Lines
 
-- Fix missing Edges, like from bottom / inside of 2x4 brick
+- Fix missing Primitive Edges, like from inside of 2x4 brick
  
 - Fix saw.dat, so all edges & surfaces rendered properly
  

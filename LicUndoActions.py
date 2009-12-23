@@ -225,17 +225,15 @@ class MoveStepToPageCommand(QUndoCommand):
         QUndoCommand.__init__(self, "move Step to Page")
         self.stepSet = stepSet
 
-    def undo(self):
+    def doAction(self, redo):
+        self.stepSet[0][0].scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         for step, oldPage, newPage in self.stepSet:
-            step.moveToPage(oldPage)
-            oldPage.initLayout()
-            newPage.initLayout()
-
-    def redo(self):
-        for step, oldPage, newPage in self.stepSet:
-            step.moveToPage(newPage)
+            step.moveToPage(newPage if redo else oldPage)
+            if step.csi.containsSubmodel():
+                newPage.instructions.mainModel.reOrderSubmodelPages()
             newPage.initLayout()
             oldPage.initLayout()
+        self.stepSet[0][0].scene().emit(SIGNAL("layoutChanged()"))
 
 class SwapStepsCommand(QUndoCommand):
 
@@ -244,11 +242,11 @@ class SwapStepsCommand(QUndoCommand):
     def __init__(self, step1, step2):
         QUndoCommand.__init__(self, "Swap Steps")
         self.step1, self.step2 = step1, step2
-        
+
     def doAction(self, redo):
         s1, s2 = self.step1, self.step2
         p1, p2 = s1.parentItem(), s2.parentItem()
-        
+
         p1.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
 
         if not s1.isInCallout():
@@ -338,6 +336,7 @@ class AddRemoveStepCommand(QUndoCommand):
 
     def doAction(self, redo):
         parent = self.parent
+        parent.scene().clearSelection()
         if (redo and self.addStep) or (not redo and not self.addStep):
             parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
             parent.insertStep(self.step)
