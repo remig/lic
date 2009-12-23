@@ -836,12 +836,10 @@ class LicWindow(QMainWindow):
         self.treeWidget.tree.connect(self.scene, SIGNAL("sceneClick"), self.treeWidget.tree.updateTreeSelection)
         self.scene.connect(self.scene, SIGNAL("selectionChanged()"), self.scene.selectionChanged)
 
-        # Allow the graphics scene and instructions to emit the layoutAboutToBeChanged and layoutChanged 
+        # Allow the graphics scene to emit the layoutAboutToBeChanged and layoutChanged
         # signals, for easy notification of layout changes everywhere
         self.connect(self.scene, SIGNAL("layoutAboutToBeChanged()"), self.treeModel, SIGNAL("layoutAboutToBeChanged()"))
         self.connect(self.scene, SIGNAL("layoutChanged()"), self.treeModel, SIGNAL("layoutChanged()"))
-        self.connect(self.instructions, SIGNAL("layoutAboutToBeChanged()"), self.treeModel, SIGNAL("layoutAboutToBeChanged()"))
-        self.connect(self.instructions, SIGNAL("layoutChanged()"), self.treeModel, SIGNAL("layoutChanged()"))
 
         # AbstractItemModels keep a list of persistent indices around, which we need to update after layout change
         self.connect(self.treeModel, SIGNAL("layoutChanged()"), self.treeModel.updatePersistentIndices)
@@ -849,7 +847,7 @@ class LicWindow(QMainWindow):
         # Need to notify the Model when a particular index was deleted
         self.treeModel.connect(self.scene, SIGNAL("itemDeleted"), self.treeModel.deletePersistentItem)
             
-        self.filename = ""   # This will trigger the __setFilename method below
+        self.filename = ""   # This will trigger __setFilename below
 
     def getSettingsFile(self):
         iniFile = os.path.join(os.path.dirname(sys.argv[0]), 'Lic.ini')

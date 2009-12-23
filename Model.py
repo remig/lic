@@ -875,8 +875,8 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
         menu.addSeparator()
 
-        menu.addAction("Prepend blank Page", self.addPageBeforeSignal)
-        menu.addAction("Append blank Page", self.addPageAfterSignal)
+        menu.addAction("Prepend blank Page", lambda: self.addPageSignal(self.number, self._row))
+        menu.addAction("Append blank Page", lambda: self.addPageSignal(self.number + 1, self._row + 1))
 
         menu.addSeparator()
         if self.separators:
@@ -892,7 +892,8 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
                 menu.addAction("Use Vertical layout", self.useVerticalLayout)
             else:
                 menu.addAction("Use Horizontal layout", self.useHorizontalLayout)
-        menu.addAction("Delete Page", self.deletePageSignal)
+        if not self.steps:
+            menu.addAction("Delete Page", lambda: self.scene().undoStack.push(AddRemovePageCommand(self.scene(), self, False)))
         menu.exec_(event.screenPos())
     
     def useVerticalLayout(self):
@@ -908,21 +909,11 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         self.scene().undoStack.push(AddRemoveStepCommand(step, True))
         self.scene().fullItemSelectionUpdate(step)
 
-    def deletePageSignal(self):
-        if self.steps: #Do not allow pages with steps to be deleted
-            QMessageBox.warning(self.scene().views()[0], "Page Delete Error", "Cannot delete a Page that contains Steps.\nRemove or move Steps to a different page first.")
-        else:
-            self.scene().undoStack.push(AddRemovePageCommand(self, False))
-        
-    def addPageBeforeSignal(self):
-        newPage = Page(self.subModel, self.instructions, self.number, self._row)
-        self.scene().undoStack.push(AddRemovePageCommand(newPage, True))
-        self.scene().fullItemSelectionUpdate(newPage)
-    
-    def addPageAfterSignal(self):
-        newPage = Page(self.subModel, self.instructions, self.number + 1, self._row + 1)
-        self.scene().undoStack.push(AddRemovePageCommand(newPage, True))
-        self.scene().fullItemSelectionUpdate(newPage)
+    def addPageSignal(self, number, row):
+        scene = self.scene()
+        newPage = Page(self.subModel, self.instructions, number, row)
+        scene.undoStack.push(AddRemovePageCommand(scene, newPage, True))
+        scene.fullItemSelectionUpdate(newPage)
 
 class LockIcon(QGraphicsPixmapItem):
 
@@ -1988,24 +1979,26 @@ class Step(StepTreeManager, QGraphicsRectItem):
         return callout
     
     def moveToPrevPage(self):
+        scene = self.scene()
         stepSet = []
-        for step in self.scene().selectedItems():
+        for step in scene.selectedItems():
             if isinstance(step, Step):
                 stepSet.append((step, step.parentItem(), step.parentItem().prevPage()))
         step.scene().undoStack.push(MoveStepToPageCommand(stepSet))
 
-        if self.scene().currentPage.isEmpty():
-            self.scene().undoStack.push(AddRemovePageCommand(self.scene().currentPage, False))
+        if scene.currentPage.isEmpty():
+            scene.undoStack.push(AddRemovePageCommand(scene, scene.currentPage, False))
         
     def moveToNextPage(self):
+        scene = self.scene()
         stepSet = []
-        for step in self.scene().selectedItems():
+        for step in scene.selectedItems():
             if isinstance(step, Step):
                 stepSet.append((step, step.parentItem(), step.parentItem().nextPage()))
         step.scene().undoStack.push(MoveStepToPageCommand(stepSet))
 
-        if self.scene().currentPage.isEmpty():
-            self.scene().undoStack.push(AddRemovePageCommand(self.scene().currentPage, False))
+        if scene.currentPage.isEmpty():
+            scene.undoStack.push(AddRemovePageCommand(scene, scene.currentPage, False))
     
     def mergeWithStepSignal(self, step):
         scene = self.scene()
@@ -2013,7 +2006,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
         scene.undoStack.push(AddRemoveStepCommand(self, False))
 
         if scene.currentPage.isEmpty():
-            scene.undoStack.push(AddRemovePageCommand(scene.currentPage, False))
+            scene.undoStack.push(AddRemovePageCommand(scene, scene.currentPage, False))
             
     def swapWithStepSignal(self, step):
         self.scene().undoStack.push(SwapStepsCommand(self, step))
@@ -3994,20 +3987,21 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.scene().undoStack.push(DisplacePartCommand(self, oldDisplacement, self.displacement))
 
     def moveToStepSignal(self, destStep):
+        scene = self.scene()
         selectedParts = []
-        for item in self.scene().selectedItems():
+        for item in scene.selectedItems():
             if isinstance(item, Part) and not item.inCallout:
                 selectedParts.append(item)
 
         currentStep = self.getStep()
-        self.scene().undoStack.push(MovePartsToStepCommand(selectedParts, destStep))
+        scene.undoStack.push(MovePartsToStepCommand(selectedParts, destStep))
 
         currentPage = currentStep.getPage()
         if currentStep.isEmpty():
-            self.scene().undoStack.push(AddRemoveStepCommand(currentStep, False))
+            scene.undoStack.push(AddRemoveStepCommand(currentStep, False))
             
         if currentPage.isEmpty():
-            self.scene().undoStack.push(AddRemovePageCommand(currentPage, False))
+            scene.undoStack.push(AddRemovePageCommand(scene, currentPage, False))
             
     def changeColorSignal(self):
         self.scene().clearSelection()

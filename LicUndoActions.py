@@ -374,16 +374,15 @@ class AddRemoveCalloutCommand(QUndoCommand):
 
 class AddRemovePageCommand(QUndoCommand):
 
-    # TODO: Remove instructions.emit from here
     _id = getNewCommandID()
 
-    def __init__(self, page, addPage):
+    def __init__(self, scene, page, addPage):
         QUndoCommand.__init__(self, "%s Page" % ("add" if addPage else "delete"))
-        self.page, self.addPage = page, addPage
+        self.scene, self.page, self.addPage = scene, page, addPage
 
     def doAction(self, redo):
         page = self.page
-        page.instructions.emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
 
         if (redo and self.addPage) or (not redo and not self.addPage):
             page.parent().addPage(page)
@@ -392,8 +391,8 @@ class AddRemovePageCommand(QUndoCommand):
             page.parent().deletePage(page)
             number = page.number - 1
 
-        page.instructions.emit(SIGNAL("layoutChanged()"))
-        page.instructions.scene.selectPage(number)
+        self.scene.emit(SIGNAL("layoutChanged()"))
+        self.scene.selectPage(number)
 
 class AddRemoveGuideCommand(QUndoCommand):
 
