@@ -270,9 +270,8 @@ class StepTreeManager(BaseTreeManager):
                 return self.pli
             if self.numberItem:
                 return self.numberItem
-        if row == 2:
-            if self.numberItem:
-                return self.numberItem
+        if row == 2 and self.numberItem and self.hasPLI():
+            return self.numberItem
 
         offset = row - 1 - (1 if self.hasPLI() else 0) - (1 if self.numberItem else 0)
         if offset < len(self.callouts):

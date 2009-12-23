@@ -850,18 +850,12 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
             else:
                 yield self.submodelItem
         for step in self.steps:
-            yield step.csi
-            if step.pli and step.hasPLI():
-                for pliItem in step.pli.pliItems:
-                    yield pliItem
-            for callout in step.callouts:
-                for step2 in callout.steps:
-                    yield step2.csi
+            for glItem in step.glItemIterator():
+                yield glItem
 
     def drawAnnotations(self, painter, rect):
         for step in self.steps:
-            for callout in step.callouts:
-                callout.arrow.paintAsAnnotation(painter)
+            step.drawAnnotations(painter, rect)
 
     def acceptDragAndDropList(self, dragItems, row):
 
@@ -1825,6 +1819,22 @@ class Step(StepTreeManager, QGraphicsRectItem):
                 y = self.csi.pos().y()  # Not enough space to place above CSI, so put beside
                 x -= Page.margin.x()
             self.rotateIcon.setPos(x, y)
+
+    def drawAnnotations(self, painter, rect):
+        for callout in self.callouts:
+            callout.arrow.paintAsAnnotation(painter)
+            for step in callout.steps:
+                step.drawAnnotations(painter, rect)
+
+    def glItemIterator(self):
+        yield self.csi
+        if self.pli and self.hasPLI():
+            for pliItem in self.pli.pliItems:
+                yield pliItem
+        for callout in self.callouts:
+            for step in callout.steps:
+                for glItem in step.glItemIterator():
+                    yield glItem
 
     def acceptDragAndDropList(self, dragItems, row):
 

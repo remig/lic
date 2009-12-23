@@ -17,8 +17,6 @@ Thoughts on displacing parts:
 
 - In step context, add 'append / prepend blank step'
 
-- Callouts within callouts
-
 - Add Snap to Center of page items, not just left / right edges
 
 - Pages that span multiple Submodels (ie, last step of Submodel on same page as MainModel step that adds submodel)
