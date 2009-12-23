@@ -75,38 +75,6 @@ def position(self):
             self.prevPoint = point
     return self.view.mapToScene(point)
 
-def addPixmap(self):
-    path = QFileInfo(self.filename).path() if not self.filename.isEmpty() else "."
-    fname = QFileDialog.getOpenFileName(self,
-                        "Page Designer - Add Pixmap", path,
-                        "Pixmap Files (*.bmp *.jpg *.png *.xpm)")
-    if fname.isEmpty():
-        return
-    self.createPixmapItem(QPixmap(fname), self.position())
-
-def createPixmapItem(self, pixmap, position, matrix=QMatrix()):
-    item = QGraphicsPixmapItem(pixmap)
-    item.setFlags(QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsMovable)
-    item.setPos(position)
-    item.setMatrix(matrix)
-    self.scene.clearSelection()
-    self.scene.addItem(item)
-    item.setSelected(True)
-    global Dirty
-    Dirty = True
-
-def createGLTrackballWidget():
-    if (0):
-        self.glSplitter = QSplitter(Qt.Horizontal)
-        self.glSplitter.addWidget(self.glWidget)
-        self.glSplitter.addWidget(self.view)
-    
-        self.mainSplitter.addWidget(self.tree)
-        self.mainSplitter.addWidget(self.glSplitter)
-        self.setCentralWidget(self.mainSplitter)
-    else:
-        pass
-
 def drawBuffer(self):
     global GlobalGLContext
 

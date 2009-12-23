@@ -1286,6 +1286,8 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         if self.qtyLabel:
             b.adjust(0.0, 0.0, self.qtyLabel.boundingRect().width(), self.qtyLabel.boundingRect().height())
         self.setRect(b.adjusted(-x, -y, x, y))
+        self.normalizePosition([self.arrow])
+        self.resetArrow()
 
     def resetArrow(self):
         self.arrow.internalPoints = []
@@ -1694,6 +1696,9 @@ class Step(StepTreeManager, QGraphicsRectItem):
         else:
             r = QRectF(0.0, 0.0, 1.0, 1.0)
         self.setRect(r | self.childrenBoundingRect())
+        self.normalizePosition()
+        if self.isInCallout():
+            self.parentItem().resetRect()
 
     def isInCallout(self):
         return isinstance(self.parentItem(), Callout)
@@ -2267,6 +2272,7 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
     def resetRect(self):
         rect = self.childrenBoundingRect().adjusted(-PLI.margin.x(), -PLI.margin.y(), PLI.margin.x(), PLI.margin.y())
         self.setRect(rect)
+        self.normalizePosition()
         self.parentItem().resetRect()
         
     def addPart(self, part):
@@ -2786,10 +2792,12 @@ class PartOGL(object):
         try:
             part = Part(p['filename'], p['color'], p['matrix'], False)
             part.setInversion(self.invertNext)
-            #if self.filename == "stud.dat" and part.filename == "4-4cyli.dat":
-            #    part.color = 512
-            #elif self.filename == "stud4.dat" and part.filename == "4-4cyli.dat" and self.invertNext:
-            #    part.color = 512
+            if self.filename == "stud.dat" and part.filename == "4-4cyli.dat":
+                part.color = 512
+            elif self.filename == "stud2.dat" and part.filename == "4-4cyli.dat":
+                part.color = 512
+            elif self.filename == "stud4.dat" and part.filename == "4-4cyli.dat" and self.invertNext:
+                part.color = 512
 
             part.initializePartOGL()
             if self.invertNext:

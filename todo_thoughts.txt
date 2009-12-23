@@ -19,8 +19,14 @@ Thoughts on displacing parts:
 
 - Callouts within callouts
 
-- Step borders / fills
+- Add Snap to Center of page items, not just left / right edges
 
 - Pages that span multiple Submodels (ie, last step of Submodel on same page as MainModel step that adds submodel)
 
+- Fully implement Conditional Lines
+
+- Fix missing Edges, like from bottom / inside of 2x4 brick
+ 
+- Fix saw.dat, so all edges & surfaces rendered properly
+ 
 - Automatically clone pages / steps from one submodel to another, if they're siimliar enough (mirrored)

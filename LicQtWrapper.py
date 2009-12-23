@@ -3,6 +3,18 @@ from PyQt4.QtGui import *
 
 import Layout
 
+def genericNormalizePosition(self, childrenToSkip = []):
+    x, y = self.rect().topLeft()
+    if x == 0 and y == 0:
+        return
+    self.moveBy(x, y)
+    for item in self.childItems():
+        if item not in childrenToSkip:
+            item.moveBy(-x, -y)
+    self.setRect(0, 0, self.rect().width(), self.rect().height())
+
+QGraphicsRectItem.normalizePosition = genericNormalizePosition
+
 def genericGetOrientedSize(self, orientation):
     return self.width() if orientation == Layout.Horizontal else self.height()
 
