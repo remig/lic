@@ -4,6 +4,7 @@ Thoughts on displacing parts:
 
 - Need to give user a way to specify:
   - Paths to required apps (LDraw, L3P, Pov-Ray)
+  - All OpenGL rendering options, notably ambient light setting
 
 - Surround optional 3rd party imports in try...catch blocks
 
@@ -16,15 +17,10 @@ Thoughts on displacing parts:
 
 - In step context, add 'append / prepend blank step'
 
-  
-For 2.0:
-
 - Callouts within callouts
 
 - Step borders / fills
 
-- multiple steps per rect
+- Pages that span multiple Submodels (ie, last step of Submodel on same page as MainModel step that adds submodel)
 
-- multiple GL arrows on part displacement
-
-- automatically clone pages / steps from one submodel to another, if they're siimliar enough (mirrored)
+- Automatically clone pages / steps from one submodel to another, if they're siimliar enough (mirrored)

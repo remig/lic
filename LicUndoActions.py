@@ -270,6 +270,26 @@ class SwapStepsCommand(QUndoCommand):
             p2.initLayout()
         p1.scene().emit(SIGNAL("layoutChanged()"))
 
+class AddRemoveArrowCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, part, arrow, index, addArrow):
+        QUndoCommand.__init__(self, "%s Arrow" % ("add" if addArrow else "delete"))
+        self.part, self.arrow, self.index, self.addArrow = part, arrow, index, addArrow
+
+    def doAction(self, redo):
+        self.part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        if (redo and self.addArrow) or (not redo and not self.addArrow):
+            self.arrow.setParentItem(self.part)
+            self.part.arrows.insert(self.index, self.arrow)
+        else:
+            self.part.scene().removeItem(self.arrow)
+            self.part.arrows.remove(self.arrow)
+            self.arrow.setParentItem(None)
+        self.part.getCSI().isDirty = True
+        self.part.scene().emit(SIGNAL("layoutChanged()"))
+
 class AddRemoveLabelCommand(QUndoCommand):
 
     _id = getNewCommandID()

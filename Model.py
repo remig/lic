@@ -3728,10 +3728,10 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
     def zSize(self):
         return self.getPartBoundingBox().zSize()
-    
+
     def getCSI(self):
         return self.parentItem().parentItem()
-    
+
     def getStep(self):
         return self.getCSI().parentItem()
 
@@ -3741,16 +3741,17 @@ class Part(PartTreeManager, QGraphicsRectItem):
             self.getCSI().createOGLDisplayList()
 
     def addNewDisplacement(self, direction):
-        
         self.displaceDirection = direction
         self.displacement = Helpers.getDisplacementOffset(direction, True, self.partOGL.getBoundingBox())
-        
+        self.addNewArrow(direction)
+        self._dataString = None
+
+    def addNewArrow(self, direction):
         arrow = Arrow(direction, self)
         arrow.setPosition(*Helpers.GLMatrixToXYZ(self.matrix))
         arrow.setLength(arrow.getOffsetFromPart(self))
         self.arrows.append(arrow)
-        self._dataString = None
-    
+
     def removeDisplacement(self):
         self.displaceDirection = None
         self.displacement = []
@@ -3884,7 +3885,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
             #menu.addAction("&Decrease displacement", lambda: self.displaceSignal(Helpers.getOppositeDirection(self.displaceDirection)))
             menu.addAction("&Change displacement", self.adjustDisplaceSignal)
             menu.addAction("&Remove displacement", lambda: self.displaceSignal(None))
-            #menu.addAction("&Add Arrow", self.addArrow)
+            menu.addAction("&Add Arrow", self.addArrowSignal)
         else:
             s = self.scene().undoStack
             arrowMenu = menu.addMenu("Displace With &Arrow")
@@ -3946,14 +3947,20 @@ class Part(PartTreeManager, QGraphicsRectItem):
             # Remove any displacement
             self.scene().undoStack.push(BeginEndDisplacementCommand(self, self.displaceDirection, end = True))
 
+    def addArrowSignal(self):
+        self.addNewArrow(self.displaceDirection)
+        newArrow = self.arrows.pop()
+        action = AddRemoveArrowCommand(self, newArrow, len(self.arrows), True)
+        self.scene().undoStack.push(action)
+
     def adjustDisplaceSignal(self):
-            
+
         parentWidget = self.scene().views()[0]
         dialog = LicDialogs.DisplaceDlg(parentWidget, self.displacement, self.displaceDirection)
         parentWidget.connect(dialog, SIGNAL("changeDisplacement"), self.changeDisplacement)
         parentWidget.connect(dialog, SIGNAL("acceptDisplacement"), self.acceptDisplacement)
         dialog.exec_()
-        
+
     def changeDisplacement(self, displacement, changeArrow):
         self.displacement = displacement
         self.getCSI().resetPixmap()
@@ -3969,7 +3976,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
         currentStep = self.getStep()
         self.scene().undoStack.push(MovePartsToStepCommand(selectedParts, destStep))
-        
+
         currentPage = currentStep.getPage()
         if currentStep.isEmpty():
             self.scene().undoStack.push(AddRemoveStepCommand(currentStep, False))
@@ -4121,9 +4128,6 @@ class Arrow(Part):
         if self.axisRotation:
             GL.glRotatef(self.axisRotation, 1.0, 0.0, 0.0)
 
-        if self.getCSI().rotation:
-            GLHelpers.rotateView(*self.getCSI().rotation)
-
     def callGLDisplayList(self, useDisplacement = False):
         if not useDisplacement:
             return
@@ -4145,7 +4149,7 @@ class Arrow(Part):
         GL.glMultMatrixf(matrix)
 
         #GLHelpers.drawCoordLines()
-        self.doGLRotation() # TODO: This is broken for rotated CSIs, with new Part.callArrowDisplayList setup
+        self.doGLRotation()
 
         if self.isSelected():
             self.drawGLBoundingBox()
@@ -4203,11 +4207,15 @@ class Arrow(Part):
         #menu.addAction("&Longer", lambda: stack.push(AdjustArrowLength(self, 20)))
         #menu.addAction("&Shorter", lambda: stack.push(AdjustArrowLength(self, -20)))
         menu.addAction("&Change Position and Length", self.adjustDisplaceSignal)
-
+        menu.addAction("&Remove", self.removeSignal)
         menu.exec_(event.screenPos())
 
+    def removeSignal(self):
+        part = self.parentItem()
+        action = AddRemoveArrowCommand(part, self, part.arrows.index(self), False)
+        self.scene().undoStack.push(action)
+
     def adjustDisplaceSignal(self):
-            
         parentWidget = self.scene().views()[0]
         dialog = LicDialogs.ArrowDisplaceDlg(parentWidget, self)
         parentWidget.connect(dialog, SIGNAL("changeDisplacement"), self.changeDisplacement)
@@ -4215,7 +4223,7 @@ class Arrow(Part):
         parentWidget.connect(dialog, SIGNAL("changeRotation"), self.changeRotation)
         parentWidget.connect(dialog, SIGNAL("accept"), self.accept)
         dialog.exec_()
-        
+
     def changeDisplacement(self, displacement):
         self.displacement = displacement
         self.getCSI().resetPixmap()
@@ -4223,7 +4231,7 @@ class Arrow(Part):
     def changeLength(self, length):
         self.setLength(length)
         self.getCSI().resetPixmap()
-        
+
     def changeRotation(self, rotation):
         self.axisRotation = rotation
         self.getCSI().resetPixmap()
