@@ -42,7 +42,6 @@ partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] =
 submodelDictionary = {}  # {'filename': Submodel()}
 currentModelFilename = ""
 
-GlobalGLContext = None
 NoFlags = QGraphicsItem.GraphicsItemFlags()
 NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
 AllFlags = NoMoveFlags | QGraphicsItem.ItemIsMovable
@@ -55,10 +54,9 @@ class Instructions(QObject):
 
         self.scene = scene
         self.mainModel = None
-        
-        global GlobalGLContext
-        GlobalGLContext = glWidget
-        GlobalGLContext.makeCurrent()
+
+        self.glContext = glWidget
+        self.glContext.makeCurrent()
 
         if filename:
             self.importLDrawModel(filename)
@@ -80,7 +78,7 @@ class Instructions(QObject):
         CSI.defaultRotation = [20.0, 45.0, 0.0]
         PLI.defaultRotation = [20.0, -45.0, 0.0]
         SubmodelPreview.defaultRotation = [20.0, 45.0, 0.0]
-        GlobalGLContext.makeCurrent()
+        self.glContext.makeCurrent()
 
     def importLDrawModel(self, filename):
         #startTime = time.time()
@@ -151,8 +149,8 @@ class Instructions(QObject):
         return self.mainModel.getFullPageList()
 
     def initGLDisplayLists(self):
-        global GlobalGLContext
-        GlobalGLContext.makeCurrent()
+
+        self.glContext.makeCurrent()
         
         # First initialize all partOGL display lists
         for part in partDictionary.values():
@@ -190,7 +188,6 @@ class Instructions(QObject):
         Calculates each uninitialized part's display width and height.
         Creates GL buffer to render a temp copy of each part, then uses those raw pixels to determine size.
         """
-        global GlobalGLContext
 
         partList, partStepCount, partDivCount = self.getPartDimensionListAndCount(reset)
         currentPartCount = currentCount = 0
@@ -204,7 +201,7 @@ class Instructions(QObject):
         for size in sizes:
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), GlobalGLContext)
+            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), self.glContext)
             pBuffer.makeCurrent()
 
             # Render each image and calculate their sizes
@@ -227,8 +224,8 @@ class Instructions(QObject):
                 partList2 = []
 
     def initCSIDimensions(self, currentCount, repositionCSI = False):
-        global GlobalGLContext
-        GlobalGLContext.makeCurrent()
+
+        self.glContext.makeCurrent()
 
         csiList = self.mainModel.getCSIList()
         if not csiList:
@@ -240,7 +237,7 @@ class Instructions(QObject):
         for size in sizes:
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), GlobalGLContext)
+            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), self.glContext)
 
             # Render each CSI and calculate its size
             for csi in csiList:
@@ -264,7 +261,7 @@ class Instructions(QObject):
                 csiList = csiList2  # Some images rendered out of frame - loop and try bigger frame
                 csiList2 = []
 
-        GlobalGLContext.makeCurrent()
+        self.glContext.makeCurrent()
 
     def initAllPLILayouts(self):
         
@@ -2061,9 +2058,10 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
         self.isSubAssembly = False  # TODO: Need to include main step number under this sub-assembly drawing
         
     def resetPixmap(self):
-        self.partOGL.resetPixmap(self.rotation, self.scaling)
+        glContext = self.getPage().instructions.glContext
+        self.partOGL.resetPixmap(glContext, self.rotation, self.scaling)
         self.setPartOGL(self.partOGL)
-        self.partOGL.resetPixmap()  # Restore partOGL - otherwise all pliItems screwed
+        self.partOGL.resetPixmap(glContext)  # Restore partOGL - otherwise all pliItems screwed
         
     def resetRect(self):
         if self.isSubAssembly:
@@ -2222,7 +2220,8 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     """
 
     def resetPixmap(self):
-        self.partOGL.resetPixmap()
+        glContext = self.getPage().instructions.glContext
+        self.partOGL.resetPixmap(glContext)
         self.parentItem().initLayout()
         
     def createPng(self):
@@ -2314,8 +2313,9 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
     
     def resetPixmap(self):
         
+        glContext = self.getPage().instructions.glContext
         for partOGL in set([item.partOGL for item in self.pliItems]):
-            partOGL.resetPixmap()
+            partOGL.resetPixmap(glContext)
         self.initLayout()
     
     def initLayout(self):
@@ -2541,26 +2541,26 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         GL.glEndList()
 
     def resetPixmap(self):
-        global GlobalGLContext
-        
+
         if not self.parts:
             self.center = QPointF()
             self.setRect(QRectF())
             self.oglDispID = GLHelpers.UNINIT_GL_DISPID
             return  # No parts = reset pixmap
-        
+
         # Temporarily enlarge CSI, in case recent changes pushed image out of existing bounds.
         oldWidth, oldHeight = self.rect().width(), self.rect().height()
         self.setRect(0.0, 0.0, Page.PageSize.width(), Page.PageSize.height())
-        
-        GlobalGLContext.makeCurrent()
+
+        glContext = self.getPage().instructions.glContext
+        glContext.makeCurrent()
         self.createOGLDisplayList()
         sizes = [512, 1024, 2048]
 
         for size in sizes:
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), GlobalGLContext)
+            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), glContext)
             pBuffer.makeCurrent()
 
             if self.initSize(size, pBuffer):
@@ -2572,7 +2572,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.moveBy(-dx, -dy)
         self.isDirty = False
 
-        GlobalGLContext.makeCurrent()
+        glContext.makeCurrent()
 
     def initSize(self, size, pBuffer):
         """
@@ -2858,10 +2858,9 @@ class PartOGL(object):
                 part.partOGL.buildSubPartOGLDict(partDict)
         partDict[self.filename] = self
     
-    def resetPixmap(self, extraRotation = None, extraScale = None):
+    def resetPixmap(self, glContext, extraRotation = None, extraScale = None):
         
-        global GlobalGLContext
-        GlobalGLContext.makeCurrent()
+        glContext.makeCurrent()
         self.createOGLDisplayList()
         sizes = [128, 256, 512, 1024, 2048]
         self.width, self.height, self.center, self.leftInset, self.bottomInset = [0] * 5
@@ -2869,7 +2868,7 @@ class PartOGL(object):
         for size in sizes:
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), GlobalGLContext)
+            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), glContext)
             pBuffer.makeCurrent()
 
             rotation = extraRotation if extraRotation else self.pliRotation
@@ -2877,7 +2876,7 @@ class PartOGL(object):
             if self.initSize(size, pBuffer, rotation, scaling):
                 break
 
-        GlobalGLContext.makeCurrent()
+        glContext.makeCurrent()
 
     def initSize(self, size, pBuffer, extraRotation = [0.0, 0.0, 0.0], extraScale = 1.0):
         """
@@ -3525,6 +3524,11 @@ class Submodel(SubmodelTreeManager, PartOGL):
         else:
             menu.addAction("Change Submodel to Callout", self.convertToCalloutSignal)
             menu.addAction("Change Submodel to Sub Assembly", self.convertToSubAssemblySignal)
+        
+        #selectedSubmodel = [x for x in self.instructions.scene.selectedItems() if isinstance(x, Submodel)]
+        #if len(selectedSubmodel) > 1 and self in selectedSubmodels:
+        #    menu.addSeparator()
+        #    menu.addAction("Copy Pages & Steps from %s to %s" % (selectedSubmodels[0].name, selectedSubmodel[1].name), None)
         menu.exec_(event.screenPos())
 
     def convertToCalloutSignal(self):
@@ -4026,22 +4030,23 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.scene().undoStack.push(action)
 
     def changePartOGL(self, filename):
-        
+
         step = self.getStep()
-        
+
         self.setParentItem(None) # Temporarily set part's parent, so it doesn't get deleted by Qt
         step.removePart(self)
-        
+
         self.filename = filename
         self.initializePartOGL()
-        
+
         if self.partOGL.oglDispID == GLHelpers.UNINIT_GL_DISPID:
+            glContext = step.getPage().instructions.glContext
             self.partOGL.createOGLDisplayList()
-            self.partOGL.resetPixmap()
-            
+            self.partOGL.resetPixmap(glContext)
+
         if self.calloutPart:
             self.calloutPart.changePartOGL(filename)
-        
+
         step.addPart(self)
         step.csi.isDirty = True
         step.csi.nextCSIIsDirty = True
@@ -4049,7 +4054,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
             step.parentItem().initLayout()
         else:
             step.initLayout()
-    
+
     def changeBasePartSignal(self):
         dir = os.path.join(config.LDrawPath, 'PARTS')
         filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open LDraw Part", dir, "LDraw Part Files (*.dat)"))
