@@ -408,7 +408,7 @@ class SubmodelTreeManager(BaseTreeManager):
         return len(self.pages) + len(self.submodels)
 
     def data(self, index):
-        return self.filename
+        return "Submodel: %s" % self.getSimpleName()
 
 class MainModelTreeManager(SubmodelTreeManager):
 

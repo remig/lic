@@ -41,6 +41,7 @@ class LicGraphicsScene(QGraphicsScene):
         self.pagesToDisplay = 1
         self.currentPage = None
         self.pages = []
+        self.selectedSubmodels = []
         self.guides = []
         self.xSnapLine = self.createSnapLine()
         self.ySnapLine = self.createSnapLine()
@@ -59,6 +60,7 @@ class LicGraphicsScene(QGraphicsScene):
 
     def clearSelection(self):
         self.clearSelectedParts()
+        self.selectedSubmodels = []
         QGraphicsScene.clearSelection(self)
         
     def clearSelectedParts(self):
@@ -93,31 +95,29 @@ class LicGraphicsScene(QGraphicsScene):
     def pageUp(self):
         self.clearSelection()
         if self.pages and self.currentPage:
-            self.selectPage(max(self.currentPage._number - 1, self.pages[0]._number))
-            self.currentPage.setSelected(True)
-            self.emit(SIGNAL("sceneClick"))
+            self.selectPageFullUpdate(max(self.currentPage._number - 1, self.pages[0]._number))
 
     def pageDown(self):
         self.clearSelection()
         if self.pages and self.currentPage:
-            self.selectPage(min(self.pages[-1]._number, self.currentPage._number + 1))
-            self.currentPage.setSelected(True)
-            self.emit(SIGNAL("sceneClick"))
+            self.selectPageFullUpdate(min(self.pages[-1]._number, self.currentPage._number + 1))
 
     def selectFirstPage(self):
         if self.pages:
-            self.selectPage(1)
-            self.currentPage.setSelected(True)
+            self.selectPageFullUpdate(1)
 
     def selectLastPage(self):
         if self.pages:
-            self.selectPage(self.pages[-1]._number)
-            self.currentPage.setSelected(True)
+            self.selectPageFullUpdate(self.pages[-1]._number)
 
     def selectCurrentPage(self):
         if self.currentPage:
-            self.selectPage(self.currentPage._number)
-            self.currentPage.setSelected(True)
+            self.selectPageFullUpdate(self.currentPage._number)
+
+    def selectPageFullUpdate(self, pageNumber):
+        self.selectPage(pageNumber)
+        self.currentPage.setSelected(True)
+        self.emit(SIGNAL("sceneClick"))
 
     def refreshView(self):
         self.setPagesToDisplay(self.pagesToDisplay)
@@ -573,7 +573,6 @@ class LicTreeView(QTreeView):
     def __init__(self, parent):
         QTreeView.__init__(self, parent)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.connect(self, SIGNAL("pressed(QModelIndex)"), self.clicked)
         self.setAcceptDrops(True)
         self.setDragEnabled(True)
         self.setAutoExpandDelay(400)
@@ -618,18 +617,13 @@ class LicTreeView(QTreeView):
         self.expandedDepth += 1
 
     def keyPressEvent(self, event):
-        
-        key = event.key()
-        if key == Qt.Key_PageUp:
-            self.scene.pageUp()
-        elif key == Qt.Key_PageDown:
-            self.scene.pageDown()
-        else:
-            QTreeView.keyPressEvent(self, event)
-            self.clicked(self.currentIndex())
+        pass  # Intentionally blank - let keyRelease do everything
     
+    def keyReleaseEvent(self, event):
+        self.scene.keyReleaseEvent(event)  # Pass all keys on to the Scene
+
     def updateTreeSelection(self):
-        """ This is called whenever the graphics scene is clicked """
+        """ This is called whenever the graphics Scene is clicked, in order to copy selection from Scene to this Tree. """
         
         # Deselect everything in the tree
         model = self.model()
@@ -646,13 +640,14 @@ class LicTreeView(QTreeView):
                 selection.select(index, QItemSelectionModel.Select)
                 self.scrollTo(index)
 
-    def clicked(self, index = None):
+    def mouseReleaseEvent(self, event):
+        """ Mouse click in Tree Widget means its selection has changed.  Copy selected items from Tree to Scene."""
 
-        if QApplication.mouseButtons() == Qt.RightButton:
+        if event.button() == Qt.RightButton:
             return  # Ignore right clicks - they're passed on to selected item for their context menu
         
         selList = self.selectionModel().selectedIndexes()
-        internalPtr = index.internalPointer()
+        internalPtr = self.indexAt(event.pos()).internalPointer()
 
         # Clear any existing selection from the graphics view
         self.scene.clearSelection()
@@ -673,6 +668,9 @@ class LicTreeView(QTreeView):
             item = index.internalPointer()
             if isinstance(item, Part):
                 partList.append(item)
+            elif isinstance(item, Submodel):
+                item.setSelected(True)
+                self.scene.selectedSubmodels.append(item)
             else:
                 item.setSelected(True)
                 
@@ -685,15 +683,10 @@ class LicTreeView(QTreeView):
 
     def contextMenuEvent(self, event):
         # Pass right clicks on to the item right-clicked on
-        selList = self.selectionModel().selectedIndexes()
-        if not selList:
-            event.ignore()
-            return
-        
-        # 'Convert' QContextMenuEvent to QGraphicsSceneContextMenuEvent
-        event.screenPos = event.globalPos
-        item = selList[-1].internalPointer()
-        return item.contextMenuEvent(event)
+        event.screenPos = event.globalPos   # 'Convert' QContextMenuEvent to QGraphicsSceneContextMenuEvent
+        item = self.indexAt(event.pos()).internalPointer()
+        if item:
+            return item.contextMenuEvent(event)
 
 class LicTreeWidget(QWidget):
     """

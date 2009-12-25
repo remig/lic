@@ -1314,14 +1314,16 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         self.arrow.initializeEndPoints()
         
     def enableStepNumbers(self):
-        for step in self.steps:
-            step.enableNumberItem()
-        self.showStepNumbers = True
+        if not self.showStepNumbers:
+            for step in self.steps:
+                step.enableNumberItem()
+            self.showStepNumbers = True
 
     def disableStepNumbers(self):
-        for step in self.steps:
-            step.disableNumberItem()
-        self.showStepNumbers = False
+        if self.showStepNumbers:
+            for step in self.steps:
+                step.disableNumberItem()
+            self.showStepNumbers = False
 
     def addQuantityLabel(self, pos = None, font = None):
         self.qtyLabel = QGraphicsSimpleTextItem("1x", self)
@@ -1685,7 +1687,15 @@ class Step(StepTreeManager, QGraphicsRectItem):
             r = QRectF(0.0, 0.0, max(1, self.maxRect.width()), max(1, self.maxRect.height()))
         else:
             r = QRectF(0.0, 0.0, 1.0, 1.0)
-        self.setRect(r | self.childrenBoundingRect())
+
+        children = self.children()
+        if not self.hasPLI() and self.pli in children:
+            children.remove(self.pli)
+
+        for child in children:
+            r |= child.boundingRect().translated(child.pos())
+
+        self.setRect(r)
         self.normalizePosition()
         if self.isInCallout():
             self.parentItem().resetRect()
@@ -3051,10 +3061,10 @@ class Submodel(SubmodelTreeManager, PartOGL):
     def getSimpleName(self):
         name = os.path.splitext(os.path.basename(self.name))[0]
         return name.replace('_', ' ')
-        
+
     def setSelected(self, selected):
         self.pages[0].setSelected(selected)
-        
+
     def importModel(self):
         """ Reads in an LDraw model file and populates this submodel with the info. """
 
@@ -3516,7 +3526,6 @@ class Submodel(SubmodelTreeManager, PartOGL):
         self.pngImage = QImage(pngFile)
 
     def contextMenuEvent(self, event):
-
         menu = QMenu()
         if self.isSubAssembly:
             menu.addAction("Change Sub Assembly to Callout", self.convertToCalloutSignal)
@@ -3524,11 +3533,14 @@ class Submodel(SubmodelTreeManager, PartOGL):
         else:
             menu.addAction("Change Submodel to Callout", self.convertToCalloutSignal)
             menu.addAction("Change Submodel to Sub Assembly", self.convertToSubAssemblySignal)
-        
-        #selectedSubmodel = [x for x in self.instructions.scene.selectedItems() if isinstance(x, Submodel)]
-        #if len(selectedSubmodel) > 1 and self in selectedSubmodels:
-        #    menu.addSeparator()
-        #    menu.addAction("Copy Pages & Steps from %s to %s" % (selectedSubmodels[0].name, selectedSubmodel[1].name), None)
+
+        selectedSubmodels = list(self.instructions.scene.selectedSubmodels)
+        if len(selectedSubmodels) == 2 and self in selectedSubmodels:
+            menu.addSeparator()
+            selectedSubmodels.remove(self)
+            names = (selectedSubmodels[0].getSimpleName(), self.getSimpleName())
+            menu.addAction("Clone Steps from '%s' to '%s'" % names, self.convertToSubAssemblySignal)
+
         menu.exec_(event.screenPos())
 
     def convertToCalloutSignal(self):
