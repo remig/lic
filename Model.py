@@ -640,7 +640,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     def show(self):
         GraphicsRoundRectItem.show(self)
         for step in self.steps:
-            if step._hasPLI:
+            if step.hasPLI():
                 step.pli.show()
 
     def addChild(self, index, child):
@@ -1631,7 +1631,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
     number = property(_getNumber, _setNumber)
 
     def hasPLI(self):
-        return self._hasPLI
+        return self._hasPLI and len(self.pli.pliItems) > 0
 
     def enablePLI(self):
         self._hasPLI = True

@@ -4,6 +4,8 @@ Lic TODO:
   - Paths to required apps (LDraw, L3P, Pov-Ray)
   - All OpenGL rendering options, notably ambient light setting
 
+- Need a logo
+
 - Surround optional 3rd party imports in try...catch blocks
 
 - Clean up load / save: we're creating a lot of objects only to totally overwrite them later in load
