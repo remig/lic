@@ -1248,7 +1248,10 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         for step in self.steps:
             partCount += step.csi.partCount()
         return partCount
-        
+
+    def isEmpty(self):
+        return len(self.steps) == 0
+
     def createBlankSubmodel(self):
         parentModel = self.getPage().parent()
         fn = "Callout_To_Submodel_%d" % self.number
@@ -1629,19 +1632,19 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
     def hasPLI(self):
         return self._hasPLI
-    
+
     def enablePLI(self):
         self._hasPLI = True
         if self.isVisible():
             self.pli.show()
-    
+
     def disablePLI(self):
         self._hasPLI = False
         self.pli.hide()
-    
+
     def isEmpty(self):
         return len(self.csi.parts) == 0
-    
+
     def addPart(self, part):
         self.csi.addPart(part)
         if self.pli and not part.isSubmodel():  # Visibility here is irrelevant
@@ -2004,16 +2007,20 @@ class Step(StepTreeManager, QGraphicsRectItem):
                 stepSet.append((step, step.parentItem(), step.parentItem().nextPage()))
         step.scene().undoStack.push(MoveStepToPageCommand(stepSet))
 
-        if scene.currentPage.isEmpty():
+        if scene.currentPage.isEmpty():  # TODO: Check if this is correct, or if it should be like mergeWithStepSignal below
             scene.undoStack.push(AddRemovePageCommand(scene, scene.currentPage, False))
     
     def mergeWithStepSignal(self, step):
+        parent = self.parentItem()
         scene = self.scene()
         scene.undoStack.push(MovePartsToStepCommand(self.csi.getPartList(), step))
         scene.undoStack.push(AddRemoveStepCommand(self, False))
 
-        if scene.currentPage.isEmpty():
-            scene.undoStack.push(AddRemovePageCommand(scene, scene.currentPage, False))
+        if parent.isEmpty():
+            if self.isInCallout():
+                scene.undoStack.push(AddRemoveCalloutCommand(parent, False))
+            else:
+                scene.undoStack.push(AddRemovePageCommand(scene, parent, False))
             
     def swapWithStepSignal(self, step):
         self.scene().undoStack.push(SwapStepsCommand(self, step))
@@ -2189,6 +2196,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     def resetRect(self):
         glRect = QRectF(0.0, 0.0, self.partOGL.width, self.partOGL.height)
         self.setRect(self.childrenBoundingRect() | glRect)
+        self.normalizePosition()
         self.parentItem().resetRect()
         
     def initLayout(self):
@@ -2214,7 +2222,8 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             self.lengthIndicator.setPos(self.partOGL.width, 0)  # Top left corner of PLIItem
             self.numberItem.moveBy(0, self.lengthIndicator.rect().height())
 
-        self.resetRect()
+        glRect = QRectF(0.0, 0.0, self.partOGL.width, self.partOGL.height)
+        self.setRect(self.childrenBoundingRect() | glRect)
 
     def paintGL(self, f = 1.0):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
@@ -2342,10 +2351,8 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
             return
 
         # Initialize each item in this PLI, so they have good rects and properly positioned quantity labels
-        stepRect = self.parentItem().rect()
         for item in self.pliItems:
             item.initLayout()
-        self.parentItem().setRect(stepRect)  # Save & Restore Step's rect, because it might have changed in PLItem layout
 
         # Sort list of parts to lay out first by color (in reverse order), then by width (narrowest first), then remove tallest part, to be added first
         partList = list(self.pliItems)
@@ -3539,10 +3546,27 @@ class Submodel(SubmodelTreeManager, PartOGL):
             menu.addSeparator()
             selectedSubmodels.remove(self)
             names = (selectedSubmodels[0].getSimpleName(), self.getSimpleName())
-            menu.addAction("Clone Steps from '%s' to '%s'" % names, self.convertToSubAssemblySignal)
+            menu.addAction("Clone Steps from '%s' to '%s'" % names, lambda: self.cloneStepsFrom(selectedSubmodels[0]))
 
         menu.exec_(event.screenPos())
 
+    def cloneStepsFrom(self, submodel):
+        # Remove all steps from destination submodel (self)
+        step = self.pages[0].steps[0]
+        nextStep = step.getNextStep()
+        while nextStep is not None:
+            nextStep.mergeWithStepSignal(step)
+            nextStep = step.getNextStep()
+
+        # Now have self with one page & one step & one really full csi, and submodel with lots of pages & steps - clone away
+        for page in submodel.pages:
+            if page is not submodel.pages[0]:
+                self.appendBlankPage()
+            for step in page.steps:
+                if page is not submodel.pages[0] and step is not page.steps[0]:
+                    self.pages[-1].addBlankStep()
+            self.pages[-1].initLayout()
+            
     def convertToCalloutSignal(self):
         self.pages[0].scene().undoStack.push(SubmodelToCalloutCommand(self))
 
