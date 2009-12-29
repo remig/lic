@@ -3550,6 +3550,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
         else:
             menu.addAction("Change Submodel to Callout", self.convertToCalloutSignal)
             menu.addAction("Change Submodel to Sub Assembly", self.convertToSubAssemblySignal)
+        menu.addAction("Remove all Pages & Steps", self.removeAllPagesAndSteps)
 
         selectedSubmodels = list(self.instructions.scene.selectedSubmodels)
         if len(selectedSubmodels) == 2 and self in selectedSubmodels:
@@ -3559,6 +3560,15 @@ class Submodel(SubmodelTreeManager, PartOGL):
             menu.addAction("Clone Steps from '%s' to '%s'" % names, lambda: self.cloneStepsFrom(selectedSubmodels[0]))
 
         menu.exec_(event.screenPos())
+
+    def removeAllPagesAndSteps(self):
+        self.instructions.scene.undoStack.beginMacro("remove all Pages and Steps")
+        step = self.pages[0].steps[0]
+        nextStep = step.getNextStep()
+        while nextStep is not None:
+            nextStep.mergeWithStepSignal(step)
+            nextStep = step.getNextStep()
+        self.instructions.scene.undoStack.endMacro()
 
     def cloneStepsFrom(self, submodel):
 
@@ -4030,6 +4040,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         if not self.originalPart:
             menu.addAction("Change Color", self.changeColorSignal)
             menu.addAction("Change Part", self.changeBasePartSignal)
+            menu.addAction("Change Part Position", self.changePartPositionSignal)
         
         menu.exec_(event.screenPos())
 
@@ -4084,7 +4095,6 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.scene().undoStack.push(action)
 
     def adjustDisplaceSignal(self):
-
         parentWidget = self.scene().views()[0]
         dialog = LicDialogs.DisplaceDlg(parentWidget, self.displacement, self.displaceDirection)
         parentWidget.connect(dialog, SIGNAL("changeDisplacement"), self.changeDisplacement)
@@ -4163,12 +4173,36 @@ class Part(PartTreeManager, QGraphicsRectItem):
         else:
             step.initLayout()
 
-    def changeBasePartSignal(self):
+    def changeBasePartSignal(self):  # TODO: check that this updates any Submodel Previews & main model CSIs
         dir = os.path.join(config.LDrawPath, 'PARTS')
         filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open LDraw Part", dir, "LDraw Part Files (*.dat)"))
         fn = os.path.basename(filename)
         if fn and fn != self.filename:
             self.scene().undoStack.push(ChangePartOGLCommand(self, fn))
+
+    def changePartPositionSignal(self):
+        # TODO: Add support for rotating parts.  see this for matrix -> angle decomposition
+        # http://en.wikipedia.org/wiki/Rotation_matrix#Axis_and_angle
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.PositionRotationDlg(parentWidget, self.getXYZ(), self.getXYZ())
+        parentWidget.connect(dialog, SIGNAL("change"), self.changePosition)
+        parentWidget.connect(dialog, SIGNAL("accept"), self.acceptPosition)
+        dialog.exec_()
+
+    def changePosition(self, newPosition, newRotation):
+        self.matrix[12] = newPosition[0]
+        self.matrix[13] = newPosition[1]
+        self.matrix[14] = newPosition[2]
+
+        self.getCSI().isDirty = True
+        self.getCSI().nextCSIIsDirty = True
+        self._dataString = None
+        if self.calloutPart:
+            self.calloutPart.changePosition(newPosition, newRotation)
+        self.update()
+
+    def acceptPosition(self, newPosition, newRotation):
+        print newPosition, newRotation
 
 class Arrow(Part):
     itemClassName = "Arrow"

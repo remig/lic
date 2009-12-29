@@ -756,3 +756,44 @@ class ArrowDisplaceDlg(QDialog):
         self.emit(SIGNAL("changeLength"), self.originalLength)
         self.emit(SIGNAL("changeRotation"), self.originalRotation)
         QDialog.reject(self)
+
+class PositionRotationDlg(QDialog):
+
+    def __init__(self, parent, position, rotation):
+        QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle(self.tr("Change Position and Rotation"))
+        self.originalPosition, self.originalRotation = position, rotation
+
+        self.xyzWidget = XYZWidget(self.positionChanged, -5000, 5000, *position)
+        posLabel = QLabel(self.tr("Position:"))
+        posLabel.setBuddy(self.xyzWidget)
+
+        self.rotationWidget = XYZWidget(self.positionChanged, -360, 360, *rotation)
+        rotLabel = QLabel(self.tr("Rotation:"))
+        rotLabel.setBuddy(self.rotationWidget)
+
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
+        self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
+        self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
+
+        mainLayout = QGridLayout(self)
+        mainLayout.setSizeConstraint(QLayout.SetFixedSize)
+        mainLayout.addWidget(posLabel, 0, 0)
+        mainLayout.addWidget(self.xyzWidget, 1, 0)
+        #mainLayout.addWidget(rotLabel, 2, 0)
+        #mainLayout.addWidget(self.rotationWidget, 3, 0)
+        mainLayout.addWidget(buttonBox, 4, 0)
+
+        self.xyzWidget.selectFirst()
+
+    def positionChanged(self):
+        self.emit(SIGNAL("change"), self.xyzWidget.xyz(), self.rotationWidget.xyz())
+
+    def accept(self):
+        self.emit(SIGNAL("accept"), self.originalPosition, self.originalRotation)
+        QDialog.accept(self)
+
+    def reject(self):
+        self.emit(SIGNAL("change"), self.originalPosition, self.originalRotation)
+        QDialog.reject(self)

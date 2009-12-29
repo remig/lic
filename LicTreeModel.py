@@ -130,6 +130,8 @@ class LicTreeModel(QAbstractItemModel):
     def updatePersistentIndices(self):
         for index in self.persistentIndexList():
             item = index.internalPointer()
+            if item is None:
+                continue  # Happens whenever we delete a persistent index (below)
             newIndex = QModelIndex()
             if item and item.parent():
                 newIndex = self.createIndex(item.row(), 0, item)
