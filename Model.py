@@ -1933,14 +1933,14 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
     def contextMenuEvent(self, event):
 
-        selectedSteps = []
-        for item in self.scene().selectedItems():
-            if isinstance(item, Step):
-                selectedSteps.append(item)
-
         menu = QMenu(self.scene().views()[0])
         undo = self.scene().undoStack
         parent = self.parentItem()
+
+        selList = self.scene().selectedItems()
+        if len(selList) > 1 and all(isinstance(item, Step) for item in selList):
+            menu.addAction("Merge selected Steps", self.mergeAllStepsSignal)
+            menu.addSeparator()
 
         if isinstance(parent, Page):
             if parent.prevPage() and parent.steps[0] is self:
@@ -1982,12 +1982,12 @@ class Step(StepTreeManager, QGraphicsRectItem):
             self.scene().undoStack.push(AddRemoveCalloutCommand(callout, True))
         else:
             self.addCallout(callout)
-            
+
         if useSelection:
             self.scene().fullItemSelectionUpdate(callout)
 
         return callout
-    
+
     def moveToPrevPage(self):
         scene = self.scene()
         stepSet = []
@@ -1998,7 +1998,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         if scene.currentPage.isEmpty():
             scene.undoStack.push(AddRemovePageCommand(scene, scene.currentPage, False))
-        
+
     def moveToNextPage(self):
         scene = self.scene()
         stepSet = []
@@ -2009,7 +2009,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         if scene.currentPage.isEmpty():  # TODO: Check if this is correct, or if it should be like mergeWithStepSignal below
             scene.undoStack.push(AddRemovePageCommand(scene, scene.currentPage, False))
-    
+
     def mergeWithStepSignal(self, step):
         parent = self.parentItem()
         scene = self.scene()
@@ -2021,7 +2021,17 @@ class Step(StepTreeManager, QGraphicsRectItem):
                 scene.undoStack.push(AddRemoveCalloutCommand(parent, False))
             else:
                 scene.undoStack.push(AddRemovePageCommand(scene, parent, False))
-            
+
+    def mergeAllStepsSignal(self):
+        scene = self.scene()
+        scene.undoStack.beginMacro("merge multiple Steps")
+        selList = scene.selectedItems()
+        assert len(selList) > 1 and self in selList and all(isinstance(item, Step) for item in selList), "Bad selection list passed to mergeAllSteps" 
+        selList.remove(self)
+        for step in selList:
+            step.mergeWithStepSignal(self)
+        scene.undoStack.endMacro()
+
     def swapWithStepSignal(self, step):
         self.scene().undoStack.push(SwapStepsCommand(self, step))
 
@@ -3579,16 +3589,24 @@ class Submodel(SubmodelTreeManager, PartOGL):
                 if step is submodel.pages[-1].steps[-1]:
                     break  # At last step: done
 
-                # Move all the parts in self.currentStep to self.nextStep, except those in submodel.step
+                # Remove all parts in submodel's current Step from the list of parts to be moved to next step
                 partList = currentStep.csi.getPartList()
                 for part in step.csi.getPartList():
                     matchList = [(p.getPositionMatch(part),  p) for p in partList if p.color == part.color and p.filename == part.filename]
-                    partList.remove(max(matchList)[1])
+                    if matchList:
+                        partList.remove(max(matchList)[1])
+                    else:  # Try finding a match by ignoring color 
+                        matchList = [(p.getPositionMatch(part),  p) for p in partList if p.filename == part.filename]
+                        if matchList:
+                            partList.remove(max(matchList)[1])  # no match list means submodel has part not in self, which we ignore utterly, which is fine
 
-                for part in partList:
+                for part in partList:  # Move all parts to the next step
                     part.setParentItem(nextStep)
                     currentStep.removePart(part)
                     nextStep.addPart(part)
+
+                if currentStep.isEmpty():  # Check if any part are left
+                    currentStep.parentItem().removeStep(currentStep)
 
                 currentStep = nextStep
                 nextStep = nextStep.getNextStep()

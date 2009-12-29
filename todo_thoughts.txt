@@ -15,8 +15,6 @@ Lic TODO:
 
 - Add status indicator to file->open operation
 
-- Add 'Merge all Steps' context menu to merge all selected Steps in one go
-
 - Add Snap to Center of page items, not just left / right edges
 
 - Pages that span multiple Submodels (ie, last step of Submodel on same page as MainModel step that adds submodel)
