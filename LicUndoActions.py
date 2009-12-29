@@ -806,11 +806,11 @@ class TogglePLIs(QUndoCommand):
             self.template.instructions.mainModel.showHidePLIs(False, True)
         self.template.scene().emit(SIGNAL("layoutChanged()"))
         self.template.initLayout()
-                
+
 class ChangePartColorCommand(QUndoCommand):
-    
+
     _id = getNewCommandID()
-    
+
     def __init__(self, part, oldColor, newColor):
         QUndoCommand.__init__(self, "Change Part color")
         self.part, self.oldColor, self.newColor = part, oldColor, newColor
@@ -843,6 +843,20 @@ class ChangePartOGLCommand(QUndoCommand):
         
         scene.update()
         scene.emit(SIGNAL("layoutChanged()"))
+
+class ChangePartPositionCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, part, oldPos, newPos):
+        QUndoCommand.__init__(self, "Change Part position")
+        self.part, self.oldPos, self.newPos = part, oldPos, newPos
+
+    def doAction(self, redo):
+        self.part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        pos = self.newPos if redo else self.oldPos
+        self.part.changePosition(pos, pos)
+        self.part.scene().emit(SIGNAL("layoutChanged()"))
 
 class SubmodelToCalloutCommand(QUndoCommand):
     
@@ -973,12 +987,12 @@ class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
         scene.selectPage(submodel.pages[0].number)
         submodel.pages[0].setSelected(True)
         scene.emit(SIGNAL("sceneClick"))
-    
+
     def undo(self):
         scene = self.targetStep.scene()
         scene.clearSelection()
         scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-        
+
         self.targetStep.removePart(self.newPart)
         self.parentModel.removeSubmodel(self.submodel)
         for part in self.submodel.parts:
@@ -987,7 +1001,7 @@ class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
         self.targetStep.addCallout(self.callout)
         self.targetStep.initLayout()
         self.callout.initLayout()
-        
+
         scene.emit(SIGNAL("layoutChanged()"))
         scene.selectPage(self.targetStep.parentItem().number)
         self.callout.setSelected(True)
@@ -1009,3 +1023,107 @@ class SubmodelToFromSubAssembly(QUndoCommand):
         self.submodel.showHidePLIs(not do)
         submodelItem = self.submodel.pages[0].submodelItem
         submodelItem.convertToSubAssembly() if do else submodelItem.convertToSubmodel()
+
+class ClonePageStepsFromSubmodel(QUndoCommand):
+
+    _id = getNewCommandID()
+    
+    def __init__(self, targetSubmodel, destinationSubmodel):
+        QUndoCommand.__init__(self, "clone Submodel Pages and Steps")
+        self.target, self.destination = targetSubmodel, destinationSubmodel
+
+        self.originalPageList = []
+        for page in self.destination.pages:
+            self.originalPageList.append((page, page._row, page._number))
+
+        self.partPageStepList = []
+        for part in self.destination.parts:
+            pageNumber, stepNumber = part.getCSI().getPageStepNumberPair()
+            self.partPageStepList.append((part, pageNumber, stepNumber))
+
+    def redo(self):
+
+        dest = self.destination
+        scene = dest.instructions.scene
+        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+
+        # Remove all Pages and Steps from destination submodel
+        for page in list(dest.pages):
+            dest.deletePage(page)
+
+        # Now have toally empty dest, and submodel with lots of pages & steps
+        # Add the right number of blank pages and steps
+        for page in self.target.pages:
+            dest.appendBlankPage()
+            dest.pages[-1].layout.orientation = page.layout.orientation
+            for step in page.steps[1:]:  # skip first Step because appendBlankPage() adds one Step automatically
+                dest.pages[-1].addBlankStep()
+
+        currentStep = dest.pages[0].steps[0]
+        nextStep = currentStep.getNextStep()
+
+        # Copy all parts in dest submodel to its first CSI
+        for part in dest.parts:
+            currentStep.addPart(part)
+
+        for page in self.target.pages:
+            for step in page.steps:
+
+                if step is self.target.pages[-1].steps[-1]:
+                    break  # At last step: done
+
+                # Remove all parts in submodel's current Step from the list of parts to be moved to next step
+                partList = currentStep.csi.getPartList()
+                for part in step.csi.getPartList():
+                    matchList = [(p.getPositionMatch(part),  p) for p in partList if p.color == part.color and p.filename == part.filename]
+                    if matchList:
+                        partList.remove(max(matchList)[1])
+                    else:  # Try finding a match by ignoring color 
+                        matchList = [(p.getPositionMatch(part),  p) for p in partList if p.filename == part.filename]
+                        if matchList:
+                            partList.remove(max(matchList)[1])  # no match list means submodel has part not in dest, which we ignore utterly, which is fine
+
+                for part in partList:  # Move all parts to the next step
+                    part.setParentItem(nextStep)
+                    currentStep.removePart(part)
+                    nextStep.addPart(part)
+
+                if currentStep.isEmpty():  # Check if any part are left
+                    currentStep.parentItem().removeStep(currentStep)
+
+                currentStep = nextStep
+                nextStep = nextStep.getNextStep()
+
+        if self.target.pages[0].submodelItem:
+            dest.pages[0].addSubmodelImage()
+
+        for page in dest.pages:
+            for step in page.steps:
+                step.csi.isDirty = True
+            page.initLayout()
+
+        dest.instructions.mainModel.syncPageNumbers()
+        scene.emit(SIGNAL("layoutChanged()"))
+
+    def undo(self):
+        dest = self.destination
+        scene = dest.instructions.scene
+        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+
+        for part in dest.parts:
+            part.setParentItem(None)  # About to delete the pages these parts live on, so change parents so Qt doesn't delete them
+
+        for page in list(dest.pages):
+            dest.deletePage(page)
+
+        for page, row, number in self.originalPageList:
+            page._row, page.number = row, number
+            dest.addPage(page)
+
+        for part, pageNumber, stepNumber in self.partPageStepList:
+            page = dest.getPage(pageNumber)
+            csi = page.getStep(stepNumber).csi
+            csi.addPart(part)
+
+        scene.fullItemSelectionUpdate(dest.pages[0])
+        scene.emit(SIGNAL("layoutChanged()"))

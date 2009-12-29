@@ -3384,7 +3384,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
     def deletePage(self, page):
 
         for p in self.pages:
-            if p._row > page._row: 
+            if p._row > page._row:
                 p._row -= 1
 
         for s in self.submodels:
@@ -3557,7 +3557,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
             menu.addSeparator()
             selectedSubmodels.remove(self)
             names = (selectedSubmodels[0].getSimpleName(), self.getSimpleName())
-            menu.addAction("Clone Steps from '%s' to '%s'" % names, lambda: self.cloneStepsFrom(selectedSubmodels[0]))
+            menu.addAction("Clone Steps from '%s' to '%s'" % names, lambda: self.cloneStepsFromSubmodel(selectedSubmodels[0]))
 
         menu.exec_(event.screenPos())
 
@@ -3570,64 +3570,9 @@ class Submodel(SubmodelTreeManager, PartOGL):
             nextStep = step.getNextStep()
         self.instructions.scene.undoStack.endMacro()
 
-    def cloneStepsFrom(self, submodel):
-
-        scene = self.instructions.scene
-        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-
-        # Remove all steps from destination submodel (self)
-        step = self.pages[0].steps[0]
-        nextStep = step.getNextStep()
-        while nextStep is not None:
-            nextStep.mergeWithStepSignal(step)
-            nextStep = step.getNextStep()
-
-        # Now have self with one page & one step & one really full csi, and submodel with lots of pages & steps - clone away
-        for page in submodel.pages:
-            if page is not submodel.pages[0]:
-                self.appendBlankPage()
-                self.pages[-1].layout.orientation = page.layout.orientation
-            for step in page.steps:
-                if step is not page.steps[0]:
-                    self.pages[-1].addBlankStep()
-
-        currentStep = self.pages[0].steps[0]  # This points to the step with all the parts
-        nextStep = currentStep.getNextStep()
-        for page in submodel.pages:
-            for step in page.steps:
-
-                if step is submodel.pages[-1].steps[-1]:
-                    break  # At last step: done
-
-                # Remove all parts in submodel's current Step from the list of parts to be moved to next step
-                partList = currentStep.csi.getPartList()
-                for part in step.csi.getPartList():
-                    matchList = [(p.getPositionMatch(part),  p) for p in partList if p.color == part.color and p.filename == part.filename]
-                    if matchList:
-                        partList.remove(max(matchList)[1])
-                    else:  # Try finding a match by ignoring color 
-                        matchList = [(p.getPositionMatch(part),  p) for p in partList if p.filename == part.filename]
-                        if matchList:
-                            partList.remove(max(matchList)[1])  # no match list means submodel has part not in self, which we ignore utterly, which is fine
-
-                for part in partList:  # Move all parts to the next step
-                    part.setParentItem(nextStep)
-                    currentStep.removePart(part)
-                    nextStep.addPart(part)
-
-                if currentStep.isEmpty():  # Check if any part are left
-                    currentStep.parentItem().removeStep(currentStep)
-
-                currentStep = nextStep
-                nextStep = nextStep.getNextStep()
-
-        for page in self.pages:
-            for step in page.steps:
-                step.csi.isDirty = True
-            page.initLayout()
-
-        self.instructions.mainModel.syncPageNumbers()
-        scene.emit(SIGNAL("layoutChanged()"))
+    def cloneStepsFromSubmodel(self, submodel):
+        action = ClonePageStepsFromSubmodel(submodel, self)
+        self.instructions.scene.undoStack.push(action)
 
     def convertToCalloutSignal(self):
         self.pages[0].scene().undoStack.push(SubmodelToCalloutCommand(self))
@@ -4201,8 +4146,9 @@ class Part(PartTreeManager, QGraphicsRectItem):
             self.calloutPart.changePosition(newPosition, newRotation)
         self.update()
 
-    def acceptPosition(self, newPosition, newRotation):
-        print newPosition, newRotation
+    def acceptPosition(self, oldPosition, oldRotation):
+        action = ChangePartPositionCommand(self, oldPosition, self.getXYZ())
+        self.scene().undoStack.push(action)
 
 class Arrow(Part):
     itemClassName = "Arrow"
