@@ -140,9 +140,6 @@ def __readInstructions(stream, instructions):
     for i in range(stream.readInt32()):
         instructions.scene.addGuide(stream.readInt32(), stream.readQPointF())
 
-    for model in submodelDictionary.values():
-        __linkModelPartNames(model)
-
     __linkModelPartNames(instructions.mainModel)
 
     for submodel in submodelDictionary.values():

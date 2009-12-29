@@ -1409,7 +1409,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             else:
                 del(Part.__eq__)
                 return False
-            
+
         del(Part.__eq__)
         return True
     
@@ -3110,7 +3110,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
                 return
             if isValidStepLine(line):
                 self.hasImportedSteps = True
-                newPage = self.appendBlankPage()
+                self.appendBlankPage()
             if isValidPartLine(line):
                 self.addPartFromLine(lineToPart(line))
 
@@ -3446,10 +3446,10 @@ class Submodel(SubmodelTreeManager, PartOGL):
         return Part(self.filename, matrix = IdentityMatrix())
 
     def addPartFromLine(self, p):
-        
+
         # First ensure we have a step in this submodel, so we can add the new part to it.
         if not self.pages:
-            newPage = self.appendBlankPage()
+            self.appendBlankPage()
 
         part = PartOGL.addPartFromLine(self, p)
         if not part:
@@ -3551,6 +3551,10 @@ class Submodel(SubmodelTreeManager, PartOGL):
         menu.exec_(event.screenPos())
 
     def cloneStepsFrom(self, submodel):
+
+        scene = self.instructions.scene
+        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+
         # Remove all steps from destination submodel (self)
         step = self.pages[0].steps[0]
         nextStep = step.getNextStep()
@@ -3562,11 +3566,41 @@ class Submodel(SubmodelTreeManager, PartOGL):
         for page in submodel.pages:
             if page is not submodel.pages[0]:
                 self.appendBlankPage()
+                self.pages[-1].layout.orientation = page.layout.orientation
             for step in page.steps:
-                if page is not submodel.pages[0] and step is not page.steps[0]:
+                if step is not page.steps[0]:
                     self.pages[-1].addBlankStep()
-            self.pages[-1].initLayout()
-            
+
+        currentStep = self.pages[0].steps[0]  # This points to the step with all the parts
+        nextStep = currentStep.getNextStep()
+        for page in submodel.pages:
+            for step in page.steps:
+
+                if step is submodel.pages[-1].steps[-1]:
+                    break  # At last step: done
+
+                # Move all the parts in self.currentStep to self.nextStep, except those in submodel.step
+                partList = currentStep.csi.getPartList()
+                for part in step.csi.getPartList():
+                    matchList = [(p.getPositionMatch(part),  p) for p in partList if p.color == part.color and p.filename == part.filename]
+                    partList.remove(max(matchList)[1])
+
+                for part in partList:
+                    part.setParentItem(nextStep)
+                    currentStep.removePart(part)
+                    nextStep.addPart(part)
+
+                currentStep = nextStep
+                nextStep = nextStep.getNextStep()
+
+        for page in self.pages:
+            for step in page.steps:
+                step.csi.isDirty = True
+            page.initLayout()
+
+        self.instructions.mainModel.syncPageNumbers()
+        scene.emit(SIGNAL("layoutChanged()"))
+
     def convertToCalloutSignal(self):
         self.pages[0].scene().undoStack.push(SubmodelToCalloutCommand(self))
 
@@ -3588,7 +3622,7 @@ class Mainmodel(MainModelTreeManager, Submodel):
         self._hasTitlePage = False
         self.titlePage = None
 
-        self.hasPartListPages = False
+        self.hasPartListPages = False  # TODO: Implement mainModel.hasPartListPages so user can show / hide part list pages, like title pages
         self.partListPages = []
 
     def hasTitlePage(self):
@@ -3646,7 +3680,21 @@ class Mainmodel(MainModelTreeManager, Submodel):
         self.partListPages = p1.createPartListPages(self.instructions)
         
     def syncPageNumbers(self, firstPageNumber = 1):
-        Submodel.syncPageNumbers(self, firstPageNumber + 1)
+
+        rowList = [self.titlePage] if self.hasTitlePage() else []
+        rowList += self.pages + self.submodels
+        rowList += self.partListPages
+        rowList.sort(key = lambda x: x._row)
+
+        pageNumber = firstPageNumber
+        for item in rowList:
+            if isinstance(item, Page):
+                item.number = pageNumber
+                pageNumber += 1
+            elif isinstance(item, Submodel):
+                pageNumber = item.syncPageNumbers(pageNumber)
+
+        return pageNumber
 
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
     itemClassName = "Part Tree Item"
@@ -3786,6 +3834,12 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
     def zSize(self):
         return self.getPartBoundingBox().zSize()
+
+    def getPositionMatch(self, part):
+        score = 0
+        for a, b in zip(self.getXYZ(), part.getXYZ()):
+            score += 2 if a == b else (1.0 / abs(a-b))
+        return score
 
     def getCSI(self):
         return self.parentItem().parentItem()

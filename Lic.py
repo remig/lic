@@ -1183,6 +1183,7 @@ class LicWindow(QMainWindow):
         self.instructions.mainModel.addTitlePage(TitlePage(self.instructions))
         self.instructions.mainModel.titlePage.addInitialContent()
         self.instructions.mainModel.incrementRows(1)
+        self.instructions.mainModel.syncPageNumbers()
         
         self.scene.emit(SIGNAL("layoutChanged()"))
         self.scene.selectPage(1)
