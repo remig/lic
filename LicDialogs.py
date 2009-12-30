@@ -664,19 +664,19 @@ class DisplaceDlg(QDialog):
 
         self.xyzWidget.hide()
         self.sizeSpinBox.selectAll()
-        
+
     def sizeChanged(self):
         newSize = self.sizeSpinBox.value()
         displacement = Helpers.distanceToDisplacement(newSize, self.direction)
         self.emit(SIGNAL("changeDisplacement"), displacement, self.arrowCheckBox.isChecked())
-        
+
     def displacementChanged(self):
         self.emit(SIGNAL("changeDisplacement"), self.xyzWidget.xyz(), self.arrowCheckBox.isChecked())
-    
+
     def accept(self):
         self.emit(SIGNAL("acceptDisplacement"), self.originalDisplacement, self.arrowCheckBox.isChecked())
         QDialog.accept(self)
-        
+
     def reject(self):
         self.emit(SIGNAL("changeDisplacement"), self.originalDisplacement, self.arrowCheckBox.isChecked())
         QDialog.reject(self)
@@ -695,7 +695,7 @@ class ArrowDisplaceDlg(QDialog):
         sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, -500, 500, self.sizeChanged)
         lengthLabel, self.lengthSpinBox = self.makeLabelSpinBox(self.tr("&Length:"), arrow.getLength(), -500, 500, self.lengthChanged)
         rotationLabel, self.rotationSpinBox = self.makeLabelSpinBox(self.tr("&Rotation:"), arrow.axisRotation, -360, 360, self.rotationChanged)
-        
+
         buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
         self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
@@ -723,34 +723,34 @@ class ArrowDisplaceDlg(QDialog):
         mainLayout.addWidget(self.lengthSpinBox, 1, 1)
         mainLayout.addWidget(rotationLabel, 2, 0)
         mainLayout.addWidget(self.rotationSpinBox, 2, 1)
-        
+
         mainLayout.addWidget(self.moreButton, 3, 0, 1, 2)
         mainLayout.addWidget(extension, 4, 0, 1, 2)
         mainLayout.addWidget(buttonBox, 5, 0, 1, 2)
 
         extension.hide()
         self.sizeSpinBox.selectAll()
-        
+
     def sizeChanged(self):
         newSize = self.sizeSpinBox.value()
         displacement = Helpers.distanceToDisplacement(newSize, self.arrow.displaceDirection)
         self.emit(SIGNAL("changeDisplacement"), displacement)
-        
+
     def lengthChanged(self):
         newLength = self.lengthSpinBox.value()
         self.emit(SIGNAL("changeLength"), newLength)
-    
+
     def rotationChanged(self):
         newRotation = self.rotationSpinBox.value()
         self.emit(SIGNAL("changeRotation"), newRotation)
-        
+
     def displacementChanged(self):
         self.emit(SIGNAL("changeDisplacement"), self.tipXYZWidget.xyz())
-    
+
     def accept(self):
         self.emit(SIGNAL("accept"), self.originalDisplacement, self.originalLength, self.originalRotation)
         QDialog.accept(self)
-        
+
     def reject(self):
         self.emit(SIGNAL("changeDisplacement"), self.originalDisplacement)
         self.emit(SIGNAL("changeLength"), self.originalLength)

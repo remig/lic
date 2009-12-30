@@ -28,7 +28,7 @@ class PartListPLI(PLI):
 
         # If this PLI is empty, nothing to do here
         if len(self.pliItems) < 1:
-            return
+            return []
 
         # Initialize each item in this PLI, so they have good rects and properly positioned quantity labels
         for item in self.pliItems:

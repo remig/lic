@@ -1,7 +1,6 @@
 Lic TODO:
 
 - Need to give user a way to specify:
-  - Paths to required apps (LDraw, L3P, Pov-Ray)
   - All OpenGL rendering options, notably ambient light setting
 
 - Need a logo

@@ -48,7 +48,7 @@ os.environ['LDRAWDIR'] = config.LDrawPath
 # d: {'camera position' : [20,-45,0], 'inputFile' : 'hello.dat'}
 def __runCommand(d):
     
-    l3pApp = config.L3P
+    l3pApp = config.L3PPath
     if not os.path.isfile(l3pApp):
         print "Error: Could not find L3p - aborting image generation"
         return

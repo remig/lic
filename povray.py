@@ -48,7 +48,7 @@ povCommands = {
 
 def __runCommand(d):
 
-    povray = config.POVRay
+    povray = config.POVRayPath
     if not os.path.isfile(povray):
         print "Error: Could not find Pov-Ray - aborting image generation"
         return

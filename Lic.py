@@ -857,6 +857,18 @@ class LicWindow(QMainWindow):
         self.pagesToDisplay = settings.value("PageView").toInt()[0]
         self.snapToGuides = settings.value("SnapToGuides").toBool()
         self.snapToItems = settings.value("SnapToItems").toBool()
+
+        LDrawPath = str(settings.value("LDrawPath").toString())
+        L3PPath = str(settings.value("L3PPath").toString())
+        POVRayPath = str(settings.value("POVRayPath").toString())
+
+        if LDrawPath and L3PPath and POVRayPath:
+            config.LDrawPath = LDrawPath 
+            config.L3PPath = L3PPath 
+            config.POVRayPath = POVRayPath
+            self.needPathConfiguration = False
+        else:
+            self.needPathConfiguration = True
     
     def saveSettings(self):
         settings = self.getSettingsFile()
@@ -868,12 +880,20 @@ class LicWindow(QMainWindow):
         settings.setValue("PageView", QVariant(str(self.scene.pagesToDisplay)))
         settings.setValue("SnapToGuides", QVariant(str(self.scene.snapToGuides)))
         settings.setValue("SnapToItems", QVariant(str(self.scene.snapToItems)))
-        
+
+        settings.setValue("LDrawPath", QVariant(config.LDrawPath))
+        settings.setValue("L3PPath", QVariant(config.L3PPath))
+        settings.setValue("POVRayPath", QVariant(config.POVRayPath))
+
     def copySettingsToScene(self):
         self.scene.setPagesToDisplay(self.pagesToDisplay)
         self.scene.snapToGuides = self.snapToGuides
         self.scene.snapToItems = self.snapToItems
-        
+
+    def configurePaths(self, hideCancelButton = False):
+        dialog = config.PathsDialog(self, hideCancelButton)
+        dialog.exec_()
+
     def __getFilename(self):
         return self.__filename
     
@@ -954,6 +974,9 @@ class LicWindow(QMainWindow):
         snapMenu = self.editMenu.addMenu("Snap To")
         snapMenu.addAction(guideSnapAction)
         snapMenu.addAction(itemSnapAction)
+
+        self.setPathsAction = self.createMenuAction("Paths...", self.configurePaths, None, "Set paths to LDraw parts, L3p, POVRay, etc")
+        self.editMenu.addAction(self.setPathsAction)
 
         # View Menu
         self.viewMenu = menu.addMenu("&View")
@@ -1317,6 +1340,9 @@ def main():
         pass
 
     window.show()
+    if window.needPathConfiguration:
+        window.configurePaths(True)
+
     filename = ""
     #filename = unicode("C:/lic/viper.mpd")
     #filename = unicode("C:/lic/6x10.lic")
