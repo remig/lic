@@ -821,7 +821,15 @@ class ChangePartColorCommand(QUndoCommand):
         self.part.changeColor(newColor)
         if self.part.getStep().pli:
             self.part.getStep().pli.changePartColor(self.part, oldColor, newColor)
-        self.part.getPage().instructions.mainModel.updatePartList()
+
+        page = self.part.getPage()
+        if page.instructions.mainModel.hasTitlePage():
+            page.instructions.mainModel.titlePage.submodelItem.resetPixmap()
+
+        if page.subModel.pages[0].submodelItem:
+            page.subModel.pages[0].submodelItem.resetPixmap()
+
+        page.instructions.mainModel.updatePartList()
         self.part.scene().emit(SIGNAL("layoutChanged()"))
 
 class ChangePartOGLCommand(QUndoCommand):
@@ -837,12 +845,21 @@ class ChangePartOGLCommand(QUndoCommand):
         scene = self.part.scene()
         scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         scene.clearSelection()
-        
+
         self.part.changePartOGL(self.newFilename if redo else self.oldFilename)
-        self.part.getPage().instructions.mainModel.updatePartList()
-        
-        scene.update()
+
+        page = self.part.getPage()
+        if page.instructions.mainModel.hasTitlePage():
+            page.instructions.mainModel.titlePage.submodelItem.resetPixmap()
+
+        if page.subModel.pages[0].submodelItem:
+            page.subModel.pages[0].submodelItem.resetPixmap()
+
+        page.instructions.mainModel.updatePartList()
         scene.emit(SIGNAL("layoutChanged()"))
+
+        page.initLayout()
+        scene.update()
 
 class ChangePartPositionCommand(QUndoCommand):
 

@@ -23,5 +23,3 @@ Lic TODO:
 - Fix missing Primitive Edges, like from inside of 2x4 brick
  
 - Fix saw.dat, so all edges & surfaces rendered properly
- 
-- Automatically clone pages / steps from one submodel to another, if they're siimliar enough (mirrored)

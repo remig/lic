@@ -724,7 +724,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         if len(self.steps) <= 0:
             return label # No steps - nothing more to do here
 
-        members = [self.submodelItem] if self.submodelItem else []  # TODO: have SubmodelItem in here now - need to have Step beneath it right up close to it
+        members = [self.submodelItem] if self.submodelItem else []
         self.layout.initGridLayout(pageRect, members + self.steps)
         for index, rect in self.layout.separators:
             self.addStepSeparator(index, rect)
@@ -1991,10 +1991,9 @@ class Step(StepTreeManager, QGraphicsRectItem):
     def moveToPrevPage(self):
         scene = self.scene()
         stepSet = []
-        for step in scene.selectedItems():
-            if isinstance(step, Step):
-                stepSet.append((step, step.parentItem(), step.parentItem().prevPage()))
-        step.scene().undoStack.push(MoveStepToPageCommand(stepSet))
+        for step in [s for s in scene.selectedItems() if isinstance(s, Step)]:
+            stepSet.append((step, step.parentItem(), step.parentItem().prevPage()))
+        scene.undoStack.push(MoveStepToPageCommand(stepSet))
 
         if scene.currentPage.isEmpty():
             scene.undoStack.push(AddRemovePageCommand(scene, scene.currentPage, False))
@@ -2002,12 +2001,11 @@ class Step(StepTreeManager, QGraphicsRectItem):
     def moveToNextPage(self):
         scene = self.scene()
         stepSet = []
-        for step in scene.selectedItems():
-            if isinstance(step, Step):
-                stepSet.append((step, step.parentItem(), step.parentItem().nextPage()))
-        step.scene().undoStack.push(MoveStepToPageCommand(stepSet))
+        for step in [s for s in scene.selectedItems() if isinstance(s, Step)]:
+            stepSet.append((step, step.parentItem(), step.parentItem().nextPage()))
+        scene.undoStack.push(MoveStepToPageCommand(stepSet))
 
-        if scene.currentPage.isEmpty():  # TODO: Check if this is correct, or if it should be like mergeWithStepSignal below
+        if scene.currentPage.isEmpty():
             scene.undoStack.push(AddRemovePageCommand(scene, scene.currentPage, False))
 
     def mergeWithStepSignal(self, step):
@@ -2493,7 +2491,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         Assumes a current GL context.  Assumes that context has been transformed so the
         view runs from (0,0) to page width & height with (0,0) in the bottom left corner.
         """
-         
+
         if self.isDirty:
             self.resetPixmap()
             if self.nextCSIIsDirty:
@@ -2501,9 +2499,9 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
                 if nextStep:
                     nextStep.csi.isDirty = nextStep.csi.nextCSIIsDirty = True
                 self.nextCSIIsDirty = False
-         
+
         GLHelpers.pushAllGLMatrices()
-        
+
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.rect().width() / 2.0) + self.center.x()
         dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0) + self.center.y()
@@ -4118,7 +4116,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         else:
             step.initLayout()
 
-    def changeBasePartSignal(self):  # TODO: check that this updates any Submodel Previews & main model CSIs
+    def changeBasePartSignal(self):
         dir = os.path.join(config.LDrawPath, 'PARTS')
         filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open LDraw Part", dir, "LDraw Part Files (*.dat)"))
         fn = os.path.basename(filename)
