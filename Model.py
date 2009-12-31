@@ -96,51 +96,42 @@ class Instructions(QObject):
         t1, partStepCount, t2 = self.getPartDimensionListAndCount() 
         pageList = self.mainModel.getPageList()
         pageList.sort(key = lambda x: x._number)
-        totalCount = (len(pageList) * 2) + 11 + partStepCount
-        currentCount = 2
-        
-        yield (totalCount, "Initializing GL display lists")
-        yield (currentCount, "Initializing GL display lists")
+        totalCount = (len(pageList) * 2) + partStepCount + 11  # Rough count only
 
-        self.initGLDisplayLists()  # generate all part GL display lists on the general glWidget
-        currentCount += 1
-        yield (currentCount, "Initializing Part Dimensions")
-        
-        for step, label in self.initPartDimensions(currentCount):  # Calculate width and height of each partOGL in the part dictionary
-            currentCount = step
-            yield (step, label)
+        yield totalCount  # Special first value is maximum number of progression steps in load process
 
-        currentCount += 1
-        yield (currentCount, "Initializing CSI Dimensions")
-        for step, label in self.initCSIDimensions(currentCount):   # Calculate width and height of each CSI in this instruction book
-            currentCount = step
-            yield (step, label)
+        yield "Initializing GL display lists"
+        for label in self.initGLDisplayLists():  # generate all part GL display lists on the general glWidget
+            yield label
+
+        yield "Initializing Part Dimensions"        
+        for label in self.initPartDimensions():  # Calculate width and height of each partOGL in the part dictionary
+            yield label
+
+        yield "Initializing CSI Dimensions"
+        for label in self.initCSIDimensions():   # Calculate width and height of each CSI in this instruction book
+            yield label
             
-        currentCount += 1
-        yield (currentCount, "Initializing Submodel Images")
+        yield "Initializing Submodel Images"
         self.mainModel.addSubmodelImages()
         
-        currentCount += 1
-        yield (currentCount, "Laying out Pages")
+        yield "Laying out Pages"
         for page in pageList:
-            label = page.initLayout()
-            currentCount += 1
-            yield (currentCount, label)
+            yield page.initLayout()
 
         self.mainModel.mergeInitialPages()
         self.mainModel.reOrderSubmodelPages()
         self.mainModel.syncPageNumbers()
 
-        currentCount += 1
-        yield (currentCount, "Adjusting Submodel Images")
-        for page in self.mainModel.getPageList():
+        yield "Adjusting Submodel Images"
+        for page in pageList:
             page.adjustSubmodelImages()
             page.resetPageNumberPosition()
 
         #endTime = time.time()
         #print "Total load time: %.2f" % (endTime - startTime)
         
-        yield (totalCount, "Import Complete!")
+        yield "Import Complete!"
 
     def getModelName(self):
         return self.mainModel.filename
@@ -151,20 +142,19 @@ class Instructions(QObject):
     def initGLDisplayLists(self):
 
         self.glContext.makeCurrent()
-        
+
         # First initialize all partOGL display lists
+        yield "Initializing Part GL display lists"
         for part in partDictionary.values():
             if part.oglDispID == GLHelpers.UNINIT_GL_DISPID:
                 part.createOGLDisplayList()
-            
-        # Initialize all submodel display lists
-        for submodel in submodelDictionary.values():
-            submodel.createOGLDisplayList()
-            
+
         # Initialize the main model display list
-        self.mainModel.createOGLDisplayList()
+        yield "Initializing Main Model GL display lists"
+        self.mainModel.createOGLDisplayList(True)
 
         # Initialize all CSI display lists
+        yield "Initializing CSI GL display lists"
         csiList = self.mainModel.getCSIList()
         for csi in csiList:
             csi.createOGLDisplayList()
@@ -183,7 +173,7 @@ class Instructions(QObject):
         partStepCount = int(len(partList) / partDivCount)
         return (partList, partStepCount, partDivCount)
     
-    def initPartDimensions(self, initialCurrentCount, reset = False):
+    def initPartDimensions(self, reset = False):
         """
         Calculates each uninitialized part's display width and height.
         Creates GL buffer to render a temp copy of each part, then uses those raw pixels to determine size.
@@ -211,9 +201,8 @@ class Instructions(QObject):
                     currentPartCount += 1
                     if not currentPartCount % partDivCount:
                         currentPartCount = 0
-                        initialCurrentCount += 1
                         currentCount +=1
-                        yield (initialCurrentCount, "Initializing Part Dimensions (%d/%d)" % (currentCount, partStepCount))
+                        yield "Initializing Part Dimensions (%d/%d)" % (currentCount, partStepCount)
                 else:
                     partList2.append(partOGL)
 
@@ -223,7 +212,7 @@ class Instructions(QObject):
                 partList = partList2  # Some images rendered out of frame - loop and try bigger frame
                 partList2 = []
 
-    def initCSIDimensions(self, currentCount, repositionCSI = False):
+    def initCSIDimensions(self, repositionCSI = False):
 
         self.glContext.makeCurrent()
 
@@ -245,8 +234,7 @@ class Instructions(QObject):
                 oldRect = csi.rect()
                 result = csi.initSize(size, pBuffer)
                 if result:
-                    currentCount += 1
-                    yield (currentCount, result)
+                    yield result
                     if repositionCSI:
                         newRect = csi.rect()
                         dx = oldRect.width() - newRect.width()
@@ -2849,13 +2837,14 @@ class PartOGL(object):
         primitive = Primitive(p['color'], p['points'], shape, self.winding)
         self.primitives.append(primitive)
 
-    def createOGLDisplayList(self):
+    def createOGLDisplayList(self, skipPartInit = False):
         """ Initialize this part's display list."""
 
         # Ensure any parts in this part have been initialized
-        for part in self.parts:
-            if part.partOGL.oglDispID == GLHelpers.UNINIT_GL_DISPID:
-                part.partOGL.createOGLDisplayList()
+        if not skipPartInit:
+            for part in self.parts:
+                if part.partOGL.oglDispID == GLHelpers.UNINIT_GL_DISPID:
+                    part.partOGL.createOGLDisplayList()
 
         if self.oglDispID == GLHelpers.UNINIT_GL_DISPID:
             self.oglDispID = GL.glGenLists(1)
@@ -3076,6 +3065,11 @@ class Submodel(SubmodelTreeManager, PartOGL):
     def getSimpleName(self):
         name = os.path.splitext(os.path.basename(self.name))[0]
         return name.replace('_', ' ')
+
+    def createOGLDisplayList(self, skipPartInit = False):
+        for model in self.submodels:
+            model.createOGLDisplayList(skipPartInit)
+        PartOGL.createOGLDisplayList(self, skipPartInit)
 
     def setSelected(self, selected):
         self.pages[0].setSelected(selected)

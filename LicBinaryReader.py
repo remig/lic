@@ -179,8 +179,8 @@ def __readPartDictionary(stream, partDictionary):
         partOGL = __readPartOGL(stream)
         partDictionary[partOGL.filename] = partOGL
 
-    # Each partOGL can contain several parts, but those parts do
-    # not have valid sub-partOGLs.  Create those now.
+    # Each PartOGL can contain several Parts, but those Parts do
+    # not yet have valid PartOGLs of their own.  Create those now.
     for partOGL in partDictionary.values():
         for part in partOGL.parts:
             part.partOGL = partDictionary[part.filename]

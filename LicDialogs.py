@@ -1,6 +1,7 @@
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
+import os
 import Helpers
 import LDrawColors
 
@@ -32,6 +33,22 @@ def makeSpinBox(self, value, min, max, signal = None, double = False, percent = 
 
 QWidget.makeLabelSpinBox = makeLabelSpinBox
 QWidget.makeSpinBox = makeSpinBox
+
+class LicProgressDialog(QProgressDialog):
+
+    def __init__(self, parent, filename):
+        QProgressDialog.__init__(self, parent, Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+
+        self.setWindowModality(Qt.WindowModal)
+        self.setWindowTitle("Importing " + os.path.splitext(filename)[0])
+        self.setMinimumDuration(0)
+        self.setCancelButtonText("Cancel")
+        self.setRange(0, 100000)
+        self.setLabelText("Reading " + filename)
+        self.setValue(1)  # Try and force dialog to show up right away
+
+    def incr(self):
+        self.setValue(self.value() + 1)
 
 class ColorButton(QToolButton):
     

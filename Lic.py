@@ -3,7 +3,7 @@ import random
 import sys
 import math
 import time
-import os.path
+import os
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -1151,8 +1151,8 @@ class LicWindow(QMainWindow):
         self.copySettingsToScene()
 
     def loadLicFile(self, filename):
-        
-        startTime = time.time()  # TODO: need to provide a status bar, since some files take forever to load
+
+        #startTime = time.time()  # TODO: need to provide a status bar, since some files take forever to load
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         LicBinaryReader.loadLicFile(filename, self.instructions)
         self.treeModel.root = self.instructions.mainModel
@@ -1164,35 +1164,28 @@ class LicWindow(QMainWindow):
         self.addRecentFile(filename)
         self.scene.selectPage(1)
         self.copySettingsToScene()
-        endTime = time.time()
+        #endTime = time.time()
         #print "Total load time: %.2f" % (endTime - startTime)
-    
+
     def importLDrawModel(self, filename):
 
-        progress = QProgressDialog(self)
-        progress.setWindowModality(Qt.WindowModal)
-        progress.setWindowTitle("Importing " + os.path.splitext(os.path.basename(filename))[0])
-        progress.setMinimumDuration(0)
-        progress.setCancelButtonText("Cancel")
-        progress.setRange(0, 10)
-        progress.setLabelText("Reading LDraw File")
-        progress.setValue(1)  # Force dialog to show up right away
-        
+        #startTime = time.time()  # TODO: need to provide a status bar, since some files take forever to load
+        progress = LicDialogs.LicProgressDialog(self, os.path.basename(filename))
+        progress.setValue(2)  # Try and force dialog to show up right away
+
         loader = self.instructions.importLDrawModel(filename)
-        stopValue, title = loader.next()  # First value yielded after load is # of progress steps
-        progress.setMaximum(stopValue)
-        
-        for step, label in loader:
-            progress.setLabelText(label)
-            progress.setValue(step)
-            
+        progress.setMaximum(loader.next())  # First value yielded after load is # of progress steps
+
+        for label in loader:
             if progress.wasCanceled():
                 loader.close()
                 self.fileClose()
                 return
+            progress.setLabelText(label)
+            progress.incr()
 
         progress.setValue(progress.maximum())
-        
+
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.treeModel.root = self.instructions.mainModel
 
@@ -1215,6 +1208,8 @@ class LicWindow(QMainWindow):
         self.statusBar().showMessage("Instruction book loaded")
         self.setWindowModified(True)
         self.enableMenus(True)
+        #endTime = time.time()
+        #print "Total load time: %.2f" % (endTime - startTime)
 
     def enableMenus(self, enabled):
         self.fileCloseAction.setEnabled(enabled)
@@ -1373,7 +1368,6 @@ def loadFile(window, filename):
     window.scene.selectFirstPage()
 
 def recompileResources():
-    import os
     ret = os.spawnl(os.P_WAIT, r"C:\Python25\Lib\site-packages\PyQt4\pyrcc4.exe", "pyrcc4.exe", "-o", r"c:\lic\resources.py", r"c:\lic\resources.qrc")
     print ret
 
@@ -1388,7 +1382,7 @@ def updateAllSavedLicFiles(window):
                     window.fileSave()
                     print "Successfull save %s" % fn
                 window.fileClose()
-                    
+
 if __name__ == '__main__':
     #import cProfile
     #cProfile.run('main()', 'profile_run')
