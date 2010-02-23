@@ -1,7 +1,5 @@
 import os      # for process creation
-
 import config
-import GLHelpers
 
 def boolToCommand(command, bool):
     if bool:

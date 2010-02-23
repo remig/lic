@@ -3,12 +3,11 @@ from PyQt4.QtCore import *
 from Model import *
 from LicTemplate import *
 from LicCustomPages import *
-import Layout
 import GLHelpers
 
 def ro(self, targetType):
     c = targetType()
-    x = self >> c
+    self >> c
     return c
 
 QDataStream.readQColor = lambda self: ro(self, QColor)
@@ -125,7 +124,7 @@ def __readInstructions(stream, instructions):
 
     __readPartDictionary(stream, partDictionary)
 
-    for i in range(stream.readInt32()):
+    for unused in range(stream.readInt32()):
         model = __readSubmodel(stream, instructions)
         submodelDictionary[model.filename] = model
 
@@ -133,11 +132,11 @@ def __readInstructions(stream, instructions):
 
     instructions.mainModel.addTitlePage(__readTitlePage(stream, instructions))
 
-    for i in range(stream.readInt32()):
+    for unused in range(stream.readInt32()):
         newPage = __readPartListPage(stream, instructions)
         instructions.mainModel.partListPages.append(newPage)
 
-    for i in range(stream.readInt32()):
+    for unused in range(stream.readInt32()):
         instructions.scene.addGuide(stream.readInt32(), stream.readQPointF())
 
     __linkModelPartNames(instructions.mainModel)
@@ -150,18 +149,19 @@ def __readInstructions(stream, instructions):
         else:
             submodel._parent = submodelDictionary[submodel._parent]
 
-    instructions.initGLDisplayLists()
+    for unused in instructions.initGLDisplayLists():
+        pass
 
 def __readSubmodel(stream, instructions, createMainmodel = False):
 
     submodel = __readPartOGL(stream, True, createMainmodel)
     submodel.instructions = instructions
 
-    for i in range(stream.readInt32()):
+    for unused in range(stream.readInt32()):
         page = __readPage(stream, submodel, instructions)
         submodel.pages.append(page)
 
-    for i in range(stream.readInt32()):
+    for unused in range(stream.readInt32()):
         filename = str(stream.readQString())
         model = submodelDictionary[filename]
         model.used = True
@@ -175,7 +175,7 @@ def __readSubmodel(stream, instructions, createMainmodel = False):
 
 def __readPartDictionary(stream, partDictionary):
 
-    for i in range(stream.readInt32()):
+    for unused in range(stream.readInt32()):
         partOGL = __readPartOGL(stream)
         partDictionary[partOGL.filename] = partOGL
 
@@ -207,11 +207,11 @@ def __readPartOGL(stream, createSubmodel = False, createMainmodel = False):
     part.pliScale = stream.readFloat()
     part.pliRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
 
-    for i in range(stream.readInt32()):
+    for unused in range(stream.readInt32()):
         p = __readPrimitive(stream)
         part.primitives.append(p)
 
-    for i in range(stream.readInt32()):
+    for unused in range(stream.readInt32()):
         p = __readPart(stream)
         part.parts.append(p)
     return part
@@ -229,7 +229,7 @@ def __readPrimitive(stream):
         count = 12
     
     points = []
-    for i in range(count):
+    for unused in range(count):
         points.append(stream.readFloat())
     return Primitive(color, points, type, winding)
 
@@ -240,7 +240,7 @@ def __readPart(stream):
     color = stream.readInt32()
     matrix = []
 
-    for i in range(0, 16):
+    for unused in range(16):
         matrix.append(stream.readFloat())
 
     inCallout = stream.readBool()
@@ -254,7 +254,7 @@ def __readPart(stream):
         if filename != 'arrow':
             arrows = []
             if stream.licFileVersion >= 4:
-                for i in range(stream.readInt32()):
+                for unused in range(stream.readInt32()):
                     arrows.append(__readPart(stream))
             else:
                 arrows.append(__readPart(stream))
@@ -300,7 +300,7 @@ def __readPage(stream, parent, instructions, templateModel = None):
     page.numberItem.setFont(stream.readQFont())
 
     # Read in each step in this page
-    for i in range(stream.readInt32()):
+    for unused in range(stream.readInt32()):
         page.addStep(__readStep(stream, page))
 
     # Read in the optional submodel preview image
@@ -309,7 +309,7 @@ def __readPage(stream, parent, instructions, templateModel = None):
         page.addChild(page.submodelItem._row, page.submodelItem)
 
     # Read in any page separator lines
-    for i in range(stream.readInt32()):
+    for unused in range(stream.readInt32()):
         border = page.addStepSeparator(stream.readInt32())
         border.setPos(stream.readQPointF())
         border.setRect(stream.readQRectF())
@@ -330,7 +330,7 @@ def __readTitlePage(stream, instructions):
         page.submodelItem = __readSubmodelItem(stream, page)
         page.submodelItem.itemClassName = "TitleSubmodelPreview"  # Override regular name so we don't set this in any template action
 
-    for i in range(stream.readInt32()):
+    for unused in range(stream.readInt32()):
         page.addNewLabel(stream.readQPointF(), stream.readQFont(), str(stream.readQString()))
 
     return page
@@ -374,7 +374,7 @@ def __readStep(stream, parent):
         step.numberItem.setPos(stream.readQPointF())
         step.numberItem.setFont(stream.readQFont())
 
-    for i in range(stream.readInt32()):
+    for unused in range(stream.readInt32()):
         callout = __readCallout(stream, step)
         step.callouts.append(callout)
 
@@ -401,11 +401,11 @@ def __readCallout(stream, parent):
         callout.addQuantityLabel(stream.readQPointF(), stream.readQFont())
         callout.setQuantity(stream.readInt32())
 
-    for i in range(stream.readInt32()):
+    for unused in range(stream.readInt32()):
         step = __readStep(stream, callout)
         callout.steps.append(step)
 
-    for i in range(stream.readInt32()):
+    for unused in range(stream.readInt32()):
         part = __readPart(stream)
         part.partOGL = partDictionary[part.filename]
         step = callout.getStep(part.stepNumber)
@@ -447,7 +447,7 @@ def __readPLI(stream, parent, makePartListPLI = False):
         pli = PLI(parent)
     __readRoundedRectItem(stream, pli)
 
-    for i in range(stream.readInt32()):
+    for unused in range(stream.readInt32()):
         pliItem = __readPLIItem(stream, pli)
         pli.pliItems.append(pliItem)
 

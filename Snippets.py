@@ -1,3 +1,5 @@
+#@PydevCodeAnalysisIgnore
+
 try:
     from OpenGL.GL import *
 except ImportError:

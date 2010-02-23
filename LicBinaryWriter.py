@@ -1,7 +1,6 @@
 from PyQt4.QtCore import *
 
 from Model import *
-import Layout
 
 def saveLicFile(filename, instructions, template):
 

@@ -99,7 +99,6 @@ class CygonRectanglePacker(RectanglePacker):
  
         Returns a Point instance if space for the rectangle could be allocated
         be found, otherwise returns None"""
-        placement = None
  
         # If the rectangle is larger than the packing area in any dimension,
         # it will never fit!

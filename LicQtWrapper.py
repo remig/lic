@@ -116,7 +116,7 @@ class GraphicsRotateArrowItem(GraphicsRoundRectItem):
                            QPointF(arrowTipLength, 0.0),
                            QPointF(arrowTipLength + 2.5, arrowTipHeight)])
 
-    def __init__(self, parent, length = "10"):
+    def __init__(self, parent):
         GraphicsRoundRectItem.__init__(self, parent)
         self.cornerRadius = 6
 

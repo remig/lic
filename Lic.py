@@ -1,7 +1,5 @@
 #from __future__ import division
-import random
 import sys
-import math
 import time
 import os
 
@@ -14,10 +12,7 @@ from LicCustomPages import *
 import LicTreeModel
 import LicBinaryReader
 import LicBinaryWriter
-import LicTemplate
 import config
-import l3p
-import povray
 import LicDialogs
 import LicUndoActions
 import Layout
@@ -799,7 +794,6 @@ class LicWindow(QMainWindow):
         self.glWidget = QGLWidget(GLHelpers.getGLFormat(), self)
         self.treeWidget = LicTreeWidget(self)
 
-        statusBar = self.statusBar()
         self.scene = LicGraphicsScene(self)
         self.scene.undoStack = self.undoStack  # Make undo stack easy to find for everything
         self.copySettingsToScene()
@@ -1190,6 +1184,7 @@ class LicWindow(QMainWindow):
         self.treeModel.root = self.instructions.mainModel
 
         self.templatePage = LicBinaryReader.loadLicTemplate(r"C:\lic\dynamic_template.lit", self.instructions)
+        #import LicTemplate
         #self.templatePage = LicTemplate.TemplatePage(self.instructions.mainModel, self.instructions)
         #self.templatePage.createBlankTemplate(self.glWidget)
         
@@ -1372,7 +1367,7 @@ def recompileResources():
     print ret
 
 def updateAllSavedLicFiles(window):
-    for root, folder, files in os.walk("C:\\lic"):
+    for root, unused, files in os.walk("C:\\lic"):
         for f in files:
             if f[-3:] == 'lic':
                 fn = os.path.join(root, f)

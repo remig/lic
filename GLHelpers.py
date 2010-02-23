@@ -1,5 +1,4 @@
 import Image, ImageChops
-import os
 
 #import OpenGL
 #OpenGL.ERROR_CHECKING = False
@@ -36,10 +35,10 @@ def drawCoordLines(length = 20.0):
     glPopAttrib()
 
 def setupLight(light):
-    glLightfv(GL_LIGHT0, GL_SPECULAR, [0.0, 0.0, 0.0])
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, [1.0, 1.0, 1.0])
-    glLightfv(GL_LIGHT0, GL_POSITION, [0.0, 100.0, 100.0])
-    glEnable(GL_LIGHT0)
+    glLightfv(light, GL_SPECULAR, [0.0, 0.0, 0.0])
+    glLightfv(light, GL_DIFFUSE, [1.0, 1.0, 1.0])
+    glLightfv(light, GL_POSITION, [0.0, 100.0, 100.0])
+    glEnable(light)
 
 def setupLighting():
     glDisable(GL_NORMALIZE)
@@ -188,6 +187,7 @@ def _getBounds(size, oglDispID, filename, defaultScale, defaultRotation, partRot
         return (0, 0, 0, 0, 0, 0)  # Rendered entirely out of frame
 
     #if filename:
+        #import os
         #rawFilename = os.path.splitext(os.path.basename(filename))[0]
         #img.save("C:\\lic\\tmp\\%s_%dx%d.png" % (rawFilename, w, h))
         #print fn + "box: " + str(bbox if bbox else "No box = shit")

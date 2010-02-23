@@ -521,14 +521,18 @@ class PenDlg(QDialog):
         self.setWindowTitle(self.tr("Border Properties"))
 
     def getColor(self):
-        color, value = QColorDialog.getRgba(self.penColorButton.color.rgba(), self)
+        color, ok = QColorDialog.getRgba(self.penColorButton.color.rgba(), self)
+        if not ok:
+            return
         color = QColor.fromRgba(color)
         if color.isValid(): 
             self.penColorButton.color = color
             self.penChanged()
 
     def getFillColor(self):
-        color, value = QColorDialog.getRgba(self.fillColorButton.color.rgba(), self)
+        color, ok = QColorDialog.getRgba(self.fillColorButton.color.rgba(), self)
+        if not ok:
+            return
         color = QColor.fromRgba(color)
         if color.isValid():
             self.fillColorButton.color = color

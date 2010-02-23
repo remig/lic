@@ -1,9 +1,5 @@
-import shutil  # for file copy / rename
 import os      # for path creation
-
-import povray     # Build images from povray files
-import l3p        # Build povray from DAT files
-import config     # For user path info
+import config  # For user path info
 
 Comment = '0'
 PartCommand = '1'
@@ -16,6 +12,7 @@ RotStepCommand = 'ROTSTEP'
 StepCommand = 'STEP'
 FileCommand = 'FILE'
 BFCCommand = 'BFC'
+ENDCommand = '0'
 
 def IdentityMatrix():
     return [1.0, 0.0, 0.0, 0.0,  

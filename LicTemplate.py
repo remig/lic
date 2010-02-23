@@ -10,7 +10,6 @@ class TemplateLineItem(object):
         
         self.setSelected(False)  # Deselect to better see new border changes
         parentWidget = self.scene().views()[0]
-        stack = self.scene().undoStack
         dialog = LicDialogs.PenDlg(parentWidget, self.pen(), hasattr(self, 'cornerRadius'), fillColor)
 
         parentWidget.connect(dialog, SIGNAL("changePen"), self.changePen)
@@ -149,7 +148,7 @@ class TemplatePage(TemplateRectItem, Page):
             step.callouts[0].steps[0].csi.__class__ = TemplateCSI
             step.callouts[0].steps[0].csi.target, step.callouts[0].steps[0].csi.name = CSI, "CSI"
         if step.rotateIcon:
-           step.rotateIcon.__class__ = TemplateRotateIcon
+            step.rotateIcon.__class__ = TemplateRotateIcon
 
         self.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Page'))
         step.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Step'))
@@ -419,8 +418,8 @@ class TemplateStep(Step):
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Disable PLIs" if self.hasPLI() else "Enable PLIs", self.togglePLIs)
         #menu.addSeparator()
-        menu.addAction("Format Background", self.formatBackground)
-        arrowMenu = menu.addMenu("Format Background")
+        #menu.addAction("Format Background", self.formatBackground)  # TODO: implement step fills
+        #arrowMenu = menu.addMenu("Format Background")
         #arrowMenu.addAction("Color", self.setBackgroundColor)
         #arrowMenu.addAction("Gradient", self.setBackgroundColor)
         #rrowMenu.addAction("Image", self.setBackgroundColor)

@@ -46,11 +46,12 @@ DragonForce - Inhuman Rampage - Body Breakdown
 DragonForce - Inhuman Rampage - Operation Ground And Pound
 DragonForce - Inhuman Rampage - Revolution Deathsquad
 DragonForce - Inhuman Rampage - Storming the Burning Fields
-DragonForce - Inhuman Rampage - Through The Fire And Flames
+DragonForce - Inhuman Rampage - Through The Fire And Flames **
 DragonForce - Sonic Firestorm - My Spirit Will Go On
 DragonForce - Sonic Firestorm - Fury Of The Storm
 DragonForce - Sonic Firestorm - Fields Of Despair
 DragonForce - Sonic Firestorm - Soldiers Of The Wasteland
+DragonForce - Valley Of The Damned - Valley Of The Damned **
 
 Dragonland - Starfall - Starfall
 
@@ -72,7 +73,7 @@ Edguy - Theater Of Salvation - Babylon **
 Edguy - Theatre Of Salvation - Falling Down *
 Edguy - Theatre Of Salvation - Holy Shadows
 Edguy - Theater Of Salvation - Wake Up The King * 
-Edguy - Vain Glory Opera - Fairytale * 
+Edguy - Vain Glory Opera - Fairytale **
 Edguy - Vain Glory Opera - How Many Miles *
 Edguy - Vain Glory Opera - Until We Rise Again *
 
@@ -90,7 +91,7 @@ Excalion - Waterlines - Arriving As The Dark
 Excalion - Waterlines - Between The Lines
 Excalion - Waterlines - Life On Fire
 
-Gamma Ray - Majestic - Fight *
+Gamma Ray - Majestic - Fight **
 Gamma Ray - Blast From The Past - Lust For Life *
 Gamma Ray - Blast From The Past - Man On A Mission **
 
@@ -98,7 +99,7 @@ Hammerfall - Glory To The Brave - Child Of The Damned
 Hammerfall - Glory To The Brave - The Metal Age
 Hammerfall - Legacy of Kings - Back To Back
 
-Heavenly (Metal) - Virus - The Power & Fury *
+Heavenly (Metal) - Virus - The Power & Fury **
 Heavenly (Metal) - Virus - Virus
 
 Helloween - Keeper Of The Seven Keys - Eagle Fly Free *(*)
@@ -111,6 +112,7 @@ Kamelot - Epica - Center Of The Universe !
 Kamelot - Epica - Descent Of The Archangel
 Kamelot - Epica - Farewell
 Kamelot - Epica - Wander
+Kamelot - Ghost Opera - Ghost Opera *
 Kamelot - Karma - Forever *
 Kamelot - Karma - Karma *
 Kamelot - The Black Halo - The Black Halo

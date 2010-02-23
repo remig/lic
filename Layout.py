@@ -98,7 +98,7 @@ class GridLayout(object):
         # Sets position of each member into a grid
         # MemberList is a list of any objects that have rect(), setPos() and moveBy() methods
 
-        rows, cols = self.getRowColCount(memberList)
+        rows, unused = self.getRowColCount(memberList)
         rowHeights, colWidths = [], []
         
         # Build a table of each row's height and column's width

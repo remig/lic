@@ -162,6 +162,8 @@ QGraphicsRectItem.__bases__ += (BaseTreeManager,)
 class PageTreeManager(BaseTreeManager):
 
     def parent(self):
+        if not hasattr(self, "subModel"):
+            unused = 10
         return self.subModel
 
     def child(self, row):

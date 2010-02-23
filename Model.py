@@ -93,7 +93,7 @@ class Instructions(QObject):
         if not self.mainModel.hasImportedSteps:
             self.mainModel.addInitialPagesAndSteps()
         
-        t1, partStepCount, t2 = self.getPartDimensionListAndCount() 
+        unused1, partStepCount, unused2 = self.getPartDimensionListAndCount() 
         pageList = self.mainModel.getPageList()
         pageList.sort(key = lambda x: x._number)
         totalCount = (len(pageList) * 2) + partStepCount + 11  # Rough count only
@@ -705,8 +705,6 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         self.removeAllSeparators()
 
         pageRect = self.insetRect()
-        mx = Page.margin.x()
-        my = Page.margin.y()
 
         label = "Initializing Page: %d" % self._number
         if len(self.steps) <= 0:
@@ -1144,7 +1142,6 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
 
     def contextMenuEvent(self, event):
 
-        stack = self.scene().undoStack
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Add Point", self.addPoint)
         menu.exec_(event.screenPos())
@@ -1197,7 +1194,10 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
     def syncStepNumbers(self):
         for i, step in enumerate(self.steps):
             step.number = i + 1
-        self.enableStepNumbers() if len(self.steps) > 1 else self.disableStepNumbers()
+        if len(self.steps) > 1:
+            self.enableStepNumbers()  
+        else:
+            self.disableStepNumbers()
 
     def getStep(self, number):
         for step in self.steps:
@@ -2125,7 +2125,6 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
-        stack = self.scene().undoStack
         menu.addAction("Rotate Submodel Image", self.rotateSignal)
         menu.addAction("Scale Submodel Image", self.scaleSignal)
         menu.exec_(event.screenPos())
@@ -2607,7 +2606,6 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             print "ERROR: Trying to init a CSI size that has no display list"
             return False
         
-        rawFilename = os.path.splitext(os.path.basename(currentModelFilename))[0]
         pageNumber, stepNumber = self.getPageStepNumberPair()
         filename = self.getDatFilename()
 
@@ -2619,7 +2617,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         if params is None:
             return False
 
-        w, h, self.center, x, y = params  # x & y are just ignored place-holders
+        w, h, self.center, unused1, unused2 = params
         self.setRect(0.0, 0.0, w, h)
         self.isDirty = False
         return result
@@ -3518,7 +3516,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
             page.renderFinalImageWithPov()
 
         for submodel in self.submodels:
-            submodel.exportImages(widget)
+            submodel.exportImages()
 
     def createPng(self):
 
@@ -4304,8 +4302,8 @@ class Arrow(Part):
     def contextMenuEvent(self, event):
 
         menu = QMenu(self.scene().views()[0])
-        stack = self.scene().undoStack
         
+        #stack = self.scene().undoStack
         #menu.addAction("Move &Forward", lambda: self.displaceSignal(Helpers.getOppositeDirection(self.displaceDirection)))
         #menu.addAction("Move &Back", lambda: self.displaceSignal(self.displaceDirection))
         #menu.addAction("&Longer", lambda: stack.push(AdjustArrowLength(self, 20)))

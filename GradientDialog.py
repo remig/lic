@@ -1,4 +1,3 @@
-import sys
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
@@ -210,7 +209,7 @@ class HoverPoints(QObject):
         self.m_connectionPen = pen
         
     def setShapePen(self, pen):
-        m_pointPen = pen
+        self.m_pointPen = pen
         
     def setShapeBrush(self, brush):
         self.m_pointBrush = brush
@@ -222,7 +221,7 @@ class HoverPoints(QObject):
         self.m_editable = editable
         
     def editable(self):
-        return m_editable
+        return self.m_editable
 
     def setEnabled(self, enabled):
         if (self.m_enabled != enabled):
@@ -592,7 +591,7 @@ class GradientDialog(QDialog):
         self.setAttribute(Qt.WA_DeleteOnClose)
 
         self.setWindowTitle("Gradient Editor")
-    	self.m_renderer = GradientRenderer(self, pageSize)
+        self.m_renderer = GradientRenderer(self, pageSize)
     
         mainGroup = QGroupBox(self)
         mainGroup.setTitle("Gradients")
