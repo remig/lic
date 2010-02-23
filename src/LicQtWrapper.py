@@ -1,7 +1,7 @@
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-import Layout
+import LicLayout
 
 def genericNormalizePosition(self, childrenToSkip = []):
     x, y = self.rect().topLeft()
@@ -16,7 +16,7 @@ def genericNormalizePosition(self, childrenToSkip = []):
 QGraphicsRectItem.normalizePosition = genericNormalizePosition
 
 def genericGetOrientedSize(self, orientation):
-    return self.width() if orientation == Layout.Horizontal else self.height()
+    return self.width() if orientation == LicLayout.Horizontal else self.height()
 
 QRectF.getOrientedSize = genericGetOrientedSize
 

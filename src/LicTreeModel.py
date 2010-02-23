@@ -2,7 +2,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 import LDrawColors
-import Helpers
+import LicHelpers
 
 class LicTreeModel(QAbstractItemModel):
 
@@ -480,7 +480,7 @@ class PartTreeManager(BaseTreeManager):
 
         color = LDrawColors.getColorName(self.color)
         if CSITreeManager.showPartGroupings:
-            x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
+            x, y, z = LicHelpers.GLMatrixToXYZ(self.matrix)
             self._dataString = "%s - (%.1f, %.1f, %.1f)" % (color, x, y, z)
             #self._dataString = "%s - (%s)" % (color, self.getPartBoundingBox())
         else:

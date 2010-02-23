@@ -21,14 +21,14 @@ from PyQt4.QtOpenGL import *
 
 from LicUndoActions import *
 from LicTreeModel import *
-from Layout import *
+from LicLayout import *
 import GLHelpers
-import l3p
-import povray
+import LicL3PWrapper
+import LicPovrayWrapper
 import LDrawColors
-import Helpers
+import LicHelpers
 import LicDialogs
-import PartLengths
+import LicPartLengths
 import resources  # Needed for ":/resource" type paths to work
 from LicQtWrapper import *
 from RectanglePacker import CygonRectanglePacker
@@ -1482,7 +1482,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             newPoly.append(poly[i])
 
         if fit == Callout.TightBorder:
-            path = Helpers.polygonToCurvedPath(newPoly, self.cornerRadius * 2.5)
+            path = LicHelpers.polygonToCurvedPath(newPoly, self.cornerRadius * 2.5)
             painter.drawPath(path)
             if self.isSelected():
                 painter.drawSelectionRect(self.rect(), self.cornerRadius)
@@ -1540,7 +1540,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             if l1.y() != t:
                 newPoly.append(QPointF(t1.x(), l1.y()))
 
-        path = Helpers.polygonToCurvedPath(newPoly, self.cornerRadius * 2.5)
+        path = LicHelpers.polygonToCurvedPath(newPoly, self.cornerRadius * 2.5)
         painter.drawPath(path)
 
         if self.isSelected():
@@ -2154,7 +2154,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         # Initialize the circular length indicator, if there should be one on this part
         self.lengthIndicator = None
         name = self.partOGL.filename.lower()
-        length = PartLengths.partLengths.get(name)
+        length = LicPartLengths.partLengths.get(name)
         if length:
             self.lengthIndicator = GraphicsCircleLabelItem(self, str(length))
             self.lengthIndicator.setFlags(AllFlags)
@@ -2257,8 +2257,8 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
                         print " *** Error: could not find dat file for part %s" % fn
                         return
 
-        povFile = l3p.createPovFromDat(datFile, self.color)
-        pngFile = povray.createPngFromPov(povFile, part.width, part.height, part.center, PLI.defaultScale, PLI.defaultRotation)
+        povFile = LicL3PWrapper.createPovFromDat(datFile, self.color)
+        pngFile = LicPovrayWrapper.createPngFromPov(povFile, part.width, part.height, part.center, PLI.defaultScale, PLI.defaultRotation)
         self.pngImage = QImage(pngFile)
 
     def contextMenuEvent(self, event):
@@ -2632,8 +2632,8 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             self.exportToLDrawFile(fh)
             fh.close()
             
-        povFile = l3p.createPovFromDat(datFile)
-        pngFile = povray.createPngFromPov(povFile, self.rect().width(), self.rect().height(), self.center, CSI.defaultScale * self.scaling, CSI.defaultRotation)
+        povFile = LicL3PWrapper.createPovFromDat(datFile)
+        pngFile = LicPovrayWrapper.createPngFromPov(povFile, self.rect().width(), self.rect().height(), self.center, CSI.defaultScale * self.scaling, CSI.defaultRotation)
         self.pngImage = QImage(pngFile)
         
     def exportToLDrawFile(self, fh):
@@ -3128,7 +3128,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
             
             partList = csi.getPartList()
             #partList.sort(key = lambda x: x.getXYZSortOrder())
-            partList.sort(cmp = Helpers.compareParts)
+            partList.sort(cmp = LicHelpers.compareParts)
             
             part = partList[0]
             y, dy = part.by(), part.ySize()
@@ -3528,8 +3528,8 @@ class Submodel(SubmodelTreeManager, PartOGL):
                 part.exportToLDrawFile(fh)
             fh.close()
 
-        povFile = l3p.createPovFromDat(datFile)
-        pngFile = povray.createPngFromPov(povFile, self.width, self.height, self.center, PLI.defaultScale, PLI.defaultRotation)
+        povFile = LicL3PWrapper.createPovFromDat(datFile)
+        pngFile = LicPovrayWrapper.createPngFromPov(povFile, self.width, self.height, self.center, PLI.defaultScale, PLI.defaultRotation)
         self.pngImage = QImage(pngFile)
 
     def contextMenuEvent(self, event):
@@ -3740,7 +3740,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         # Inversion is annoying as hell.  
         # Possible the containing part used a BFC INVERTNEXT (invert arg)
         # Possible this part's matrix implies an inversion (det < 0)
-        det = Helpers.determinant3x3([self.matrix[0:3], self.matrix[4:7], self.matrix[8:11]])
+        det = LicHelpers.determinant3x3([self.matrix[0:3], self.matrix[4:7], self.matrix[8:11]])
         self.inverted = (True if det < 0 else False) ^ invert
         
     def getXYZSortOrder(self):
@@ -3817,13 +3817,13 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
     def addNewDisplacement(self, direction):
         self.displaceDirection = direction
-        self.displacement = Helpers.getDisplacementOffset(direction, True, self.partOGL.getBoundingBox())
+        self.displacement = LicHelpers.getDisplacementOffset(direction, True, self.partOGL.getBoundingBox())
         self.addNewArrow(direction)
         self._dataString = None
 
     def addNewArrow(self, direction):
         arrow = Arrow(direction, self)
-        arrow.setPosition(*Helpers.GLMatrixToXYZ(self.matrix))
+        arrow.setPosition(*LicHelpers.GLMatrixToXYZ(self.matrix))
         arrow.setLength(arrow.getOffsetFromPart(self))
         self.arrows.append(arrow)
 
@@ -3957,7 +3957,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
         if self.displacement:
             #menu.addAction("&Increase displacement", lambda: self.displaceSignal(self.displaceDirection))
-            #menu.addAction("&Decrease displacement", lambda: self.displaceSignal(Helpers.getOppositeDirection(self.displaceDirection)))
+            #menu.addAction("&Decrease displacement", lambda: self.displaceSignal(LicHelpers.getOppositeDirection(self.displaceDirection)))
             menu.addAction("&Change displacement", self.adjustDisplaceSignal)
             menu.addAction("&Remove displacement", lambda: self.displaceSignal(None))
             menu.addAction("&Add Arrow", self.addArrowSignal)
@@ -4009,12 +4009,12 @@ class Part(PartTreeManager, QGraphicsRectItem):
         if direction == Qt.Key_Plus:
             return self.displaceSignal(self.displaceDirection)
         if direction == Qt.Key_Minus:
-            return self.displaceSignal(Helpers.getOppositeDirection(self.displaceDirection))
+            return self.displaceSignal(LicHelpers.getOppositeDirection(self.displaceDirection))
         self.displaceSignal(direction)
 
     def displaceSignal(self, direction):
         if direction:
-            displacement = Helpers.getDisplacementOffset(direction, False, self.partOGL.getBoundingBox())
+            displacement = LicHelpers.getDisplacementOffset(direction, False, self.partOGL.getBoundingBox())
             if displacement:
                 oldPos = self.displacement if self.displacement else [0.0, 0.0, 0.0]
                 newPos = [oldPos[0] + displacement[0], oldPos[1] + displacement[1], oldPos[2] + displacement[2]]
@@ -4178,7 +4178,7 @@ class Arrow(Part):
         self.partOGL.createOGLDisplayList()
 
     def data(self, index):
-        x, y, z = Helpers.GLMatrixToXYZ(self.matrix)
+        x, y, z = LicHelpers.GLMatrixToXYZ(self.matrix)
         return "%s  (%.1f, %.1f, %.1f)" % (self.partOGL.filename, x, y, z)
 
     def duplicate(self, parentPart = None):
@@ -4304,7 +4304,7 @@ class Arrow(Part):
         menu = QMenu(self.scene().views()[0])
         
         #stack = self.scene().undoStack
-        #menu.addAction("Move &Forward", lambda: self.displaceSignal(Helpers.getOppositeDirection(self.displaceDirection)))
+        #menu.addAction("Move &Forward", lambda: self.displaceSignal(LicHelpers.getOppositeDirection(self.displaceDirection)))
         #menu.addAction("Move &Back", lambda: self.displaceSignal(self.displaceDirection))
         #menu.addAction("&Longer", lambda: stack.push(AdjustArrowLength(self, 20)))
         #menu.addAction("&Shorter", lambda: stack.push(AdjustArrowLength(self, -20)))

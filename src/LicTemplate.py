@@ -1,7 +1,7 @@
 from Model import *
 from LicUndoActions import *
 from GLHelpers import getGLFormat
-from GradientDialog import GradientDialog
+from LicGradientDialog import GradientDialog
 from LicQtWrapper import *
 
 class TemplateLineItem(object):

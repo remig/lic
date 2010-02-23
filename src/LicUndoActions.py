@@ -1,7 +1,7 @@
 from PyQt4.QtGui import QUndoCommand
 from PyQt4.QtCore import SIGNAL, QSizeF
 
-import Helpers
+import LicHelpers
 import GLHelpers
 
 def resetGLItem(self, name, template):
@@ -908,7 +908,7 @@ class SubmodelToCalloutCommand(QUndoCommand):
                 for step in page.steps:
                     for part in step.csi.getPartList():
                         newPart = part.duplicate()
-                        newPart.matrix = Helpers.multiplyMatrices(newPart.matrix, submodelPart.matrix)
+                        newPart.matrix = LicHelpers.multiplyMatrices(newPart.matrix, submodelPart.matrix)
                         self.addedParts.append(newPart)
                         
                         self.targetStep.addPart(newPart)

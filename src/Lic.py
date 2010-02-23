@@ -15,7 +15,7 @@ import LicBinaryWriter
 import config
 import LicDialogs
 import LicUndoActions
-import Layout
+import LicLayout
 import GLHelpers
 
 from modeltest import ModelTest
@@ -218,7 +218,7 @@ class LicGraphicsScene(QGraphicsScene):
         self.setSceneRect(0, 0, Page.PageSize.width() + 20, height)
         
         for guide in self.guides:
-            if guide.orientation == Layout.Vertical:
+            if guide.orientation == LicLayout.Vertical:
                 guide.setLength(height)
                 
         for i, page in enumerate(self.pages):
@@ -238,7 +238,7 @@ class LicGraphicsScene(QGraphicsScene):
         self.setSceneRect(0, 0, width, height)
         
         for guide in self.guides:
-            if guide.orientation == Layout.Vertical:
+            if guide.orientation == LicLayout.Vertical:
                 guide.setLength(height)
             else:
                 guide.setLength(width)
@@ -518,9 +518,9 @@ class Guide(QGraphicsLineItem):
         #self.setPen(QPen(QBrush(QColor(0, 0, 255, 128)), 1.5))  # Blue 1/2 transparent, 1.5 thick
         self.setZValue(10000)  # Put on top of everything else
         
-        length = sceneRect.width() if orientation == Layout.Horizontal else sceneRect.height()
+        length = sceneRect.width() if orientation == LicLayout.Horizontal else sceneRect.height()
         pw, ph = Page.PageSize.width(), Page.PageSize.height()
-        if orientation == Layout.Horizontal:
+        if orientation == LicLayout.Horizontal:
             self.setCursor(Qt.SplitVCursor)
             self.setLine(-self.extends, ph / 2.0, length + self.extends, ph / 2.0)
         else:
@@ -533,7 +533,7 @@ class Guide(QGraphicsLineItem):
         self.setLine(line)
 
     def mouseMoveEvent(self, event):
-        if self.orientation == Layout.Horizontal:
+        if self.orientation == LicLayout.Horizontal:
             x = self.pos().x()
             QGraphicsLineItem.mouseMoveEvent(self, event)
             self.setPos(x, self.pos().y())
@@ -974,8 +974,8 @@ class LicWindow(QMainWindow):
 
         # View Menu
         self.viewMenu = menu.addMenu("&View")
-        addHGuide = self.createMenuAction("Add Horizontal Guide", lambda: self.scene.addNewGuide(Layout.Horizontal), None, "Add Guide")
-        addVGuide = self.createMenuAction("Add Vertical Guide", lambda: self.scene.addNewGuide(Layout.Vertical), None, "Add Guide")
+        addHGuide = self.createMenuAction("Add Horizontal Guide", lambda: self.scene.addNewGuide(LicLayout.Horizontal), None, "Add Guide")
+        addVGuide = self.createMenuAction("Add Vertical Guide", lambda: self.scene.addNewGuide(LicLayout.Vertical), None, "Add Guide")
         removeGuides = self.createMenuAction("Remove Guides", self.scene.removeAllGuides, None, "Add Guide")
 
         zoom100 = self.createMenuAction("Zoom &100%", lambda: self.zoom(1.0), None, "Zoom 100%")

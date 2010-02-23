@@ -2,7 +2,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 import os
-import Helpers
+import LicHelpers
 import LDrawColors
 
 def makeLabelSpinBox(self, text, value, min, max, signal = None, double = False, percent = False):
@@ -656,7 +656,7 @@ class DisplaceDlg(QDialog):
         self.setWindowTitle(self.tr("Change Displacement"))
         self.originalDisplacement, self.direction = displacement, direction
 
-        distance = Helpers.displacementToDistance(displacement, direction)
+        distance = LicHelpers.displacementToDistance(displacement, direction)
         sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, -500, 500, self.sizeChanged)
         
         self.arrowCheckBox = QCheckBox(self.tr("&Adjust Arrow (NYI)"))
@@ -688,7 +688,7 @@ class DisplaceDlg(QDialog):
 
     def sizeChanged(self):
         newSize = self.sizeSpinBox.value()
-        displacement = Helpers.distanceToDisplacement(newSize, self.direction)
+        displacement = LicHelpers.distanceToDisplacement(newSize, self.direction)
         self.emit(SIGNAL("changeDisplacement"), displacement, self.arrowCheckBox.isChecked())
 
     def displacementChanged(self):
@@ -712,7 +712,7 @@ class ArrowDisplaceDlg(QDialog):
         self.originalDisplacement, self.originalLength, self.originalRotation = arrow.displacement, arrow.getLength(), arrow.axisRotation
 
         displacement = arrow.displacement
-        distance = Helpers.displacementToDistance(displacement, arrow.displaceDirection)
+        distance = LicHelpers.displacementToDistance(displacement, arrow.displaceDirection)
         sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, -500, 500, self.sizeChanged)
         lengthLabel, self.lengthSpinBox = self.makeLabelSpinBox(self.tr("&Length:"), arrow.getLength(), -500, 500, self.lengthChanged)
         rotationLabel, self.rotationSpinBox = self.makeLabelSpinBox(self.tr("&Rotation:"), arrow.axisRotation, -360, 360, self.rotationChanged)
@@ -754,7 +754,7 @@ class ArrowDisplaceDlg(QDialog):
 
     def sizeChanged(self):
         newSize = self.sizeSpinBox.value()
-        displacement = Helpers.distanceToDisplacement(newSize, self.arrow.displaceDirection)
+        displacement = LicHelpers.distanceToDisplacement(newSize, self.arrow.displaceDirection)
         self.emit(SIGNAL("changeDisplacement"), displacement)
 
     def lengthChanged(self):
