@@ -348,6 +348,11 @@ class TemplatePage(TemplateRectItem, Page):
         if ok:
             item.setAllFonts(oldFont, newFont)
             
+    def resetCallout(self):
+        for callout in self.steps[0].callouts:
+            for step in callout.steps:
+                step.csi.resetPixmap()
+
     def scaleAllItems(self, newScale):
         if not self.steps[0].pli:
             print "NO TEMPLATE PLI TO SCALE"

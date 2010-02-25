@@ -1,5 +1,7 @@
 <!DOCTYPE RCC><RCC version = "1.0">
 <qresource>
+  <file alias = "lic_logo_16x16">images/lic_logo_16x16.png</file>
+
   <file alias = "lock_open">images/lock_open.png</file>
   <file alias = "lock_close">images/lock_close.png</file>
   <file alias = "lock_grey_open">images/lock_grey_open.png</file>

@@ -787,6 +787,7 @@ class LicWindow(QMainWindow):
         QMainWindow.__init__(self, parent)
         
         self.loadSettings()
+        self.setWindowIcon(QIcon(":/lic_logo_16x16"))
         
         self.undoStack = QUndoStack()
         self.connect(self.undoStack, SIGNAL("cleanChanged(bool)"), lambda isClean: self.setWindowModified(not isClean))
@@ -1363,7 +1364,7 @@ def loadFile(window, filename):
     window.scene.selectFirstPage()
 
 def recompileResources():
-    ret = os.spawnl(os.P_WAIT, r"C:\Python25\Lib\site-packages\PyQt4\pyrcc4.exe", "pyrcc4.exe", "-o", r"c:\lic\resources.py", r"c:\lic\resources.qrc")
+    ret = os.spawnl(os.P_WAIT, r"C:\Python25\Lib\site-packages\PyQt4\pyrcc4.exe", "pyrcc4.exe", "-o", r"c:\lic\src\resources.py", r"c:\lic\resources.qrc")
     print ret
 
 def updateAllSavedLicFiles(window):

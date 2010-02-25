@@ -6,23 +6,20 @@ import GLHelpers
 
 def resetGLItem(self, name, template):
     instructions = template.getPage().instructions
+    template.resetPixmap()
+    template.getPage().resetCallout()
+    template.getPage().initLayout()
 
     if name == "CSI":
-        template.resetPixmap()
-        template.getPage().initLayout()
-        for unused1, unused2 in instructions.initCSIDimensions(0, True):
+        for unused in instructions.initCSIDimensions(True):
             pass  # Don't care about yielded items here
 
     elif name == "PLI":
-        template.resetPixmap()
-        template.getPage().initLayout()
-        for unused1, unused2 in instructions.initPartDimensions(0, True):
+        for unused in instructions.initPartDimensions(True):
             pass  # Don't care about yielded items here
         instructions.initAllPLILayouts()
 
     elif name == "Submodel":
-        template.resetPixmap()
-        template.getPage().initLayout()
         instructions.initSubmodelImages()
 
 NextCommandID = 122
@@ -806,6 +803,34 @@ class TogglePLIs(QUndoCommand):
             self.template.instructions.mainModel.showHidePLIs(False, True)
         self.template.scene().emit(SIGNAL("layoutChanged()"))
         self.template.initLayout()
+
+class AddNewPartOGLCommand(QUndoCommand):
+    
+    _id = getNewCommandID()
+    
+    def __init__(self, part, newFilename):
+        QUndoCommand.__init__(self, "Add new Part")
+        self.newFilename = newFilename
+
+    def doAction(self, redo):
+        scene = self.part.scene()
+        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        scene.clearSelection()
+
+        self.part.changePartOGL(self.newFilename if redo else self.oldFilename)
+
+        page = self.part.getPage()
+        if page.instructions.mainModel.hasTitlePage():
+            page.instructions.mainModel.titlePage.submodelItem.resetPixmap()
+
+        if page.subModel.pages[0].submodelItem:
+            page.subModel.pages[0].submodelItem.resetPixmap()
+
+        page.instructions.mainModel.updatePartList()
+        scene.emit(SIGNAL("layoutChanged()"))
+
+        page.initLayout()
+        scene.update()
 
 class ChangePartColorCommand(QUndoCommand):
 

@@ -2677,6 +2677,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             if self.scaling != 1.0:
                 menu.addAction("Copy Scaling to next X CSIs...", lambda: self.copyRotationScaleToNextCSIs(False))
 
+        menu.addAction("Add new Part", self.addNewPartSignal)
         menu.addSeparator()
         
         arrowMenu = menu.addMenu("Select Part")
@@ -2687,6 +2688,13 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         
         menu.exec_(event.screenPos())
         
+    def addNewPartSignal(self):
+        dir = os.path.join(config.LDrawPath, 'PARTS')
+        filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Add LDraw Part", dir, "LDraw Part Files (*.dat)"))
+        fn = os.path.basename(filename)
+        if fn:
+            self.scene().undoStack.push(ChangePartOGLCommand(self, fn))
+
     def acceptRotation(self, oldRotation):
         stack = self.scene().undoStack 
         if not self.parentItem().rotateIcon:
@@ -2730,7 +2738,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             if doRotation:
                 oldRotation = list(csi.rotation)
                 csi.rotation = list(self.rotation)
-                csi.acceptRotation(oldRotation)
+                RotateScaleSignalItem.acceptRotation(csi, oldRotation)
             else:
                 oldScaling = csi.scaling
                 csi.scaling = self.scaling
@@ -2808,7 +2816,12 @@ class PartOGL(object):
                 self.winding = GL.GL_CW if line[4] == 'CW' else GL.GL_CCW
             elif line [3] == 'INVERTNEXT':
                 self.invertNext = True
-
+            
+    def addNewPart(self, filename):
+        part = Part(filename, 0, IdentityMatrix(), False)
+        part.initializePartOGL()
+        return part
+    
     def addPartFromLine(self, p):
         try:
             part = Part(p['filename'], p['color'], p['matrix'], False)
@@ -3088,13 +3101,14 @@ class Submodel(SubmodelTreeManager, PartOGL):
                 lineArray = ldrawFile.fileArray[index[0]: index[1]]
                 model = Submodel(self, self.instructions, submodelFilename)
                 submodelDictionary[submodelFilename] = (lineArray, model)
-
-            # Load each line array.  This needs to be a two step process to handle nested submodels
-            for submodelFilename, lineModelPair in submodelDictionary.items():
-                Submodel.loadFromTuple(lineModelPair)
-
+             
         # Load the contents of this specific LDraw file into this submodel
         self.loadFromLineArray(ldrawFile.fileArray)
+
+        # Loop over submodel dict and delete any unused submodels, ie: convert (line, Submodel) tuple to just unused Submodel
+        for submodelFilename, value in submodelDictionary.items():
+            if isinstance(value, tuple):
+                submodelDictionary[submodelFilename] = value[1]
 
     @staticmethod
     def loadFromTuple(lineModelPair):
