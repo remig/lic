@@ -804,22 +804,28 @@ class TogglePLIs(QUndoCommand):
         self.template.scene().emit(SIGNAL("layoutChanged()"))
         self.template.initLayout()
 
-class AddNewPartOGLCommand(QUndoCommand):
+class AddNewPartCommand(QUndoCommand):
     
     _id = getNewCommandID()
     
-    def __init__(self, part, newFilename):
+    def __init__(self, part, step):
         QUndoCommand.__init__(self, "Add new Part")
-        self.newFilename = newFilename
+        self.part, self.step = part, step
 
     def doAction(self, redo):
-        scene = self.part.scene()
+        scene = self.step.scene()
         scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         scene.clearSelection()
 
-        self.part.changePartOGL(self.newFilename if redo else self.oldFilename)
+        page = self.step.getPage()
 
-        page = self.part.getPage()
+        if (redo):
+            self.step.addPart(self.part)
+            page.subModel.parts.append(self.part)
+        else:
+            self.step.removePart(self.part)
+            page.subModel.parts.remove(self.part)
+
         if page.instructions.mainModel.hasTitlePage():
             page.instructions.mainModel.titlePage.submodelItem.resetPixmap()
 
@@ -829,6 +835,7 @@ class AddNewPartOGLCommand(QUndoCommand):
         page.instructions.mainModel.updatePartList()
         scene.emit(SIGNAL("layoutChanged()"))
 
+        self.step.csi.isDirty = True
         page.initLayout()
         scene.update()
 

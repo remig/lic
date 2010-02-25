@@ -2677,14 +2677,14 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             if self.scaling != 1.0:
                 menu.addAction("Copy Scaling to next X CSIs...", lambda: self.copyRotationScaleToNextCSIs(False))
 
-        menu.addAction("Add new Part", self.addNewPartSignal)
         menu.addSeparator()
-        
         arrowMenu = menu.addMenu("Select Part")
         for part in self.getPartList():
             text = "%s - %s" % (part.partOGL.name, LDrawColors.getColorName(part.color))
             arrowMenu.addAction(text, lambda p = part: self.selectPart(p))
         arrowMenu.addAction("Select All", self.selectAllParts)
+
+        menu.addAction("Add new Part", self.addNewPartSignal)
         
         menu.exec_(event.screenPos())
         
@@ -2693,7 +2693,15 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Add LDraw Part", dir, "LDraw Part Files (*.dat)"))
         fn = os.path.basename(filename)
         if fn:
-            self.scene().undoStack.push(ChangePartOGLCommand(self, fn))
+            part = Part(fn, 0, IdentityMatrix(), False)
+            part.initializePartOGL()
+
+            if part.partOGL.oglDispID == GLHelpers.UNINIT_GL_DISPID:
+                part.partOGL.createOGLDisplayList()
+                glContext = self.getPage().instructions.glContext
+                part.partOGL.resetPixmap(glContext)
+
+            self.scene().undoStack.push(AddNewPartCommand(part, self.parentItem()))
 
     def acceptRotation(self, oldRotation):
         stack = self.scene().undoStack 
@@ -2709,11 +2717,13 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     def selectPart(self, part):
         self.scene().clearSelection()
         part.setSelected(True)
+        self.scene().emit(SIGNAL("sceneClick"))
         
     def selectAllParts(self):
         self.scene().clearSelection()
         for part in self.getPartList():
             part.setSelected(True)
+        self.scene().emit(SIGNAL("sceneClick"))
 
     def copyRotationScaleToNextCSIs(self, doRotation):
 
@@ -2817,11 +2827,6 @@ class PartOGL(object):
             elif line [3] == 'INVERTNEXT':
                 self.invertNext = True
             
-    def addNewPart(self, filename):
-        part = Part(filename, 0, IdentityMatrix(), False)
-        part.initializePartOGL()
-        return part
-    
     def addPartFromLine(self, p):
         try:
             part = Part(p['filename'], p['color'], p['matrix'], False)
