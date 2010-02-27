@@ -3146,7 +3146,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
         while csi.partCount() > 0:
             
             partList = csi.getPartList()
-            #partList.sort(key = lambda x: x.getXYZSortOrder())
+            #partList.sort(key = lambda x: x.xyzSortOrder())
             partList.sort(cmp = LicHelpers.compareParts)
             
             part = partList[0]
@@ -3762,7 +3762,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         det = LicHelpers.determinant3x3([self.matrix[0:3], self.matrix[4:7], self.matrix[8:11]])
         self.inverted = (True if det < 0 else False) ^ invert
         
-    def getXYZSortOrder(self):
+    def xyzSortOrder(self):
         b = self.getPartBoundingBox()
         return (-b.y1, b.ySize(), -b.z1, b.x1)
 
@@ -3775,7 +3775,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
         return self.partOGL.getBoundingBox().copy(m)
     
-    def getXYZ(self):
+    def xyz(self):
         return [self.matrix[12], self.matrix[13], self.matrix[14]]
     
     def bx(self):
@@ -3805,7 +3805,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def z(self):
         return self.matrix[14]
 
-    def getXYZSize(self):
+    def xyzSize(self):
         return [self.xSize(), self.ySize(), self.zSize()]
     
     def xSize(self):
@@ -3817,9 +3817,41 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def zSize(self):
         return self.getPartBoundingBox().zSize()
 
+    def xRotation(self):
+        if self.yRotation() != 90:
+            return math.degrees(math.atan2(-self.matrix[6], self.matrix[10]))
+    
+    def yRotation(self):
+        return math.degrees(math.asin(self.matrix[2]))
+
+    def zRotation(self):
+        if self.yRotation() != 90:
+            return math.degrees(math.atan2(-self.matrix[1], self.matrix[0]))
+
+    def xyzRotation(self):
+        return [self.xRotation(), self.yRotation(), self.zRotation()]
+    
+    def setXYZRotation(self, x, y, z):
+        x, y, z = math.radians(x), math.radians(y), math.radians(z)
+
+        sx, sy, sz = math.sin(x), math.sin(y), math.sin(z)
+        cx, cy, cz = math.cos(x), math.cos(y), math.cos(z)
+        
+        self.matrix[0] = cy * cz
+        self.matrix[1] = -cy * sz
+        self.matrix[2] = sy
+
+        self.matrix[4] = (sx * sy * cz) + (cx * sz)
+        self.matrix[5] = (-sx * sy * sz) + (cx * cz)
+        self.matrix[6] = -sx * cy
+
+        self.matrix[8]  = (-cx * sy * cz) + (sx * sz)
+        self.matrix[9]  = (cx * sy * sz) + (sx * cz)
+        self.matrix[10] = cx * cy
+    
     def getPositionMatch(self, part):
         score = 0
-        for a, b in zip(self.getXYZ(), part.getXYZ()):
+        for a, b in zip(self.xyz(), part.xyz()):
             score += 2 if a == b else (1.0 / abs(a-b))
         return score
 
@@ -3994,7 +4026,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         if not self.originalPart:
             menu.addAction("Change Color", self.changeColorSignal)
             menu.addAction("Change Part", self.changeBasePartSignal)
-            menu.addAction("Change Part Position", self.changePartPositionSignal)
+            menu.addAction("Change Part Pos. && Rot.", self.changePartPositionSignal)
         
         menu.exec_(event.screenPos())
 
@@ -4135,28 +4167,28 @@ class Part(PartTreeManager, QGraphicsRectItem):
             self.scene().undoStack.push(ChangePartOGLCommand(self, fn))
 
     def changePartPositionSignal(self):
-        # TODO: Add support for rotating parts.  see this for matrix -> angle decomposition
-        # http://en.wikipedia.org/wiki/Rotation_matrix#Axis_and_angle
         parentWidget = self.scene().views()[0]
-        dialog = LicDialogs.PositionRotationDlg(parentWidget, self.getXYZ(), self.getXYZ())
-        parentWidget.connect(dialog, SIGNAL("change"), self.changePosition)
-        parentWidget.connect(dialog, SIGNAL("accept"), self.acceptPosition)
+        dialog = LicDialogs.PositionRotationDlg(parentWidget, self.xyz(), self.xyzRotation())
+        parentWidget.connect(dialog, SIGNAL("change"), self.changePosRot)
+        parentWidget.connect(dialog, SIGNAL("accept"), self.acceptPosRot)
         dialog.exec_()
 
-    def changePosition(self, newPosition, newRotation):
+    def changePosRot(self, newPosition, newRotation):
         self.matrix[12] = newPosition[0]
         self.matrix[13] = newPosition[1]
         self.matrix[14] = newPosition[2]
+
+        self.setXYZRotation(*newRotation)
 
         self.getCSI().isDirty = True
         self.getCSI().nextCSIIsDirty = True
         self._dataString = None
         if self.calloutPart:
-            self.calloutPart.changePosition(newPosition, newRotation)
+            self.calloutPart.changePosRot(newPosition, newRotation)
         self.update()
 
-    def acceptPosition(self, oldPosition, oldRotation):
-        action = ChangePartPositionCommand(self, oldPosition, self.getXYZ())
+    def acceptPosRot(self, oldPos, oldRot):
+        action = ChangePartPosRotCommand(self, oldPos, self.xyz(), oldRot, self.xyzRotation())
         self.scene().undoStack.push(action)
 
 class Arrow(Part):

@@ -893,18 +893,20 @@ class ChangePartOGLCommand(QUndoCommand):
         page.initLayout()
         scene.update()
 
-class ChangePartPositionCommand(QUndoCommand):
+class ChangePartPosRotCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, part, oldPos, newPos):
+    def __init__(self, part, oldPos, newPos, oldRot, newRot):
         QUndoCommand.__init__(self, "Change Part position")
         self.part, self.oldPos, self.newPos = part, oldPos, newPos
+        self.oldRot, self.newRot = oldRot, newRot
 
     def doAction(self, redo):
         self.part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         pos = self.newPos if redo else self.oldPos
-        self.part.changePosition(pos, pos)
+        rot = self.newRot if redo else self.oldRot
+        self.part.changePosRot(pos, rot)
         self.part.scene().emit(SIGNAL("layoutChanged()"))
 
 class SubmodelToCalloutCommand(QUndoCommand):

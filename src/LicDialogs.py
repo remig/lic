@@ -592,12 +592,12 @@ class ScaleDlg(QDialog):
 
 class XYZWidget(QWidget):
     
-    def __init__(self, changeSignal, min, max, x, y, z):
+    def __init__(self, changeSignal, min, max, x, y, z, double = False):
         QWidget.__init__(self)
 
-        self.xSpinBox = self.makeSpinBox(x, min, max, changeSignal)
-        self.ySpinBox = self.makeSpinBox(y, min, max, changeSignal)
-        self.zSpinBox = self.makeSpinBox(z, min, max, changeSignal)
+        self.xSpinBox = self.makeSpinBox(x, min, max, changeSignal, double)
+        self.ySpinBox = self.makeSpinBox(y, min, max, changeSignal, double)
+        self.zSpinBox = self.makeSpinBox(z, min, max, changeSignal, double)
         
         layout = QFormLayout(self)
         layout.addRow("X:", self.xSpinBox)
@@ -783,14 +783,15 @@ class PositionRotationDlg(QDialog):
     def __init__(self, parent, position, rotation):
         QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
         self.setAttribute(Qt.WA_DeleteOnClose)
-        self.setWindowTitle(self.tr("Change Position and Rotation"))
+        self.setWindowTitle(self.tr("Change Position & Rotation"))
         self.originalPosition, self.originalRotation = position, rotation
 
-        self.xyzWidget = XYZWidget(self.positionChanged, -5000, 5000, *position)
+        self.xyzWidget = XYZWidget(self.valueChanged, -5000, 5000, *position)
         posLabel = QLabel(self.tr("Position:"))
         posLabel.setBuddy(self.xyzWidget)
 
-        self.rotationWidget = XYZWidget(self.positionChanged, -360, 360, *rotation)
+        r = rotation
+        self.rotationWidget = XYZWidget(self.valueChanged, -360, 360, r[0], r[1], r[2], True)
         rotLabel = QLabel(self.tr("Rotation:"))
         rotLabel.setBuddy(self.rotationWidget)
 
@@ -802,13 +803,13 @@ class PositionRotationDlg(QDialog):
         mainLayout.setSizeConstraint(QLayout.SetFixedSize)
         mainLayout.addWidget(posLabel, 0, 0)
         mainLayout.addWidget(self.xyzWidget, 1, 0)
-        #mainLayout.addWidget(rotLabel, 2, 0)
-        #mainLayout.addWidget(self.rotationWidget, 3, 0)
+        mainLayout.addWidget(rotLabel, 2, 0)
+        mainLayout.addWidget(self.rotationWidget, 3, 0)
         mainLayout.addWidget(buttonBox, 4, 0)
 
         self.xyzWidget.selectFirst()
 
-    def positionChanged(self):
+    def valueChanged(self):
         self.emit(SIGNAL("change"), self.xyzWidget.xyz(), self.rotationWidget.xyz())
 
     def accept(self):
