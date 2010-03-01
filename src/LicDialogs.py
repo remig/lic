@@ -659,9 +659,8 @@ class DisplaceDlg(QDialog):
         distance = LicHelpers.displacementToDistance(displacement, direction)
         sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, -500, 500, self.sizeChanged)
         
-        self.arrowCheckBox = QCheckBox(self.tr("&Adjust Arrow (NYI)"))
-        self.arrowCheckBox.setChecked(False)
-        self.arrowCheckBox.setCheckable(False)
+        self.arrowCheckBox = QCheckBox(self.tr("&Adjust Arrow Length"))
+        self.arrowCheckBox.setChecked(True)
 
         self.xyzWidget = XYZWidget(self.displacementChanged, -500, 500, *displacement)
         

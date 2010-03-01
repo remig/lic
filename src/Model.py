@@ -3818,15 +3818,13 @@ class Part(PartTreeManager, QGraphicsRectItem):
         return self.getPartBoundingBox().zSize()
 
     def xRotation(self):
-        if self.yRotation() != 90:
-            return math.degrees(math.atan2(-self.matrix[6], self.matrix[10]))
+        return math.degrees(math.atan2(-self.matrix[6], self.matrix[10]))
     
     def yRotation(self):
         return math.degrees(math.asin(self.matrix[2]))
 
     def zRotation(self):
-        if self.yRotation() != 90:
-            return math.degrees(math.atan2(-self.matrix[1], self.matrix[0]))
+        return math.degrees(math.atan2(-self.matrix[1], self.matrix[0]))
 
     def xyzRotation(self):
         return [self.xRotation(), self.yRotation(), self.zRotation()]
@@ -3964,7 +3962,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         fh.write(line + '\n')
 
     def duplicate(self):
-        p = Part(self.filename, self.color, self.matrix, self.inverted)
+        p = Part(self.filename, self.color, list(self.matrix), self.inverted)
         p.partOGL = self.partOGL
         p.setParentItem(self.parentItem())
         p.displacement = list(self.displacement)
@@ -4027,6 +4025,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
             menu.addAction("Change Color", self.changeColorSignal)
             menu.addAction("Change Part", self.changeBasePartSignal)
             menu.addAction("Change Part Pos. && Rot.", self.changePartPositionSignal)
+            menu.addAction("Duplicate Part", self.duplicatePartSignal)
         
         menu.exec_(event.screenPos())
 
@@ -4089,10 +4088,24 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
     def changeDisplacement(self, displacement, changeArrow):
         self.displacement = displacement
+        if changeArrow:
+            length = LicHelpers.displacementToDistance(displacement, self.displaceDirection)
+            for arrow in self.arrows:
+                arrow.setLength(length)
         self.getCSI().resetPixmap()
 
     def acceptDisplacement(self, oldDisplacement, changeArrow):
-        self.scene().undoStack.push(DisplacePartCommand(self, oldDisplacement, self.displacement))
+        stack = self.scene().undoStack
+        if changeArrow:
+            stack.beginMacro("Displace Part && Arrow")
+
+        stack.push(DisplacePartCommand(self, oldDisplacement, self.displacement))
+
+        if changeArrow:
+            oldLength = LicHelpers.displacementToDistance(oldDisplacement, self.displaceDirection)
+            for arrow in self.arrows:
+                self.scene().undoStack.push(AdjustArrowLength(arrow, oldLength, arrow.getLength()))
+            stack.endMacro()
 
     def moveToStepSignal(self, destStep):
         scene = self.scene()
@@ -4165,6 +4178,10 @@ class Part(PartTreeManager, QGraphicsRectItem):
         fn = os.path.basename(filename)
         if fn and fn != self.filename:
             self.scene().undoStack.push(ChangePartOGLCommand(self, fn))
+
+    def duplicatePartSignal(self):
+        part = self.duplicate()
+        self.scene().undoStack.push(AddNewPartCommand(part, self.getStep()))
 
     def changePartPositionSignal(self):
         parentWidget = self.scene().views()[0]

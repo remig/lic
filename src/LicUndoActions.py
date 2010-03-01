@@ -152,7 +152,7 @@ class DisplacePartCommand(QUndoCommand):
     _id = getNewCommandID()
 
     def __init__(self, part, oldDisp, newDisp):
-        QUndoCommand.__init__(self, "Part displacement")
+        QUndoCommand.__init__(self, "Displace Part")
         self.part, self.oldDisp, self.newDisp = part, oldDisp, newDisp
 
     def undo(self):
