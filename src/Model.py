@@ -1251,16 +1251,15 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         self.borderFit = fit
 
     def resetRect(self):
-        children = self.children()
-        children.remove(self.arrow)  # Don't want Callout arrow inside its selection box
 
         b = QRectF()
-        for child in children:
-            b |= child.boundingRect().translated(child.pos())
+        for step in self.steps:
+            b |= step.rect().translated(step.pos())
             
-        x, y = Page.margin.x(), Page.margin.y()
         if self.qtyLabel:
-            b.adjust(0.0, 0.0, self.qtyLabel.boundingRect().width(), self.qtyLabel.boundingRect().height())
+            b |= self.qtyLabel.boundingRect().translated(self.qtyLabel.pos())
+
+        x, y = Page.margin
         self.setRect(b.adjusted(-x, -y, x, y))
         self.normalizePosition([self.arrow])
         self.resetArrow()
@@ -1291,13 +1290,10 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
         self.layout.initLayoutInsideOut(self.steps)
 
-        if self.qtyLabel:  # Hide qty label inside step temporarily, so its bounding box is ignored
-            self.qtyLabel.setPos(self.steps[0].pos())
-
-        self.resetRect()
-
         if self.qtyLabel:
             self.positionQtyLabel()
+
+        self.resetRect()
 
         self.arrow.initializeEndPoints()
 
@@ -1337,7 +1333,6 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         if self.qtyLabel is None:
             self.addQuantityLabel()
         self.qtyLabel.setText("%dx" % qty)
-        self.positionQtyLabel()
 
     def setMergedQuantity(self):
         qty = len(self.mergedCallouts)
@@ -1347,9 +1342,12 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             self.removeQuantityLabel()
 
     def positionQtyLabel(self):
-        r = self.qtyLabel.boundingRect()
-        r.moveBottomRight(self.rect().bottomRight() - Page.margin)
-        self.qtyLabel.setPos(r.topLeft())
+        if self.steps:
+            step = self.steps[-1]
+            pos = step.rect().translated(step.pos()).bottomRight()
+            self.qtyLabel.setPos(pos)
+        else:
+            self.qtyLabel.setPos(0, 0)
 
     def mouseMoveEvent(self, event):
         GraphicsRoundRectItem.mouseMoveEvent(self, event)
