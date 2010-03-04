@@ -479,7 +479,14 @@ class TemplateCSI(CSI, TemplateRotateScaleSignalItem):
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Change Default CSI Rotation", self.rotateDefaultSignal)
         menu.addAction("Change Default CSI Scale", self.scaleDefaultSignal)
+
+        text = "%sHighlight new Parts" % ("Don't " if CSI.highlightNewParts else "")
+        menu.addAction(text, self.highlightNewPartsSignal)
+
         menu.exec_(event.screenPos())
+
+    def highlightNewPartsSignal(self):
+        self.scene().undoStack.push(ToggleCSIPartHighlightCommand(not CSI.highlightNewParts, CSI, self))
 
 class TemplateCircleLabel(GraphicsCircleLabelItem, TemplateRectItem):
     

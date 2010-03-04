@@ -77,6 +77,7 @@ class Instructions(QObject):
         CSI.defaultScale = PLI.defaultScale = SubmodelPreview.defaultScale = 1.0
         CSI.defaultRotation = [20.0, 45.0, 0.0]
         PLI.defaultRotation = [20.0, -45.0, 0.0]
+        CSI.highlightNewParts = False
         SubmodelPreview.defaultRotation = [20.0, 45.0, 0.0]
         self.glContext.makeCurrent()
 
@@ -211,6 +212,11 @@ class Instructions(QObject):
             else:
                 partList = partList2  # Some images rendered out of frame - loop and try bigger frame
                 partList2 = []
+
+    def setAllCSIDirty(self):
+        csiList = self.mainModel.getCSIList()
+        for csi in csiList:
+            csi.isDirty = True
 
     def initCSIDimensions(self, repositionCSI = False):
 
@@ -2440,6 +2446,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
 
     defaultScale = 1.0
     defaultRotation = [20.0, 45.0, 0.0]
+    highlightNewParts = False
 
     def __init__(self, step):
         QGraphicsRectItem.__init__(self, step)
@@ -3889,7 +3896,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         color = LDrawColors.convertToRGBA(self.color)
 
         if color != LDrawColors.CurrentColor:
-            if self.isSelected():
+            if useDisplacement and self.isSelected():
                 color[3] = 0.5
             GL.glPushAttrib(GL.GL_CURRENT_BIT)
             GL.glColor4fv(color)
@@ -3907,7 +3914,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
             GL.glPushMatrix()
             GL.glMultMatrixf(matrix)
 
-        if self.isSelected():
+        if useDisplacement and (self.isSelected() or CSI.highlightNewParts):
             GL.glPushAttrib(GL.GL_CURRENT_BIT)
             GL.glColor4f(1.0, 0.0, 0.0, 1.0)
             self.drawGLBoundingBox()

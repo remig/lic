@@ -804,6 +804,20 @@ class TogglePLIs(QUndoCommand):
         self.template.scene().emit(SIGNAL("layoutChanged()"))
         self.template.initLayout()
 
+class ToggleCSIPartHighlightCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, state, target, templateCSI):
+        QUndoCommand.__init__(self, "Highlight Parts")
+        self.state, self.target, self.templateCSI = state, target, templateCSI
+
+    def doAction(self, redo):
+        self.target.highlightNewParts = redo and self.state
+        self.templateCSI.isDirty = True
+        self.templateCSI.getPage().instructions.setAllCSIDirty()
+        self.templateCSI.scene().update()
+
 class AddNewPartCommand(QUndoCommand):
     
     _id = getNewCommandID()
