@@ -169,7 +169,7 @@ def __writePart(stream, part):
     for point in part.matrix:
         stream.writeFloat(point)
 
-    stream.writeBool(part.inCallout)
+    stream.writeBool(part.calloutPart != None)
 
     pageNumber = stepNumber = -1
     if part.parentItem() and part.getCSI():

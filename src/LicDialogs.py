@@ -657,12 +657,12 @@ class DisplaceDlg(QDialog):
         self.originalDisplacement, self.direction = displacement, direction
 
         distance = LicHelpers.displacementToDistance(displacement, direction)
-        sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, -500, 500, self.sizeChanged)
+        sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, -5000, 5000, self.sizeChanged)
         
         self.arrowCheckBox = QCheckBox(self.tr("&Adjust Arrow Length"))
         self.arrowCheckBox.setChecked(True)
 
-        self.xyzWidget = XYZWidget(self.displacementChanged, -500, 500, *displacement)
+        self.xyzWidget = XYZWidget(self.displacementChanged, -5000, 5000, *displacement)
         
         self.moreButton = QPushButton(self.tr("X - Y - Z"))
         self.moreButton.setCheckable(True)
@@ -712,23 +712,23 @@ class ArrowDisplaceDlg(QDialog):
 
         displacement = arrow.displacement
         distance = LicHelpers.displacementToDistance(displacement, arrow.displaceDirection)
-        sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, -500, 500, self.sizeChanged)
-        lengthLabel, self.lengthSpinBox = self.makeLabelSpinBox(self.tr("&Length:"), arrow.getLength(), -500, 500, self.lengthChanged)
+        sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, -5000, 5000, self.sizeChanged)
+        lengthLabel, self.lengthSpinBox = self.makeLabelSpinBox(self.tr("&Length:"), arrow.getLength(), -5000, 5000, self.lengthChanged)
         rotationLabel, self.rotationSpinBox = self.makeLabelSpinBox(self.tr("&Rotation:"), arrow.axisRotation, -360, 360, self.rotationChanged)
 
         buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
         self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
 
-        self.tipXYZWidget = XYZWidget(self.displacementChanged, -500, 500, *displacement)
-        self.endXYZWidget = XYZWidget(self.displacementChanged, -500, 500, *displacement)
+        self.tipXYZWidget = XYZWidget(self.displacementChanged, -5000, 5000, *displacement)
+        self.endXYZWidget = XYZWidget(self.displacementChanged, -5000, 5000, *displacement)
         self.tipXYZWidget.setLabels("tip X:", "tip Y:", "tip Z:")
         self.endXYZWidget.setLabels("end X (NYI):", "end Y (NYI):", "end Z (NYI):")
 
         extension = QWidget()
         box = QBoxLayout(QBoxLayout.TopToBottom, extension)
         box.addWidget(self.tipXYZWidget)
-        box.addWidget(self.endXYZWidget)
+        #box.addWidget(self.endXYZWidget)  # TODO: Either implement arbitrary arrow end point positions or remove this
 
         self.moreButton = QPushButton(self.tr("X - Y - Z"))
         self.moreButton.setCheckable(True)

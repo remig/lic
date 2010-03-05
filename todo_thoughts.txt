@@ -24,8 +24,48 @@ Lic TODO:
  
 - Fix saw.dat, so all edges & surfaces rendered properly
 
+- Change File->Save so it saves everything to a newly created temp file, then replaces the real file after.  
+  This way, if we crash halfway through save, all is not lost.
+  
 - Add Part Count label to default title Page
 
 - Add Auto-layout menu option to Title & Part List Page
 
 - Add full undo / redo support for all auto-layout actions
+
+- CSI->Select All Parts does not select all parts in the tree, just one
+
+- Add CSI->Remove Rotation for rotated CSIs.  Will remove rotation label too
+
+- When displacing a part, lower the default amount of displacement a bunch
+
+- When displacing a part, count the # of studs and add an appropriate number of appropriately positioned arrows
+
+- When displacing a technic part, try to get the arrow coming out of the hole
+
+- In Merged Callouts, need to handle adding / removing parts 
+
+- Fix keyboard arrow keys for callout arrow end & tip so they can be moved around
+
+- Think about 'selection group' class, especially SelectedPart class, to better handle context menus for multiply selected items
+
+- Handle Submodel reordering when swapping steps that have submodels in them
+
+- Allow displaced part with no arrow at all
+
+- When moving a part from step to step, and leaving nothing except a Submodel behind, need to clear PLI properly
+
+- Submodel images need a quantity label
+
+- Don't automatically add any CSI Rotation icon inside Callouts
+
+- When moving a PLI qty label to the left, it pulls the part left too
+
+- Need status bar on PDF export
+
+- PDF export needs dialog to control export setting, mainly high-res scale multiplier setting (current hardcoded to 3)
+
+- Finally cave in and create a proper Properties dialog.  On it:
+  - Expose most of lic.ini settings 
+  - Add ability to save or auto-delete backup save files
+  

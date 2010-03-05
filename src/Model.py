@@ -1226,7 +1226,6 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         newPart = part.duplicate()
         newPart.originalPart = part
         part.calloutPart = newPart
-        part.inCallout = True
         if step is None:
             step = self.steps[-1]
         step.addPart(newPart)
@@ -1235,7 +1234,6 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         newPart = part.calloutPart
         newPart.originalPart = None
         part.calloutPart = None
-        part.inCallout = False
         for step in self.steps:
             step.removePart(newPart)
 
@@ -2854,11 +2852,15 @@ class PartOGL(object):
         try:
             part = Part(p['filename'], p['color'], p['matrix'], False)
             part.setInversion(self.invertNext)
-            if self.filename == "stud.dat" and part.filename == "4-4cyli.dat":
+
+            fn = self.filename.lower()
+            if fn == "stud.dat" and part.filename == "4-4cyli.dat":
                 part.color = 512
-            elif self.filename == "stud2.dat" and part.filename == "4-4cyli.dat":
+            elif fn == "stud2.dat" and part.filename == "4-4cyli.dat":
                 part.color = 512
-            elif self.filename == "stud4.dat" and part.filename == "4-4cyli.dat" and self.invertNext:
+            elif fn == "stud2a.dat" and part.filename == "4-4cyli.dat":
+                part.color = 512
+            elif fn == "stud4.dat" and part.filename == "4-4cyli.dat" and self.invertNext:
                 part.color = 512
 
             part.initializePartOGL()
@@ -3679,11 +3681,13 @@ class Mainmodel(MainModelTreeManager, Submodel):
     def updatePartList(self):
         p1 = self.partListPages[0]
         scene = p1.scene()
+        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         if len(self.partListPages) > 1:
-            for page in self.partListPages[1]:
+            for page in self.partListPages[1:]:
                 scene.removeItem(page)
                 del(page)
         self.partListPages = p1.updatePartList()
+        scene.emit(SIGNAL("layoutChanged()"))
         
     def syncPageNumbers(self, firstPageNumber = 1):
 
@@ -3753,7 +3757,6 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.displaceDirection = None
 
         # Links to track if this part is in a Callout, and the part it's tied to
-        self.inCallout = False
         self.calloutPart = None
         self.originalPart = None
         self.arrows = []
@@ -4004,7 +4007,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         step = self.getStep()
         menu = QMenu(self.scene().views()[0])
 
-        if self.inCallout:
+        if self.calloutPart:
             menu.addAction("Remove from Callout", self.removeFromCalloutSignal)
         else:
             menu.addAction("Create Callout from Parts", self.createCalloutSignal)
@@ -4017,11 +4020,11 @@ class Part(PartTreeManager, QGraphicsRectItem):
         menu.addSeparator()
 
         needSeparator = False
-        if step.getPrevStep() and not self.inCallout:
+        if step.getPrevStep() and not self.calloutPart:
             menu.addAction("Move to &Previous Step", lambda: self.moveToStepSignal(step.getPrevStep()))
             needSeparator = True
 
-        if step.getNextStep() and not self.inCallout:
+        if step.getNextStep() and not self.calloutPart:
             menu.addAction("Move to &Next Step", lambda: self.moveToStepSignal(step.getNextStep()))
             needSeparator = True
 
@@ -4068,14 +4071,14 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def moveToCalloutSignal(self, callout):
         selectedParts = []
         for item in self.scene().selectedItems():
-            if isinstance(item, Part) and not item.inCallout:
+            if isinstance(item, Part) and not item.calloutPart:
                 selectedParts.append(item)
         self.scene().undoStack.push(AddPartsToCalloutCommand(callout, selectedParts))
 
     def removeFromCalloutSignal(self):
         selectedParts = []
         for item in self.scene().selectedItems():
-            if isinstance(item, Part) and item.inCallout:
+            if isinstance(item, Part) and item.calloutPart:
                 selectedParts.append(item)
         callout = self.calloutPart.getStep().parentItem()
         self.scene().undoStack.push(RemovePartsFromCalloutCommand(callout, selectedParts))
@@ -4137,7 +4140,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         scene = self.scene()
         selectedParts = []
         for item in scene.selectedItems():
-            if isinstance(item, Part) and not item.inCallout:
+            if isinstance(item, Part) and not item.calloutPart:
                 selectedParts.append(item)
 
         currentStep = self.getStep()

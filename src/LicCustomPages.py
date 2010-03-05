@@ -121,7 +121,7 @@ class PartListPage(PartListPageTreeManager, Page):
         overflowList = self.doOverflowLayout()
     
         while overflowList != []:
-            page = PartListPage(instructions, pageList[-1]._number + 1, pageList[-1]._row + 1)
+            page = PartListPage(self.instructions, pageList[-1]._number + 1, pageList[-1]._row + 1)
             page.initPartialItemList(overflowList)
             pageList.append(page)
             overflowList = page.doOverflowLayout()
