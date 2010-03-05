@@ -113,13 +113,12 @@ class PartListPage(PartListPageTreeManager, Page):
     def contextMenuEvent(self, event):
         pass  # PartListPage has no context menu, yet
 
-    @staticmethod
-    def createPartListPages(instructions):
+    def updatePartList(self):
 
-        page = PartListPage(instructions)
-        page.initFullPartList()
-        pageList = [page]
-        overflowList = page.doOverflowLayout()
+        self.pli.removeAllParts()
+        self.initFullPartList()
+        pageList = [self]
+        overflowList = self.doOverflowLayout()
     
         while overflowList != []:
             page = PartListPage(instructions, pageList[-1]._number + 1, pageList[-1]._row + 1)
@@ -128,6 +127,12 @@ class PartListPage(PartListPageTreeManager, Page):
             overflowList = page.doOverflowLayout()
     
         return pageList
+    
+    @staticmethod
+    def createPartListPages(instructions):
+
+        page = PartListPage(instructions)
+        return page.updatePartList()
 
 class EditableTextItem(QGraphicsSimpleTextItem):
     

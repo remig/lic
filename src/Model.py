@@ -218,6 +218,12 @@ class Instructions(QObject):
         for csi in csiList:
             csi.isDirty = True
 
+    def updateMainModel(self, updatePartList = True):
+        if self.mainModel.hasTitlePage():
+            self.mainModel.titlePage.submodelItem.resetPixmap()
+        if updatePartList:
+            self.mainModel.updatePartList()
+
     def initCSIDimensions(self, repositionCSI = False):
 
         self.glContext.makeCurrent()
@@ -310,6 +316,7 @@ class Instructions(QObject):
         if scaleFactor > 1:
             GL.glLineWidth(1.5)  # Make part lines a bit thicker for higher res output 
 
+        # TODO: Move all this ugly buffer init crap to GLHelpers
         # Create non-multisample FBO that we can call glReadPixels on
         frameBuffer = glGenFramebuffersEXT(1)
         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, frameBuffer)
@@ -352,7 +359,7 @@ class Instructions(QObject):
     
         # Render & save each page, storing the created filename to return later
         pageFileNames = []
-        pageList = self.mainModel.getPageList()
+        pageList = self.mainModel.getFullPageList()
         pageList.sort(key = lambda x: x._number)
         for page in pageList:
 
@@ -722,6 +729,10 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
             self.addStepSeparator(index, rect)
 
         return label
+
+    def updateSubmodel(self):
+        if self.subModel and self.subModel.pages and self.subModel.pages[0].submodelItem:
+            self.subModel.pages[0].submodelItem.resetPixmap()
 
     def adjustSubmodelImages(self):
 
@@ -2322,6 +2333,13 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
             self.pliItems.remove(pliItem)
             pliItem.setParentItem(None)
 
+    def removeAllParts(self):
+        scene = self.scene()
+        for pliItem in self.pliItems:
+            scene.removeItem(pliItem.numberItem)
+            scene.removeItem(pliItem)
+        self.pliItems = []
+
     def changePartColor(self, part, oldColor, newColor):
         part.color = oldColor
         self.removePart(part)
@@ -2706,7 +2724,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
                 glContext = self.getPage().instructions.glContext
                 part.partOGL.resetPixmap(glContext)
 
-            self.scene().undoStack.push(AddNewPartCommand(part, self.parentItem()))
+            self.scene().undoStack.push(AddRemovePartCommand(part, self.parentItem(), True))
 
     def acceptRotation(self, oldRotation):
         stack = self.scene().undoStack 
@@ -3661,10 +3679,11 @@ class Mainmodel(MainModelTreeManager, Submodel):
     def updatePartList(self):
         p1 = self.partListPages[0]
         scene = p1.scene()
-        for page in self.partListPages:
-            scene.removeItem(page)
-            del(page)
-        self.partListPages = p1.createPartListPages(self.instructions)
+        if len(self.partListPages) > 1:
+            for page in self.partListPages[1]:
+                scene.removeItem(page)
+                del(page)
+        self.partListPages = p1.updatePartList()
         
     def syncPageNumbers(self, firstPageNumber = 1):
 
@@ -4027,10 +4046,12 @@ class Part(PartTreeManager, QGraphicsRectItem):
             
         menu.addSeparator()
         if not self.originalPart:
-            menu.addAction("Change Color", self.changeColorSignal)
-            menu.addAction("Change Part", self.changeBasePartSignal)
-            menu.addAction("Change Part Pos. && Rot.", self.changePartPositionSignal)
-            menu.addAction("Duplicate Part", self.duplicatePartSignal)
+            arrowMenu2 = menu.addMenu("Change Part")
+            arrowMenu2.addAction("Change Color", self.changeColorSignal)
+            arrowMenu2.addAction("Change to Different Part", self.changeBasePartSignal)
+            arrowMenu2.addAction("Change Position && Rotation", self.changePartPositionSignal)
+            arrowMenu2.addAction("Duplicate Part", self.duplicatePartSignal)
+            arrowMenu2.addAction("Delete Part", self.deletePartSignal)
         
         menu.exec_(event.screenPos())
 
@@ -4186,7 +4207,10 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
     def duplicatePartSignal(self):
         part = self.duplicate()
-        self.scene().undoStack.push(AddNewPartCommand(part, self.getStep()))
+        self.scene().undoStack.push(AddRemovePartCommand(part, self.getStep(), True))
+
+    def deletePartSignal(self):
+        self.scene().undoStack.push(AddRemovePartCommand(self, self.getStep(), False))
 
     def changePartPositionSignal(self):
         parentWidget = self.scene().views()[0]

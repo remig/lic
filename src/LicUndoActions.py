@@ -265,6 +265,38 @@ class SwapStepsCommand(QUndoCommand):
             p2.initLayout()
         p1.scene().emit(SIGNAL("layoutChanged()"))
 
+class AddRemovePartCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, part, step, addPart):
+        QUndoCommand.__init__(self, "%s Part" % ("add" if addPart else "delete"))
+        self.part, self.step, self.addPart = part, step, addPart
+
+    def doAction(self, redo):
+        step = self.step
+        page = step.getPage()
+        submodel = page.subModel
+
+        step.scene().clearSelection()
+        step.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+
+        if (redo and self.addPart) or (not redo and not self.addPart):
+            step.addPart(self.part)
+            submodel.parts.append(self.part)
+        else:
+            self.part.setParentItem(None)
+            step.removePart(self.part)
+            submodel.parts.remove(self.part)
+
+        step.scene().emit(SIGNAL("layoutChanged()"))
+
+        page.instructions.updateMainModel()
+        page.updateSubmodel()
+
+        step.csi.isDirty = True
+        page.initLayout()
+
 class AddRemoveArrowCommand(QUndoCommand):
 
     _id = getNewCommandID()
@@ -818,41 +850,6 @@ class ToggleCSIPartHighlightCommand(QUndoCommand):
         self.templateCSI.getPage().instructions.setAllCSIDirty()
         self.templateCSI.scene().update()
 
-class AddNewPartCommand(QUndoCommand):
-    
-    _id = getNewCommandID()
-    
-    def __init__(self, part, step):
-        QUndoCommand.__init__(self, "Add new Part")
-        self.part, self.step = part, step
-
-    def doAction(self, redo):
-        scene = self.step.scene()
-        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-        scene.clearSelection()
-
-        page = self.step.getPage()
-
-        if (redo):
-            self.step.addPart(self.part)
-            page.subModel.parts.append(self.part)
-        else:
-            self.step.removePart(self.part)
-            page.subModel.parts.remove(self.part)
-
-        if page.instructions.mainModel.hasTitlePage():
-            page.instructions.mainModel.titlePage.submodelItem.resetPixmap()
-
-        if page.subModel.pages[0].submodelItem:
-            page.subModel.pages[0].submodelItem.resetPixmap()
-
-        page.instructions.mainModel.updatePartList()
-        scene.emit(SIGNAL("layoutChanged()"))
-
-        self.step.csi.isDirty = True
-        page.initLayout()
-        scene.update()
-
 class ChangePartColorCommand(QUndoCommand):
 
     _id = getNewCommandID()
@@ -869,13 +866,9 @@ class ChangePartColorCommand(QUndoCommand):
             self.part.getStep().pli.changePartColor(self.part, oldColor, newColor)
 
         page = self.part.getPage()
-        if page.instructions.mainModel.hasTitlePage():
-            page.instructions.mainModel.titlePage.submodelItem.resetPixmap()
+        page.instructions.updateMainModel()
+        page.updateSubmodel()
 
-        if page.subModel.pages[0].submodelItem:
-            page.subModel.pages[0].submodelItem.resetPixmap()
-
-        page.instructions.mainModel.updatePartList()
         self.part.scene().emit(SIGNAL("layoutChanged()"))
 
 class ChangePartOGLCommand(QUndoCommand):
@@ -895,13 +888,9 @@ class ChangePartOGLCommand(QUndoCommand):
         self.part.changePartOGL(self.newFilename if redo else self.oldFilename)
 
         page = self.part.getPage()
-        if page.instructions.mainModel.hasTitlePage():
-            page.instructions.mainModel.titlePage.submodelItem.resetPixmap()
+        page.instructions.updateMainModel()
+        page.updateSubmodel()
 
-        if page.subModel.pages[0].submodelItem:
-            page.subModel.pages[0].submodelItem.resetPixmap()
-
-        page.instructions.mainModel.updatePartList()
         scene.emit(SIGNAL("layoutChanged()"))
 
         page.initLayout()
@@ -922,6 +911,10 @@ class ChangePartPosRotCommand(QUndoCommand):
         rot = self.newRot if redo else self.oldRot
         self.part.changePosRot(pos, rot)
         self.part.scene().emit(SIGNAL("layoutChanged()"))
+
+        page = self.part.getPage() 
+        page.instructions.updateMainModel(False)
+        page.updateSubmodel()
 
 class SubmodelToCalloutCommand(QUndoCommand):
     
