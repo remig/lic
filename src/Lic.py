@@ -1237,12 +1237,26 @@ class LicWindow(QMainWindow):
     def fileSave(self):
         if self.filename == "":
             return self.fileSaveAs()
+
+        tmpName = os.path.splitext(self.filename)[0] + "_bak.lic"
+        tmpXName = self.filename + ".x"
+
         try:
-            LicBinaryWriter.saveLicFile(self.filename, self.instructions, self.templatePage)
+            if os.path.isfile(tmpXName):
+                os.remove(tmpXName)
+
+            LicBinaryWriter.saveLicFile(tmpXName, self.instructions, self.templatePage)
+
+            if os.path.isfile(tmpName):
+                os.remove(tmpName)
+            os.rename(self.filename, tmpName)
+            os.rename(tmpXName, self.filename)
+
             self.undoStack.setClean()
             self.addRecentFile(self.filename)
             self.statusBar().showMessage("Saved to: " + self.filename)
             return True
+
         except (IOError, OSError), e:
             QMessageBox.warning(self, "Lic - Save Error", "Failed to save %s: %s" % (self.filename, e))
         return False
@@ -1367,6 +1381,10 @@ def recompileResources():
     ret = os.spawnl(os.P_WAIT, r"C:\Python25\Lib\site-packages\PyQt4\pyrcc4.exe", "pyrcc4.exe", "-o", r"c:\lic\src\resources.py", r"c:\lic\resources.qrc")
     print ret
 
+#def rebuildWin32Zip():
+#    sys.argv.append("py2exe")
+#    import setup
+
 def updateAllSavedLicFiles(window):
     for root, unused, files in os.walk("C:\\lic"):
         for f in files:
@@ -1384,4 +1402,3 @@ if __name__ == '__main__':
     #cProfile.run('main()', 'profile_run')
     main()
     #recompileResources()
-

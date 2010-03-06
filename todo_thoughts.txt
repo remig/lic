@@ -24,9 +24,6 @@ Lic TODO:
  
 - Fix saw.dat, so all edges & surfaces rendered properly
 
-- Change File->Save so it saves everything to a newly created temp file, then replaces the real file after.  
-  This way, if we crash halfway through save, all is not lost.
-  
 - Add Part Count label to default title Page
 
 - Add Auto-layout menu option to Title & Part List Page
@@ -69,3 +66,4 @@ Lic TODO:
   - Expose most of lic.ini settings 
   - Add ability to save or auto-delete backup save files
   
+ - Displacing a part inside a callout does not correctly resize the overall callout
