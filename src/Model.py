@@ -967,7 +967,7 @@ class CalloutArrowEndItem(QGraphicsRectItem):
         self._row = row
         
         self.point = QPointF()
-        self.mousePoint = None
+        self.mousePoint = self.keyPoint = None
         self.setFlags(AllFlags)
         self.setPen(parent.pen())
         
@@ -990,14 +990,18 @@ class CalloutArrowEndItem(QGraphicsRectItem):
         self.parentItem().internalPoints = []
         QGraphicsItem.mouseMoveEvent(self, event)
         self.point -= event.lastScenePos() - event.scenePos()
-        self.mousePoint = event.pos()
+        self.mousePoint = event.scenePos()
         
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.RightButton:
             return
         QGraphicsItem.mouseReleaseEvent(self, event)
         self.scene().undoStack.push(CalloutArrowMoveCommand(self, self.oldPoint, self.point))
-        self.mousePoint = None
+
+    def moveBy(self, x, y):
+        QGraphicsRectItem.moveBy(self, x, y)
+        self.keyPoint = True
+        self.scene().undoStack.push(CalloutArrowMoveCommand(self, self.point, self.point + QPointF(x, y)))
 
 class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
     itemClassName = "CalloutArrow"
@@ -1054,6 +1058,19 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
     def paint(self, painter, option, widget = None):
         return  # Do nothing on real paint - will paint as an annotation after GLItems in foreground
     
+    def boundPointToRect(self, point, rect, destPoint):
+        l, r, t, b = rect.left(), rect.right(), rect.top(), rect.bottom()
+        x, y = point
+
+        if x > l and x < r and y > t and y < b:  # cursor inside callout - lock to closest edge
+            if min(x - l, r - x) < min(y - t, b - y):
+                destPoint.setX(l if (x - l) < (r - x) else r)  # lock to x
+            else:
+                destPoint.setY(t if (y - t) < (b - y) else b)  # lock to y
+        else:
+            destPoint.setX(min(max(x, l), r))
+            destPoint.setY(min(max(y, t), b))
+
     def initializePoints(self):
 
         # Find two target rects, both in *LOCAL* coordinates
@@ -1064,6 +1081,14 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
 
         tip = self.mapFromItem(csi, self.tipRect.point)
         end = self.baseRect.point
+
+        if self.baseRect.keyPoint:
+            self.boundPointToRect(end, calloutRect, end)
+            self.baseRect.keyPoint = False
+        elif self.baseRect.mousePoint:
+            point = self.mapFromScene(self.baseRect.mousePoint)
+            self.boundPointToRect(point, calloutRect, end)
+            self.baseRect.mousePoint = None
 
         if csiRect.right() < calloutRect.left():  # Callout right of CSI
             rotation = 0.0
@@ -1097,26 +1122,6 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
             midY = (tip.y() + offset.y() + end.y()) / 2.0
             mid1 = QPointF(tip.x(), midY)
             mid2 = QPointF(end.x(), midY)
-
-        if self.baseRect.mousePoint:
-            l, r, t, b = calloutRect.left(), calloutRect.right(), calloutRect.top(), calloutRect.bottom()
-            mp = self.mapFromItem(self.baseRect, self.baseRect.mousePoint)
-            mx, my = mp.x(), mp.y()
-
-            if mx > l and mx < r and my > t and my < b:  # cursor inside callout - lock to closest edge
-                if min(mx - l, r - mx) < min(my - t, b - my):
-                    end.setX(l if (mx - l) < (r - mx) else r)  # lock to x
-                else:
-                    end.setY(t if (my - t) < (b - my) else b)  # lock to y
-            else:
-                if mx < l:
-                    end.setX(l)
-                elif mx > r:
-                    end.setX(r)
-                if my < t:
-                    end.setY(t)
-                elif my > b:
-                    end.setY(b)
 
         tr = self.tipRect.rect().translated(self.tipRect.pos())
         br = self.baseRect.rect().translated(self.baseRect.pos())

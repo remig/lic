@@ -499,7 +499,8 @@ class LicGraphicsScene(QGraphicsScene):
 
             item.oldPos = item.pos()
             item.moveBy(x, y)
-            movedItems.append(item)
+            if not isinstance(item, CalloutArrowEndItem):
+                movedItems.append(item)
 
         if movedItems:
             self.emit(SIGNAL("itemsMoved"), movedItems)

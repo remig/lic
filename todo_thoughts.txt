@@ -1,8 +1,5 @@
 Lic TODO:
 
-- Need to give user a way to specify:
-  - All OpenGL rendering options, notably ambient light setting
-
 - Need a logo
 
 - Surround optional 3rd party imports in try...catch blocks
@@ -42,13 +39,9 @@ Lic TODO:
 
 - In Merged Callouts, need to handle adding / removing parts 
 
-- Fix keyboard arrow keys for callout arrow end & tip so they can be moved around
-
 - Think about 'selection group' class, especially SelectedPart class, to better handle context menus for multiply selected items
 
 - Handle Submodel reordering when swapping steps that have submodels in them
-
-- Allow displaced part with no arrow at all
 
 - When moving a part from step to step, and leaving nothing except a Submodel behind, need to clear PLI properly
 
@@ -63,7 +56,9 @@ Lic TODO:
 - PDF export needs dialog to control export setting, mainly high-res scale multiplier setting (current hardcoded to 3)
 
 - Finally cave in and create a proper Properties dialog.  On it:
+  - All OpenGL rendering options, notably ambient light setting
   - Expose most of lic.ini settings 
   - Add ability to save or auto-delete backup save files
   
  - Displacing a part inside a callout does not correctly resize the overall callout
+ 

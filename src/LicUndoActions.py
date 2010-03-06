@@ -84,20 +84,15 @@ class CalloutArrowMoveCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, part, oldPoint, newPoint):
+    def __init__(self, arrow, oldPoint, newPoint):
         QUndoCommand.__init__(self, "move Callout Arrow")
-        self.part, self.oldPoint, self.newPoint = part, oldPoint, newPoint
+        self.arrow, self.oldPoint, self.newPoint = arrow, oldPoint, newPoint
 
     # Need to invalidate scene because we don't actually move a part here, so scene doesn't redraw
-    def undo(self):
-        self.part.point = self.oldPoint
-        self.part.parentItem().internalPoints = []
-        self.part.update()
-
-    def redo(self):
-        self.part.point = self.newPoint
-        self.part.parentItem().internalPoints = []
-        self.part.update()
+    def doAction(self, redo):
+        self.arrow.point = self.newPoint if redo else self.oldPoint
+        self.arrow.parentItem().internalPoints = []
+        self.arrow.update()
 
 class CalloutBorderFitCommand(QUndoCommand):
 
