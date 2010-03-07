@@ -41,10 +41,6 @@ Lic TODO:
 
 - Think about 'selection group' class, especially SelectedPart class, to better handle context menus for multiply selected items
 
-- Handle Submodel reordering when swapping steps that have submodels in them
-
-- When moving a part from step to step, and leaving nothing except a Submodel behind, need to clear PLI properly
-
 - Submodel images need a quantity label
 
 - Don't automatically add any CSI Rotation icon inside Callouts

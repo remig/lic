@@ -222,7 +222,9 @@ class MoveStepToPageCommand(QUndoCommand):
         for step, oldPage, newPage in self.stepSet:
             step.moveToPage(newPage if redo else oldPage)
             if step.csi.containsSubmodel():
-                newPage.instructions.mainModel.reOrderSubmodelPages()
+                model = newPage.instructions.mainModel 
+                model.reOrderSubmodelPages()
+                model.syncPageNumbers()
             newPage.initLayout()
             oldPage.initLayout()
         self.stepSet[0][0].scene().emit(SIGNAL("layoutChanged()"))
@@ -254,6 +256,11 @@ class SwapStepsCommand(QUndoCommand):
         if p1 != p2:
             s1.setParentItem(p2)
             s2.setParentItem(p1)
+
+        if s1.csi.containsSubmodel() or s2.csi.containsSubmodel():
+            model = p1.instructions.mainModel 
+            model.reOrderSubmodelPages()
+            model.syncPageNumbers()
 
         p1.initLayout()
         if p1 != p2:

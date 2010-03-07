@@ -1250,7 +1250,8 @@ class LicWindow(QMainWindow):
 
             if os.path.isfile(tmpName):
                 os.remove(tmpName)
-            os.rename(self.filename, tmpName)
+            if os.path.isfile(self.filename):
+                os.rename(self.filename, tmpName)
             os.rename(tmpXName, self.filename)
 
             self.undoStack.setClean()

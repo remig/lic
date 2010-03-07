@@ -1660,6 +1660,9 @@ class Step(StepTreeManager, QGraphicsRectItem):
         self.csi.removePart(part)
         if self.pli:  # Visibility here is irrelevant
             self.pli.removePart(part)
+            if self.pli.isEmpty():
+                self.pli.setRect(0, 0, 0, 0)
+                self.pli.setPos(0, 0)
 
     def addCallout(self, callout):
         callout.setParentItem(self)
