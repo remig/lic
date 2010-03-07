@@ -465,12 +465,6 @@ class LicGraphicsScene(QGraphicsScene):
                 return
 
         key = event.key()
-        offset = 1
-        x = y = 0
-
-        if event.modifiers() & Qt.ShiftModifier:
-            offset = 20 if event.modifiers() & Qt.ControlModifier else 5
-
         if key == Qt.Key_PageUp:
             return self.pageUp()
         if key == Qt.Key_PageDown:
@@ -479,6 +473,11 @@ class LicGraphicsScene(QGraphicsScene):
             return self.selectFirstPage()
         if key == Qt.Key_End:
             return self.selectLastPage()
+
+        x = y = 0
+        offset = 1
+        if event.modifiers() & Qt.ShiftModifier:
+            offset = 20 if event.modifiers() & Qt.ControlModifier else 5
 
         if key == Qt.Key_Left:
             x = -offset
@@ -612,12 +611,6 @@ class LicTreeView(QTreeView):
         self.expandToDepth(self.expandedDepth)
         self.expandedDepth += 1
 
-    def keyPressEvent(self, event):
-        pass  # Intentionally blank - let keyRelease do everything
-    
-    def keyReleaseEvent(self, event):
-        self.scene.keyReleaseEvent(event)  # Pass all keys on to the Scene
-
     def updateTreeSelection(self):
         """ This is called whenever the graphics Scene is clicked, in order to copy selection from Scene to this Tree. """
         
@@ -639,30 +632,26 @@ class LicTreeView(QTreeView):
         selection.select(selList, QItemSelectionModel.SelectCurrent)
 
         if index:
+            if len(selList) < 2:
+                self.setCurrentIndex(index)
             self.scrollTo(index)
 
-    def mouseReleaseEvent(self, event):
-        """ Mouse click in Tree Widget means its selection has changed.  Copy selected items from Tree to Scene."""
-
-        QTreeView.mouseReleaseEvent(self, event)
-
-        if event.button() == Qt.RightButton:
-            return  # Ignore right clicks - they're passed on to selected item for their context menu
-        
-        selList = self.selectionModel().selectedIndexes()
-        internalPtr = self.indexAt(event.pos()).internalPointer()
+    def pushTreeSelectionToScene(self):
 
         # Clear any existing selection from the graphics view
         self.scene.clearSelection()
+        selList = self.selectionModel().selectedIndexes()
 
         if not selList:
             return  # Nothing selected = nothing to do here
 
+        target = selList[-1].internalPointer()
+
         # Find the selected item's parent page, then flip to that page
-        if isinstance(internalPtr, Submodel):
-            self.scene.selectPage(internalPtr.pages[0].number)
+        if isinstance(target, Submodel):
+            self.scene.selectPage(target.pages[0].number)
         else:
-            page = internalPtr.getPage()
+            page = target.getPage()
             self.scene.selectPage(page._number)
 
         # Finally, select the things we actually clicked on
@@ -676,13 +665,33 @@ class LicTreeView(QTreeView):
                 self.scene.selectedSubmodels.append(item)
             else:
                 item.setSelected(True)
-                
+
         # Optimization: don't just select each parts, because selecting a part forces its CSI to redraw.
         # Instead, only redraw the CSI once, on the last part update
         if partList:
             for part in partList[:-1]:
                 part.setSelected(True, False)
             partList[-1].setSelected(True, True)
+
+    def keyPressEvent(self, event):
+        if event.key() not in [Qt.Key_PageUp, Qt.Key_PageDown, Qt.Key_Home, Qt.Key_End]:  # Ignore these 4 here - passed to Scene on release
+            QTreeView.keyPressEvent(self, event)
+
+    def keyReleaseEvent(self, event):
+        if event.key() in [Qt.Key_PageUp, Qt.Key_PageDown, Qt.Key_Home, Qt.Key_End]:
+            return self.scene.keyReleaseEvent(event)  # Pass these keys on to the Scene
+        QTreeView.keyReleaseEvent(self, event)
+        self.pushTreeSelectionToScene()  # Let scene know about new selection
+
+    def mouseReleaseEvent(self, event):
+        """ Mouse click in Tree Widget means its selection has changed.  Copy selected items from Tree to Scene."""
+
+        QTreeView.mouseReleaseEvent(self, event)
+
+        if event.button() == Qt.RightButton:
+            return  # Ignore right clicks - they're passed on to selected item for their context menu
+
+        self.pushTreeSelectionToScene()
 
     def contextMenuEvent(self, event):
         # Pass right clicks on to the item right-clicked on

@@ -1,17 +1,10 @@
 Lic TODO:
 
-- Need a logo
+BUGS:
 
-- Surround optional 3rd party imports in try...catch blocks
+- Need an Icon for Lic.exe, something more different than LDD logo
 
-- Clean up load / save: we're creating a lot of objects only to totally overwrite them later in load
-  (like step.pli & csi)
-  
-- Still need to handle submodels that are not embedded in the main model file.
-
-- Add Snap to Center of page items, not just left / right edges
-
-- Pages that span multiple Submodels (ie, last step of Submodel on same page as MainModel step that adds submodel)
+- Still need to handle submodels that are not embedded in the main model file
 
 - Fully implement Conditional Lines
 
@@ -19,11 +12,21 @@ Lic TODO:
  
 - Fix saw.dat, so all edges & surfaces rendered properly
 
+- Add full undo / redo support for all auto-layout actions
+
+- In Merged Callouts, need to handle adding / removing parts 
+
+ - Displacing a part inside a callout does not correctly resize the overall callout
+ 
+ FEATURES:
+
+- Add Snap to Center of page items, not just left / right edges
+
+- Pages that span multiple Submodels (ie, last step of Submodel on same page as MainModel step that adds submodel)
+
 - Add Part Count label to default title Page
 
 - Add Auto-layout menu option to Title & Part List Page
-
-- Add full undo / redo support for all auto-layout actions
 
 - Add CSI->Remove Rotation for rotated CSIs.  Will remove rotation label too
 
@@ -31,11 +34,7 @@ Lic TODO:
 
 - When displacing a technic part, try to get the arrow coming out of the hole
 
-- In Merged Callouts, need to handle adding / removing parts 
-
 - Think about 'selection group' class, especially SelectedPart class, to better handle context menus for multiply selected items
-
-- Submodel images need a quantity label
 
 - PDF export needs dialog to control export setting, mainly high-res scale multiplier setting (current hardcoded to 3)
 
@@ -48,7 +47,9 @@ Lic TODO:
   - Expose most of lic.ini settings 
   - Add ability to save or auto-delete backup save files
   
- - Displacing a part inside a callout does not correctly resize the overall callout
- 
- - Fix keyboard so that when tree has focus, we can navigate the tree and don't move parts
- 
+General Niceness:
+
+- Surround optional 3rd party imports in try...catch blocks
+
+- Clean up load / save: we're creating a lot of objects only to totally overwrite them later in load
+  (like step.pli & csi)

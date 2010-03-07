@@ -4098,18 +4098,27 @@ class Part(PartTreeManager, QGraphicsRectItem):
             return self.displaceSignal(self.displaceDirection)
         if direction == Qt.Key_Minus:
             return self.displaceSignal(LicHelpers.getOppositeDirection(self.displaceDirection))
-        self.displaceSignal(direction)
 
     def displaceSignal(self, direction):
+        stack = self.scene().undoStack
         if direction:
             displacement = LicHelpers.getDisplacementOffset(direction, False, self.partOGL.getBoundingBox())
-            if displacement:
-                oldPos = self.displacement if self.displacement else [0.0, 0.0, 0.0]
-                newPos = [oldPos[0] + displacement[0], oldPos[1] + displacement[1], oldPos[2] + displacement[2]]
-                self.scene().undoStack.push(DisplacePartCommand(self, oldPos, newPos))
+            if not displacement:
+                return
+            oldPos = self.displacement if self.displacement else [0.0, 0.0, 0.0]
+            newPos = [oldPos[0] + displacement[0], oldPos[1] + displacement[1], oldPos[2] + displacement[2]]
+
+            stack.beginMacro("Displace Part && Arrow")
+            stack.push(DisplacePartCommand(self, oldPos, newPos))
+
+            newLength = LicHelpers.displacementToDistance(newPos, self.displaceDirection)
+            for arrow in self.arrows:
+                stack.push(AdjustArrowLength(arrow, arrow.getLength(), newLength))
+
+            stack.endMacro()
         else:
             # Remove any displacement
-            self.scene().undoStack.push(BeginEndDisplacementCommand(self, self.displaceDirection, end = True))
+            stack.push(BeginEndDisplacementCommand(self, self.displaceDirection, end = True))
 
     def addArrowSignal(self):
         self.addNewArrow(self.displaceDirection)
