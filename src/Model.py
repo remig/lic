@@ -2212,7 +2212,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     def resetRect(self):
         glRect = QRectF(0.0, 0.0, self.partOGL.width, self.partOGL.height)
         self.setRect(self.childrenBoundingRect() | glRect)
-        self.normalizePosition()
+        #self.normalizePosition()  # Don't want to normalize PLIItem positions, otherwise we end up with GLItem in top left always.
         self.parentItem().resetRect()
         
     def initLayout(self):
@@ -2733,13 +2733,14 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             self.scene().undoStack.push(AddRemovePartCommand(part, self.parentItem(), True))
 
     def acceptRotation(self, oldRotation):
+        step = self.parentItem()
         stack = self.scene().undoStack 
-        if not self.parentItem().rotateIcon:
+        if not step.rotateIcon and not step.isInCallout():
             stack.beginMacro("Item rotation")
 
         RotateScaleSignalItem.acceptRotation(self, oldRotation)
 
-        if not self.parentItem().rotateIcon:
+        if not step.rotateIcon and not step.isInCallout():
             stack.push(AddRemoveRotateIconCommand(self.parentItem(), True))
             stack.endMacro()
 

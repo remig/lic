@@ -9,8 +9,6 @@ Lic TODO:
   
 - Still need to handle submodels that are not embedded in the main model file.
 
-- Add status indicator to file->open operation
-
 - Add Snap to Center of page items, not just left / right edges
 
 - Pages that span multiple Submodels (ie, last step of Submodel on same page as MainModel step that adds submodel)
@@ -27,11 +25,7 @@ Lic TODO:
 
 - Add full undo / redo support for all auto-layout actions
 
-- CSI->Select All Parts does not select all parts in the tree, just one
-
 - Add CSI->Remove Rotation for rotated CSIs.  Will remove rotation label too
-
-- When displacing a part, lower the default amount of displacement a bunch
 
 - When displacing a part, count the # of studs and add an appropriate number of appropriately positioned arrows
 
@@ -43,13 +37,11 @@ Lic TODO:
 
 - Submodel images need a quantity label
 
-- Don't automatically add any CSI Rotation icon inside Callouts
-
-- When moving a PLI qty label to the left, it pulls the part left too
-
-- Need status bar on PDF export
-
 - PDF export needs dialog to control export setting, mainly high-res scale multiplier setting (current hardcoded to 3)
+
+- Add status bar on PDF export: in Instructions.exportToPDF(), exportImages() takes 7-10x longer than everything else 
+
+- Add status indicator to file->open operation
 
 - Finally cave in and create a proper Properties dialog.  On it:
   - All OpenGL rendering options, notably ambient light setting
@@ -57,4 +49,6 @@ Lic TODO:
   - Add ability to save or auto-delete backup save files
   
  - Displacing a part inside a callout does not correctly resize the overall callout
+ 
+ - Fix keyboard so that when tree has focus, we can navigate the tree and don't move parts
  

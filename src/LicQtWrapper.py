@@ -82,7 +82,7 @@ class GraphicsCircleLabelItem(QGraphicsEllipseItem):
         self._row = 1
         self.setFont(self.defaultFont)
         self.lengthText = length
-        self.labelColor = QColor(Qt.black)  # TODO: implement this
+        self.labelColor = QColor(Qt.black)  # TODO: implement Part length label color
         self.dataText = "Length Indicator (%s)" % length
 
     def paint(self, painter, option, widget = None):

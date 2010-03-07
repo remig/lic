@@ -107,7 +107,7 @@ def distanceToDisplacement(distance, direction):
 
 def getDisplacementOffset(direction, initialOffset, box):
 
-    offset = 80.0 if initialOffset else 50.0
+    offset = 60.0 if initialOffset else 35.0
     displacement = [0.0, 0.0, 0.0]
 
     if direction == Qt.Key_Up:

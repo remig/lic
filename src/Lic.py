@@ -627,14 +627,19 @@ class LicTreeView(QTreeView):
         selection.clear()
 
         # Select everything in the tree that's currently selected in the graphics view
+        index = None
+        selList = QItemSelection()
         for item in self.scene.selectedItems():
             if not hasattr(item, "row"):  # Ignore stuff like guides & snap lines
                 continue
             index = model.createIndex(item.row(), 0, item)
             if index:
-                self.setCurrentIndex(index)
-                selection.select(index, QItemSelectionModel.Select)
-                self.scrollTo(index)
+                selList.append(QItemSelectionRange(index))
+
+        selection.select(selList, QItemSelectionModel.SelectCurrent)
+
+        if index:
+            self.scrollTo(index)
 
     def mouseReleaseEvent(self, event):
         """ Mouse click in Tree Widget means its selection has changed.  Copy selected items from Tree to Scene."""
