@@ -150,12 +150,8 @@ class DisplacePartCommand(QUndoCommand):
         QUndoCommand.__init__(self, "Displace Part")
         self.part, self.oldDisp, self.newDisp = part, oldDisp, newDisp
 
-    def undo(self):
-        self.part.displacement = list(self.oldDisp)
-        self.part.getCSI().resetPixmap()
-
-    def redo(self):
-        self.part.displacement = list(self.newDisp)
+    def doAction(self, redo):
+        self.part.displacement = list(self.newDisp if redo else self.oldDisp)
         self.part.getCSI().resetPixmap()
 
 class BeginEndDisplacementCommand(QUndoCommand):

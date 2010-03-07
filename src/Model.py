@@ -4305,7 +4305,7 @@ class Arrow(Part):
         p.displacement = list(self.displacement)
         p.axisRotation = self.axisRotation
         p.setLength(self.getLength())
-        p.setParentItem(self.parentItem())
+        p.setParentItem(parentPart if parentPart else self.parentItem())
         return p
 
     def positionToBox(self, direction, box):

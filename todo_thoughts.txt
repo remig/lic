@@ -16,8 +16,6 @@ BUGS:
 
 - In Merged Callouts, need to handle adding / removing parts 
 
- - Displacing a part inside a callout does not correctly resize the overall callout
- 
  FEATURES:
 
 - Add Snap to Center of page items, not just left / right edges
@@ -36,6 +34,8 @@ BUGS:
 
 - Think about 'selection group' class, especially SelectedPart class, to better handle context menus for multiply selected items
 
+- Displacing a part inside a callout does not auto-resize the overall callout, because Step stays big
+ 
 - PDF export needs dialog to control export setting, mainly high-res scale multiplier setting (current hardcoded to 3)
 
 - Add status bar on PDF export: in Instructions.exportToPDF(), exportImages() takes 7-10x longer than everything else 
