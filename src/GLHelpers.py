@@ -48,6 +48,9 @@ def setLightParameters(ambient, shine, lineWidth):
     __LIC_GL_SHINE_LEVEL = shine
     __LIC_GL_LINE_THICKNESS = lineWidth
 
+def resetLightParameters():
+    setLightParameters(0.4, 64, 1.0)
+
 def setupLight(light):
     glLightfv(light, GL_SPECULAR, [1.0, 1.0, 0.0, 1.0])
     glLightfv(light, GL_DIFFUSE, [1.0, 1.0, 1.0])

@@ -50,6 +50,11 @@ def __writeTemplate(stream, template):
     __writeSubmodel(stream, template.subModelPart)
     __writePage(stream, template)
 
+    values = GLHelpers.getLightParameters()
+    stream.writeInt32(len(values))
+    for v in values:
+        stream.writeFloat(v)
+
 def __writeInstructions(stream, instructions):
 
     stream << QString(instructions.mainModel.filename)

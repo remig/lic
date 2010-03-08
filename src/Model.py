@@ -36,7 +36,7 @@ from RectanglePacker import CygonRectanglePacker
 from LDrawFileFormat import *
 
 MagicNumber = 0x14768126
-FileVersion = 4
+FileVersion = 5
 
 partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
 submodelDictionary = {}  # {'filename': Submodel()}
@@ -79,6 +79,7 @@ class Instructions(QObject):
         PLI.defaultRotation = [20.0, -45.0, 0.0]
         CSI.highlightNewParts = False
         SubmodelPreview.defaultRotation = [20.0, 45.0, 0.0]
+        GLHelpers.resetLightParameters()
         self.glContext.makeCurrent()
 
     def importLDrawModel(self, filename):
@@ -308,12 +309,12 @@ class Instructions(QObject):
         self.mainModel.createPng()
         self.mainModel.exportImages()
         
-    def exportImages(self, scaleFactor = 1):
+    def exportImages(self, scaleFactor = 1.0):
 
         currentPageNumber = self.scene.currentPage._number
         w, h = Page.PageSize.width() * scaleFactor, Page.PageSize.height() * scaleFactor
         
-        if scaleFactor > 1:
+        if scaleFactor > 1.0:
             GL.glLineWidth(1.5)  # Make part lines a bit thicker for higher res output 
 
         # TODO: Move all this ugly buffer init crap to GLHelpers
@@ -364,10 +365,12 @@ class Instructions(QObject):
         for page in pageList:
 
             page.lockIcon.hide()
+            exportedFilename = page.getGLImageFilename()
+
             glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, multisampleFrameBuffer)
-            
             GLHelpers.initFreshContext(True)
-            page.drawGLItemsOffscreen(QRectF(0, 0, w, h), float(scaleFactor))
+
+            page.drawGLItemsOffscreen(QRectF(0, 0, w, h), scaleFactor)
 
             # Bind multisampled FBO for reading, regular for writing and blit away
             glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, multisampleFrameBuffer);
@@ -379,11 +382,11 @@ class Instructions(QObject):
             data = GL.glReadPixels(0, 0, w, h, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)
             
             # Create an image from raw pixels and save to disk - would be nice to create QImage directly here
-            exportedFilename = page.getGLImageFilename()
             image = Image.fromstring("RGBA", (w, h), data)
             image = image.transpose(Image.FLIP_TOP_BOTTOM)
             image.save(exportedFilename)
 
+            # Create new blank image
             image = QImage(w, h, QImage.Format_ARGB32)
             painter = QPainter()
             painter.begin(image)
@@ -393,6 +396,9 @@ class Instructions(QObject):
             
             glImage = QImage(exportedFilename)
             painter.drawImage(QPoint(0, 0), glImage)
+
+            page.drawAnnotations(painter, scaleFactor)
+
             painter.end()
             newName = page.getExportFilename()
             image.save(newName)
@@ -416,7 +422,7 @@ class Instructions(QObject):
         # Create an image for each page
         # TODO: Test export to PDF with new higher resolution settings.
         # TODO: Connect PDF export to page resolution settings
-        pageList = self.exportImages(3)
+        pageList = self.exportImages(3.0)
         filename = os.path.join(config.pdfCachePath(), os.path.basename(self.mainModel.filename)[:-3] + "pdf")
         
         printer = QPrinter(QPrinter.HighResolution)
@@ -853,9 +859,9 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
             for glItem in step.glItemIterator():
                 yield glItem
 
-    def drawAnnotations(self, painter, rect):
+    def drawAnnotations(self, painter, scale = 1.0):
         for step in self.steps:
-            step.drawAnnotations(painter, rect)
+            step.drawAnnotations(painter, scale)
 
     def acceptDragAndDropList(self, dragItems, row):
 
@@ -974,7 +980,7 @@ class CalloutArrowEndItem(QGraphicsRectItem):
     def paint(self, painter, option, widget = None):
         return  # Do nothing on real paint - will paint as an annotation after GLItems in foreground
     
-    def paintAsAnnotation(self, painter):
+    def paintAsAnnotation(self, painter, scale = 1.0):
         if self.isSelected():
             painter.drawSelectionRect(self.rect().translated(self.pos()))
 
@@ -1130,12 +1136,15 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         self.internalPoints = [tip + offset, mid1, mid2, end]
         self.tipPoint, self.tipRotation = tip, rotation
 
-    def paintAsAnnotation(self, painter):
+    def paintAsAnnotation(self, painter, scale = 1.0):
         
         if not self.internalPoints:
             self.initializePoints()
         
         painter.save()
+
+        if scale != 1.0:
+            painter.scale(scale, scale)
         scenePos = self.mapToScene(self.pos())
         painter.translate(scenePos.x(), scenePos.y())
         painter.setPen(self.pen())
@@ -1838,11 +1847,11 @@ class Step(StepTreeManager, QGraphicsRectItem):
                 x -= Page.margin.x()
             self.rotateIcon.setPos(x, y)
 
-    def drawAnnotations(self, painter, rect):
+    def drawAnnotations(self, painter, scale = 1.0):
         for callout in self.callouts:
-            callout.arrow.paintAsAnnotation(painter)
+            callout.arrow.paintAsAnnotation(painter, scale)
             for step in callout.steps:
-                step.drawAnnotations(painter, rect)
+                step.drawAnnotations(painter, scale)
 
     def glItemIterator(self):
         yield self.csi

@@ -84,6 +84,12 @@ def __readTemplate(stream, instructions):
     template = __readPage(stream, instructions.mainModel, instructions, subModelPart)
     template.subModelPart = subModelPart
 
+    if stream.licFileVersion >= 5:
+        values = []
+        for unused in range(stream.readInt32()):
+            values.append(stream.readFloat())
+        GLHelpers.setLightParameters(*values)
+
     for part in template.subModelPart.parts:
         part.partOGL = partDictionary[part.filename]
 

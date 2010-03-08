@@ -85,7 +85,7 @@ class LicGraphicsScene(QGraphicsScene):
 
         GLHelpers.setupForQtPainter()
         for page in pagesToDraw:
-            page.drawAnnotations(painter, rect)
+            page.drawAnnotations(painter)
     
     def pageUp(self):
         self.clearSelection()
