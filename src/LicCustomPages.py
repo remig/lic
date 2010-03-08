@@ -182,6 +182,7 @@ class TitlePage(TitlePageTreeManager, Page):
 
         self.addNewLabel(None, QFont("Arial", 25), self.subModel.getSimpleName())
         self.addNewLabel(Page.margin * 2, None, "1001")
+        self.addPartCountLabel(False)
         self.initLayout()
 
     def initLayout(self):
@@ -197,16 +198,36 @@ class TitlePage(TitlePageTreeManager, Page):
         y = ph2 - (self.submodelItem.rect().height() / 2.0) + (title.boundingRect().height() / 2.0) + (pmy * 2)
         self.submodelItem.setPos(x, y)
 
+        # TODO: Auto-shrink submodelImage if it is too big
+
         x = pw2 - (title.boundingRect().width() / 2.0)
         y = self.submodelItem.pos().y() - title.boundingRect().height() - (pmy * 3)
         title.setPos(x, y)
+
+        partCountLabel = self.getPartCountLabel()
+        if partCountLabel:
+            self.setPartCountLabelPos(partCountLabel)
+
+    def getPartCountLabel(self):
+        for label in reversed(self.labels):
+            if label.text().count(" pcs.") > 0:
+                return label
+        return None
+
+    def setPartCountLabelPos(self, label):
+        label.setPos(self.rect().bottomLeft())
+        label.moveBy(0, -label.boundingRect().height())
+        label.moveBy(Page.margin.x(), -Page.margin.y())
 
     def getAllChildItems(self):
         return [self, self.submodelItem ] + self.labels
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
+        menu.addAction("Auto Layout", self.initLayout)
         menu.addAction("Add Label", lambda: self.addNewLabel(event.scenePos(), useUndo = True))
+        if self.getPartCountLabel() is None:
+            menu.addAction("Add Part Count Label", lambda: self.addPartCountLabel(True))
         menu.addAction("Remove Title Page", lambda: self.subModel.hideTitlePage())
         menu.exec_(event.screenPos())
 
@@ -220,3 +241,9 @@ class TitlePage(TitlePageTreeManager, Page):
             self.scene().undoStack.push(AddRemoveLabelCommand(self, label, len(self.labels), True))
         else:
             self.labels.append(label)
+
+    def addPartCountLabel(self, useUndo = False):
+        parts = self.subModel.getFullPartList()
+        text = "%d pcs." % len(parts)
+        self.addNewLabel(None, None, text, useUndo)
+        self.setPartCountLabelPos(self.labels[-1])

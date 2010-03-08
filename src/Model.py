@@ -313,6 +313,7 @@ class Instructions(QObject):
 
         currentPageNumber = self.scene.currentPage._number
         w, h = Page.PageSize.width() * scaleFactor, Page.PageSize.height() * scaleFactor
+        w, h = int(w), int(h)  # Absolutely ensure these are ints, else glFoo stuff below dies in a fire
         
         if scaleFactor > 1.0:
             GL.glLineWidth(1.5)  # Make part lines a bit thicker for higher res output 
@@ -3567,6 +3568,12 @@ class Submodel(SubmodelTreeManager, PartOGL):
         for submodel in self.submodels:
             pageList += submodel.getPageList()
         return pageList
+
+    def getFullPartList(self):
+        partList = list(self.parts)
+        for model in self.submodels:
+            partList += model.getFullPartList()
+        return partList
 
     def addSubmodelImages(self):
         self.pages[0].addSubmodelImage()
