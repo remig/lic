@@ -34,6 +34,12 @@ def makeSpinBox(self, value, min, max, signal = None, double = False, percent = 
 QWidget.makeLabelSpinBox = makeLabelSpinBox
 QWidget.makeSpinBox = makeSpinBox
 
+def addWidgetRow(self, row, widgetList):
+    for i, widget in enumerate(widgetList):
+        self.addWidget(widget, row, i)
+
+QGridLayout.addWidgetRow = addWidgetRow
+
 class LicProgressDialog(QProgressDialog):
 
     def __init__(self, parent, filename):
@@ -621,15 +627,14 @@ class RotationDialog(QDialog):
         QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setWindowTitle(self.tr("Change Rotation"))
-        #self.setWindowOpacity(0.8)
-        
+
         self.originalRotation = list(rotation)
-        
+
         self.xyzWidget = XYZWidget(self.rotationChanged, -360, 360, *self.originalRotation)
         buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
         self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
-        
+
         box = QBoxLayout(QBoxLayout.TopToBottom, self)
         box.addWidget(self.xyzWidget)
         box.addWidget(buttonBox)
@@ -639,11 +644,11 @@ class RotationDialog(QDialog):
 
     def rotationChanged(self):
         self.emit(SIGNAL("changeRotation"), self.xyzWidget.xyz())
-        
+
     def accept(self):
         self.emit(SIGNAL("acceptRotation"), self.originalRotation)
         QDialog.accept(self)
-        
+
     def reject(self):
         self.emit(SIGNAL("changeRotation"), self.originalRotation)
         QDialog.reject(self)
@@ -658,25 +663,24 @@ class DisplaceDlg(QDialog):
 
         distance = LicHelpers.displacementToDistance(displacement, direction)
         sizeLabel, self.sizeSpinBox = self.makeLabelSpinBox(self.tr("&Distance:"), distance, -5000, 5000, self.sizeChanged)
-        
+
         self.arrowCheckBox = QCheckBox(self.tr("&Adjust Arrow Length"))
         self.arrowCheckBox.setChecked(True)
 
         self.xyzWidget = XYZWidget(self.displacementChanged, -5000, 5000, *displacement)
-        
+
         self.moreButton = QPushButton(self.tr("X - Y - Z"))
         self.moreButton.setCheckable(True)
         self.moreButton.setAutoDefault(False)
         self.connect(self.moreButton, SIGNAL("toggled(bool)"), self.xyzWidget, SLOT("setVisible(bool)"))
-        
+
         buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
         self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
         self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
 
         mainLayout = QGridLayout(self)
         mainLayout.setSizeConstraint(QLayout.SetFixedSize)
-        mainLayout.addWidget(sizeLabel, 0, 0)
-        mainLayout.addWidget(self.sizeSpinBox, 0, 1)
+        mainLayout.addWidgetRow(0, (sizeLabel, self.sizeSpinBox))
         mainLayout.addWidget(self.arrowCheckBox, 1, 0, 1, 2)
         mainLayout.addWidget(self.moreButton, 2, 0, 1, 2)
         mainLayout.addWidget(self.xyzWidget, 3, 0, 1, 2)
@@ -737,12 +741,9 @@ class ArrowDisplaceDlg(QDialog):
 
         mainLayout = QGridLayout(self)
         mainLayout.setSizeConstraint(QLayout.SetFixedSize)
-        mainLayout.addWidget(sizeLabel, 0, 0)
-        mainLayout.addWidget(self.sizeSpinBox, 0, 1)
-        mainLayout.addWidget(lengthLabel, 1, 0)
-        mainLayout.addWidget(self.lengthSpinBox, 1, 1)
-        mainLayout.addWidget(rotationLabel, 2, 0)
-        mainLayout.addWidget(self.rotationSpinBox, 2, 1)
+        mainLayout.addWidgetRow(0, (sizeLabel, self.sizeSpinBox))
+        mainLayout.addWidgetRow(1, (lengthLabel, self.lengthSpinBox))
+        mainLayout.addWidgetRow(2, (rotationLabel, self.rotationSpinBox))
 
         mainLayout.addWidget(self.moreButton, 3, 0, 1, 2)
         mainLayout.addWidget(extension, 4, 0, 1, 2)
@@ -817,4 +818,41 @@ class PositionRotationDlg(QDialog):
 
     def reject(self):
         self.emit(SIGNAL("change"), self.originalPosition, self.originalRotation)
+        QDialog.reject(self)
+
+class LightingDialog(QDialog):
+
+    def __init__(self, parent, ambient, shine, lineWidth):
+        QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle(self.tr("Change 3D Lighting"))
+
+        self.values = [ambient, shine, lineWidth]
+
+        ambientLabel, self.ambientSpinBox = self.makeLabelSpinBox("&Ambient:", ambient * 100.0, 0.0, 100.0, self.valueChanged)
+        shineLabel, self.shineSpinBox = self.makeLabelSpinBox("&Shininess:", shine, 0.0, 100.0, self.valueChanged)
+        lwLabel, self.lwSpinBox = self.makeLabelSpinBox("&Line Width:", (lineWidth - 1) * 10.0, 0.0, 100.0, self.valueChanged)
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
+
+        grid = QGridLayout()
+        grid.addWidgetRow(0, (ambientLabel, self.ambientSpinBox))
+        #grid.addWidgetRow(1, (shineLabel, self.shineSpinBox))
+        grid.addWidgetRow(1, (lwLabel, self.lwSpinBox))
+        grid.addWidget(buttonBox, 2, 0, 1, 2)
+        self.setLayout(grid)
+
+        self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
+        self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
+        self.ambientSpinBox.selectAll()
+
+    def valueChanged(self):
+        newValues = [self.ambientSpinBox.value() / 100.0, self.shineSpinBox.value(), (self.lwSpinBox.value() / 10.0) + 1]
+        self.emit(SIGNAL("changeValues"), newValues)
+
+    def accept(self):
+        self.emit(SIGNAL("acceptValues"), self.values)
+        QDialog.accept(self)
+
+    def reject(self):
+        self.emit(SIGNAL("changeValues"), self.values)
         QDialog.reject(self)

@@ -34,16 +34,32 @@ def drawCoordLines(length = 20.0):
     glEnd()
     glPopAttrib()
 
+__LIC_GL_AMBIENT_LEVEL = 0.4
+__LIC_GL_SHINE_LEVEL = 64
+__LIC_GL_LINE_THICKNESS = 1.0
+
+def getLightParameters():
+    global __LIC_GL_AMBIENT_LEVEL, __LIC_GL_SHINE_LEVEL, __LIC_GL_LINE_THICKNESS
+    return (__LIC_GL_AMBIENT_LEVEL, __LIC_GL_SHINE_LEVEL, __LIC_GL_LINE_THICKNESS)
+
+def setLightParameters(ambient, shine, lineWidth):
+    global __LIC_GL_AMBIENT_LEVEL, __LIC_GL_SHINE_LEVEL, __LIC_GL_LINE_THICKNESS
+    __LIC_GL_AMBIENT_LEVEL = ambient
+    __LIC_GL_SHINE_LEVEL = shine
+    __LIC_GL_LINE_THICKNESS = lineWidth
+
 def setupLight(light):
-    glLightfv(light, GL_SPECULAR, [0.0, 0.0, 0.0])
+    glLightfv(light, GL_SPECULAR, [1.0, 1.0, 0.0, 1.0])
     glLightfv(light, GL_DIFFUSE, [1.0, 1.0, 1.0])
     glLightfv(light, GL_POSITION, [0.0, 100.0, 100.0])
     glEnable(light)
 
 def setupLighting():
+    global __LIC_GL_AMBIENT_LEVEL
+
     glDisable(GL_NORMALIZE)
-    #glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [1.0, 1.0, 1.0, 1.0])
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [0.4, 0.4, 0.4, 1.0])
+    a = __LIC_GL_AMBIENT_LEVEL
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [a, a, a, 1.0])
     glEnable(GL_LIGHTING)
     
     maxLights = glGetIntegerv(GL_MAX_LIGHTS)
@@ -58,15 +74,16 @@ def setupLighting():
     glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, 1)
     
 def setupMaterial():
+    global __LIC_GL_SHINE_LEVEL
     glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, [0.0, 0.0, 0.0, 1.0])
     glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, [0.0, 0.0, 0.0, 1.0])
-    glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 64.0)
+    glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, __LIC_GL_SHINE_LEVEL)
     glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
     glEnable(GL_COLOR_MATERIAL)
 
 def initFreshContext(doClear):
+    global __LIC_GL_LINE_THICKNESS
     
-    # TODO: Need to export these settings to public UI, settable by user (especially ambient brightness)
     glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 0)
     glShadeModel(GL_SMOOTH)
     glEnable(GL_MULTISAMPLE)
@@ -80,7 +97,7 @@ def initFreshContext(doClear):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
     #glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
-    #glLineWidth(1.5)  # Make part lines a bit thicker for higher res output 
+    glLineWidth(__LIC_GL_LINE_THICKNESS)
     glDepthFunc(GL_LEQUAL)
     glEnable(GL_DEPTH_TEST)
     glEnable(GL_NORMALIZE)

@@ -1,8 +1,10 @@
 from Model import *
 from LicUndoActions import *
-from GLHelpers import getGLFormat
 from LicGradientDialog import GradientDialog
 from LicQtWrapper import *
+
+import LicDialogs
+import GLHelpers
 
 class TemplateLineItem(object):
 
@@ -207,7 +209,7 @@ class TemplatePage(TemplateRectItem, Page):
         glContext.makeCurrent()
         for size in [512, 1024, 2048]:
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, getGLFormat(), glContext)
+            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), glContext)
             pBuffer.makeCurrent()
 
             # Render CSI and calculate its size
@@ -288,6 +290,9 @@ class TemplatePage(TemplateRectItem, Page):
         if not self.instructions.mainModel.hasTitlePage():
             menu.addSeparator()
             menu.addAction("Add Title Page", self.instructions.mainModel.showTitlePage)
+
+        menu.addSeparator()
+        menu.addAction("Change 3D model Lighting", self.changeLighting)
         menu.exec_(event.screenPos())
         
     def setColor(self, color):
@@ -374,8 +379,23 @@ class TemplatePage(TemplateRectItem, Page):
         self.submodelItem.changeDefaultScale(newScale)
         self.submodelItem.acceptDefaultScale(oldScale)
 
+    def changeLighting(self):
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.LightingDialog(parentWidget, *GLHelpers.getLightParameters())
+        parentWidget.connect(dialog, SIGNAL("changeValues"), self.changeLightValues)
+        parentWidget.connect(dialog, SIGNAL("acceptValues"), self.acceptLightValues)
+        dialog.exec_()
+
+    def changeLightValues(self, newValues):
+        GLHelpers.setLightParameters(*newValues)
+        self.update()
+
+    def acceptLightValues(self, oldValues):
+        action = ChangeLightingCommand(self.scene(), oldValues)
+        self.scene().undoStack.push(action)
+
 class TemplateCalloutArrow(TemplateLineItem, CalloutArrow):
-    
+
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Format Border", lambda: self.formatBorder(self.brush().color()))

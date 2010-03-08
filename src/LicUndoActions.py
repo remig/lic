@@ -1183,3 +1183,18 @@ class ClonePageStepsFromSubmodel(QUndoCommand):
 
         scene.fullItemSelectionUpdate(dest.pages[0])
         scene.emit(SIGNAL("layoutChanged()"))
+
+class ChangeLightingCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, scene, oldValues):
+        QUndoCommand.__init__(self, "Change 3D Lighting")
+        self.scene, self.oldValues = scene, oldValues
+        self.newValues = GLHelpers.getLightParameters()
+
+    def doAction(self, redo):
+        values = self.newValues if redo else self.oldValues
+        GLHelpers.setLightParameters(*values)
+        if self.scene.currentPage:
+            self.scene.currentPage.update()
