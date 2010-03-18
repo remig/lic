@@ -42,7 +42,7 @@ from PyQt4.QtOpenGL import *
 from LicUndoActions import *
 from LicTreeModel import *
 from LicLayout import *
-import GLHelpers
+import LicGLHelpers
 import LicL3PWrapper
 import LicPovrayWrapper
 import LDrawColors
@@ -99,7 +99,7 @@ class Instructions(QObject):
         PLI.defaultRotation = [20.0, -45.0, 0.0]
         CSI.highlightNewParts = False
         SubmodelPreview.defaultRotation = [20.0, 45.0, 0.0]
-        GLHelpers.resetLightParameters()
+        LicGLHelpers.resetLightParameters()
         self.glContext.makeCurrent()
 
     def importLDrawModel(self, filename):
@@ -168,7 +168,7 @@ class Instructions(QObject):
         # First initialize all partOGL display lists
         yield "Initializing Part GL display lists"
         for part in partDictionary.values():
-            if part.oglDispID == GLHelpers.UNINIT_GL_DISPID:
+            if part.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
                 part.createOGLDisplayList()
 
         # Initialize the main model display list
@@ -213,7 +213,7 @@ class Instructions(QObject):
         for size in sizes:
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), self.glContext)
+            pBuffer = QGLPixelBuffer(size, size, LicGLHelpers.getGLFormat(), self.glContext)
             pBuffer.makeCurrent()
 
             # Render each image and calculate their sizes
@@ -259,7 +259,7 @@ class Instructions(QObject):
         for size in sizes:
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), self.glContext)
+            pBuffer = QGLPixelBuffer(size, size, LicGLHelpers.getGLFormat(), self.glContext)
 
             # Render each CSI and calculate its size
             for csi in csiList:
@@ -336,10 +336,10 @@ class Instructions(QObject):
         w, h = int(w), int(h)  # Absolutely ensure these are ints, else glFoo stuff below dies in a fire
         
         if scaleFactor > 1.0:
-            lineWidth = GLHelpers.getLightParameters()[2]
+            lineWidth = LicGLHelpers.getLightParameters()[2]
             GL.glLineWidth(lineWidth * scaleFactor)  # Make part lines a bit thicker for higher res output 
 
-        # TODO: Move all this ugly buffer init crap to GLHelpers
+        # TODO: Move all this ugly buffer init crap to LicGLHelpers
         # Create non-multisample FBO that we can call glReadPixels on
         frameBuffer = glGenFramebuffersEXT(1)
         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, frameBuffer)
@@ -390,7 +390,7 @@ class Instructions(QObject):
             exportedFilename = page.getGLImageFilename()
 
             glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, multisampleFrameBuffer)
-            GLHelpers.initFreshContext(True)
+            LicGLHelpers.initFreshContext(True)
 
             page.drawGLItemsOffscreen(QRectF(0, 0, w, h), scaleFactor)
 
@@ -845,11 +845,11 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
     def drawGLItems(self, rect):
         
-        GLHelpers.pushAllGLMatrices()
+        LicGLHelpers.pushAllGLMatrices()
         vx = self.pos().x() - rect.x()
         vy = rect.height() + rect.y() - Page.PageSize.height() - self.pos().y()
         f = self.scene().scaleFactor
-        GLHelpers.adjustGLViewport(vx * f, vy * f, Page.PageSize.width() * f, Page.PageSize.height() * f, True)
+        LicGLHelpers.adjustGLViewport(vx * f, vy * f, Page.PageSize.width() * f, Page.PageSize.height() * f, True)
         GL.glTranslatef(rect.x(), rect.y(), 0.0)
         
         for glItem in self.glItemIterator():
@@ -858,17 +858,17 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
             elif hasattr(glItem, "isDirty") and glItem.isDirty:
                 glItem.paintGL()
             
-        GLHelpers.popAllGLMatrices()
+        LicGLHelpers.popAllGLMatrices()
 
     def drawGLItemsOffscreen(self, rect, f):
         
-        GLHelpers.pushAllGLMatrices()
-        GLHelpers.adjustGLViewport(0, 0, rect.width(), rect.height(), True)
+        LicGLHelpers.pushAllGLMatrices()
+        LicGLHelpers.adjustGLViewport(0, 0, rect.width(), rect.height(), True)
         
         for glItem in self.glItemIterator():
             glItem.paintGL(f)
             
-        GLHelpers.popAllGLMatrices()
+        LicGLHelpers.popAllGLMatrices()
 
     def glItemIterator(self):
         if self.submodelItem:
@@ -2507,7 +2507,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         QGraphicsRectItem.__init__(self, step)
 
         self.center = QPointF()
-        self.oglDispID = GLHelpers.UNINIT_GL_DISPID
+        self.oglDispID = LicGLHelpers.UNINIT_GL_DISPID
         self.setFlags(AllFlags)
         self.setPen(QPen(Qt.NoPen))
 
@@ -2547,16 +2547,16 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
                     nextStep.csi.isDirty = nextStep.csi.nextCSIIsDirty = True
                 self.nextCSIIsDirty = False
 
-        GLHelpers.pushAllGLMatrices()
+        LicGLHelpers.pushAllGLMatrices()
 
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.rect().width() / 2.0) + self.center.x()
         dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0) + self.center.y()
-        GLHelpers.rotateToView(CSI.defaultRotation, CSI.defaultScale * self.scaling * f, dx * f, dy * f, 0.0)
-        GLHelpers.rotateView(*self.rotation)
+        LicGLHelpers.rotateToView(CSI.defaultRotation, CSI.defaultScale * self.scaling * f, dx * f, dy * f, 0.0)
+        LicGLHelpers.rotateView(*self.rotation)
 
         GL.glCallList(self.oglDispID)
-        GLHelpers.popAllGLMatrices()
+        LicGLHelpers.popAllGLMatrices()
 
     def addPart(self, part):
         for p in self.parts:
@@ -2589,7 +2589,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         # Call all previous step's CSI display list
         prevStep = self.parentItem().getPrevStep()
         if prevStep:
-            #if prevStep.csi.oglDispID == GLHelpers.UNINIT_GL_DISPID:
+            #if prevStep.csi.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
             prevStep.csi.__callPreviousOGLDisplayLists(False)
             #else:
             #    GL.glCallList(prevStep.csi.oglDispID)
@@ -2605,10 +2605,10 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         for a single display list giving a full model rendering up to this step.
         """
 
-        if self.oglDispID == GLHelpers.UNINIT_GL_DISPID:
+        if self.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
             self.oglDispID = GL.glGenLists(1)
         GL.glNewList(self.oglDispID, GL.GL_COMPILE)
-        #GLHelpers.drawCoordLines()
+        #LicGLHelpers.drawCoordLines()
         self.__callPreviousOGLDisplayLists(True)
         GL.glEndList()
 
@@ -2617,7 +2617,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         if not self.parts:
             self.center = QPointF()
             self.setRect(QRectF())
-            self.oglDispID = GLHelpers.UNINIT_GL_DISPID
+            self.oglDispID = LicGLHelpers.UNINIT_GL_DISPID
             return  # No parts = reset pixmap
 
         # Temporarily enlarge CSI, in case recent changes pushed image out of existing bounds.
@@ -2632,7 +2632,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         for size in sizes:
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), glContext)
+            pBuffer = QGLPixelBuffer(size, size, LicGLHelpers.getGLFormat(), glContext)
             pBuffer.makeCurrent()
 
             if self.initSize(size, pBuffer):
@@ -2662,7 +2662,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         """
         global currentModelFilename
 
-        if self.oglDispID == GLHelpers.UNINIT_GL_DISPID:
+        if self.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
             print "ERROR: Trying to init a CSI size that has no display list"
             return False
         
@@ -2673,7 +2673,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         if not self.parts:
             return result  # A CSI with no parts is already initialized
 
-        params = GLHelpers.initImgSize(size, self.oglDispID, filename, CSI.defaultScale * self.scaling, CSI.defaultRotation, self.rotation, pBuffer)
+        params = LicGLHelpers.initImgSize(size, self.oglDispID, filename, CSI.defaultScale * self.scaling, CSI.defaultRotation, self.rotation, pBuffer)
         if params is None:
             return False
 
@@ -2756,7 +2756,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             part = Part(fn, 0, IdentityMatrix(), False)
             part.initializePartOGL()
 
-            if part.partOGL.oglDispID == GLHelpers.UNINIT_GL_DISPID:
+            if part.partOGL.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
                 part.partOGL.createOGLDisplayList()
                 glContext = self.getPage().instructions.glContext
                 part.partOGL.resetPixmap(glContext)
@@ -2833,7 +2833,7 @@ class PartOGL(object):
         self.winding = GL.GL_CCW
         self.parts = []
         self.primitives = []
-        self.oglDispID = GLHelpers.UNINIT_GL_DISPID
+        self.oglDispID = LicGLHelpers.UNINIT_GL_DISPID
         self.isPrimitive = False  # primitive here means any file in 'P'
         self.isSubmodel = False
         self._boundingBox = None
@@ -2924,10 +2924,10 @@ class PartOGL(object):
         # Ensure any parts in this part have been initialized
         if not skipPartInit:
             for part in self.parts:
-                if part.partOGL.oglDispID == GLHelpers.UNINIT_GL_DISPID:
+                if part.partOGL.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
                     part.partOGL.createOGLDisplayList()
 
-        if self.oglDispID == GLHelpers.UNINIT_GL_DISPID:
+        if self.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
             self.oglDispID = GL.glGenLists(1)
         GL.glNewList(self.oglDispID, GL.GL_COMPILE)
 
@@ -2963,7 +2963,7 @@ class PartOGL(object):
         for size in sizes:
 
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), glContext)
+            pBuffer = QGLPixelBuffer(size, size, LicGLHelpers.getGLFormat(), glContext)
             pBuffer.makeCurrent()
 
             rotation = extraRotation if extraRotation else self.pliRotation
@@ -2990,7 +2990,7 @@ class PartOGL(object):
         # TODO: If a part is rendered at a size > 256, draw it smaller in the PLI - this sounds like a great way to know when to shrink a PLI image...
         rotation = SubmodelPreview.defaultRotation if self.isSubmodel else PLI.defaultRotation
         scaling = SubmodelPreview.defaultScale if self.isSubmodel else PLI.defaultScale
-        params = GLHelpers.initImgSize(size, self.oglDispID, self.filename, scaling * extraScale, rotation, extraRotation, pBuffer)
+        params = LicGLHelpers.initImgSize(size, self.oglDispID, self.filename, scaling * extraScale, rotation, extraRotation, pBuffer)
         if params is None:
             return False
 
@@ -2999,7 +2999,7 @@ class PartOGL(object):
 
     def paintGL(self, dx, dy, rotation = [0.0, 0.0, 0.0], scaling = 1.0, color = None):
          
-        GLHelpers.pushAllGLMatrices()
+        LicGLHelpers.pushAllGLMatrices()
         
         dr = SubmodelPreview.defaultRotation if self.isSubmodel else PLI.defaultRotation
         ds = SubmodelPreview.defaultScale if self.isSubmodel else PLI.defaultScale
@@ -3010,12 +3010,12 @@ class PartOGL(object):
         if color is not None:  # Color means we're drawing a PLIItem, so apply PLI specific scale & rotation
             ds *= self.pliScale
         
-        GLHelpers.rotateToView(dr, ds * scaling, dx, dy, 0.0)
-        GLHelpers.rotateView(*rotation)
+        LicGLHelpers.rotateToView(dr, ds * scaling, dx, dy, 0.0)
+        LicGLHelpers.rotateView(*rotation)
         
         if color is not None:
 
-            GLHelpers.rotateView(*self.pliRotation)
+            LicGLHelpers.rotateView(*self.pliRotation)
             
             colorRGB = LDrawColors.convertToRGBA(color)
             if colorRGB == LDrawColors.CurrentColor:
@@ -3023,7 +3023,7 @@ class PartOGL(object):
             GL.glColor4fv(colorRGB)
 
         GL.glCallList(self.oglDispID)
-        GLHelpers.popAllGLMatrices()
+        LicGLHelpers.popAllGLMatrices()
 
     def getBoundingBox(self):
         if self._boundingBox:
@@ -4240,7 +4240,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.filename = filename
         self.initializePartOGL()
 
-        if self.partOGL.oglDispID == GLHelpers.UNINIT_GL_DISPID:
+        if self.partOGL.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
             glContext = step.getPage().instructions.glContext
             self.partOGL.createOGLDisplayList()
             self.partOGL.resetPixmap(glContext)
@@ -4405,7 +4405,7 @@ class Arrow(Part):
         GL.glPushMatrix()
         GL.glMultMatrixf(matrix)
 
-        #GLHelpers.drawCoordLines()
+        #LicGLHelpers.drawCoordLines()
         self.doGLRotation()
 
         if self.isSelected():

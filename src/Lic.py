@@ -36,7 +36,7 @@ import config
 import LicDialogs
 import LicUndoActions
 import LicLayout
-import GLHelpers
+import LicGLHelpers
 
 #from modeltest import ModelTest
 
@@ -93,7 +93,7 @@ class LicGraphicsScene(QGraphicsScene):
         self.reset()
 
     def drawForeground(self, painter, rect):
-        GLHelpers.initFreshContext(False)
+        LicGLHelpers.initFreshContext(False)
 
         pagesToDraw = []
         for page in self.pages:
@@ -103,7 +103,7 @@ class LicGraphicsScene(QGraphicsScene):
         for page in pagesToDraw:
             page.drawGLItems(rect)
 
-        GLHelpers.setupForQtPainter()
+        LicGLHelpers.setupForQtPainter()
         for page in pagesToDraw:
             page.drawAnnotations(painter)
     
@@ -827,7 +827,7 @@ class LicWindow(QMainWindow):
         self.undoStack = QUndoStack()
         self.connect(self.undoStack, SIGNAL("cleanChanged(bool)"), lambda isClean: self.setWindowModified(not isClean))
 
-        self.glWidget = QGLWidget(GLHelpers.getGLFormat(), self)
+        self.glWidget = QGLWidget(LicGLHelpers.getGLFormat(), self)
         self.treeWidget = LicTreeWidget(self)
 
         self.scene = LicGraphicsScene(self)

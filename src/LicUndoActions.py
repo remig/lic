@@ -22,7 +22,7 @@ from PyQt4.QtGui import QUndoCommand
 from PyQt4.QtCore import SIGNAL, QSizeF
 
 import LicHelpers
-import GLHelpers
+import LicGLHelpers
 
 def resetGLItem(self, name, template):
     instructions = template.getPage().instructions
@@ -1044,7 +1044,7 @@ class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
 
         submodel.addInitialPagesAndSteps()
         submodel.mergeInitialPages()
-        if submodel.oglDispID == GLHelpers.UNINIT_GL_DISPID:
+        if submodel.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
             submodel.createOGLDisplayList()
         submodel.resetPixmap()
 
@@ -1211,10 +1211,10 @@ class ChangeLightingCommand(QUndoCommand):
     def __init__(self, scene, oldValues):
         QUndoCommand.__init__(self, "Change 3D Lighting")
         self.scene, self.oldValues = scene, oldValues
-        self.newValues = GLHelpers.getLightParameters()
+        self.newValues = LicGLHelpers.getLightParameters()
 
     def doAction(self, redo):
         values = self.newValues if redo else self.oldValues
-        GLHelpers.setLightParameters(*values)
+        LicGLHelpers.setLightParameters(*values)
         if self.scene.currentPage:
             self.scene.currentPage.update()

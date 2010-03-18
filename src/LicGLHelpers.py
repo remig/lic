@@ -2,7 +2,7 @@
     Lic - Instruction Book Creation software
     Copyright (C) 2010 Remi Gagne
 
-    This file (GLHelpers.py) is part of Lic.
+    This file (LicGLHelpers.py) is part of Lic.
 
     Lic is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

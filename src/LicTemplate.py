@@ -24,7 +24,7 @@ from LicGradientDialog import GradientDialog
 from LicQtWrapper import *
 
 import LicDialogs
-import GLHelpers
+import LicGLHelpers
 
 class TemplateLineItem(object):
 
@@ -229,7 +229,7 @@ class TemplatePage(TemplateRectItem, Page):
         glContext.makeCurrent()
         for size in [512, 1024, 2048]:
             # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, GLHelpers.getGLFormat(), glContext)
+            pBuffer = QGLPixelBuffer(size, size, LicGLHelpers.getGLFormat(), glContext)
             pBuffer.makeCurrent()
 
             # Render CSI and calculate its size
@@ -401,13 +401,13 @@ class TemplatePage(TemplateRectItem, Page):
 
     def changeLighting(self):
         parentWidget = self.scene().views()[0]
-        dialog = LicDialogs.LightingDialog(parentWidget, *GLHelpers.getLightParameters())
+        dialog = LicDialogs.LightingDialog(parentWidget, *LicGLHelpers.getLightParameters())
         parentWidget.connect(dialog, SIGNAL("changeValues"), self.changeLightValues)
         parentWidget.connect(dialog, SIGNAL("acceptValues"), self.acceptLightValues)
         dialog.exec_()
 
     def changeLightValues(self, newValues):
-        GLHelpers.setLightParameters(*newValues)
+        LicGLHelpers.setLightParameters(*newValues)
         self.update()
 
     def acceptLightValues(self, oldValues):

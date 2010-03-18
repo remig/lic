@@ -23,7 +23,7 @@ from PyQt4.QtCore import *
 from Model import *
 from LicTemplate import *
 from LicCustomPages import *
-import GLHelpers
+import LicGLHelpers
 
 def ro(self, targetType):
     c = targetType()
@@ -108,7 +108,7 @@ def __readTemplate(stream, instructions):
         values = []
         for unused in range(stream.readInt32()):
             values.append(stream.readFloat())
-        GLHelpers.setLightParameters(*values)
+        LicGLHelpers.setLightParameters(*values)
 
     for part in template.subModelPart.parts:
         part.partOGL = partDictionary[part.filename]
@@ -116,7 +116,7 @@ def __readTemplate(stream, instructions):
         template.steps[0].csi.addPart(part)
 
     for partOGL in partDictionary.values():
-        if partOGL.oglDispID == GLHelpers.UNINIT_GL_DISPID:
+        if partOGL.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
             partOGL.createOGLDisplayList()
        
     for glItem in template.glItemIterator():

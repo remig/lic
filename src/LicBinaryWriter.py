@@ -21,6 +21,7 @@
 from PyQt4.QtCore import *
 
 from Model import *
+import LicGLHelpers
 
 def saveLicFile(filename, instructions, template):
 
@@ -70,7 +71,7 @@ def __writeTemplate(stream, template):
     __writeSubmodel(stream, template.subModelPart)
     __writePage(stream, template)
 
-    values = GLHelpers.getLightParameters()
+    values = LicGLHelpers.getLightParameters()
     stream.writeInt32(len(values))
     for v in values:
         stream.writeFloat(v)

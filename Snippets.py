@@ -17,9 +17,9 @@ def paint(self, painter, option, widget = None):
     minX = minY = 20.0
     maxX = maxY = 0.0
 
-    GLHelpers.initFreshContext()
-    GLHelpers.adjustGLViewport(0, 0, 80, 80)
-    GLHelpers.rotateToDefaultView(100.0, 100.0, 0.0, PLI.defaultScale)
+    LicGLHelpers.initFreshContext()
+    LicGLHelpers.adjustGLViewport(0, 0, 80, 80)
+    LicGLHelpers.rotateToDefaultView(100.0, 100.0, 0.0, PLI.defaultScale)
     
     b = self.partOGL.getBoundingBox()
     
@@ -105,8 +105,8 @@ def drawBuffer(self):
     glClearColor(1.0, 1.0, 1.0, 1.0)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-    GLHelpers.adjustGLViewport(0, 0, size, size)
-    GLHelpers.rotateToPLIView()
+    LicGLHelpers.adjustGLViewport(0, 0, size, size)
+    LicGLHelpers.rotateToPLIView()
 
     self.mainModel.draw()
 
