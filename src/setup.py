@@ -1,7 +1,7 @@
 from distutils.core import setup
 import py2exe 
 
-# To build: python setup.py py2exe
+# To build: cd c:\lic\src  c:\python25\python.exe setup.py py2exe
 
 py2exeOptions = dict(
                      compressed = True,

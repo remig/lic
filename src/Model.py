@@ -316,7 +316,8 @@ class Instructions(QObject):
         w, h = int(w), int(h)  # Absolutely ensure these are ints, else glFoo stuff below dies in a fire
         
         if scaleFactor > 1.0:
-            GL.glLineWidth(1.5)  # Make part lines a bit thicker for higher res output 
+            lineWidth = GLHelpers.getLightParameters()[2]
+            GL.glLineWidth(lineWidth * scaleFactor)  # Make part lines a bit thicker for higher res output 
 
         # TODO: Move all this ugly buffer init crap to GLHelpers
         # Create non-multisample FBO that we can call glReadPixels on

@@ -18,7 +18,7 @@ import LicUndoActions
 import LicLayout
 import GLHelpers
 
-from modeltest import ModelTest
+#from modeltest import ModelTest
 
 __version__ = 0.5
 
@@ -834,7 +834,7 @@ class LicWindow(QMainWindow):
 
         self.instructions = Instructions(self, self.scene, self.glWidget)
         self.treeModel = LicTreeModel.LicTreeModel(self.treeWidget.tree)
-        self.modelTest = ModelTest(self.treeModel, self)
+        #self.modelTest = ModelTest(self.treeModel, self)
         
         self.selectionModel = QItemSelectionModel(self.treeModel)  # MUST keep own reference to selection model here
         self.treeWidget.configureTree(self.scene, self.treeModel, self.selectionModel)

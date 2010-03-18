@@ -46,6 +46,8 @@ BUGS:
 
 - Add ability to display page numbers in alternating page corners (odd=left & even=right, etc)
 
+- Add a Page Count label to default Title Page
+
 - Finally cave in and create a proper Properties dialog.  On it:
   - Expose most of lic.ini settings 
   - Add ability to save or auto-delete backup save files
