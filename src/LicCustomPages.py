@@ -21,7 +21,7 @@
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-from Model import *
+from LicModel import *
 from LicUndoActions import *
 from LicTreeModel import *
 

@@ -20,7 +20,7 @@
 
 from PyQt4.QtCore import *
 
-from Model import *
+from LicModel import *
 import LicGLHelpers
 
 def saveLicFile(filename, instructions, template):

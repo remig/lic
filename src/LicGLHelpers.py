@@ -20,9 +20,11 @@
 
 import Image, ImageChops
 
+# Optimization: turn off PyOpenGL error checking, which is a major source of slowdown
 #import OpenGL
 #OpenGL.ERROR_CHECKING = False
 #OpenGL.ERROR_LOGGING = False
+
 from OpenGL.GL import *
 from OpenGL.GLU import *
 

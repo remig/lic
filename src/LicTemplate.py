@@ -18,7 +18,7 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-from Model import *
+from LicModel import *
 from LicUndoActions import *
 from LicGradientDialog import GradientDialog
 from LicQtWrapper import *

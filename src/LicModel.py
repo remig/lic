@@ -3216,56 +3216,54 @@ class Submodel(SubmodelTreeManager, PartOGL):
             
             part = partList[0]
             y, dy = part.by(), part.ySize()
-            currentPart = 1
+            currentPartIndex = 1
             
             if len(partList) > 1:
                 
                 # Advance part list splice point forward until we find the next 'layer' of parts
-                nextPart = partList[currentPart]
+                nextPart = partList[currentPartIndex]
                 while y == nextPart.by() and abs(dy - nextPart.ySize()) <= 4.0:
-                    currentPart += 1
-                    if currentPart >= len(partList):
+                    currentPartIndex += 1
+                    if currentPartIndex >= len(partList):
                         break
-                    nextPart = partList[currentPart]
+                    nextPart = partList[currentPartIndex]
                     
-                # Here, currentPart points to the next potential splice point
-                if currentPart > PARTS_PER_STEP_MAX:
+                # Here, currentPartIndex points to the next potential splice point
+                if currentPartIndex > PARTS_PER_STEP_MAX:
                     
                     # Have lots of parts in this layer: keep most popular part here, bump rest to next step
                     partCounts = {}
-                    for part in partList[:currentPart]:
-                        if part.isSubmodel():
-                            continue
+                    for part in partList[:currentPartIndex]:
                         if part.partOGL.name in partCounts:
                             partCounts[part.partOGL.name] += 1
                         else:
                             partCounts[part.partOGL.name] = 1
                     popularPartName = max(partCounts, key = partCounts.get)
-                    partList = [x for x in partList[:currentPart] if x.partOGL.name != popularPartName] + partList[currentPart:]
-                    currentPart = 0
+                    partList = [x for x in partList[:currentPartIndex] if x.partOGL.name != popularPartName] + partList[currentPartIndex:]
+                    currentPartIndex = 0
                     
-                elif currentPart == 1 and not partList[0].isSubmodel():
+                elif currentPartIndex == 1 and not partList[0].isSubmodel():
                     
                     # Have only one part in this layer: search forward until we hit a layer with several parts
                     part = partList[0]
                     nextPart = partList[1]
                     while (abs(part.by2() - nextPart.by()) <= 4.0) and \
-                          (currentPart < PARTS_PER_STEP_MAX - 1) and \
-                          (currentPart < len(partList) - 1):
-                        part = partList[currentPart]
-                        nextPart = partList[currentPart + 1]
-                        currentPart += 1
+                          (currentPartIndex < PARTS_PER_STEP_MAX - 1) and \
+                          (currentPartIndex < len(partList) - 1):
+                        part = partList[currentPartIndex]
+                        nextPart = partList[currentPartIndex + 1]
+                        currentPartIndex += 1
                         
-                    if currentPart > 1:
+                    if currentPartIndex > 1:
                         # Add an up displacement to last part, if it's basically above previous part
-                        p1 = partList[currentPart - 1]
-                        p2 = partList[currentPart]
+                        p1 = partList[currentPartIndex - 1]
+                        p2 = partList[currentPartIndex]
                         px1, pz1, px2, pz2 = p1.x(), p1.z(), p2.x(), p2.z()
                         if abs(px1 - px2) < 2 and abs(pz1 - pz2) < 2:
                             p2.addNewDisplacement(Qt.Key_PageUp)
-                        currentPart += 1
+                        currentPartIndex += 1
             
-            if len(partList[currentPart: ]) == 0:
+            if len(partList[currentPartIndex: ]) == 0:
                 break  # All done
 
             # Create a new page, give it a step, then push all remaining parts to that step
@@ -3274,19 +3272,19 @@ class Submodel(SubmodelTreeManager, PartOGL):
             self.addPage(newPage)
 
             # Want submodels to be inserted in their own Step, so split those off
-            submodelList = [part for part in partList[:currentPart] if part.isSubmodel()]
-            if submodelList and len(submodelList) != currentPart:
-                partList = submodelList + partList[currentPart:]
-                currentPart = 0
+            submodelList = [part for part in partList[:currentPartIndex] if part.isSubmodel()]
+            if submodelList and len(submodelList) != currentPartIndex:
+                partList = submodelList + partList[currentPartIndex:]
+                currentPartIndex = 0
             
             # Want all identical submodels inserted in same step, so group them all
-            if partList[0].isSubmodel():
+            if partList[0].isSubmodel() and currentPartIndex > 0:
                 partList = [part for part in partList if part.filename != partList[0].filename]
-                currentPart = 0
+                currentPartIndex = 0
             
-            # Here, partList is all parts not yet allocated to a Step, and currentPart is an index into  
-            # that list; parts before currentPart stay in this Step, parts after get bumped to next Step
-            for part in partList[currentPart: ]:  # Move all but the first x parts to next step
+            # Here, partList is all parts not yet allocated to a Step, and currentPartIndex is an index into  
+            # that list; parts before currentPartIndex stay in this Step, parts after get bumped to next Step
+            for part in partList[currentPartIndex: ]:  # Move all but the first x parts to next step
                 currentStep = part.getStep()
                 part.setParentItem(newPage)
                 currentStep.removePart(part)

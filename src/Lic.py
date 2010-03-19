@@ -27,7 +27,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
 
-from Model import *
+from LicModel import *
 from LicCustomPages import *
 import LicTreeModel
 import LicBinaryReader

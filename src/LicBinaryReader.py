@@ -20,7 +20,7 @@
 
 from PyQt4.QtCore import *
 
-from Model import *
+from LicModel import *
 from LicTemplate import *
 from LicCustomPages import *
 import LicGLHelpers
