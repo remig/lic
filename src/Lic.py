@@ -1219,7 +1219,9 @@ class LicWindow(QMainWindow):
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.treeModel.root = self.instructions.mainModel
 
-        self.templatePage = LicBinaryReader.loadLicTemplate(r"C:\lic\dynamic_template.lit", self.instructions)
+        self.templatePage = LicBinaryReader.loadLicTemplate(r"C:\lic\dynamic_template.lit", self.instructions)  # TODO: Fix Default Template PATH OF EVIL!!
+        
+        # Rebuild default template from scratch
         #import LicTemplate
         #self.templatePage = LicTemplate.TemplatePage(self.instructions.mainModel, self.instructions)
         #self.templatePage.createBlankTemplate(self.glWidget)
@@ -1364,10 +1366,6 @@ class LicWindow(QMainWindow):
 
 def main():
     
-    #f = QGLFormat.defaultFormat()
-    #f.setSampleBuffers(True)
-    #QGLFormat.setDefaultFormat(f)
-    
     app = QApplication(sys.argv)
     app.setOrganizationName("BugEyedMonkeys Inc.")
     app.setOrganizationDomain("bugeyedmonkeys.com")
@@ -1378,12 +1376,13 @@ def main():
         import psyco
         psyco.full()
     except ImportError:
-        pass
+        pass  # Ignore missing psyco silently - it's a nice optimization to have, not required
 
     window.show()
     if window.needPathConfiguration:
         window.configurePaths(True)
 
+    # Load a particular file on Lic launch - handy for debugging 
     filename = ""
     #filename = unicode("C:/lic/viper.mpd")
     #filename = unicode("C:/lic/6x10.lic")
@@ -1414,14 +1413,14 @@ def loadFile(window, filename):
     window.scene.selectFirstPage()
 
 def recompileResources():
-    ret = os.spawnl(os.P_WAIT, r"C:\Python25\Lib\site-packages\PyQt4\pyrcc4.exe", "pyrcc4.exe", "-o", r"c:\lic\src\resources.py", r"c:\lic\resources.qrc")
+    # Handy function for rebuilding the resources.py package (which contains all the app's icons)
+    # Note that this call is utterly specific to my dev environment, and is not meant to be called anywhere else
+    ret = os.spawnl(os.P_WAIT, r"C:\Python25\Lib\site-packages\PyQt4\pyrcc4.exe", "pyrcc4.exe", "-o", r"C:\lic\src\resources.py", r"C:\lic\resources.qrc")
     print ret
 
-#def rebuildWin32Zip():
-#    sys.argv.append("py2exe")
-#    import setup
-
 def updateAllSavedLicFiles(window):
+    # Useful for when too many new features accumulate in LicBinaryReader & Writer.
+    # Use this to open each .lic file in the project, save it & close it.
     for root, unused, files in os.walk("C:\\lic"):
         for f in files:
             if f[-3:] == 'lic':

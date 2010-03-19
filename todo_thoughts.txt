@@ -18,6 +18,8 @@ BUGS:
 
  FEATURES:
 
+- Add support for reading colors from LDCONFIG.LDR
+ 
 - Add support for arbitrary annotations, like circles & extra arrows
 
 - Add 'Add Length Indicator' menu option to each PLIItem

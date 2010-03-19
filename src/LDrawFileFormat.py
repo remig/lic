@@ -134,10 +134,10 @@ def createPartLine(color, matrix, filename):
 class LDrawFile(object):
     def __init__(self, filename):
         """
-        Create a new LDrawFile based on a specific LDraw file.
+        Create a new LDrawFile instance based on the passed in LDraw file string.
         
         Parameters:
-            filename: dat | ldr | mpd file to load into this LDrawFile.  Do not include any path
+            filename: dat | ldr | mpd filename (string) to load into this LDrawFile.  Do not include any path
         """
         
         self.filename = filename      # filename, like 3057.dat
@@ -162,7 +162,7 @@ class LDrawFile(object):
                     f = file(os.path.join(config.LDrawPath, 'P', self.filename))
                     self.isPrimitive = True
         
-        # copy the file into an internal array, for easier access
+        # Copy the file into an internal array, for easier access
         i = 1
         for l in f:
             self.fileArray.append([i] + l.split())
@@ -180,7 +180,7 @@ class LDrawFile(object):
                 submodels.append((l[3], i+1))  # + 1 because we start at line 1 not 0
         
         if len(submodels) < 1:
-            return  # No submodels in file - we're done
+            return None # No submodels in file - we're done
         
         # Fixup submodel array by calculating the ending line number from the file
         for i in range(0, len(submodels)-1):
@@ -189,4 +189,4 @@ class LDrawFile(object):
         # Last submodel is special case: its ending line is end of file array
         submodels[-1] = (submodels[-1][0], [submodels[-1][1], len(self.fileArray)])
         
-        return dict(submodels)  # {filename: (start, stop)}
+        return dict(submodels)  # {filename: (start index, stop index)}

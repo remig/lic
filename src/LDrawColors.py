@@ -21,7 +21,8 @@
 CurrentColor = 16
 ComplimentColor = 24
 
-# Dictionary storing [R,G,B,name] values for each LDraw Color
+# Dictionary that stores [R,G,B,name] values for each LDraw Color code
+# TODO: Read this from LDCONFIG.LDR
 colors = {
     0:  [0.13, 0.13, 0.13, 1.0, 'Black'],
     1:  [0.00, 0.20, 0.70, 1.0, 'Blue'],
@@ -126,7 +127,10 @@ colors = {
 complimentColors = [8, 9, 10, 11, 12, 13, 0, 8, 0, 1, 2, 3, 4, 5, 8, 8]
 
 def isRealColor(LDrawColorCode):
-    if LDrawColorCode in colors and type(colors[LDrawColorCode]) == type([]) and len(colors[LDrawColorCode]) == 5:
+    if LDrawColorCode not in colors:
+        return False
+    color = colors[LDrawColorCode]
+    if isinstance(color, list) and len(color) == 5:
         return True
     return False
 
@@ -137,7 +141,7 @@ def convertToRGBA(LDrawColorCode):
         return ComplimentColor
     if LDrawColorCode not in colors:
         print "Could not find LDraw Color: %d - Using Black." % LDrawColorCode
-        return colors[0][0:-1]
+        return colors[0][0:-1]  # Return Black
     return colors[LDrawColorCode][0:-1]
     
 def getColorName(LDrawColorCode):
@@ -147,7 +151,7 @@ def getColorName(LDrawColorCode):
         return ComplimentColor
     if LDrawColorCode not in colors:
         print "Could not find LDraw Color: %d - Using Black." % LDrawColorCode
-        return colors[0][-1]
+        return colors[0][-1]  # Return Black
     return colors[LDrawColorCode][-1]
 
 def complimentColor(LDrawColorCode):
