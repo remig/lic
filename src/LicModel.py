@@ -57,10 +57,9 @@ from RectanglePacker import CygonRectanglePacker
 from LDrawFileFormat import *
 
 MagicNumber = 0x14768126
-FileVersion = 5
+FileVersion = 6
 
 partDictionary = {}      # x = AbstractPart("3005.dat"); partDictionary[x.filename] == x
-submodelDictionary = {}  # {'filename': Submodel()}
 currentModelFilename = ""
 
 NoFlags = QGraphicsItem.GraphicsItemFlags()
@@ -80,7 +79,7 @@ class Instructions(QObject):
         self.glContext.makeCurrent()
 
     def clear(self):
-        global partDictionary, submodelDictionary, currentModelFilename
+        global partDictionary, currentModelFilename
 
         # Remove everything from the graphics scene
         if self.mainModel:
@@ -88,7 +87,6 @@ class Instructions(QObject):
 
         self.mainModel = None
         partDictionary = {}
-        submodelDictionary = {}
         currentModelFilename = ""
         Page.PageSize = Page.defaultPageSize
         Page.Resolution = Page.defaultResolution
@@ -102,7 +100,7 @@ class Instructions(QObject):
 
     def importModel(self, filename):
 
-        global currentModelFilename, submodelDictionary
+        global currentModelFilename
         currentModelFilename = filename
 
         self.mainModel = Mainmodel(self, self, filename)
@@ -176,13 +174,10 @@ class Instructions(QObject):
             csi.createOGLDisplayList()
 
     def getPartDimensionListAndCount(self, reset = False):
-        
         if reset:
             partList = [part for part in partDictionary.values() if (not part.isPrimitive)]
         else:
             partList = [part for part in partDictionary.values() if (not part.isPrimitive) and (part.width == part.height == -1)]
-        submodelList = [submodel for submodel in submodelDictionary.values() if submodel.used]
-        partList += submodelList
         partList.append(self.mainModel)
 
         partDivCount = 50
@@ -278,48 +273,15 @@ class Instructions(QObject):
 
         self.glContext.makeCurrent()
 
-    def initAllPLILayouts(self):
-        
-        for page in self.mainModel.pages:
-            for step in page.steps:
-                if step.pli:
-                    step.pli.initLayout()
-            page.initLayout()
-        
-        for submodel in submodelDictionary.values():
-            for page in submodel.pages:
-                for step in page.steps:
-                    if step.pli:
-                        step.pli.initLayout()
-                page.initLayout()
-        
-    def initPLIPixmaps(self):
-        for page in self.mainModel.pages:
-            page.scaleImages()
-        
-        for submodel in submodelDictionary.values():
-            for page in submodel.pages:
-                page.scaleImages()
-    
-    def initSubmodelImages(self):
-        for page in self.mainModel.pages:
-            page.resetSubmodelImage()
-            page.initLayout()
-                
-        for submodel in submodelDictionary.values():
-            for page in submodel.pages:
-                page.resetSubmodelImage()
-                page.initLayout()
-
     def setTemplate(self, template):
         self.mainModel.template = template
         self.mainModel.incrementRows(1)
 
     def exportToPOV(self):  # TODO: Fix POV Export so it works with the last year's worth of updates
-        global submodelDictionary
-        for model in submodelDictionary.values():
-            if model.used:
-                model.createPng()
+        #global submodelDictionary
+        #for model in submodelDictionary.values():
+        #    if model.used:
+        #        model.createPng()
         self.mainModel.createPng()
         self.mainModel.exportImages()
         
@@ -462,10 +424,6 @@ class Instructions(QObject):
         global partDictionary
         return partDictionary
 
-    def getSubmodelDictionary(self):
-        global submodelDictionary
-        return submodelDictionary
-    
     def updatePageNumbers(self, newNumber, increment = 1):
         if self.mainModel:
             self.mainModel.updatePageNumbers(newNumber, increment)
@@ -1289,7 +1247,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         parentModel = self.getPage().parent()
         fn = "Callout_To_Submodel_%d" % self.number
         model = Submodel(parentModel, parentModel.instructions, fn)
-        submodelDictionary[fn] = model
+        #submodelDictionary[fn] = model
         return model
 
     def setBorderFit(self, fit):
@@ -2828,7 +2786,7 @@ class AbstractPart(object):
         self.parts = []
         self.primitives = []
         self.glDispID = LicGLHelpers.UNINIT_GL_DISPID
-        self.isPrimitive = False  # primitive here means any file in 'P'
+        self.isPrimitive = False  # primitive here means sub-part or part that's internal to another part
         self.isSubmodel = False
         self._boundingBox = None
         
@@ -3165,28 +3123,28 @@ class Submodel(SubmodelTreeManager, AbstractPart):
 
         # Add any submodels found in this LDraw file to the submodel dictionary, unused
         if submodelList:
-            global submodelDictionary
+            global partDictionary
 
             # Copy all submodel names & their positions and empty submodels from the LDraw file to submodel dictionary
             for submodelFilename, index in submodelList.items():
                 lineArray = ldrawFile.fileArray[index[0]: index[1]]
                 model = Submodel(self, self.instructions, submodelFilename)
-                submodelDictionary[submodelFilename] = (lineArray, model)
+                partDictionary[submodelFilename] = (lineArray, model)
              
         # Load the contents of this specific LDraw file into this submodel
         self.loadFromLineArray(ldrawFile.fileArray)
 
         # Loop over submodel dict and delete any unused submodels, ie: convert (line, Submodel) tuple to just unused Submodel
-        for submodelFilename, value in submodelDictionary.items():
+        for submodelFilename, value in partDictionary.items():
             if isinstance(value, tuple):
-                submodelDictionary[submodelFilename] = value[1]
+                partDictionary[submodelFilename] = value[1]
 
     @staticmethod
     def loadFromTuple(lineModelPair):
-        global submodelDictionary
+        global partDictionary
         lineArray, model = lineModelPair
         model.loadFromLineArray(lineArray)
-        submodelDictionary[model.filename] = model
+        partDictionary[model.filename] = model
         return model
 
     def loadFromLineArray(self, lineArray):
@@ -3583,6 +3541,26 @@ class Submodel(SubmodelTreeManager, AbstractPart):
             if doLayout:
                 page.initLayout()
 
+    def initAllPLILayouts(self):
+        for page in self.pages:
+            for step in page.steps:
+                if step.pli:
+                    step.pli.initLayout()
+            page.initLayout()
+
+        for submodel in self.submodels:
+            submodel.initAllPLILayouts()
+
+    def initSubmodelImages(self):
+        for page in self.pages:
+            page.resetSubmodelImage()
+            page.initLayout()
+
+        for submodel in self.submodels:
+            for page in submodel.pages:
+                page.resetSubmodelImage()
+                page.initLayout()
+
     def pageCount(self):
         pageCount = len(self.pages)
         for submodel in self.submodels:
@@ -3818,16 +3796,13 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.setFlags(NoMoveFlags)
 
     def initializeAbstractPart(self):
-        global partDictionary, submodelDictionary
+        global partDictionary
         
         fn = self.filename
-        if fn in submodelDictionary:
-            self.abstractPart = submodelDictionary[fn]
+        if fn in partDictionary:
+            self.abstractPart = partDictionary[fn]
             if isinstance(self.abstractPart, tuple):
                 self.abstractPart = Submodel.loadFromTuple(self.abstractPart)
-
-        elif fn in partDictionary:
-            self.abstractPart = partDictionary[fn]
         elif fn.upper() in partDictionary:
             self.abstractPart = partDictionary[fn.upper()]
         else:

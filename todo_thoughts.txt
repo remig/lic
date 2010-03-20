@@ -4,13 +4,13 @@ BUGS:
 
 - Need an Icon for Lic.exe, something more different than LDD logo
 
-- Still need to handle submodels that are not embedded in the main model file
+- Need to handle submodels that are not embedded in the main model file (additional part lookup paths)
 
 - Fully implement Conditional Lines
 
-- Fix missing Primitive Edges, like from inside of 2x4 brick
+- Fix missing Primitive Edges, like from inside a 2x4 brick
  
-- Fix saw.dat so all edges & surfaces rendered properly
+- Fix saw.dat so all edges & surfaces render properly
 
 - Add full undo / redo support for all auto-layout actions
 
@@ -29,7 +29,11 @@ that control auto-page & step generation (one step / page, min / max parts per s
 
 - Add Snap to Center of page items, not just left / right edges
 
+- Fix Snap to Items so we only consider snapping to meaningful, similar items
+
 - Pages that span multiple Submodels (ie, last step of Submodel on same page as MainModel step that adds submodel)
+
+- Page annotations that span Pages (like Submodel-goes-here arrow across facing pages)
 
 - Add Auto-layout menu option to Part List Page
 
@@ -41,7 +45,7 @@ that control auto-page & step generation (one step / page, min / max parts per s
 
 - Think about 'selection group' class, especially SelectedPart class, to better handle context menus for multiply selected items
 
-- Displacing a part inside a callout does not auto-resize the overall callout, because Step stays big
+- Displacing a part inside a Callout does not auto-resize the overall callout, because Step stays big
  
 - PDF export needs dialog to control export setting, mainly high-res scale multiplier setting (current hardcoded to 3)
 
@@ -53,13 +57,10 @@ that control auto-page & step generation (one step / page, min / max parts per s
 
 - Add a Page Count label to default Title Page
 
-- Finally cave in and create a proper Properties dialog.  On it:
+- Create a proper Properties dialog.  On it:
   - Expose most of lic.ini settings 
   - Add ability to save or auto-delete backup save files
   
-General Niceness:
-
-- Surround optional 3rd party imports in try...catch blocks
-
 - Clean up load / save: we're creating a lot of objects only to totally overwrite them later in load
   (like step.pli & csi)
+  

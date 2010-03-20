@@ -96,9 +96,9 @@ def __readTemplate(stream, instructions):
     filename = str(stream.readQString())
 
     # Read in the entire abstractPart dictionary
-    global partDictionary, submodelDictionary
-    partDictionary, submodelDictionary = {}, {}
-    __readPartDictionary(stream, partDictionary)
+    global partDictionary
+    partDictionary = {}
+    __readPartDictionary(stream, partDictionary, instructions)
 
     submodelPart = __readSubmodel(stream, None)
     template = __readPage(stream, instructions.mainModel, instructions, submodelPart)
@@ -129,10 +129,9 @@ def __readTemplate(stream, instructions):
     return template
 
 def __readInstructions(stream, instructions):
-    global partDictionary, submodelDictionary
+    global partDictionary
 
     partDictionary = instructions.getPartDictionary()
-    submodelDictionary = instructions.getSubmodelDictionary()
     
     filename = str(stream.readQString())
     instructions.filename = filename
@@ -148,11 +147,12 @@ def __readInstructions(stream, instructions):
     PLI.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
     SubmodelPreview.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
 
-    __readPartDictionary(stream, partDictionary)
+    __readPartDictionary(stream, partDictionary, instructions)
 
-    for unused in range(stream.readInt32()):
-        model = __readSubmodel(stream, instructions)
-        submodelDictionary[model.filename] = model
+    if stream.licFileVersion < 6:
+        for unused in range(stream.readInt32()):
+            model = __readSubmodel(stream, instructions)
+            partDictionary[model.filename] = model
 
     instructions.mainModel = __readSubmodel(stream, instructions, True)
 
@@ -167,18 +167,19 @@ def __readInstructions(stream, instructions):
 
     __linkModelPartNames(instructions.mainModel)
 
-    for submodel in submodelDictionary.values():
+    for submodel in [p for p in partDictionary.values() if p.isSubmodel]:
         if submodel._parent == "":
             submodel._parent = instructions
         elif submodel._parent == filename:
             submodel._parent = instructions.mainModel
         else:
-            submodel._parent = submodelDictionary[submodel._parent]
+            submodel._parent = partDictionary[submodel._parent]
 
     for unused in instructions.initGLDisplayLists():
         pass
 
 def __readSubmodel(stream, instructions, createMainmodel = False):
+    global partDictionary
 
     submodel = __readAbstractPart(stream, True, createMainmodel)
     submodel.instructions = instructions
@@ -187,11 +188,15 @@ def __readSubmodel(stream, instructions, createMainmodel = False):
         page = __readPage(stream, submodel, instructions)
         submodel.pages.append(page)
 
+    submodel.submodelNames = []
     for unused in range(stream.readInt32()):
-        filename = str(stream.readQString())
-        model = submodelDictionary[filename]
-        model.used = True
-        submodel.submodels.append(model)
+        if stream.licFileVersion < 6:
+            filename = str(stream.readQString())
+            model = partDictionary[filename]
+            model.used = True
+            submodel.submodels.append(model)
+        else:
+            submodel.submodelNames.append(str(stream.readQString()))
 
     submodel._row = stream.readInt32()
     submodel._parent = str(stream.readQString())
@@ -199,11 +204,16 @@ def __readSubmodel(stream, instructions, createMainmodel = False):
 
     return submodel
 
-def __readPartDictionary(stream, partDictionary):
+def __readPartDictionary(stream, partDictionary, instructions):
 
     for unused in range(stream.readInt32()):
         abstractPart = __readAbstractPart(stream)
         partDictionary[abstractPart.filename] = abstractPart
+
+    if stream.licFileVersion >= 6:
+        for unused in range(stream.readInt32()):
+            abstractPart = __readSubmodel(stream, instructions)
+            partDictionary[abstractPart.filename] = abstractPart
 
     # Each AbstractPart can contain several Parts, but those Parts do
     # not yet have valid AbstractParts of their own.  Create those now.
@@ -483,11 +493,9 @@ def __readPLIItem(stream, pli):
 
     filename = str(stream.readQString())
 
-    global partDictionary, submodelDictionary
+    global partDictionary
     if filename in partDictionary:
         abstractPart = partDictionary[filename]
-    elif filename in submodelDictionary:
-        abstractPart = submodelDictionary[filename]
     else:
         print "LOAD ERROR: Could not find part in part dict: " + filename
 
@@ -520,7 +528,12 @@ def __readRoundedRectItem(stream, parent):
 
 def __linkModelPartNames(model):
 
-    global partDictionary, submodelDictionary
+    global partDictionary
+
+    for modelName in model.submodelNames:
+        newSubmodel = partDictionary[modelName]
+        newSubmodel.used = True
+        model.submodels.append(newSubmodel)
 
     for m in model.submodels:
         __linkModelPartNames(m)
@@ -528,12 +541,11 @@ def __linkModelPartNames(model):
     for part in model.parts:
         if part.filename in partDictionary:
             part.abstractPart = partDictionary[part.filename]
-        elif part.filename in submodelDictionary:
-            part.abstractPart = submodelDictionary[part.filename]
-            part.abstractPart.used = True
+            if part.abstractPart.isSubmodel:
+                part.abstractPart.used = True
         else:
             print "LOAD ERROR: could not find am abstract part for part: " + part.filename
-            
+
     for part in model.parts:
         if part.pageNumber >= 0 and part.stepNumber >= 0:
             page = model.getPage(part.pageNumber)

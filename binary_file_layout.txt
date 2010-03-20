@@ -28,7 +28,7 @@ Instructions:
   
   partDictionary (global)
  
-  int32 length of submodel dictionary
+  int32 length of submodel dictionary, if v < 6
   ... Submodel 0..n ...
  
   Mainmodel instructions.mainModel
@@ -51,8 +51,11 @@ Submodel:
   bool isSubAssembly
 
 partDictionary:
-  int32 length of part dictionary
+  int32 length of part dictionary (minus submodels if v6)
   ... PartOGL 0..n ...
+
+  int32 length of part dictionary (only submodels if v6
+  ... Submodel 0..n ...
 
 PartOGL:
   QString filename

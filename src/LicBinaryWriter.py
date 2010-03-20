@@ -101,19 +101,6 @@ def __writeInstructions(stream, instructions):
     partDictionary = instructions.getPartDictionary()
     __writePartDictionary(stream, partDictionary)
 
-    submodelDictionary = instructions.getSubmodelDictionary()
-    stream.writeInt32(len(submodelDictionary))
-
-    # Need to write a submodel's submodels before the submodel,
-    # So mark all submodels as unwritten, then recursively write away
-    for submodel in submodelDictionary.values():
-        submodel.writtenToFile = False
-
-    for submodel in submodelDictionary.values():
-        if not submodel.writtenToFile:
-            __writeSubmodel(stream, submodel)
-            submodel.writtenToFile = True
-
     __writeSubmodel(stream, instructions.mainModel)
 
     __writeTitlePage(stream, instructions.mainModel.titlePage)
@@ -128,12 +115,6 @@ def __writeInstructions(stream, instructions):
         stream << guide.pos()
 
 def __writeSubmodel(stream, submodel):
-
-    # This doesn't match readSubmodel, because we're not writing entire submodel directory above
-    for model in submodel.submodels:
-        if not model.writtenToFile:
-            __writeSubmodel(stream, model)
-            model.writtenToFile = True
 
     __writeAbstractPart(stream, submodel)
 
@@ -153,9 +134,15 @@ def __writeSubmodel(stream, submodel):
 
 def __writePartDictionary(stream, partDictionary):
 
-    stream.writeInt32(len(partDictionary))
-    for abstractPart in partDictionary.values():
-        __writeAbstractPart(stream, abstractPart)
+    partList = [p for p in partDictionary.values() if not p.isSubmodel]
+    stream.writeInt32(len(partList))
+    for part in partList:
+        __writeAbstractPart(stream, part)
+
+    submodelList = [p for p in partDictionary.values() if p.isSubmodel]
+    stream.writeInt32(len(submodelList))
+    for model in submodelList:
+        __writeSubmodel(stream, model)
 
 def __writeAbstractPart(stream, part):
 

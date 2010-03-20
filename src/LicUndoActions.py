@@ -37,10 +37,10 @@ def resetGLItem(self, name, template):
     elif name == "PLI":
         for unused in instructions.initPartDimensions(True):
             pass  # Don't care about yielded items here
-        instructions.initAllPLILayouts()
+        instructions.mainModel.initAllPLILayouts()
 
     elif name == "Submodel":
-        instructions.initSubmodelImages()
+        instructions.mainModel.initSubmodelImages()  # TODO: Template rotate Submodel Image is broken for nested submodels (viper.lic)
 
 NextCommandID = 122
 def getNewCommandID():
