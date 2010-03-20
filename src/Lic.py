@@ -38,6 +38,8 @@ import LicUndoActions
 import LicLayout
 import LicGLHelpers
 
+import LicImporters
+
 #from modeltest import ModelTest
 
 __version__ = 0.5
@@ -1168,42 +1170,20 @@ class LicWindow(QMainWindow):
         if not self.offerSave():
             return
         dir = os.path.dirname(self.filename) if self.filename is not None else "."
-        formats = ["*.mpd", "*.ldr", "*.dat"]
-        filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Import LDraw Model", dir, "LDraw Models (%s)" % " ".join(formats)))
+        formats = LicImporters.getFileTypesString()
+        filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Import LDraw Model", dir, formats))
         if filename:
-            QTimer.singleShot(50, lambda: self.importLDrawModelTimerAction(filename))
+            QTimer.singleShot(50, lambda: self.importModel(filename))
 
-    def importLDrawModelTimerAction(self, filename):
+    def importModel(self, filename):
+
         self.fileClose()
-        self.importLDrawModel(filename)
-        self.statusBar().showMessage("LDraw Model imported: " + filename)
-        self.scene.selectPage(1)
-        self.copySettingsToScene()
 
-    def loadLicFile(self, filename):
-
-        #startTime = time.time()  # TODO: need to provide a status bar, since some files take forever to load
-        self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-        LicBinaryReader.loadLicFile(filename, self.instructions)
-        self.treeModel.root = self.instructions.mainModel
-        self.templatePage = self.instructions.mainModel.template
-        self.templatePage.applyFullTemplate(False)
-        self.scene.emit(SIGNAL("layoutChanged()"))
-        
-        self.filename = filename
-        self.addRecentFile(filename)
-        self.scene.selectPage(1)
-        self.copySettingsToScene()
-        #endTime = time.time()
-        #print "Total load time: %.2f" % (endTime - startTime)
-
-    def importLDrawModel(self, filename):
-
-        #startTime = time.time()  # TODO: need to provide a status bar, since some files take forever to load
+        #startTime = time.time()
         progress = LicDialogs.LicProgressDialog(self, os.path.basename(filename))
         progress.setValue(2)  # Try and force dialog to show up right away
 
-        loader = self.instructions.importLDrawModel(filename)
+        loader = self.instructions.importModel(filename)
         progress.setMaximum(loader.next())  # First value yielded after load is # of progress steps
 
         for label in loader:
@@ -1229,6 +1209,7 @@ class LicWindow(QMainWindow):
         self.instructions.setTemplate(self.templatePage)
         self.instructions.mainModel.partListPages = PartListPage.createPartListPages(self.instructions)
         self.templatePage.applyFullTemplate(False)  # Template should apply to part list but not title pages
+
         self.instructions.mainModel.addTitlePage(TitlePage(self.instructions))
         self.instructions.mainModel.titlePage.addInitialContent()
         self.instructions.mainModel.incrementRows(1)
@@ -1238,9 +1219,28 @@ class LicWindow(QMainWindow):
         self.scene.selectPage(1)
 
         config.filename = filename
-        self.statusBar().showMessage("Instruction book loaded")
+        self.statusBar().showMessage("Model imported: " + filename)
         self.setWindowModified(True)
         self.enableMenus(True)
+        self.copySettingsToScene()
+
+        #endTime = time.time()
+        #print "Total load time: %.2f" % (endTime - startTime)
+
+    def loadLicFile(self, filename):
+
+        #startTime = time.time()  # TODO: need to provide a status bar, since some files take forever to load
+        self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        LicBinaryReader.loadLicFile(filename, self.instructions)
+        self.treeModel.root = self.instructions.mainModel
+        self.templatePage = self.instructions.mainModel.template
+        self.templatePage.applyFullTemplate(False)
+        self.scene.emit(SIGNAL("layoutChanged()"))
+        
+        self.filename = filename
+        self.addRecentFile(filename)
+        self.scene.selectPage(1)
+        self.copySettingsToScene()
         #endTime = time.time()
         #print "Total load time: %.2f" % (endTime - startTime)
 
@@ -1403,7 +1403,7 @@ def main():
 def loadFile(window, filename):
 
     if filename[-3:] == 'dat' or filename[-3:] == 'mpd' or filename[-3:] == 'ldr':
-        window.importLDrawModelTimerAction(filename)
+        window.importModelTimerAction(filename)
     elif filename[-3:] == 'lic':
         window.fileOpen(filename)
     else:

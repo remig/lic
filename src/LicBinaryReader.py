@@ -95,7 +95,7 @@ def __readTemplate(stream, instructions):
 
     filename = str(stream.readQString())
 
-    # Read in the entire partOGL dictionary
+    # Read in the entire abstractPart dictionary
     global partDictionary, submodelDictionary
     partDictionary, submodelDictionary = {}, {}
     __readPartDictionary(stream, partDictionary)
@@ -111,20 +111,20 @@ def __readTemplate(stream, instructions):
         LicGLHelpers.setLightParameters(*values)
 
     for part in template.subModelPart.parts:
-        part.partOGL = partDictionary[part.filename]
+        part.abstractPart = partDictionary[part.filename]
 
         template.steps[0].csi.addPart(part)
 
-    for partOGL in partDictionary.values():
-        if partOGL.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
-            partOGL.createOGLDisplayList()
+    for abstractPart in partDictionary.values():
+        if abstractPart.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
+            abstractPart.createOGLDisplayList()
        
     for glItem in template.glItemIterator():
         if hasattr(glItem, 'createOGLDisplayList'):
             glItem.createOGLDisplayList()
 
     template.subModelPart.createOGLDisplayList()
-    template.submodelItem.setPartOGL(template.subModelPart)
+    template.submodelItem.setAbstractPart(template.subModelPart)
     template.postLoadInit(filename)
     return template
 
@@ -180,7 +180,7 @@ def __readInstructions(stream, instructions):
 
 def __readSubmodel(stream, instructions, createMainmodel = False):
 
-    submodel = __readPartOGL(stream, True, createMainmodel)
+    submodel = __readAbstractPart(stream, True, createMainmodel)
     submodel.instructions = instructions
 
     for unused in range(stream.readInt32()):
@@ -202,23 +202,23 @@ def __readSubmodel(stream, instructions, createMainmodel = False):
 def __readPartDictionary(stream, partDictionary):
 
     for unused in range(stream.readInt32()):
-        partOGL = __readPartOGL(stream)
-        partDictionary[partOGL.filename] = partOGL
+        abstractPart = __readAbstractPart(stream)
+        partDictionary[abstractPart.filename] = abstractPart
 
-    # Each PartOGL can contain several Parts, but those Parts do
-    # not yet have valid PartOGLs of their own.  Create those now.
-    for partOGL in partDictionary.values():
-        for part in partOGL.parts:
-            part.partOGL = partDictionary[part.filename]
+    # Each AbstractPart can contain several Parts, but those Parts do
+    # not yet have valid AbstractParts of their own.  Create those now.
+    for abstractPart in partDictionary.values():
+        for part in abstractPart.parts:
+            part.abstractPart = partDictionary[part.filename]
 
-def __readPartOGL(stream, createSubmodel = False, createMainmodel = False):
+def __readAbstractPart(stream, createSubmodel = False, createMainmodel = False):
 
     if createMainmodel:
         part = Mainmodel()
     elif createSubmodel:
         part = Submodel()
     else:
-        part = PartOGL()
+        part = AbstractPart()
 
     part.filename = str(stream.readQString())
     part.name = str(stream.readQString())
@@ -433,7 +433,7 @@ def __readCallout(stream, parent):
 
     for unused in range(stream.readInt32()):
         part = __readPart(stream)
-        part.partOGL = partDictionary[part.filename]
+        part.abstractPart = partDictionary[part.filename]
         step = callout.getStep(part.stepNumber)
         step.addPart(part)
 
@@ -485,13 +485,13 @@ def __readPLIItem(stream, pli):
 
     global partDictionary, submodelDictionary
     if filename in partDictionary:
-        partOGL = partDictionary[filename]
+        abstractPart = partDictionary[filename]
     elif filename in submodelDictionary:
-        partOGL = submodelDictionary[filename]
+        abstractPart = submodelDictionary[filename]
     else:
         print "LOAD ERROR: Could not find part in part dict: " + filename
 
-    pliItem = PLIItem(pli, partOGL, stream.readInt32(), stream.readInt32())
+    pliItem = PLIItem(pli, abstractPart, stream.readInt32(), stream.readInt32())
     pliItem.setPos(stream.readQPointF())
     pliItem.setRect(stream.readQRectF())
 
@@ -527,12 +527,12 @@ def __linkModelPartNames(model):
 
     for part in model.parts:
         if part.filename in partDictionary:
-            part.partOGL = partDictionary[part.filename]
+            part.abstractPart = partDictionary[part.filename]
         elif part.filename in submodelDictionary:
-            part.partOGL = submodelDictionary[part.filename]
-            part.partOGL.used = True
+            part.abstractPart = submodelDictionary[part.filename]
+            part.abstractPart.used = True
         else:
-            print "LOAD ERROR: could not find a partOGL for part: " + part.filename
+            print "LOAD ERROR: could not find am abstract part for part: " + part.filename
             
     for part in model.parts:
         if part.pageNumber >= 0 and part.stepNumber >= 0:

@@ -21,7 +21,7 @@ def paint(self, painter, option, widget = None):
     LicGLHelpers.adjustGLViewport(0, 0, 80, 80)
     LicGLHelpers.rotateToDefaultView(100.0, 100.0, 0.0, PLI.defaultScale)
     
-    b = self.partOGL.getBoundingBox()
+    b = self.abstractPart.getBoundingBox()
     
     for v in b.vertices():
         res = GLU.gluProject(v[0], v[1], v[2])

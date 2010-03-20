@@ -889,7 +889,7 @@ class ChangePartColorCommand(QUndoCommand):
 
         self.part.scene().emit(SIGNAL("layoutChanged()"))
 
-class ChangePartOGLCommand(QUndoCommand):
+class ChangeAbstractPartCommand(QUndoCommand):
     
     _id = getNewCommandID()
     
@@ -903,7 +903,7 @@ class ChangePartOGLCommand(QUndoCommand):
         scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         scene.clearSelection()
 
-        self.part.changePartOGL(self.newFilename if redo else self.oldFilename)
+        self.part.changeAbstractPart(self.newFilename if redo else self.oldFilename)
 
         page = self.part.getPage()
         page.instructions.updateMainModel()
@@ -957,7 +957,7 @@ class SubmodelToCalloutCommand(QUndoCommand):
         self.submodelInstanceList = []
         self.addedParts = []
         for part in self.targetStep.csi.getPartList():
-            if part.partOGL == self.submodel:
+            if part.abstractPart == self.submodel:
                 self.targetStep.removePart(part)
                 self.submodelInstanceList.append(part)
 
@@ -1049,7 +1049,7 @@ class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
         submodel.resetPixmap()
 
         self.newPart = submodel.createBlankPart()
-        self.newPart.partOGL = submodel
+        self.newPart.abstractPart = submodel
         self.targetStep.addPart(self.newPart)
         
         self.parentModel.addSubmodel(submodel)

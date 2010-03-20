@@ -217,7 +217,7 @@ class TemplatePage(TemplateRectItem, Page):
         step.callouts[0].steps[0].csi.resetPixmap()
         
         self.addSubmodelImage()
-        self.submodelItem.setPartOGL(self.subModelPart)
+        self.submodelItem.setAbstractPart(self.subModelPart)
 
         step.addRotateIcon()
 

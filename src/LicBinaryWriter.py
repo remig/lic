@@ -63,8 +63,8 @@ def __writeTemplate(stream, template):
     # Build part dictionary, since it's not implicitly stored anywhere
     partDictionary = {}
     for part in template.steps[0].csi.getPartList():
-        if part.partOGL.filename not in partDictionary:
-            part.partOGL.buildSubPartOGLDict(partDictionary)
+        if part.abstractPart.filename not in partDictionary:
+            part.abstractPart.buildSubAbstractPartDict(partDictionary)
 
     stream << QString(template.filename)
     __writePartDictionary(stream, partDictionary)
@@ -135,7 +135,7 @@ def __writeSubmodel(stream, submodel):
             __writeSubmodel(stream, model)
             model.writtenToFile = True
 
-    __writePartOGL(stream, submodel)
+    __writeAbstractPart(stream, submodel)
 
     stream.writeInt32(len(submodel.pages))
     for page in submodel.pages:
@@ -154,30 +154,30 @@ def __writeSubmodel(stream, submodel):
 def __writePartDictionary(stream, partDictionary):
 
     stream.writeInt32(len(partDictionary))
-    for partOGL in partDictionary.values():
-        __writePartOGL(stream, partOGL)
+    for abstractPart in partDictionary.values():
+        __writeAbstractPart(stream, abstractPart)
 
-def __writePartOGL(stream, partOGL):
+def __writeAbstractPart(stream, part):
 
-    stream << QString(partOGL.filename) << QString(partOGL.name)
-    stream.writeBool(partOGL.isPrimitive)
-    stream.writeInt32(partOGL.width)
-    stream.writeInt32(partOGL.height)
-    stream.writeInt32(partOGL.leftInset)
-    stream.writeInt32(partOGL.bottomInset)
-    stream << partOGL.center
+    stream << QString(part.filename) << QString(part.name)
+    stream.writeBool(part.isPrimitive)
+    stream.writeInt32(part.width)
+    stream.writeInt32(part.height)
+    stream.writeInt32(part.leftInset)
+    stream.writeInt32(part.bottomInset)
+    stream << part.center
 
-    stream.writeFloat(partOGL.pliScale)
-    stream.writeFloat(partOGL.pliRotation[0])
-    stream.writeFloat(partOGL.pliRotation[1])
-    stream.writeFloat(partOGL.pliRotation[2])
+    stream.writeFloat(part.pliScale)
+    stream.writeFloat(part.pliRotation[0])
+    stream.writeFloat(part.pliRotation[1])
+    stream.writeFloat(part.pliRotation[2])
     
-    stream.writeInt32(len(partOGL.primitives))
-    for primitive in partOGL.primitives:
+    stream.writeInt32(len(part.primitives))
+    for primitive in part.primitives:
         __writePrimitive(stream, primitive)
         
-    stream.writeInt32(len(partOGL.parts))
-    for part in partOGL.parts:
+    stream.writeInt32(len(part.parts))
+    for part in part.parts:
         __writePart(stream, part)
 
 def __writePrimitive(stream, primitive):
@@ -189,7 +189,7 @@ def __writePrimitive(stream, primitive):
         stream.writeFloat(point)
 
 def __writePart(stream, part):
-    stream << QString(part.partOGL.filename)
+    stream << QString(part.abstractPart.filename)
     stream.writeBool(part.inverted)
     stream.writeInt32(part.color)
     for point in part.matrix:
@@ -362,7 +362,7 @@ def __writePLI(stream, pli):
         __writePLIItem(stream, item)
 
 def __writePLIItem(stream, pliItem):
-    stream << QString(pliItem.partOGL.filename)
+    stream << QString(pliItem.abstractPart.filename)
     stream.writeInt32(pliItem.color)
     stream.writeInt32(pliItem.quantity)
     stream << pliItem.pos() << pliItem.rect()

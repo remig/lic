@@ -373,7 +373,7 @@ class PLIItemTreeManager(BaseTreeManager):
         return self.parentItem().pliItems.index(self)
 
     def data(self, index):
-        return "%s - %s" % (self.partOGL.name, LDrawColors.getColorName(self.color))
+        return "%s - %s" % (self.abstractPart.name, LDrawColors.getColorName(self.color))
 
 class PLITreeManager(BaseTreeManager):
 
@@ -504,7 +504,7 @@ class PartTreeManager(BaseTreeManager):
             self._dataString = "%s - (%.1f, %.1f, %.1f)" % (color, x, y, z)
             #self._dataString = "%s - (%s)" % (color, self.getPartBoundingBox())
         else:
-            self._dataString = "%s - %s" % (self.partOGL.name, color)
+            self._dataString = "%s - %s" % (self.abstractPart.name, color)
 
         return self._dataString
     

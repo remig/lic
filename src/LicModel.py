@@ -49,6 +49,7 @@ import LDrawColors
 import LicHelpers
 import LicDialogs
 import LicPartLengths
+import LicImporters
 import resources  # Needed for ":/resource" type paths to work
 from LicQtWrapper import *
 from RectanglePacker import CygonRectanglePacker
@@ -58,7 +59,7 @@ from LDrawFileFormat import *
 MagicNumber = 0x14768126
 FileVersion = 5
 
-partDictionary = {}      # x = PartOGL("3005.dat"); partDictionary[x.filename] == x
+partDictionary = {}      # x = AbstractPart("3005.dat"); partDictionary[x.filename] == x
 submodelDictionary = {}  # {'filename': Submodel()}
 currentModelFilename = ""
 
@@ -69,7 +70,7 @@ AllFlags = NoMoveFlags | QGraphicsItem.ItemIsMovable
 class Instructions(QObject):
     itemClassName = "Instructions"
 
-    def __init__(self, parent, scene, glWidget, filename = None):
+    def __init__(self, parent, scene, glWidget):
         QObject.__init__(self, parent)
 
         self.scene = scene
@@ -77,9 +78,6 @@ class Instructions(QObject):
 
         self.glContext = glWidget
         self.glContext.makeCurrent()
-
-        if filename:
-            self.importLDrawModel(filename)
 
     def clear(self):
         global partDictionary, submodelDictionary, currentModelFilename
@@ -102,9 +100,8 @@ class Instructions(QObject):
         LicGLHelpers.resetLightParameters()
         self.glContext.makeCurrent()
 
-    def importLDrawModel(self, filename):
-        #startTime = time.time()
-        
+    def importModel(self, filename):
+
         global currentModelFilename, submodelDictionary
         currentModelFilename = filename
 
@@ -112,7 +109,7 @@ class Instructions(QObject):
         self.mainModel.importModel()
         
         self.mainModel.syncPageNumbers()
-        if not self.mainModel.hasImportedSteps:
+        if not self.mainModel.hasImportedSteps():
             self.mainModel.addInitialPagesAndSteps()
         
         unused1, partStepCount, unused2 = self.getPartDimensionListAndCount() 
@@ -127,7 +124,7 @@ class Instructions(QObject):
             yield label
 
         yield "Initializing Part Dimensions"        
-        for label in self.initPartDimensions():  # Calculate width and height of each partOGL in the part dictionary
+        for label in self.initPartDimensions():  # Calculate width and height of each abstractPart in the part dictionary
             yield label
 
         yield "Initializing CSI Dimensions"
@@ -150,9 +147,6 @@ class Instructions(QObject):
             page.adjustSubmodelImages()
             page.resetPageNumberPosition()
 
-        #endTime = time.time()
-        #print "Total load time: %.2f" % (endTime - startTime)
-        
         yield "Import Complete!"
 
     def getModelName(self):
@@ -165,7 +159,7 @@ class Instructions(QObject):
 
         self.glContext.makeCurrent()
 
-        # First initialize all partOGL display lists
+        # First initialize all abstractPart display lists
         yield "Initializing Part GL display lists"
         for part in partDictionary.values():
             if part.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
@@ -217,16 +211,16 @@ class Instructions(QObject):
             pBuffer.makeCurrent()
 
             # Render each image and calculate their sizes
-            for partOGL in partList:
+            for abstractPart in partList:
 
-                if partOGL.initSize(size, pBuffer):  # Draw image and calculate its size:                    
+                if abstractPart.initSize(size, pBuffer):  # Draw image and calculate its size:                    
                     currentPartCount += 1
                     if not currentPartCount % partDivCount:
                         currentPartCount = 0
                         currentCount +=1
                         yield "Initializing Part Dimensions (%d/%d)" % (currentCount, partStepCount)
                 else:
-                    partList2.append(partOGL)
+                    partList2.append(abstractPart)
 
             if len(partList2) < 1:
                 break  # All images initialized successfully
@@ -2113,20 +2107,20 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
     fixedSize = True
     
     # TODO: Add a quantity label here, for submodels that need to be built more than once
-    def __init__(self, parent, partOGL):
+    def __init__(self, parent, abstractPart):
         GraphicsRoundRectItem.__init__(self, parent)
         self.rotation = [0.0, 0.0, 0.0]
         self.scaling = 1.0
         self.setFlags(AllFlags)
-        self.setPartOGL(partOGL)
+        self.setAbstractPart(abstractPart)
         self.pli = None             # TODO: Need to support both sub-model pic and sub-assembly PLI
         self.isSubAssembly = False  # TODO: Need to include main step number under this sub-assembly drawing
         
     def resetPixmap(self):
         glContext = self.getPage().instructions.glContext
-        self.partOGL.resetPixmap(glContext, self.rotation, self.scaling)
-        self.setPartOGL(self.partOGL)
-        self.partOGL.resetPixmap(glContext)  # Restore partOGL - otherwise all pliItems screwed
+        self.abstractPart.resetPixmap(glContext, self.rotation, self.scaling)
+        self.setAbstractPart(self.abstractPart)
+        self.abstractPart.resetPixmap(glContext)  # Restore abstractPart - otherwise all pliItems screwed
         
     def resetRect(self):
         if self.isSubAssembly:
@@ -2134,16 +2128,16 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
             self.pli.setPos(0, 0)
             self.setRect(self.pli.rect())
     
-    def setPartOGL(self, partOGL):
-        self.partOGL = partOGL
-        self.partCenter = (partOGL.center.x() / self.scaling, partOGL.center.y() / self.scaling)
-        self.setRect(0, 0, partOGL.width + PLI.margin.x() * 2, partOGL.height + PLI.margin.y() * 2)
+    def setAbstractPart(self, part):
+        self.abstractPart = part
+        self.partCenter = (part.center.x() / self.scaling, part.center.y() / self.scaling)
+        self.setRect(0, 0, part.width + PLI.margin.x() * 2, part.height + PLI.margin.y() * 2)
 
     def paintGL(self, f = 1.0):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
-        dx = pos.x() + (self.rect().width() / 2.0) - (self.partOGL.center.x() - self.partCenter[0])
-        dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0) - (self.partOGL.center.y() - self.partCenter[1])
-        self.partOGL.paintGL(dx * f, dy * f, self.rotation, self.scaling * f)
+        dx = pos.x() + (self.rect().width() / 2.0) - (self.abstractPart.center.x() - self.partCenter[0])
+        dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0) - (self.abstractPart.center.y() - self.partCenter[1])
+        self.abstractPart.paintGL(dx * f, dy * f, self.rotation, self.scaling * f)
 
     def initLayout(self, destRect = None):
         if destRect:
@@ -2156,7 +2150,7 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
         self.setPen(QPen(Qt.transparent))
         self.setBrush(QBrush(Qt.transparent))
         self.pli = PLI(self)
-        for part in self.partOGL.parts:
+        for part in self.abstractPart.parts:
             self.pli.addPart(part)
         self.pli.resetPixmap()
         self.setRect(self.pli.rect())
@@ -2185,10 +2179,10 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     """ Represents one part inside a PLI along with its quantity label. """
     itemClassName = "PLIItem"
 
-    def __init__(self, parent, partOGL, color, quantity = 0):
+    def __init__(self, parent, abstractPart, color, quantity = 0):
         QGraphicsRectItem.__init__(self, parent)
 
-        self.partOGL = partOGL
+        self.abstractPart = abstractPart
         self.quantity = 0
         self.color = color
 
@@ -2205,25 +2199,25 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
 
         # Initialize the circular length indicator, if there should be one on this part
         self.lengthIndicator = None
-        name = self.partOGL.filename.lower()
+        name = self.abstractPart.filename.lower()
         length = LicPartLengths.partLengths.get(name)
         if length:
             self.lengthIndicator = GraphicsCircleLabelItem(self, str(length))
             self.lengthIndicator.setFlags(AllFlags)
 
     def __getRotation(self):
-        return self.partOGL.pliRotation
+        return self.abstractPart.pliRotation
     
     def __setRotation(self, rotation):
-        self.partOGL.pliRotation = rotation
+        self.abstractPart.pliRotation = rotation
         
     rotation = property(__getRotation, __setRotation)
 
     def __getScaling(self):
-        return self.partOGL.pliScale
+        return self.abstractPart.pliScale
     
     def __setScaling(self, scaling):
-        self.partOGL.pliScale = scaling
+        self.abstractPart.pliScale = scaling
         
     scaling = property(__getScaling, __setScaling)
 
@@ -2241,14 +2235,14 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.numberItem.dataText = "Qty. Label (%dx)" % self.quantity
 
     def resetRect(self):
-        glRect = QRectF(0.0, 0.0, self.partOGL.width, self.partOGL.height)
+        glRect = QRectF(0.0, 0.0, self.abstractPart.width, self.abstractPart.height)
         self.setRect(self.childrenBoundingRect() | glRect)
         #self.normalizePosition()  # Don't want to normalize PLIItem positions, otherwise we end up with GLItem in top left always.
         self.parentItem().resetRect()
         
     def initLayout(self):
 
-        part = self.partOGL
+        part = self.abstractPart
 
         # Put label directly below part, left sides aligned
         # Label's implicit lower top right corner (from qty 'x'), means no padding needed
@@ -2266,18 +2260,18 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
                 self.numberItem.moveBy(0, -dy)
 
         if self.lengthIndicator: 
-            self.lengthIndicator.setPos(self.partOGL.width, 0)  # Top left corner of PLIItem
+            self.lengthIndicator.setPos(self.abstractPart.width, 0)  # Top left corner of PLIItem
             self.numberItem.moveBy(0, self.lengthIndicator.rect().height())
 
-        glRect = QRectF(0.0, 0.0, self.partOGL.width, self.partOGL.height)
+        glRect = QRectF(0.0, 0.0, self.abstractPart.width, self.abstractPart.height)
         self.setRect(self.childrenBoundingRect() | glRect)
 
     def paintGL(self, f = 1.0):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
-        dx = pos.x() + (self.partOGL.width / 2.0)
-        dy = -Page.PageSize.height() + pos.y() + (self.partOGL.height / 2.0)
+        dx = pos.x() + (self.abstractPart.width / 2.0)
+        dy = -Page.PageSize.height() + pos.y() + (self.abstractPart.height / 2.0)
         dy += (self.lengthIndicator.rect().height() if self.lengthIndicator else 0)
-        self.partOGL.paintGL(dx * f, dy * f, scaling = f, color = self.color)
+        self.abstractPart.paintGL(dx * f, dy * f, scaling = f, color = self.color)
 
     """
     def paint(self, painter, option, widget = None):
@@ -2287,12 +2281,12 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
 
     def resetPixmap(self):
         glContext = self.getPage().instructions.glContext
-        self.partOGL.resetPixmap(glContext)
+        self.abstractPart.resetPixmap(glContext)
         self.parentItem().initLayout()
         
     def createPng(self):
 
-        part = self.partOGL
+        part = self.abstractPart
         if part.isSubmodel:
             self.pngImage = part.pngImage
             return
@@ -2350,18 +2344,18 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
     def addPart(self, part):
 
         for pliItem in self.pliItems:
-            if pliItem.color == part.color and pliItem.partOGL.filename == part.partOGL.filename:
+            if pliItem.color == part.color and pliItem.abstractPart.filename == part.abstractPart.filename:
                 return pliItem.addPart()
 
         # If we're here, did not find an existing PLI, so create a new one
-        pliItem = PLIItem(self, part.partOGL, part.color)
+        pliItem = PLIItem(self, part.abstractPart, part.color)
         pliItem.addPart()
         self.pliItems.append(pliItem)
         
     def removePart(self, part):
         
         for pliItem in self.pliItems:
-            if pliItem.color == part.color and pliItem.partOGL.filename == part.partOGL.filename:
+            if pliItem.color == part.color and pliItem.abstractPart.filename == part.abstractPart.filename:
                 pliItem.removePart()
                 break
 
@@ -2387,8 +2381,8 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
     def resetPixmap(self):
         
         glContext = self.getPage().instructions.glContext
-        for partOGL in set([item.partOGL for item in self.pliItems]):
-            partOGL.resetPixmap(glContext)
+        for part in set([item.abstractPart for item in self.pliItems]):
+            part.resetPixmap(glContext)
         self.initLayout()
     
     def initLayout(self):
@@ -2412,7 +2406,7 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
         partList = list(self.pliItems)
         partList.sort(key = lambda i: i.color, reverse = True)  # Sort by color, reversed 
         partList.sort(key = lambda i: (i.rect().width(), i.rect().height()))  # Sort by width (then height, for ties)
-        tallestPart = max(reversed(partList), key = lambda x: x.partOGL.height)  # reverse list so we choose last part if two+ parts equally tall
+        tallestPart = max(reversed(partList), key = lambda x: x.abstractPart.height)  # reverse list so we choose last part if two+ parts equally tall
         partList.remove(tallestPart)
         partList.append(tallestPart)
 
@@ -2560,11 +2554,11 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
 
     def addPart(self, part):
         for p in self.parts:
-            if p.name == part.partOGL.name:
+            if p.name == part.abstractPart.name:
                 p.addPart(part)
                 return
             
-        p = PartTreeItem(self, part.partOGL.name)
+        p = PartTreeItem(self, part.abstractPart.name)
         p.addPart(part)
         self.parts.append(p)
         self.parts.sort(key = lambda partItem: partItem.name)
@@ -2740,7 +2734,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         menu.addSeparator()
         arrowMenu = menu.addMenu("Select Part")
         for part in self.getPartList():
-            text = "%s - %s" % (part.partOGL.name, LDrawColors.getColorName(part.color))
+            text = "%s - %s" % (part.abstractPart.name, LDrawColors.getColorName(part.color))
             arrowMenu.addAction(text, lambda p = part: self.selectPart(p))
         arrowMenu.addAction("Select All", self.selectAllParts)
 
@@ -2754,12 +2748,12 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         fn = os.path.basename(filename)
         if fn:
             part = Part(fn, 0, IdentityMatrix(), False)
-            part.initializePartOGL()
+            part.initializeAbstractPart()
 
-            if part.partOGL.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
-                part.partOGL.createOGLDisplayList()
+            if part.abstractPart.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
+                part.abstractPart.createOGLDisplayList()
                 glContext = self.getPage().instructions.glContext
-                part.partOGL.resetPixmap(glContext)
+                part.abstractPart.resetPixmap(glContext)
 
             self.scene().undoStack.push(AddRemovePartCommand(part, self.parentItem(), True))
 
@@ -2817,12 +2811,12 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
                 
         self.scene().undoStack.endMacro()
     
-class PartOGL(object):
+class AbstractPart(object):
     """
     Represents one 'abstract' part.  Could be regular part, like 2x4 brick, could be a 
     simple primitive, like stud.dat.  
-    Used inside 'concrete' Part below. One PartOGL instance will be shared across several 
-    Part instances.  In other words, PartOGL represents everything that two 2x4 bricks have
+    Used inside 'concrete' Part below. One AbstractPart instance will be shared across several 
+    Part instances.  In other words, AbstractPart represents everything that two 2x4 bricks have
     in common when present in a model, everything inside 3001.dat.
     """
 
@@ -2903,7 +2897,7 @@ class PartOGL(object):
             elif fn == "stud4.dat" and part.filename == "4-4cyli.dat" and self.invertNext:
                 part.color = 512
 
-            part.initializePartOGL()
+            part.initializeAbstractPart()
             if self.invertNext:
                 self.invertNext = False
                 
@@ -2924,8 +2918,8 @@ class PartOGL(object):
         # Ensure any parts in this part have been initialized
         if not skipPartInit:
             for part in self.parts:
-                if part.partOGL.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
-                    part.partOGL.createOGLDisplayList()
+                if part.abstractPart.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
+                    part.abstractPart.createOGLDisplayList()
 
         if self.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
             self.oglDispID = GL.glGenLists(1)
@@ -2941,16 +2935,16 @@ class PartOGL(object):
 
     def drawConditionalLines(self):
         for part in self.parts:
-            part.partOGL.drawConditionalLines()
+            part.abstractPart.drawConditionalLines()
             
         for primitive in self.primitives:
             primitive.drawConditionalLines()
     
-    def buildSubPartOGLDict(self, partDict):
+    def buildSubAbstractPartDict(self, partDict):
             
         for part in self.parts:
-            if part.partOGL.filename not in partDict:
-                part.partOGL.buildSubPartOGLDict(partDict)
+            if part.abstractPart.filename not in partDict:
+                part.abstractPart.buildSubAbstractPartDict(partDict)
         partDict[self.filename] = self
     
     def resetPixmap(self, glContext, extraRotation = None, extraScale = None):
@@ -3039,7 +3033,7 @@ class PartOGL(object):
                     box = p.copy()
             
         for part in self.parts:
-            p = part.partOGL.getBoundingBox()
+            p = part.abstractPart.getBoundingBox()
             if p:
                 if box:
                     box.growByBoudingBox(p, part.matrix)
@@ -3053,7 +3047,7 @@ class PartOGL(object):
         for primitive in self.primitives:
             primitive.resetBoundingBox()
         for part in self.parts:
-            part.partOGL.resetBoundingBox()
+            part.abstractPart.resetBoundingBox()
         self._boundingBox = None
 
 class BoundingBox(object):
@@ -3124,16 +3118,15 @@ class BoundingBox(object):
     def zSize(self):
         return abs(self.z2 - self.z1)
 
-class Submodel(SubmodelTreeManager, PartOGL):
-    """ A Submodel is just a PartOGL that also has pages & steps, and can be inserted into a tree. """
+class Submodel(SubmodelTreeManager, AbstractPart):
+    """ A Submodel is just an AbstractPart that also has pages & steps, and can be inserted into a tree. """
     itemClassName = "Submodel"
 
     def __init__(self, parent = None, instructions = None, filename = ""):
-        PartOGL.__init__(self, filename)
+        AbstractPart.__init__(self, filename)
 
         self.instructions = instructions
         self.used = False
-        self.hasImportedSteps = False
 
         self.pages = []
         self.submodels = []
@@ -3150,13 +3143,21 @@ class Submodel(SubmodelTreeManager, PartOGL):
     def createOGLDisplayList(self, skipPartInit = False):
         for model in self.submodels:
             model.createOGLDisplayList(skipPartInit)
-        PartOGL.createOGLDisplayList(self, skipPartInit)
+        AbstractPart.createOGLDisplayList(self, skipPartInit)
 
     def setSelected(self, selected):
         self.pages[0].setSelected(selected)
 
     def importModel(self):
-        """ Reads in an LDraw model file and populates this submodel with the info. """
+        """ Reads in a model file and populates this submodel with the info.
+            Chooses the correct Importer to used based on its filename's extension. 
+        """
+
+        # Set up dynamic module to be used for import 
+        importerName = LicImporters.getImporter(os.path.splitext(self.filename)[1][1:])
+        importerModule = __import__("LicImporters.%s" % importerName)
+
+        #loader = importerModule.importModel(filename, self.instructions)
 
         ldrawFile = LDrawFile(self.filename)
         ldrawFile.loadFileArray()
@@ -3193,10 +3194,16 @@ class Submodel(SubmodelTreeManager, PartOGL):
             if isValidFileLine(line):
                 return
             if isValidStepLine(line):
-                self.hasImportedSteps = True
                 self.appendBlankPage()
             if isValidPartLine(line):
                 self.addPartFromLine(lineToPart(line))
+
+    def hasImportedSteps(self):
+        if not self.pages:
+            return False
+        if (len(self.pages) > 1) or (len(self.pages[0].steps)) > 1:
+            return True
+        return False
 
     def addInitialPagesAndSteps(self):
 
@@ -3234,12 +3241,12 @@ class Submodel(SubmodelTreeManager, PartOGL):
                     # Have lots of parts in this layer: keep most popular part here, bump rest to next step
                     partCounts = {}
                     for part in partList[:currentPartIndex]:
-                        if part.partOGL.name in partCounts:
-                            partCounts[part.partOGL.name] += 1
+                        if part.abstractPart.name in partCounts:
+                            partCounts[part.abstractPart.name] += 1
                         else:
-                            partCounts[part.partOGL.name] = 1
+                            partCounts[part.abstractPart.name] = 1
                     popularPartName = max(partCounts, key = partCounts.get)
-                    partList = [x for x in partList[:currentPartIndex] if x.partOGL.name != popularPartName] + partList[currentPartIndex:]
+                    partList = [x for x in partList[:currentPartIndex] if x.abstractPart.name != popularPartName] + partList[currentPartIndex:]
                     currentPartIndex = 0
                     
                 elif currentPartIndex == 1 and not partList[0].isSubmodel():
@@ -3370,7 +3377,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
         for s in [p for p in self.submodels if p._row > row]:
             s._row -= 1
     
-    def addSubmodel(self, submodel):
+    def addSubmodel(self, submodel):  # TODO: co-opt this so it's used by Importers to add new Submodels
         # Assume Submodel already exists as a Part on an appropriate Step
 
         step = self.findSubmodelStep(submodel)
@@ -3399,7 +3406,7 @@ class Submodel(SubmodelTreeManager, PartOGL):
     def findSubmodelStep(self, submodel):
         for page in self.pages:
             for step in page.steps:
-                if submodel in [part.partOGL for part in step.csi.getPartList()]:
+                if submodel in [part.abstractPart for part in step.csi.getPartList()]:
                     return step
         return None
      
@@ -3533,13 +3540,13 @@ class Submodel(SubmodelTreeManager, PartOGL):
         if not self.pages:
             self.appendBlankPage()
 
-        part = PartOGL.addPartFromLine(self, p)
+        part = AbstractPart.addPartFromLine(self, p)
         if not part:
             return  # Error loading part - part .dat file may not exist
         
         self.pages[-1].steps[-1].addPart(part)
-        if part.isSubmodel() and not part.partOGL.used:
-            p = part.partOGL
+        if part.isSubmodel() and not part.abstractPart.used:
+            p = part.abstractPart
             p._parent = self
             p._row = self.pages[-1]._row
             p.used = True
@@ -3778,7 +3785,7 @@ class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
 
 class Part(PartTreeManager, QGraphicsRectItem):
     """
-    Represents one 'concrete' part, ie, an 'abstract' part (partOGL), plus enough
+    Represents one 'concrete' part, ie, an 'abstract' part (AbstractPart), plus enough
     info to draw that abstract part in context of a model, ie color, positional 
     info, containing buffer state, etc.  In other words, Part represents everything
     that could be different between two 2x4 bricks in a model, everything contained
@@ -3794,7 +3801,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.color = color
         self.matrix = matrix
         self.inverted = invert
-        self.partOGL = None
+        self.abstractPart = None
         self._dataString = None  # Cache data string for tree
 
         self.displacement = []
@@ -3810,21 +3817,21 @@ class Part(PartTreeManager, QGraphicsRectItem):
         #self.setPen(QPen(Qt.black))
         self.setFlags(NoMoveFlags)
 
-    def initializePartOGL(self):
+    def initializeAbstractPart(self):
         global partDictionary, submodelDictionary
         
         fn = self.filename
         if fn in submodelDictionary:
-            self.partOGL = submodelDictionary[fn]
-            if isinstance(self.partOGL, tuple):
-                self.partOGL = Submodel.loadFromTuple(self.partOGL)
+            self.abstractPart = submodelDictionary[fn]
+            if isinstance(self.abstractPart, tuple):
+                self.abstractPart = Submodel.loadFromTuple(self.abstractPart)
 
         elif fn in partDictionary:
-            self.partOGL = partDictionary[fn]
+            self.abstractPart = partDictionary[fn]
         elif fn.upper() in partDictionary:
-            self.partOGL = partDictionary[fn.upper()]
+            self.abstractPart = partDictionary[fn.upper()]
         else:
-            self.partOGL = partDictionary[fn] = PartOGL(fn, loadFromFile = True)
+            self.abstractPart = partDictionary[fn] = AbstractPart(fn, loadFromFile = True)
         
     def setInversion(self, invert):
         # Inversion is annoying as hell.  
@@ -3844,7 +3851,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
             m[13] += self.displacement[1]
             m[14] += self.displacement[2]
 
-        return self.partOGL.getBoundingBox().copy(m)
+        return self.abstractPart.getBoundingBox().copy(m)
     
     def xyz(self):
         return [self.matrix[12], self.matrix[13], self.matrix[14]]
@@ -3937,7 +3944,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
     def addNewDisplacement(self, direction):
         self.displaceDirection = direction
-        self.displacement = LicHelpers.getDisplacementOffset(direction, True, self.partOGL.getBoundingBox())
+        self.displacement = LicHelpers.getDisplacementOffset(direction, True, self.abstractPart.getBoundingBox())
         self.addNewArrow(direction)
         self._dataString = None
 
@@ -3954,7 +3961,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self._dataString = None
 
     def isSubmodel(self):
-        return isinstance(self.partOGL, Submodel)
+        return isinstance(self.abstractPart, Submodel)
 
     def callGLDisplayList(self, useDisplacement = False):
 
@@ -3986,8 +3993,8 @@ class Part(PartTreeManager, QGraphicsRectItem):
             self.drawGLBoundingBox()
             GL.glPopAttrib()
 
-        GL.glCallList(self.partOGL.oglDispID)
-        #self.partOGL.drawConditionalLines()
+        GL.glCallList(self.abstractPart.oglDispID)
+        #self.abstractPart.drawConditionalLines()
 
         if self.matrix:
             GL.glPopMatrix()
@@ -4002,7 +4009,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
             arrow.callGLDisplayList(useDisplacement)
 
     def drawGLBoundingBox(self):
-        b = self.partOGL.getBoundingBox()
+        b = self.abstractPart.getBoundingBox()
         GL.glBegin(GL.GL_LINE_LOOP)
         GL.glVertex3f(b.x1, b.y1, b.z1)
         GL.glVertex3f(b.x2, b.y1, b.z1)
@@ -4029,12 +4036,12 @@ class Part(PartTreeManager, QGraphicsRectItem):
         GL.glEnd()
 
     def exportToLDrawFile(self, fh):
-        line = createPartLine(self.color, self.matrix, self.partOGL.filename)
+        line = createPartLine(self.color, self.matrix, self.abstractPart.filename)
         fh.write(line + '\n')
 
     def duplicate(self):
         p = Part(self.filename, self.color, list(self.matrix), self.inverted)
-        p.partOGL = self.partOGL
+        p.abstractPart = self.abstractPart
         p.setParentItem(self.parentItem())
         p.displacement = list(self.displacement)
         p.displaceDirection = self.displaceDirection
@@ -4137,7 +4144,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def displaceSignal(self, direction):
         stack = self.scene().undoStack
         if direction:
-            displacement = LicHelpers.getDisplacementOffset(direction, False, self.partOGL.getBoundingBox())
+            displacement = LicHelpers.getDisplacementOffset(direction, False, self.abstractPart.getBoundingBox())
             if not displacement:
                 return
             oldPos = self.displacement if self.displacement else [0.0, 0.0, 0.0]
@@ -4228,7 +4235,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         action = ChangePartColorCommand(self, oldColor, self.color)
         self.scene().undoStack.push(action)
 
-    def changePartOGL(self, filename):
+    def changeAbstractPart(self, filename):
 
         step = self.getStep()
 
@@ -4236,15 +4243,15 @@ class Part(PartTreeManager, QGraphicsRectItem):
         step.removePart(self)
 
         self.filename = filename
-        self.initializePartOGL()
+        self.initializeAbstractPart()
 
-        if self.partOGL.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
+        if self.abstractPart.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
             glContext = step.getPage().instructions.glContext
-            self.partOGL.createOGLDisplayList()
-            self.partOGL.resetPixmap(glContext)
+            self.abstractPart.createOGLDisplayList()
+            self.abstractPart.resetPixmap(glContext)
 
         if self.calloutPart:
-            self.calloutPart.changePartOGL(filename)
+            self.calloutPart.changeAbstractPart(filename)
 
         step.addPart(self)
         step.csi.isDirty = True
@@ -4259,7 +4266,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open LDraw Part", dir, "LDraw Part Files (*.dat)"))
         fn = os.path.basename(filename)
         if fn and fn != self.filename:
-            self.scene().undoStack.push(ChangePartOGLCommand(self, fn))
+            self.scene().undoStack.push(ChangeAbstractPartCommand(self, fn))
 
     def duplicatePartSignal(self):
         part = self.duplicate()
@@ -4305,7 +4312,7 @@ class Arrow(Part):
         self.displacement = [0.0, 0.0, 0.0]
         self.axisRotation = 0.0
         
-        self.partOGL = PartOGL("arrow")
+        self.abstractPart = AbstractPart("arrow")
         self.matrix = IdentityMatrix()
 
         x = [0.0, 20.0, 25.0, 50.0]
@@ -4325,14 +4332,14 @@ class Arrow(Part):
         tip2 = Primitive(4, tip + joint + botEnd, GL.GL_TRIANGLES)
         base = Primitive(4, tl + tr + br + bl, GL.GL_QUADS)
 
-        self.partOGL.primitives.append(tip1)
-        self.partOGL.primitives.append(tip2)
-        self.partOGL.primitives.append(base)
-        self.partOGL.createOGLDisplayList()
+        self.abstractPart.primitives.append(tip1)
+        self.abstractPart.primitives.append(tip2)
+        self.abstractPart.primitives.append(base)
+        self.abstractPart.createOGLDisplayList()
 
     def data(self, index):
         x, y, z = LicHelpers.GLMatrixToXYZ(self.matrix)
-        return "%s  (%.1f, %.1f, %.1f)" % (self.partOGL.filename, x, y, z)
+        return "%s  (%.1f, %.1f, %.1f)" % (self.abstractPart.filename, x, y, z)
 
     def duplicate(self, parentPart = None):
         p = Arrow(self.displaceDirection, parentPart)
@@ -4409,7 +4416,7 @@ class Arrow(Part):
         if self.isSelected():
             self.drawGLBoundingBox()
 
-        GL.glCallList(self.partOGL.oglDispID)
+        GL.glCallList(self.abstractPart.oglDispID)
         GL.glPopMatrix()
 
         if color != LDrawColors.CurrentColor:
@@ -4438,15 +4445,15 @@ class Arrow(Part):
         return self.parentItem().parentItem().parentItem()  # Part->PartItem->CSI
 
     def getLength(self):
-        p = self.partOGL.primitives[-1]
+        p = self.abstractPart.primitives[-1]
         return p.points[3]
 
     def setLength(self, length):
-        p = self.partOGL.primitives[-1]
+        p = self.abstractPart.primitives[-1]
         p.points[3] = length
         p.points[6] = length
-        self.partOGL.resetBoundingBox()
-        self.partOGL.createOGLDisplayList()
+        self.abstractPart.resetBoundingBox()
+        self.abstractPart.createOGLDisplayList()
         self._dataString = None
     
     def adjustLength(self, offset):
