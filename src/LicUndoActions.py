@@ -294,7 +294,7 @@ class AddRemovePartCommand(QUndoCommand):
     def doAction(self, redo):
         step = self.step
         page = step.getPage()
-        submodel = page.subModel
+        submodel = page.submodel
 
         step.scene().clearSelection()
         step.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
@@ -1044,7 +1044,7 @@ class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
 
         submodel.addInitialPagesAndSteps()
         submodel.mergeInitialPages()
-        if submodel.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
+        if submodel.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             submodel.createOGLDisplayList()
         submodel.resetPixmap()
 

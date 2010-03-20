@@ -68,7 +68,7 @@ def __writeTemplate(stream, template):
 
     stream << QString(template.filename)
     __writePartDictionary(stream, partDictionary)
-    __writeSubmodel(stream, template.subModelPart)
+    __writeSubmodel(stream, template.submodelPart)
     __writePage(stream, template)
 
     values = LicGLHelpers.getLightParameters()

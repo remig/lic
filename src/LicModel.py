@@ -162,7 +162,7 @@ class Instructions(QObject):
         # First initialize all abstractPart display lists
         yield "Initializing Part GL display lists"
         for part in partDictionary.values():
-            if part.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
+            if part.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
                 part.createOGLDisplayList()
 
         # Initialize the main model display list
@@ -490,7 +490,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     defaultBrush = QBrush(Qt.NoBrush)
     defaultPen = QPen(Qt.NoPen)
 
-    def __init__(self, subModel, instructions, number, row):
+    def __init__(self, submodel, instructions, number, row):
         if not hasattr(Page.defaultPen, "cornerRadius"):
             Page.defaultPen.cornerRadius = 0
 
@@ -501,7 +501,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         self.setFlags(NoMoveFlags)
 
         self.instructions = instructions
-        self.subModel = subModel
+        self.submodel = submodel
         self._number = number
         self._row = row
         self.steps = []
@@ -593,19 +593,19 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         return self
     
     def prevPage(self):
-        i = self.subModel.pages.index(self)
+        i = self.submodel.pages.index(self)
         if i == 0:
             return None
-        return self.subModel.pages[i - 1]
+        return self.submodel.pages[i - 1]
 
     def nextPage(self):
-        i = self.subModel.pages.index(self)
-        if i == len(self.subModel.pages) - 1:
+        i = self.submodel.pages.index(self)
+        if i == len(self.submodel.pages) - 1:
             return None
-        return self.subModel.pages[i + 1]
+        return self.submodel.pages[i + 1]
         
     def getStep(self, number):
-        return self.subModel.getStep(number)
+        return self.submodel.getStep(number)
 
     def addStep(self, step):
 
@@ -626,11 +626,11 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         if self.steps:
             return self.steps[-1].number + 1
         
-        for page in self.subModel.pages:  # Look forward through pages
+        for page in self.submodel.pages:  # Look forward through pages
             if page._number > self._number and page.steps:
                 return page.steps[0].number
 
-        for page in reversed(self.subModel.pages):  # Look back
+        for page in reversed(self.submodel.pages):  # Look back
             if page._number < self._number and page.steps:
                 return page.steps[-1].number + 1
 
@@ -640,14 +640,14 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         self.insertStep(Step(self, self.getNextStepNumber()))
     
     def insertStep(self, step):
-        self.subModel.updateStepNumbers(step.number)
+        self.submodel.updateStepNumbers(step.number)
         self.addStep(step)
 
     def removeStep(self, step):
         self.scene().removeItem(step)
         self.steps.remove(step)
         self.children.remove(step)
-        self.subModel.updateStepNumbers(step.number, -1)
+        self.submodel.updateStepNumbers(step.number, -1)
 
     def isEmpty(self):
         return len(self.steps) == 0 and self.submodelItem is None
@@ -709,7 +709,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
             s.hide()
     
     def addSubmodelImage(self):
-        self.submodelItem = SubmodelPreview(self, self.subModel)
+        self.submodelItem = SubmodelPreview(self, self.submodel)
         self.submodelItem.setPos(Page.margin)
         self.addChild(1, self.submodelItem)
         
@@ -753,8 +753,8 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         return label
 
     def updateSubmodel(self):
-        if self.subModel and self.subModel.pages and self.subModel.pages[0].submodelItem:
-            self.subModel.pages[0].submodelItem.resetPixmap()
+        if self.submodel and self.submodel.pages and self.submodel.pages[0].submodelItem:
+            self.submodel.pages[0].submodelItem.resetPixmap()
 
     def adjustSubmodelImages(self):
 
@@ -812,7 +812,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
                     painter.drawImage(item.scenePos(), item.pngImage)
 
         if self.submodelItem:
-            painter.drawImage(self.submodelItem.pos() + PLI.margin, self.subModel.pngImage)
+            painter.drawImage(self.submodelItem.pos() + PLI.margin, self.submodel.pngImage)
 
         painter.end()
         image.save(self.getExportFilename())
@@ -933,7 +933,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
     def addPageSignal(self, number, row):
         scene = self.scene()
-        newPage = Page(self.subModel, self.instructions, number, row)
+        newPage = Page(self.submodel, self.instructions, number, row)
         scene.undoStack.push(AddRemovePageCommand(scene, newPage, True))
         scene.fullItemSelectionUpdate(newPage)
 
@@ -2501,7 +2501,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         QGraphicsRectItem.__init__(self, step)
 
         self.center = QPointF()
-        self.oglDispID = LicGLHelpers.UNINIT_GL_DISPID
+        self.glDispID = LicGLHelpers.UNINIT_GL_DISPID
         self.setFlags(AllFlags)
         self.setPen(QPen(Qt.NoPen))
 
@@ -2549,7 +2549,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         LicGLHelpers.rotateToView(CSI.defaultRotation, CSI.defaultScale * self.scaling * f, dx * f, dy * f, 0.0)
         LicGLHelpers.rotateView(*self.rotation)
 
-        GL.glCallList(self.oglDispID)
+        GL.glCallList(self.glDispID)
         LicGLHelpers.popAllGLMatrices()
 
     def addPart(self, part):
@@ -2583,10 +2583,10 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         # Call all previous step's CSI display list
         prevStep = self.parentItem().getPrevStep()
         if prevStep:
-            #if prevStep.csi.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
+            #if prevStep.csi.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             prevStep.csi.__callPreviousOGLDisplayLists(False)
             #else:
-            #    GL.glCallList(prevStep.csi.oglDispID)
+            #    GL.glCallList(prevStep.csi.glDispID)
 
         # Draw all the parts in this CSI
         for partItem in self.parts:
@@ -2599,9 +2599,9 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         for a single display list giving a full model rendering up to this step.
         """
 
-        if self.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
-            self.oglDispID = GL.glGenLists(1)
-        GL.glNewList(self.oglDispID, GL.GL_COMPILE)
+        if self.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
+            self.glDispID = GL.glGenLists(1)
+        GL.glNewList(self.glDispID, GL.GL_COMPILE)
         #LicGLHelpers.drawCoordLines()
         self.__callPreviousOGLDisplayLists(True)
         GL.glEndList()
@@ -2611,7 +2611,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         if not self.parts:
             self.center = QPointF()
             self.setRect(QRectF())
-            self.oglDispID = LicGLHelpers.UNINIT_GL_DISPID
+            self.glDispID = LicGLHelpers.UNINIT_GL_DISPID
             return  # No parts = reset pixmap
 
         # Temporarily enlarge CSI, in case recent changes pushed image out of existing bounds.
@@ -2656,7 +2656,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         """
         global currentModelFilename
 
-        if self.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
+        if self.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             print "ERROR: Trying to init a CSI size that has no display list"
             return False
         
@@ -2667,7 +2667,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         if not self.parts:
             return result  # A CSI with no parts is already initialized
 
-        params = LicGLHelpers.initImgSize(size, self.oglDispID, filename, CSI.defaultScale * self.scaling, CSI.defaultRotation, self.rotation, pBuffer)
+        params = LicGLHelpers.initImgSize(size, self.glDispID, filename, CSI.defaultScale * self.scaling, CSI.defaultRotation, self.rotation, pBuffer)
         if params is None:
             return False
 
@@ -2750,7 +2750,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             part = Part(fn, 0, IdentityMatrix(), False)
             part.initializeAbstractPart()
 
-            if part.abstractPart.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
+            if part.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
                 part.abstractPart.createOGLDisplayList()
                 glContext = self.getPage().instructions.glContext
                 part.abstractPart.resetPixmap(glContext)
@@ -2815,9 +2815,9 @@ class AbstractPart(object):
     """
     Represents one 'abstract' part.  Could be regular part, like 2x4 brick, could be a 
     simple primitive, like stud.dat.  
-    Used inside 'concrete' Part below. One AbstractPart instance will be shared across several 
-    Part instances.  In other words, AbstractPart represents everything that two 2x4 bricks have
-    in common when present in a model, everything inside 3001.dat.
+    Used inside 'concrete' Part below. One AbstractPart instance will be shared across several Part instances.  
+    In other words, AbstractPart represents everything that two 2x4 bricks have
+    in common when present in a model; everything inside 3001.dat.
     """
 
     def __init__(self, filename = None, loadFromFile = False):
@@ -2827,7 +2827,7 @@ class AbstractPart(object):
         self.winding = GL.GL_CCW
         self.parts = []
         self.primitives = []
-        self.oglDispID = LicGLHelpers.UNINIT_GL_DISPID
+        self.glDispID = LicGLHelpers.UNINIT_GL_DISPID
         self.isPrimitive = False  # primitive here means any file in 'P'
         self.isSubmodel = False
         self._boundingBox = None
@@ -2918,12 +2918,12 @@ class AbstractPart(object):
         # Ensure any parts in this part have been initialized
         if not skipPartInit:
             for part in self.parts:
-                if part.abstractPart.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
+                if part.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
                     part.abstractPart.createOGLDisplayList()
 
-        if self.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
-            self.oglDispID = GL.glGenLists(1)
-        GL.glNewList(self.oglDispID, GL.GL_COMPILE)
+        if self.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
+            self.glDispID = GL.glGenLists(1)
+        GL.glNewList(self.glDispID, GL.GL_COMPILE)
 
         for part in self.parts:
             part.callGLDisplayList()
@@ -2984,7 +2984,7 @@ class AbstractPart(object):
         # TODO: If a part is rendered at a size > 256, draw it smaller in the PLI - this sounds like a great way to know when to shrink a PLI image...
         rotation = SubmodelPreview.defaultRotation if self.isSubmodel else PLI.defaultRotation
         scaling = SubmodelPreview.defaultScale if self.isSubmodel else PLI.defaultScale
-        params = LicGLHelpers.initImgSize(size, self.oglDispID, self.filename, scaling * extraScale, rotation, extraRotation, pBuffer)
+        params = LicGLHelpers.initImgSize(size, self.glDispID, self.filename, scaling * extraScale, rotation, extraRotation, pBuffer)
         if params is None:
             return False
 
@@ -3016,7 +3016,7 @@ class AbstractPart(object):
                 colorRGB = LDrawColors.colors[2][:4]
             GL.glColor4fv(colorRGB)
 
-        GL.glCallList(self.oglDispID)
+        GL.glCallList(self.glDispID)
         LicGLHelpers.popAllGLMatrices()
 
     def getBoundingBox(self):
@@ -3450,7 +3450,7 @@ class Submodel(SubmodelTreeManager, AbstractPart):
             if s._row >= page._row: 
                 s._row += 1
 
-        page.subModel = self
+        page.submodel = self
         self.instructions.updatePageNumbers(page.number)
 
         index = len([p for p in self.pages if p._row < page._row])
@@ -3993,7 +3993,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
             self.drawGLBoundingBox()
             GL.glPopAttrib()
 
-        GL.glCallList(self.abstractPart.oglDispID)
+        GL.glCallList(self.abstractPart.glDispID)
         #self.abstractPart.drawConditionalLines()
 
         if self.matrix:
@@ -4245,7 +4245,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.filename = filename
         self.initializeAbstractPart()
 
-        if self.abstractPart.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
+        if self.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             glContext = step.getPage().instructions.glContext
             self.abstractPart.createOGLDisplayList()
             self.abstractPart.resetPixmap(glContext)
@@ -4416,7 +4416,7 @@ class Arrow(Part):
         if self.isSelected():
             self.drawGLBoundingBox()
 
-        GL.glCallList(self.abstractPart.oglDispID)
+        GL.glCallList(self.abstractPart.glDispID)
         GL.glPopMatrix()
 
         if color != LDrawColors.CurrentColor:

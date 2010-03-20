@@ -94,9 +94,9 @@ class PartListPage(PartListPageTreeManager, Page):
         self.pli = PartListPLI(self)
 
     def initFullPartList(self):
-        for part in [p for p in self.subModel.parts if not p.isSubmodel()]:
+        for part in [p for p in self.submodel.parts if not p.isSubmodel()]:
             self.pli.addPart(part)
-        for submodel in self.subModel.submodels:
+        for submodel in self.submodel.submodels:
             for part in [p for p in submodel.parts if not p.isSubmodel()]:
                 self.pli.addPart(part)
 
@@ -200,7 +200,7 @@ class TitlePage(TitlePageTreeManager, Page):
         si.setBrush(QBrush(Qt.NoBrush))
         si.itemClassName = "TitleSubmodelPreview"  # Override regular name so we don't set this in any template action
 
-        self.addNewLabel(None, QFont("Arial", 25), self.subModel.getSimpleName())
+        self.addNewLabel(None, QFont("Arial", 25), self.submodel.getSimpleName())
         self.addNewLabel(Page.margin * 2, None, "1001")
         self.addPartCountLabel(False)
         self.initLayout()
@@ -248,7 +248,7 @@ class TitlePage(TitlePageTreeManager, Page):
         menu.addAction("Add Label", lambda: self.addNewLabel(event.scenePos(), useUndo = True))
         if self.getPartCountLabel() is None:
             menu.addAction("Add Part Count Label", lambda: self.addPartCountLabel(True))
-        menu.addAction("Remove Title Page", lambda: self.subModel.hideTitlePage())
+        menu.addAction("Remove Title Page", lambda: self.submodel.hideTitlePage())
         menu.exec_(event.screenPos())
 
     def addNewLabel(self, pos = None, font = None, text = "Blank Label", useUndo = False):
@@ -263,7 +263,7 @@ class TitlePage(TitlePageTreeManager, Page):
             self.labels.append(label)
 
     def addPartCountLabel(self, useUndo = False):
-        parts = self.subModel.getFullPartList()
+        parts = self.submodel.getFullPartList()
         text = "%d pcs." % len(parts)
         self.addNewLabel(None, None, text, useUndo)
         self.setPartCountLabelPos(self.labels[-1])

@@ -126,11 +126,11 @@ class TemplateRotateScaleSignalItem(QObject):
 
 class TemplatePage(TemplateRectItem, Page):
 
-    def __init__(self, subModel, instructions):
-        Page.__init__(self, subModel, instructions, 0, 0)
+    def __init__(self, submodel, instructions):
+        Page.__init__(self, submodel, instructions, 0, 0)
         self.__filename = None
         self.dataText = "Template Page"
-        self.subModelPart = None
+        self.submodelPart = None
 
     def __getFilename(self):
         return self.__filename
@@ -198,26 +198,26 @@ class TemplatePage(TemplateRectItem, Page):
         step.data = lambda index: "Template Step"
         self.addStep(step)
         
-        self.subModelPart = Submodel()
-        for part in self.subModel.parts[:5]:
+        self.submodelPart = Submodel()
+        for part in self.submodel.parts[:5]:
             newPart = part.duplicate()
             step.addPart(newPart)
-            self.subModelPart.parts.append(newPart)
+            self.submodelPart.parts.append(newPart)
 
-        self.subModelPart.createOGLDisplayList()
-        self.initOGLDimension(self.subModelPart, glContext)
+        self.submodelPart.createOGLDisplayList()
+        self.initOGLDimension(self.submodelPart, glContext)
         
         step.csi.createOGLDisplayList()
         self.initOGLDimension(step.csi, glContext)
 
         step.addBlankCalloutSignal(False)
-        step.callouts[0].addPart(self.subModel.parts[1].duplicate())
-        step.callouts[0].addPart(self.subModel.parts[2].duplicate())
+        step.callouts[0].addPart(self.submodel.parts[1].duplicate())
+        step.callouts[0].addPart(self.submodel.parts[2].duplicate())
 
         step.callouts[0].steps[0].csi.resetPixmap()
         
         self.addSubmodelImage()
-        self.submodelItem.setAbstractPart(self.subModelPart)
+        self.submodelItem.setAbstractPart(self.submodelPart)
 
         step.addRotateIcon()
 

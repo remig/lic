@@ -182,9 +182,7 @@ QGraphicsRectItem.__bases__ += (BaseTreeManager,)
 class PageTreeManager(BaseTreeManager):
 
     def parent(self):
-        if not hasattr(self, "subModel"):
-            unused = 10
-        return self.subModel
+        return self.submodel
 
     def child(self, row):
         if row < 0 or row >= len(self.children):
@@ -219,7 +217,7 @@ class PartListPageTreeManager(BaseTreeManager):
         return 2
 
     def data(self, index):
-        return "Part List Page %d" % (self.subModel.partListPages.index(self) + 1)
+        return "Part List Page %d" % (self.submodel.partListPages.index(self) + 1)
 
 class TitlePageTreeManager(BaseTreeManager):
 

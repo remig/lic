@@ -54,7 +54,7 @@ def loadLicFile(filename, instructions):
     instructions.licFileVersion = stream.licFileVersion
 
     if template:
-        template.subModel = instructions.mainModel
+        template.submodel = instructions.mainModel
 
     template.lockIcon.resetPosition()
     instructions.mainModel.template = template
@@ -100,9 +100,9 @@ def __readTemplate(stream, instructions):
     partDictionary, submodelDictionary = {}, {}
     __readPartDictionary(stream, partDictionary)
 
-    subModelPart = __readSubmodel(stream, None)
-    template = __readPage(stream, instructions.mainModel, instructions, subModelPart)
-    template.subModelPart = subModelPart
+    submodelPart = __readSubmodel(stream, None)
+    template = __readPage(stream, instructions.mainModel, instructions, submodelPart)
+    template.submodelPart = submodelPart
 
     if stream.licFileVersion >= 5:
         values = []
@@ -110,21 +110,21 @@ def __readTemplate(stream, instructions):
             values.append(stream.readFloat())
         LicGLHelpers.setLightParameters(*values)
 
-    for part in template.subModelPart.parts:
+    for part in template.submodelPart.parts:
         part.abstractPart = partDictionary[part.filename]
 
         template.steps[0].csi.addPart(part)
 
     for abstractPart in partDictionary.values():
-        if abstractPart.oglDispID == LicGLHelpers.UNINIT_GL_DISPID:
+        if abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             abstractPart.createOGLDisplayList()
        
     for glItem in template.glItemIterator():
         if hasattr(glItem, 'createOGLDisplayList'):
             glItem.createOGLDisplayList()
 
-    template.subModelPart.createOGLDisplayList()
-    template.submodelItem.setAbstractPart(template.subModelPart)
+    template.submodelPart.createOGLDisplayList()
+    template.submodelItem.setAbstractPart(template.submodelPart)
     template.postLoadInit(filename)
     return template
 
@@ -314,8 +314,8 @@ def __readPage(stream, parent, instructions, templateModel = None):
     
     if templateModel:
         page = TemplatePage(parent, instructions)
-        if page.subModel is None:
-            page.subModel = templateModel
+        if page.submodel is None:
+            page.submodel = templateModel
     else:
         page = Page(parent, instructions, number, row)
 
@@ -441,7 +441,7 @@ def __readCallout(stream, parent):
 
 def __readSubmodelItem(stream, page):
     
-    submodelItem = SubmodelPreview(page, page.subModel)
+    submodelItem = SubmodelPreview(page, page.submodel)
     submodelItem._row = stream.readInt32()
     __readRoundedRectItem(stream, submodelItem)
     submodelItem.scaling = stream.readFloat()

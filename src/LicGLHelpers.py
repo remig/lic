@@ -199,7 +199,7 @@ def _getBottomInset(data, height, left):
 
 bgCache = {}
 
-def _getBounds(size, oglDispID, filename, defaultScale, defaultRotation, partRotation, pBuffer):
+def _getBounds(size, glDispID, filename, defaultScale, defaultRotation, partRotation, pBuffer):
     
     # Clear the drawing buffer with white
     glClearColor(1.0, 1.0, 1.0, 1.0)
@@ -212,7 +212,7 @@ def _getBounds(size, oglDispID, filename, defaultScale, defaultRotation, partRot
     rotateToView(defaultRotation, defaultScale)
     rotateView(*partRotation)
 
-    glCallList(oglDispID)
+    glCallList(glDispID)
 
     # Use PIL to find the image's bounding box (sweet)
     pixels = glReadPixels(0, 0, size, size, GL_RGB,  GL_UNSIGNED_BYTE)
@@ -240,7 +240,7 @@ def _getBounds(size, oglDispID, filename, defaultScale, defaultRotation, partRot
     bottomInset = _getBottomInset(data, size, box[0])
     return box + (leftInset - box[0], bottomInset - box[1])
     
-def initImgSize(size, oglDispID, filename, defaultScale, defaultRotation, partRotation, pBuffer):
+def initImgSize(size, glDispID, filename, defaultScale, defaultRotation, partRotation, pBuffer):
     """
     Draw this piece to the already initialized GL Frame Buffer Object, in order to calculate
     its displayed width and height.  These dimensions are required to properly lay out PLIs and CSIs.
@@ -248,7 +248,7 @@ def initImgSize(size, oglDispID, filename, defaultScale, defaultRotation, partRo
     Parameters:
         width: Width of buffer to render to, in pixels.
         height: Height of buffer to render to, in pixels.
-        oglDispID: The GL Display List ID to be rendered and dimensioned.
+        glDispID: The GL Display List ID to be rendered and dimensioned.
         filename: String name of this thing to draw.
         defaultRotation: An [x, y, z] rotation to use for this rendering's default rotation
         partRotation: An extra [x, y, z] rotation to use when rendering this part, or None.
@@ -260,7 +260,7 @@ def initImgSize(size, oglDispID, filename, defaultScale, defaultRotation, partRo
     """
     
     # Draw piece to frame buffer, then calculate bounding box
-    left, top, right, bottom, leftInset, bottomInset = _getBounds(size, oglDispID, filename, defaultScale, defaultRotation, partRotation, pBuffer)
+    left, top, right, bottom, leftInset, bottomInset = _getBounds(size, glDispID, filename, defaultScale, defaultRotation, partRotation, pBuffer)
     
     if _checkImgBounds(top, bottom, left, right, size):
         return None  # Drew at least one edge out of bounds - try next buffer size
