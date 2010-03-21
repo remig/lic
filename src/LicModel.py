@@ -465,6 +465,7 @@ class Instructions(QObject):
     def addPart(self, part, parent = None):
         if parent is None:
             parent = self.mainModel
+
         parent.parts.append(part)
 
         if parent.isSubmodel:
@@ -477,6 +478,17 @@ class Instructions(QObject):
                 p.used = True
                 parent.pages[-1]._row += 1
                 parent.submodels.append(p)
+
+    def addPrimitive(self, shape, color, points, parent = None):
+        if parent is None:
+            parent = self.mainModel
+        parent.addPrimitive(shape, color, points)
+
+    def addBlankPage(self, parent):
+        if parent is None:
+            parent = self.mainModel
+        if parent.isSubmodel:
+            parent.appendBlankPage()
 
 class Page(PageTreeManager, GraphicsRoundRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
@@ -3155,65 +3167,6 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         importModule.LDrawPath = config.LDrawPath
 
         importModule.importModel(self.filename, self.instructions)
-        return
-
-        ldrawFile = LDrawFile(self.filename)
-        ldrawFile.loadFileArray()
-        submodelList = ldrawFile.getSubmodels()
-
-        # Add any submodels found in this LDraw file to the part dictionary, unused
-        if submodelList:
-            global partDictionary
-
-            # Copy all submodel names & their positions and empty submodels from the LDraw file to submodel dictionary
-            for submodelFilename, index in submodelList.items():
-                lineArray = ldrawFile.fileArray[index[0]: index[1]]
-                model = Submodel(self, self.instructions, submodelFilename)
-                partDictionary[submodelFilename] = (lineArray, model)
-             
-        # Load the contents of this specific LDraw file into this submodel
-        self.loadFromLineArray(ldrawFile.fileArray)
-
-        # Loop over submodel dict and delete any unused submodels, ie: convert (line, Submodel) tuple to just unused Submodel
-        for submodelFilename, value in partDictionary.items():
-            if isinstance(value, tuple):
-                partDictionary[submodelFilename] = value[1]
-
-    @staticmethod
-    def loadFromTuple(lineModelPair):
-        global partDictionary
-        lineArray, model = lineModelPair
-        model.loadFromLineArray(lineArray)
-        partDictionary[model.filename] = model
-        return model
-
-    def loadFromLineArray(self, lineArray):
-        for line in lineArray[1:]:
-            if isValidFileLine(line):
-                return
-            if isValidStepLine(line):
-                self.appendBlankPage()
-            if isValidPartLine(line):
-                self.addPartFromLine(lineToPart(line))
-
-    def addPartFromLine(self, p):
-
-        # First ensure we have a step in this submodel, so we can add the new part to it.
-        if not self.pages:
-            self.appendBlankPage()
-
-        part = AbstractPart.addPartFromLine(self, p)
-        if not part:
-            return  # Error loading part - part .dat file may not exist
-        
-        self.pages[-1].steps[-1].addPart(part)
-        if part.isSubmodel() and not part.abstractPart.used:
-            p = part.abstractPart
-            p._parent = self
-            p._row = self.pages[-1]._row
-            p.used = True
-            self.pages[-1]._row += 1
-            self.submodels.append(p)
 
     def hasImportedSteps(self):
         if not self.pages:
@@ -3845,9 +3798,6 @@ class Part(PartTreeManager, QGraphicsRectItem):
             self.abstractPart = partDictionary[fn.upper()]
         else:
             self.abstractPart = partDictionary[fn] = AbstractPart(fn, loadFromFile = True)
-
-        if isinstance(self.abstractPart, tuple):
-            self.abstractPart = Submodel.loadFromTuple(self.abstractPart)
 
     def setInversion(self, invert):
         # Inversion is annoying as hell.  

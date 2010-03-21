@@ -18,37 +18,25 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-import os      # for path creation
+import os.path
 from OpenGL import GL
 
-LDrawPath = "C:/LDraw"
+LDrawPath = "C:/LDraw"  # TODO: Find better platform-agnostic default string
 
 def importModel(filename, instructions):
-    importer = LDrawImporter(filename, instructions)
-    importer.importModel()
+    LDrawImporter(filename, instructions)
 
 class LDrawImporter(object):
     
     def __init__(self, filename, instructions):
 
         ldrawFile = LDrawFile(filename)
-        ldrawFile.loadFileArray()
-
-        self.lineArray = ldrawFile.lineArray
-        self.submodels = ldrawFile.getSubmodels()
+        self.lineList = ldrawFile.lineList
+        self.submodels = ldrawFile.getSubmodels(filename)
+        self.filename = filename
         self.instructions = instructions
 
-    def importModel(self):
-        
-        for line in self.lineArray[1:]:
-            if isValidFileLine(line):
-                return  # Done loading main model
-    
-            if isValidPartLine(line):
-                part = self.createNewPartFromLine(line, None)
-                self.instructions.addPart(part)
-            #elif isValidStepLine(line):
-            #    instructions.appendBlankPage()
+        self.loadAbstractPartFromStartStop(None, *self.submodels[self.filename])
 
     def createNewPartFromLine(self, line, parent):
 
@@ -58,10 +46,8 @@ class LDrawImporter(object):
 
         if part.abstractPart is None:
             if filename in self.submodels:
-                start, stop = self.submodels[filename]
-                lineArray = self.lineArray[start + 1 : stop]  # + 1 to skip over introductory FILE line
                 part.abstractPart = self.instructions.createAbstractSubmodel(filename, parent)
-                self.loadAbstractPartFromLineArray(part.abstractPart, lineArray)
+                self.loadAbstractPartFromStartStop(part.abstractPart, *self.submodels[filename])
             else:
                 part.abstractPart = self.instructions.createAbstractPart(filename)
                 self.loadAbstractPartFromFile(part.abstractPart, filename)
@@ -69,36 +55,38 @@ class LDrawImporter(object):
         return part
     
     def loadAbstractPartFromFile(self, part, filename):
-    
         ldrawFile = LDrawFile(filename)
-        ldrawFile.loadFileArray()
-        
         part.isPrimitive = ldrawFile.isPrimitive
         part.name = ldrawFile.name
-        self.loadAbstractPartFromLineArray(part, ldrawFile.lineArray)
+        self.loadAbstractPartFromLineList(part, ldrawFile.lineList)
+
+    def loadAbstractPartFromStartStop(self, part, start, stop):
+        lineList = self.lineList[start + 1 : stop]  # + 1 to skip over introductory FILE line
+        self.loadAbstractPartFromLineList(part, lineList)
     
-    def loadAbstractPartFromLineArray(self, part, lineArray):
+    def loadAbstractPartFromLineList(self, part, lineList):
     
-        for line in lineArray:
+        for line in lineList:
     
-            if isValidFileLine(line): # A FILE line means we're finished loading this part
+            if isFileLine(line): # A FILE line means we're finished loading this part
                 return
     
-            if isValidPartLine(line):
+            elif isStepLine(line):
+                self.instructions.addBlankPage(part)
+
+            elif isPartLine(line):
                 newPart = self.createNewPartFromLine(line, part)
-                newPart.setInversion(part.invertNext)
-                self.configureBlackPartColor(part.filename, newPart, part.invertNext)
-                part.invertNext = False
+                if part:
+                    newPart.setInversion(part.invertNext)
+                    self.configureBlackPartColor(part.filename, newPart, part.invertNext)
+                    part.invertNext = False
                 self.instructions.addPart(newPart, part)
     
             elif isPrimitiveLine(line):
                 shape, color, points = lineToPrimitive(line)
-                part.addPrimitive(shape, color, points)
+                self.instructions.addPrimitive(shape, color, points, part)
                 
-            #elif isValidConditionalLine(line):
-            #    self.addPrimitive(lineToPrimitive(line), GL.GL_LINES)
-            
-            elif isValidBFCLine(line):
+            elif part and isBFCLine(line):
                 if line[3] == 'CERTIFY':
                     part.winding = GL.GL_CW if line[4] == 'CW' else GL.GL_CCW
                 elif line [3] == 'INVERTNEXT':
@@ -122,39 +110,24 @@ TriangleCommand = '3'
 QuadCommand = '4'
 ConditionalLineCommand = '5'
 
-RotStepCommand = 'ROTSTEP'
 StepCommand = 'STEP'
 FileCommand = 'FILE'
 BFCCommand = 'BFC'
-ENDCommand = '0'
 
-def IdentityMatrix():
-    return [1.0, 0.0, 0.0, 0.0,  
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0]
-    
-def LDToOGLMatrix(matrix):
+def LDToGLMatrix(matrix):
     m = [float(x) for x in matrix]
     return [m[3], m[6], m[9], 0.0, m[4], m[7], m[10], 0.0, m[5], m[8], m[11], 0.0, m[0], m[1], m[2], 1.0]
 
-def OGLToLDMatrix(matrix):
-    m = matrix
-    return [m[12], m[13], m[14], m[0], m[4], m[8], m[1], m[5], m[9], m[2], m[6], m[10]]
-
-def isValidPartLine(line):
+def isPartLine(line):
     return (len(line) > 15) and (line[1] == PartCommand)
 
 def lineToPart(line):
     filename = line[15]
     color = int(line[2])
-    matrix = LDToOGLMatrix(line[3:15])
+    matrix = LDToGLMatrix(line[3:15])
     return (filename, color, matrix)
 
-def isValidCommentLine(line):
-    return (len(line) > 2) and (line[1] == Comment)
-
-def isValidBFCLine(line):
+def isBFCLine(line):
     return (len(line) > 3) and (line[1] == Comment) and (line[2] == BFCCommand)
 
 def isPrimitiveLine(line):
@@ -185,7 +158,7 @@ def lineTypeToGLShape(command):
         return GL.GL_QUADS
     return None
 
-def isValidConditionalLine(line):
+def isConditionalLine(line):
     return (len(line) == 15) and (line[1] == ConditionalLineCommand)
 
 def lineToConditionalLine(line):
@@ -195,10 +168,10 @@ def lineToConditionalLine(line):
     d['control points'] = [float(x) for x in line[9:]]
     return d
 
-def isValidFileLine(line):
+def isFileLine(line):
     return (len(line) > 2) and (line[1] == Comment) and (line[2] == FileCommand)
 
-def isValidStepLine(line):
+def isStepLine(line):
     return (len(line) > 2) and (line[1] == Comment) and (line[2] == StepCommand)
 
 class LDrawFile(object):
@@ -214,9 +187,10 @@ class LDrawFile(object):
         self.name = ""                # coloquial name, like 2 x 2 brick
         self.isPrimitive = False      # Anything in the 'P' directory
         
-        self.lineArray = []
+        self.lineList = []
+        self.loadFileList()
 
-    def loadFileArray(self):
+    def loadFileList(self):
         
         try:
             f = file(self.filename)
@@ -235,28 +209,25 @@ class LDrawFile(object):
         # Copy the file into an internal array, for easier access
         i = 1
         for l in f:
-            self.lineArray.append([i] + l.split())
+            self.lineList.append([i] + l.split())
             i += 1
         f.close()
         
-        self.name = ' '.join(self.lineArray[0][2:])
+        self.name = ' '.join(self.lineList[0][2:])
 
-    def getSubmodels(self):
+    def getSubmodels(self, filename):
         
         # Loop through the file array searching for sub model FILE declarations
-        submodels = []  # submodels[0] = (filename, start line number)
-        for i, l in enumerate(self.lineArray[1:]):
-            if isValidFileLine(l):
+        submodels = [(filename, 0)]
+        for i, l in enumerate(self.lineList[1:]):
+            if isFileLine(l):
                 submodels.append((l[3], i+1))  # + 1 because we start at line 1 not 0
         
-        if len(submodels) < 1:
-            return {} # No submodels in file - we're done
-        
-        # Fixup submodel array by calculating the ending line number from the file
+        # Fixup submodel list by calculating the ending line number from the file
         for i in range(0, len(submodels)-1):
             submodels[i] = (submodels[i][0], [submodels[i][1], submodels[i+1][1]])
         
         # Last submodel is special case: its ending line is end of file array
-        submodels[-1] = (submodels[-1][0], [submodels[-1][1], len(self.lineArray)])
+        submodels[-1] = (submodels[-1][0], [submodels[-1][1], len(self.lineList)])
         
         return dict(submodels)  # {filename: (start index, stop index)}
