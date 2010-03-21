@@ -104,6 +104,7 @@ class Instructions(QObject):
         currentModelFilename = filename
 
         self.mainModel = Mainmodel(self, self, filename)
+        self.mainModel.appendBlankPage()
         self.mainModel.importModel()
         
         self.mainModel.syncPageNumbers()
@@ -448,18 +449,34 @@ class Instructions(QObject):
 
     def createAbstractPart(self, fn):
         global partDictionary
-
         partDictionary[fn] = AbstractPart(fn)
-
         return partDictionary[fn]
-    
-    def addPart(self, part):
-        
-        if not self.mainModel.pages:
-            self.mainModel.appendBlankPage()
 
-        self.mainModel.parts.append(part)
-        self.mainModel.pages[-1].steps[-1].addPart(part)
+    def createAbstractSubmodel(self, fn, parent = None):
+        global partDictionary
+
+        if parent is None:
+            parent = self.mainModel
+
+        part = partDictionary[fn] = Submodel(parent, self, fn)
+        part.appendBlankPage()
+        return part 
+    
+    def addPart(self, part, parent = None):
+        if parent is None:
+            parent = self.mainModel
+        parent.parts.append(part)
+
+        if parent.isSubmodel:
+            parent.pages[-1].steps[-1].addPart(part)
+
+            if part.abstractPart.isSubmodel and not part.abstractPart.used:
+                p = part.abstractPart
+                p._parent = parent
+                p._row = parent.pages[-1]._row
+                p.used = True
+                parent.pages[-1]._row += 1
+                parent.submodels.append(p)
 
 class Page(PageTreeManager, GraphicsRoundRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
@@ -3179,6 +3196,25 @@ class Submodel(SubmodelTreeManager, AbstractPart):
             if isValidPartLine(line):
                 self.addPartFromLine(lineToPart(line))
 
+    def addPartFromLine(self, p):
+
+        # First ensure we have a step in this submodel, so we can add the new part to it.
+        if not self.pages:
+            self.appendBlankPage()
+
+        part = AbstractPart.addPartFromLine(self, p)
+        if not part:
+            return  # Error loading part - part .dat file may not exist
+        
+        self.pages[-1].steps[-1].addPart(part)
+        if part.isSubmodel() and not part.abstractPart.used:
+            p = part.abstractPart
+            p._parent = self
+            p._row = self.pages[-1]._row
+            p.used = True
+            self.pages[-1]._row += 1
+            self.submodels.append(p)
+
     def hasImportedSteps(self):
         if not self.pages:
             return False
@@ -3514,25 +3550,6 @@ class Submodel(SubmodelTreeManager, AbstractPart):
 
     def createBlankPart(self):
         return Part(self.filename, matrix = IdentityMatrix())
-
-    def addPartFromLine(self, p):
-
-        # First ensure we have a step in this submodel, so we can add the new part to it.
-        if not self.pages:
-            self.appendBlankPage()
-
-        part = AbstractPart.addPartFromLine(self, p)
-        if not part:
-            return  # Error loading part - part .dat file may not exist
-        
-        self.pages[-1].steps[-1].addPart(part)
-        if part.isSubmodel() and not part.abstractPart.used:
-            p = part.abstractPart
-            p._parent = self
-            p._row = self.pages[-1]._row
-            p.used = True
-            self.pages[-1]._row += 1
-            self.submodels.append(p)
 
     def setPageSize(self, newPageSize):
         

@@ -23,86 +23,97 @@ from OpenGL import GL
 
 LDrawPath = "C:/LDraw"
 
-instructions = None
+def importModel(filename, instructions):
+    importer = LDrawImporter(filename, instructions)
+    importer.importModel()
 
-def importModel(filename, instructionArg):
-    global instructions
+class LDrawImporter(object):
     
-    instructions = instructionArg
+    def __init__(self, filename, instructions):
 
-    ldrawFile = LDrawFile(filename)
-    ldrawFile.loadFileArray()
+        ldrawFile = LDrawFile(filename)
+        ldrawFile.loadFileArray()
 
-    for line in ldrawFile.lineArray[1:]:
-        if isValidFileLine(line):
-            return  # Done loading main model
+        self.lineArray = ldrawFile.lineArray
+        self.submodels = ldrawFile.getSubmodels()
+        self.instructions = instructions
 
-        #if isValidStepLine(line):
-        #    self.appendBlankPage()
-
-        if isValidPartLine(line):
-            part = createNewPartFromLine(line)
-            instructions.addPart(part)
-
-def createNewPartFromLine(line):
-    global instructions
-
-    filename, color, matrix = lineToPart(line)
-    part = instructions.createPart(filename, color, matrix)
-    
-    if part.abstractPart is None:
-        abstractPart = instructions.createAbstractPart(filename)
-        initializeAbstractPart(abstractPart, filename)
-        part.abstractPart = abstractPart
-
-    return part
-
-def initializeAbstractPart(part, filename):
-    global instructions
-
-    ldrawFile = LDrawFile(filename)
-    ldrawFile.loadFileArray()
-    
-    part.isPrimitive = ldrawFile.isPrimitive
-    part.name = ldrawFile.name
-
-    # Loop over the specified LDraw file array
-    for line in ldrawFile.lineArray:
-
-        # A FILE line means we're finished loading this part
-        if isValidFileLine(line):
-            return
-
-        if isValidPartLine(line):
-            newPart = createNewPartFromLine(line)
-            newPart.setInversion(part.invertNext)
-            configureBlackPartColor(part.filename, newPart, part.invertNext)
-            part.invertNext = False
-            part.parts.append(newPart)
-
-        elif isPrimitiveLine(line):
-            shape, color, points = lineToPrimitive(line)
-            part.addPrimitive(shape, color, points)
-            
-        #elif isValidConditionalLine(line):
-        #    self.addPrimitive(lineToPrimitive(line), GL.GL_LINES)
+    def importModel(self):
         
-        elif isValidBFCLine(line):
-            if line[3] == 'CERTIFY':
-                part.winding = GL.GL_CW if line[4] == 'CW' else GL.GL_CCW
-            elif line [3] == 'INVERTNEXT':
-                part.invertNext = True
+        for line in self.lineArray[1:]:
+            if isValidFileLine(line):
+                return  # Done loading main model
+    
+            if isValidPartLine(line):
+                part = self.createNewPartFromLine(line, None)
+                self.instructions.addPart(part)
+            #elif isValidStepLine(line):
+            #    instructions.appendBlankPage()
 
-def configureBlackPartColor(filename, part, invertNext):
-    fn = filename.lower()
-    if fn == "stud.dat" and part.filename == "4-4cyli.dat":
-        part.color = 512
-    elif fn == "stud2.dat" and part.filename == "4-4cyli.dat":
-        part.color = 512
-    elif fn == "stud2a.dat" and part.filename == "4-4cyli.dat":
-        part.color = 512
-    elif fn == "stud4.dat" and part.filename == "4-4cyli.dat" and invertNext:
-        part.color = 512
+    def createNewPartFromLine(self, line, parent):
+
+        filename, color, matrix = lineToPart(line)
+
+        part = self.instructions.createPart(filename, color, matrix)
+
+        if part.abstractPart is None:
+            if filename in self.submodels:
+                start, stop = self.submodels[filename]
+                lineArray = self.lineArray[start + 1 : stop]  # + 1 to skip over introductory FILE line
+                part.abstractPart = self.instructions.createAbstractSubmodel(filename, parent)
+                self.loadAbstractPartFromLineArray(part.abstractPart, lineArray)
+            else:
+                part.abstractPart = self.instructions.createAbstractPart(filename)
+                self.loadAbstractPartFromFile(part.abstractPart, filename)
+    
+        return part
+    
+    def loadAbstractPartFromFile(self, part, filename):
+    
+        ldrawFile = LDrawFile(filename)
+        ldrawFile.loadFileArray()
+        
+        part.isPrimitive = ldrawFile.isPrimitive
+        part.name = ldrawFile.name
+        self.loadAbstractPartFromLineArray(part, ldrawFile.lineArray)
+    
+    def loadAbstractPartFromLineArray(self, part, lineArray):
+    
+        for line in lineArray:
+    
+            if isValidFileLine(line): # A FILE line means we're finished loading this part
+                return
+    
+            if isValidPartLine(line):
+                newPart = self.createNewPartFromLine(line, part)
+                newPart.setInversion(part.invertNext)
+                self.configureBlackPartColor(part.filename, newPart, part.invertNext)
+                part.invertNext = False
+                self.instructions.addPart(newPart, part)
+    
+            elif isPrimitiveLine(line):
+                shape, color, points = lineToPrimitive(line)
+                part.addPrimitive(shape, color, points)
+                
+            #elif isValidConditionalLine(line):
+            #    self.addPrimitive(lineToPrimitive(line), GL.GL_LINES)
+            
+            elif isValidBFCLine(line):
+                if line[3] == 'CERTIFY':
+                    part.winding = GL.GL_CW if line[4] == 'CW' else GL.GL_CCW
+                elif line [3] == 'INVERTNEXT':
+                    part.invertNext = True
+
+    def configureBlackPartColor(self, filename, part, invertNext):
+        fn = filename.lower()
+        if fn == "stud.dat" and part.filename == "4-4cyli.dat":
+            part.color = 512
+        elif fn == "stud2.dat" and part.filename == "4-4cyli.dat":
+            part.color = 512
+        elif fn == "stud2a.dat" and part.filename == "4-4cyli.dat":
+            part.color = 512
+        elif fn == "stud4.dat" and part.filename == "4-4cyli.dat" and invertNext:
+            part.color = 512
 
 Comment = '0'
 PartCommand = '1'
@@ -187,26 +198,8 @@ def lineToConditionalLine(line):
 def isValidFileLine(line):
     return (len(line) > 2) and (line[1] == Comment) and (line[2] == FileCommand)
 
-def lineToFilename(line):
-    return ' '.join(line[3:])
-
 def isValidStepLine(line):
     return (len(line) > 2) and (line[1] == Comment) and (line[2] == StepCommand)
-
-def isValidRotStepLine(line):
-    return (len(line) > 3) and (line[1] == Comment) and (line[2] == RotStepCommand)
-
-def lineToRotStep(line):
-    d = {}
-    if len(line) < 6:
-        d['state'] = ENDCommand
-    else:
-        d['point'] = [float(line[3]), float(line[4]), float(line[5])]
-        if len(line) == 7:
-            d['state'] = line[6]
-        else:
-            d['state'] = 'REL'
-    return d
 
 class LDrawFile(object):
     def __init__(self, filename):
@@ -257,7 +250,7 @@ class LDrawFile(object):
                 submodels.append((l[3], i+1))  # + 1 because we start at line 1 not 0
         
         if len(submodels) < 1:
-            return None # No submodels in file - we're done
+            return {} # No submodels in file - we're done
         
         # Fixup submodel array by calculating the ending line number from the file
         for i in range(0, len(submodels)-1):

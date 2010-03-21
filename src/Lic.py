@@ -1414,7 +1414,7 @@ def loadFile(window, filename):
 
 def recompileResources():
     # Handy function for rebuilding the resources.py package (which contains all the app's icons)
-    # Note that this call is utterly specific to my dev environment, and is not meant to be called anywhere else
+    # Note that this call is utterly specific to Remi's dev environment, and is not meant to be called anywhere else
     ret = os.spawnl(os.P_WAIT, r"C:\Python25\Lib\site-packages\PyQt4\pyrcc4.exe", "pyrcc4.exe", "-o", r"C:\lic\src\resources.py", r"C:\lic\resources.qrc")
     print ret
 
