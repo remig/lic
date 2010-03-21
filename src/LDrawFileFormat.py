@@ -20,6 +20,7 @@
 
 import os      # for path creation
 import config  # For user path info
+from OpenGL import GL
 
 Comment = '0'
 PartCommand = '1'
@@ -54,23 +55,33 @@ def isValidCommentLine(line):
 def isValidBFCLine(line):
     return (len(line) > 3) and (line[1] == Comment) and (line[2] == BFCCommand)
 
-def isValidTriangleLine(line):
-    return (len(line) == 12) and (line[1] == TriangleCommand)
+def isPrimitiveLine(line):
+    length = len(line)
+    if length < 9:
+        return False
+    command = line[1]
+    if command == LineCommand and length == 9:
+        return True
+    if command == TriangleCommand and length == 12:
+        return True
+    if command == QuadCommand and length == 15:
+        return True
+    return False
 
-def lineToTriangle(line):
-    d = {}
-    d['color'] = float(line[2])
-    d['points'] = [float(x) for x in line[3:]]
-    return d
+def lineToPrimitive(line):
+    shape = lineTypeToGLShape(line[1])
+    color = float(line[2])
+    points = [float(x) for x in line[3:]]
+    return (shape, color, points)
 
-def isValidQuadLine(line):
-    return (len(line) == 15) and (line[1] == QuadCommand)
-
-def lineToQuad(line):
-    d = {}
-    d['color'] = float(line[2])
-    d['points'] = [float(x) for x in line[3:]]
-    return d
+def lineTypeToGLShape(command):
+    if command == LineCommand:
+        return GL.GL_LINES
+    if command == TriangleCommand:
+        return GL.GL_TRIANGLES
+    if command == QuadCommand:
+        return GL.GL_QUADS
+    return None
 
 def isValidConditionalLine(line):
     return (len(line) == 15) and (line[1] == ConditionalLineCommand)
@@ -80,15 +91,6 @@ def lineToConditionalLine(line):
     d['color'] = float(line[2])
     d['points'] = [float(x) for x in line[3:9]]
     d['control points'] = [float(x) for x in line[9:]]
-    return d
-
-def isValidLineLine(line):
-    return (len(line) == 9) and (line[1] == LineCommand)
-
-def lineToLine(line):
-    d = {}
-    d['color'] = float(line[2])
-    d['points'] = [float(x) for x in line[3:]]
     return d
 
 def isValidFileLine(line):

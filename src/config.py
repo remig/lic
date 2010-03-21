@@ -25,7 +25,7 @@ from PyQt4.QtGui import *
 # Path to LDraw, L3P and PovRay.  These are set by user through PathsDialog below.
 # Contents below are just default settings for a very first run of Lic. 
 # TODO: Provide better OS independent defaults for necessary paths.
-LDrawPath = "C:/LDraw" 
+LDrawPath = "C:/LDraw"
 L3PPath = "C:/LDraw/Apps/L3p"
 POVRayPath = "C:/Program Files/POV-Ray/bin"
 

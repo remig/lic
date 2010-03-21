@@ -419,7 +419,7 @@ class Instructions(QObject):
                 printer.newPage()
         painter.end()
         return filename
-    
+
     def getPartDictionary(self):
         global partDictionary
         return partDictionary
@@ -431,6 +431,35 @@ class Instructions(QObject):
     def setPageSize(self, newPageSize):
         if self.mainModel:
             self.mainModel.setPageSize(newPageSize)
+
+    def createPart(self, fn, color = 16, matrix = None, invert = False):
+        global partDictionary
+
+        part = Part(fn, color, matrix, invert)
+
+        if fn in partDictionary:
+            part.abstractPart = partDictionary[fn]
+        elif fn.upper() in partDictionary:
+            part.abstractPart = partDictionary[fn.upper()]
+        elif fn.lower() in partDictionary:
+            part.abstractPart = partDictionary[fn.lower()]
+
+        return part
+
+    def createAbstractPart(self, fn):
+        global partDictionary
+
+        partDictionary[fn] = AbstractPart(fn)
+
+        return partDictionary[fn]
+    
+    def addPart(self, part):
+        
+        if not self.mainModel.pages:
+            self.mainModel.appendBlankPage()
+
+        self.mainModel.parts.append(part)
+        self.mainModel.pages[-1].steps[-1].addPart(part)
 
 class Page(PageTreeManager, GraphicsRoundRectItem):
     """ A single page in an instruction book.  Contains one or more Steps. """
@@ -2822,18 +2851,10 @@ class AbstractPart(object):
         if isValidPartLine(line):
             self.addPartFromLine(lineToPart(line))
 
-        elif isValidLineLine(line):
-            self.addPrimitive(lineToLine(line), GL.GL_LINES)
-        
-        #elif isValidConditionalLine(line):
-        #    self.addPrimitive(lineToLine(line), GL.GL_LINES)
-        
-        elif isValidTriangleLine(line):
-            self.addPrimitive(lineToTriangle(line), GL.GL_TRIANGLES)
+        elif isPrimitiveLine(line):
+            shape, color, points = lineToPrimitive(line)
+            self.addPrimitive(shape, color, points)
 
-        elif isValidQuadLine(line):
-            self.addPrimitive(lineToQuad(line), GL.GL_QUADS)
-            
         elif isValidBFCLine(line):
             if line[3] == 'CERTIFY':
                 self.winding = GL.GL_CW if line[4] == 'CW' else GL.GL_CCW
@@ -2866,8 +2887,8 @@ class AbstractPart(object):
         self.parts.append(part)
         return part
 
-    def addPrimitive(self, p, shape):
-        primitive = Primitive(p['color'], p['points'], shape, self.winding)
+    def addPrimitive(self, shape, color, points):
+        primitive = Primitive(color, points, shape, self.winding)
         self.primitives.append(primitive)
 
     def createOGLDisplayList(self, skipPartInit = False):
@@ -3113,15 +3134,17 @@ class Submodel(SubmodelTreeManager, AbstractPart):
 
         # Set up dynamic module to be used for import 
         importerName = LicImporters.getImporter(os.path.splitext(self.filename)[1][1:])
-        importerModule = __import__("LicImporters.%s" % importerName)
+        importModule = __import__("LicImporters.%s" % importerName, fromlist = ["LicImporters"])
+        importModule.LDrawPath = config.LDrawPath
 
-        #loader = importerModule.importModel(filename, self.instructions)
+        importModule.importModel(self.filename, self.instructions)
+        return
 
         ldrawFile = LDrawFile(self.filename)
         ldrawFile.loadFileArray()
         submodelList = ldrawFile.getSubmodels()
 
-        # Add any submodels found in this LDraw file to the submodel dictionary, unused
+        # Add any submodels found in this LDraw file to the part dictionary, unused
         if submodelList:
             global partDictionary
 
@@ -3801,13 +3824,14 @@ class Part(PartTreeManager, QGraphicsRectItem):
         fn = self.filename
         if fn in partDictionary:
             self.abstractPart = partDictionary[fn]
-            if isinstance(self.abstractPart, tuple):
-                self.abstractPart = Submodel.loadFromTuple(self.abstractPart)
         elif fn.upper() in partDictionary:
             self.abstractPart = partDictionary[fn.upper()]
         else:
             self.abstractPart = partDictionary[fn] = AbstractPart(fn, loadFromFile = True)
-        
+
+        if isinstance(self.abstractPart, tuple):
+            self.abstractPart = Submodel.loadFromTuple(self.abstractPart)
+
     def setInversion(self, invert):
         # Inversion is annoying as hell.  
         # Possible the containing part used a BFC INVERTNEXT (invert arg)

@@ -1403,7 +1403,7 @@ def main():
 def loadFile(window, filename):
 
     if filename[-3:] == 'dat' or filename[-3:] == 'mpd' or filename[-3:] == 'ldr':
-        window.importModelTimerAction(filename)
+        window.importModel(filename)
     elif filename[-3:] == 'lic':
         window.fileOpen(filename)
     else:
