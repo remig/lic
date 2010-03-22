@@ -29,17 +29,24 @@ Importers = {
 
 def getImporter(fileType):
     for importer, fileTypeList in Importers.items():
-        if fileType in fileTypeList:
+        fileTypeList = [f.lower() for f in fileTypeList]
+        if fileType.lower() in fileTypeList:
             return importer
     return None
 
 def getFileTypesString():
+    return __fileTypes
+
+def __buildFileTypes():
     # (("LDraw", "mpd", "ldr", "dat"), ("LDD", "lxf"))
     # to
     # "LDD (*.lxf);;LDraw (*.mpd, *.ldr, *.dat)"
 
     formatString = ""
     for fileTypes in Importers.values():
-        formats = ['*.%s' % f for f in fileTypes[1:]]
+        formats = ['*.%s' % f.lower() for f in fileTypes[1:]]
         formatString += "%s (%s);;" % (fileTypes[0], " ".join(formats))
     return formatString[:-2]  # -2 to trim off trailing ;;
+
+__fileTypes = __buildFileTypes()
+

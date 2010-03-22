@@ -26,17 +26,22 @@ LDrawPath = "C:/LDraw"  # TODO: Find better platform-agnostic default string
 def importModel(filename, instructions):
     LDrawImporter(filename, instructions)
 
+def importPart(filename, instructions, abstractPart):
+    LDrawImporter(filename, instructions, abstractPart)
+
 class LDrawImporter(object):
     
-    def __init__(self, filename, instructions):
+    def __init__(self, filename, instructions, parent = None):
 
         ldrawFile = LDrawFile(filename)
         self.lineList = ldrawFile.lineList
         self.submodels = ldrawFile.getSubmodels(filename)
         self.filename = filename
         self.instructions = instructions
+        if parent:
+            parent.name = ldrawFile.name
 
-        self.loadAbstractPartFromStartStop(None, *self.submodels[self.filename])
+        self.loadAbstractPartFromStartStop(parent, *self.submodels[self.filename])
 
     def createNewPartFromLine(self, line, parent):
 

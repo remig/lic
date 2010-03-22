@@ -965,7 +965,7 @@ class LicWindow(QMainWindow):
 
         self.fileSaveAction = self.createMenuAction("&Save", self.fileSave, QKeySequence.Save, "Save the Instruction book")
         self.fileSaveAsAction = self.createMenuAction("Save &As...", self.fileSaveAs, None, "Save the Instruction book using a new filename")
-        fileImportAction = self.createMenuAction("&Import Model", self.fileImport, None, "Import an existing LDraw Model into a new Instruction book")
+        fileImportAction = self.createMenuAction("&Import Model", self.fileImport, None, "Import an existing Model into a new Instruction book")
 
         self.fileSaveTemplateAction = self.createMenuAction("Save Template", self.fileSaveTemplate, None, "Save only the Template")
         self.fileSaveTemplateAsAction = self.createMenuAction("Save Template As...", self.fileSaveTemplateAs, None, "Save only the Template using a new filename")
@@ -1171,7 +1171,7 @@ class LicWindow(QMainWindow):
             return
         dir = os.path.dirname(self.filename) if self.filename is not None else "."
         formats = LicImporters.getFileTypesString()
-        filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Import LDraw Model", dir, formats))
+        filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Import Model", dir, formats))
         if filename:
             QTimer.singleShot(50, lambda: self.importModel(filename))
 

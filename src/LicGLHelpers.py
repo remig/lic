@@ -33,6 +33,12 @@ from PyQt4.QtOpenGL import QGLFormat, QGL
 
 UNINIT_GL_DISPID = -1
 
+def IdentityMatrix():
+    return [1.0, 0.0, 0.0, 0.0,  
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0]
+
 def getGLFormat():
     format = QGLFormat(QGL.SampleBuffers)
     format.setSamples(8)

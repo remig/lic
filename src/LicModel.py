@@ -51,10 +51,9 @@ import LicDialogs
 import LicPartLengths
 import LicImporters
 import resources  # Needed for ":/resource" type paths to work
+import config     # For user path info
 from LicQtWrapper import *
 from RectanglePacker import CygonRectanglePacker
-
-from LDrawFileFormat import *
 
 MagicNumber = 0x14768126
 FileVersion = 6
@@ -433,6 +432,11 @@ class Instructions(QObject):
         if self.mainModel:
             self.mainModel.setPageSize(newPageSize)
 
+class InstructionsProxy(object):
+
+    def __init__(self, instructions):
+        self.__instructions = instructions
+
     def createPart(self, fn, color = 16, matrix = None, invert = False):
         global partDictionary
 
@@ -456,15 +460,15 @@ class Instructions(QObject):
         global partDictionary
 
         if parent is None:
-            parent = self.mainModel
+            parent = self.__instructions.mainModel
 
-        part = partDictionary[fn] = Submodel(parent, self, fn)
+        part = partDictionary[fn] = Submodel(parent, self.__instructions, fn)
         part.appendBlankPage()
         return part 
     
     def addPart(self, part, parent = None):
         if parent is None:
-            parent = self.mainModel
+            parent = self.__instructions.mainModel
 
         parent.parts.append(part)
 
@@ -481,12 +485,13 @@ class Instructions(QObject):
 
     def addPrimitive(self, shape, color, points, parent = None):
         if parent is None:
-            parent = self.mainModel
-        parent.addPrimitive(shape, color, points)
+            parent = self.__instructions.mainModel
+        primitive = Primitive(color, points, shape, parent.winding)
+        parent.primitives.append(primitive)
 
     def addBlankPage(self, parent):
         if parent is None:
-            parent = self.mainModel
+            parent = self.__instructions.mainModel
         if parent.isSubmodel:
             parent.appendBlankPage()
 
@@ -2759,19 +2764,21 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         menu.exec_(event.screenPos())
         
     def addNewPartSignal(self):
-        dir = os.path.join(config.LDrawPath, 'PARTS')
-        filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Add LDraw Part", dir, "LDraw Part Files (*.dat)"))
+        formats = LicImporters.getFileTypesString()
+        filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open Part", '.', formats))
         fn = os.path.basename(filename)
-        if fn:
-            part = Part(fn, 0, IdentityMatrix(), False)
-            part.initializeAbstractPart()
+        if not fn:
+            return
 
-            if part.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
-                part.abstractPart.createOGLDisplayList()
-                glContext = self.getPage().instructions.glContext
-                part.abstractPart.resetPixmap(glContext)
+        part = Part(fn, 0, LicGLHelpers.IdentityMatrix(), False)
+        part.initializeAbstractPart(self.getPage().instructions)
 
-            self.scene().undoStack.push(AddRemovePartCommand(part, self.parentItem(), True))
+        if part.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
+            part.abstractPart.createOGLDisplayList()
+            glContext = self.getPage().instructions.glContext
+            part.abstractPart.resetPixmap(glContext)
+
+        self.scene().undoStack.push(AddRemovePartCommand(part, self.parentItem(), True))
 
     def acceptRotation(self, oldRotation):
         step = self.parentItem()
@@ -2836,7 +2843,7 @@ class AbstractPart(object):
     in common when present in a model; everything inside 3001.dat.
     """
 
-    def __init__(self, filename = None, loadFromFile = False):
+    def __init__(self, filename = None):
 
         self.name = self.filename = filename
         self.invertNext = False
@@ -2854,71 +2861,6 @@ class AbstractPart(object):
         self.width = self.height = -1
         self.leftInset = self.bottomInset = -1
         self.center = QPointF()
-
-        if filename and loadFromFile:
-            self.loadFromFile()
-
-    def loadFromFile(self):
-
-        ldrawFile = LDrawFile(self.filename)
-        ldrawFile.loadFileArray()
-        
-        self.isPrimitive = ldrawFile.isPrimitive
-        self.name = ldrawFile.name
-
-        # Loop over the specified LDraw file array, skipping the first (title) line
-        for line in ldrawFile.fileArray[1:]:
-
-            # A FILE line means we're finished loading this model
-            if isValidFileLine(line):
-                return
-
-            self._loadOneLDrawLineCommand(line)
-
-    def _loadOneLDrawLineCommand(self, line):
-
-        if isValidPartLine(line):
-            self.addPartFromLine(lineToPart(line))
-
-        elif isPrimitiveLine(line):
-            shape, color, points = lineToPrimitive(line)
-            self.addPrimitive(shape, color, points)
-
-        elif isValidBFCLine(line):
-            if line[3] == 'CERTIFY':
-                self.winding = GL.GL_CW if line[4] == 'CW' else GL.GL_CCW
-            elif line [3] == 'INVERTNEXT':
-                self.invertNext = True
-            
-    def addPartFromLine(self, p):
-        try:
-            part = Part(p['filename'], p['color'], p['matrix'], False)
-            part.setInversion(self.invertNext)
-
-            fn = self.filename.lower()
-            if fn == "stud.dat" and part.filename == "4-4cyli.dat":
-                part.color = 512
-            elif fn == "stud2.dat" and part.filename == "4-4cyli.dat":
-                part.color = 512
-            elif fn == "stud2a.dat" and part.filename == "4-4cyli.dat":
-                part.color = 512
-            elif fn == "stud4.dat" and part.filename == "4-4cyli.dat" and self.invertNext:
-                part.color = 512
-
-            part.initializeAbstractPart()
-            if self.invertNext:
-                self.invertNext = False
-                
-        except IOError:
-            print "Could not find file: %s - Ignoring." % p['filename']
-            return
-
-        self.parts.append(part)
-        return part
-
-    def addPrimitive(self, shape, color, points):
-        primitive = Primitive(color, points, shape, self.winding)
-        self.primitives.append(primitive)
 
     def createOGLDisplayList(self, skipPartInit = False):
         """ Initialize this part's display list."""
@@ -3165,8 +3107,7 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         importerName = LicImporters.getImporter(os.path.splitext(self.filename)[1][1:])
         importModule = __import__("LicImporters.%s" % importerName, fromlist = ["LicImporters"])
         importModule.LDrawPath = config.LDrawPath
-
-        importModule.importModel(self.filename, self.instructions)
+        importModule.importModel(self.filename, InstructionsProxy(self.instructions))
 
     def hasImportedSteps(self):
         if not self.pages:
@@ -3502,7 +3443,7 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         return None
 
     def createBlankPart(self):
-        return Part(self.filename, matrix = IdentityMatrix())
+        return Part(self.filename, matrix = LicGLHelpers.IdentityMatrix())
 
     def setPageSize(self, newPageSize):
         
@@ -3788,7 +3729,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         #self.setPen(QPen(Qt.black))
         self.setFlags(NoMoveFlags)
 
-    def initializeAbstractPart(self):
+    def initializeAbstractPart(self, instructions):
         global partDictionary
         
         fn = self.filename
@@ -3797,7 +3738,14 @@ class Part(PartTreeManager, QGraphicsRectItem):
         elif fn.upper() in partDictionary:
             self.abstractPart = partDictionary[fn.upper()]
         else:
-            self.abstractPart = partDictionary[fn] = AbstractPart(fn, loadFromFile = True)
+            # Set up dynamic module to be used for import 
+            importerName = LicImporters.getImporter(os.path.splitext(fn)[1][1:])
+            importModule = __import__("LicImporters.%s" % importerName, fromlist = ["LicImporters"])
+            importModule.LDrawPath = config.LDrawPath
+
+            abstractPart = AbstractPart(fn)
+            importModule.importPart(fn, InstructionsProxy(instructions), abstractPart)
+            self.abstractPart = partDictionary[fn] = abstractPart
 
     def setInversion(self, invert):
         # Inversion is annoying as hell.  
@@ -4002,7 +3950,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         GL.glEnd()
 
     def exportToLDrawFile(self, fh):
-        line = createPartLine(self.color, self.matrix, self.abstractPart.filename)
+        line = LicHelpers.createPartLine(self.color, self.matrix, self.abstractPart.filename)
         fh.write(line + '\n')
 
     def duplicate(self):
@@ -4209,7 +4157,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         step.removePart(self)
 
         self.filename = filename
-        self.initializeAbstractPart()
+        self.initializeAbstractPart(step.getPage().instructions)
 
         if self.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             glContext = step.getPage().instructions.glContext
@@ -4228,8 +4176,9 @@ class Part(PartTreeManager, QGraphicsRectItem):
             step.initLayout()
 
     def changeBasePartSignal(self):
-        dir = os.path.join(config.LDrawPath, 'PARTS')
-        filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open LDraw Part", dir, "LDraw Part Files (*.dat)"))
+        dir = os.path.dirname(self.filename) if self.filename is not None else "."
+        formats = LicImporters.getFileTypesString()
+        filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open Part", dir, formats))
         fn = os.path.basename(filename)
         if fn and fn != self.filename:
             self.scene().undoStack.push(ChangeAbstractPartCommand(self, fn))
@@ -4279,7 +4228,7 @@ class Arrow(Part):
         self.axisRotation = 0.0
         
         self.abstractPart = AbstractPart("arrow")
-        self.matrix = IdentityMatrix()
+        self.matrix = LicGLHelpers.IdentityMatrix()
 
         x = [0.0, 20.0, 25.0, 50.0]
         y = [-5.0, -1.0, 0.0, 1.0, 5.0]
