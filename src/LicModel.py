@@ -914,7 +914,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         menu = QMenu(self.scene().views()[0])
         if not self.isLocked():
             menu.addAction("Auto Layout", self.initLayout)
-        menu.addAction("Check for Overlaps", self.checkForLayoutOverlaps)
+        #menu.addAction("Check for Overlaps", self.checkForLayoutOverlaps)
 
         menu.addSeparator()
 

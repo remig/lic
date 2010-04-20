@@ -1199,12 +1199,13 @@ class LicWindow(QMainWindow):
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.treeModel.root = self.instructions.mainModel
 
-        self.templatePage = LicBinaryReader.loadLicTemplate(r"C:\lic\dynamic_template.lit", self.instructions)  # TODO: Fix Default Template PATH OF EVIL!!
-        
-        # Rebuild default template from scratch
-        #import LicTemplate
-        #self.templatePage = LicTemplate.TemplatePage(self.instructions.mainModel, self.instructions)
-        #self.templatePage.createBlankTemplate(self.glWidget)
+        try:
+            self.templatePage = LicBinaryReader.loadLicTemplate(r"dynamic_template.lit", self.instructions)  # TODO: Fix Default Template PATH OF EVIL!!
+        except (IOError), e:
+            # Could not load default template, so generate one from scratch
+            import LicTemplate
+            self.templatePage = LicTemplate.TemplatePage(self.instructions.mainModel, self.instructions)
+            self.templatePage.createBlankTemplate(self.glWidget)
         
         self.instructions.setTemplate(self.templatePage)
         self.instructions.mainModel.partListPages = PartListPage.createPartListPages(self.instructions)
@@ -1251,7 +1252,7 @@ class LicWindow(QMainWindow):
         self.fileSaveTemplateAction.setEnabled(enabled)
         self.fileSaveTemplateAsAction.setEnabled(enabled)
         self.fileLoadTemplateAction.setEnabled(enabled)
-        self.editMenu.setEnabled(enabled)
+        #self.editMenu.setEnabled(enabled)
         self.pageMenu.setEnabled(enabled)
         self.viewMenu.setEnabled(enabled)
         self.exportMenu.setEnabled(enabled)

@@ -211,8 +211,12 @@ class TemplatePage(TemplateRectItem, Page):
         self.initOGLDimension(step.csi, glContext)
 
         step.addBlankCalloutSignal(False)
-        step.callouts[0].addPart(self.submodel.parts[1].duplicate())
-        step.callouts[0].addPart(self.submodel.parts[2].duplicate())
+        if len(self.submodel.parts) >= 2:
+            step.callouts[0].addPart(self.submodel.parts[1].duplicate())
+        elif len(self.submodel.parts) >= 1:
+            step.callouts[0].addPart(self.submodel.parts[0].duplicate())
+        if len(self.submodel.parts) >= 3:
+            step.callouts[0].addPart(self.submodel.parts[2].duplicate())
 
         step.callouts[0].steps[0].csi.resetPixmap()
         

@@ -34,7 +34,7 @@ class PathsDialog(QDialog):
     def __init__(self, parent, hideCancelButton = False):
         QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
         self.setAttribute(Qt.WA_DeleteOnClose)
-        self.setWindowTitle(self.tr("Set paths to necessary files and applications"))
+        self.setWindowTitle(self.tr("Set paths to files and applications"))
 
         ldrawLabel, self.ldrawEdit, ldrawButton = self.makeLabelEditButton("L&Draw:", LDrawPath, self.browseForLDraw)
         l3pLabel, self.l3pEdit, l3pButton = self.makeLabelEditButton("&L3P:", L3PPath, self.browseForL3P)
@@ -49,12 +49,12 @@ class PathsDialog(QDialog):
         grid.addWidget(ldrawLabel, 0, 0)
         grid.addWidget(self.ldrawEdit, 0, 1)
         grid.addWidget(ldrawButton, 0, 2)
-        grid.addWidget(l3pLabel, 1, 0)
-        grid.addWidget(self.l3pEdit, 1, 1)
-        grid.addWidget(l3pButton, 1, 2)
-        grid.addWidget(povLabel, 2, 0)
-        grid.addWidget(self.povEdit, 2, 1)
-        grid.addWidget(povButton, 2, 2)
+        #grid.addWidget(l3pLabel, 1, 0)
+        #grid.addWidget(self.l3pEdit, 1, 1)
+        #grid.addWidget(l3pButton, 1, 2)
+        #grid.addWidget(povLabel, 2, 0)
+        #grid.addWidget(self.povEdit, 2, 1)
+        #grid.addWidget(povButton, 2, 2)
         grid.addWidget(buttonBox, 3, 1, 1, 2)
         self.setLayout(grid)
 
@@ -69,7 +69,7 @@ class PathsDialog(QDialog):
 
     def browseForLDraw(self):
         validator = lambda path: os.path.isdir(os.path.join(path, "PARTS")) and os.path.isdir(os.path.join(path, "P"))
-        self.browse("LDraw", "'PATHS' and 'P' folders", LDrawPath, self.ldrawEdit, validator)
+        self.browse("LDraw", "'PARTS' and 'P' folders", LDrawPath, self.ldrawEdit, validator)
 
     def browseForL3P(self):
         validator = lambda path: os.path.isfile(os.path.join(path, "l3p.exe"))

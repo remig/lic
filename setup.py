@@ -19,7 +19,7 @@
 """
 
 from distutils.core import setup
-import py2exe 
+import py2exe
 
 """
 Create a win32 binary re-distributable package.  This creates a handful of
@@ -32,7 +32,8 @@ simply invokes the (bundled) python interpreter with Lic.py.
 
 py2exeOptions = dict(
                      compressed = True,
-                     #skip_archive = True,  
+                     #skip_archive = True,
+                     packages = ['LicImporters'],
                      excludes = ['doctest', 'difflib', 'pdb', 'unittest', 'inspect', '_ssl'],
                      includes = ['sip', 'OpenGL.platform.win32', 'OpenGL.arrays.lists', 'OpenGL.arrays.ctypesarrays'],
                      )
@@ -44,5 +45,6 @@ setup(name = 'Lic',
       license = 'GNU General Public License (GPL)',
       author = 'Remi Gagne',
       windows = [{'script':'Lic.py'}], 
+      data_files = [('', ['c:\lic\dynamic_template.lit'])],
       options = {'py2exe': py2exeOptions},
       )
