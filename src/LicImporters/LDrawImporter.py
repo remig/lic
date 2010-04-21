@@ -93,7 +93,8 @@ class LDrawImporter(object):
                 
             elif part and isBFCLine(line):
                 if line[3] == 'CERTIFY':
-                    part.winding = GL.GL_CW if line[4] == 'CW' else GL.GL_CCW
+                    isCW = (len(line) == 5 and line[4] == 'CW')
+                    part.winding = GL.GL_CW if isCW else GL.GL_CCW
                 elif line [3] == 'INVERTNEXT':
                     part.invertNext = True
 
