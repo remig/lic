@@ -29,6 +29,8 @@ that control auto-page & step generation (one step / page, min / max parts per s
 
 - Add Snap to Center of page items, not just left / right edges
 
+- Add ability to merge multiple parts into one new part (like for technic bendy U-joints & turntables)
+
 - Fix Snap to Items so we only consider snapping to meaningful, similar items
 
 - Pages that span multiple Submodels (ie, last step of Submodel on same page as MainModel step that adds submodel)
