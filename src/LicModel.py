@@ -107,8 +107,7 @@ class Instructions(QObject):
         self.mainModel.importModel()
         
         self.mainModel.syncPageNumbers()
-        if not self.mainModel.hasImportedSteps():
-            self.mainModel.addInitialPagesAndSteps()
+        self.mainModel.addInitialPagesAndSteps()
         
         unused1, partStepCount, unused2 = self.getPartDimensionListAndCount() 
         pageList = self.mainModel.getPageList()
@@ -3116,15 +3115,27 @@ class Submodel(SubmodelTreeManager, AbstractPart):
             return True
         return False
 
+    def deleteEmptyPagesSteps(self):
+        for page in self.pages:
+            for step in page.steps:
+                if step.isEmpty():
+                    page.removeStep(step)
+            if page.isEmpty():
+                self.deletePage(page)
+    
     def addInitialPagesAndSteps(self):
+
+        for submodel in self.submodels:
+            submodel.addInitialPagesAndSteps()
+
+        if self.hasImportedSteps():
+            self.deleteEmptyPagesSteps()
+            return
 
         # Add one step for every 5 parts, and one page per step
         # At this point, if model had no steps (assumed for now), we have one page per submodel
         PARTS_PER_STEP_MAX = 5
         
-        for submodel in self.submodels:
-            submodel.addInitialPagesAndSteps()
-
         csi  = self.pages[0].steps[0].csi
         while csi.partCount() > 0:
             
@@ -3680,7 +3691,8 @@ class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
         self.setFlags(AllFlags)
 
     def setSelected(self, selected):
-        self.parts[0].setSelected(selected)
+        for part in self.parts:
+            part.setSelected(selected)
 
     def addPart(self, part):
         part.setParentItem(self)
@@ -3694,6 +3706,11 @@ class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
 
     def getStep(self):
         return self.parentItem().parentItem()
+
+    def contextMenuEvent(self, event):
+        self.scene().clearSelection()
+        self.setSelected(True)
+        self.parts[0].contextMenuEvent(event)  # Pass right-click on to first part 
 
 class Part(PartTreeManager, QGraphicsRectItem):
     """

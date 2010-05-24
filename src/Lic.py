@@ -705,10 +705,10 @@ class LicTreeView(QTreeView):
         QTreeView.keyReleaseEvent(self, event)
         self.pushTreeSelectionToScene()  # Let scene know about new selection
 
-    def mouseReleaseEvent(self, event):
+    def mousePressEvent(self, event):
         """ Mouse click in Tree Widget means its selection has changed.  Copy selected items from Tree to Scene."""
 
-        QTreeView.mouseReleaseEvent(self, event)
+        QTreeView.mousePressEvent(self, event)
 
         if event.button() == Qt.RightButton:
             return  # Ignore right clicks - they're passed on to selected item for their context menu
