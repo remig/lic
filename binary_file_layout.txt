@@ -96,10 +96,11 @@ Part:
   
   int32 page
   int32 step
+  bool isInPLI v7
   
   bool inCallout
   bool useDisplacement # if displacement
-  
+
   if useDisplacement:
     float displacement[0] # x
     float displacement[1] # y

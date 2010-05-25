@@ -282,6 +282,9 @@ def __readPart(stream):
     inCallout = stream.readBool()
     pageNumber = stream.readInt32()
     stepNumber = stream.readInt32()
+    isInPLI = True
+    if stream.licFileVersion >= 7:
+        isInPLI = stream.readBool()
 
     useDisplacement = stream.readBool()
     if useDisplacement:
@@ -307,7 +310,8 @@ def __readPart(stream):
     part.inCallout = inCallout
     part.pageNumber = pageNumber
     part.stepNumber = stepNumber
-    
+    part.isInPLI = isInPLI
+
     if useDisplacement:
         part.displacement = displacement
         part.displaceDirection = displaceDirection

@@ -16,6 +16,8 @@ BUGS:
 
 - In Merged Callouts, need to handle adding / removing parts 
 
+- Fix Import progress bar so it better handles submodel rescaling
+
  FEATURES:
 
 - Add support for reading colors from LDCONFIG.LDR
@@ -48,6 +50,8 @@ that control auto-page & step generation (one step / page, min / max parts per s
 - Think about 'selection group' class, especially SelectedPart class, to better handle context menus for multiply selected items
 
 - Displacing a part inside a Callout does not auto-resize the overall callout, because Step stays big
+ 
+- On Import, auto-shrink CSIs so they fit on a page
  
 - PDF export needs dialog to control export setting, mainly high-res scale multiplier setting (current hardcoded to 3)
 

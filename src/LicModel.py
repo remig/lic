@@ -53,10 +53,9 @@ import LicImporters
 import resources  # Needed for ":/resource" type paths to work
 import config     # For user path info
 from LicQtWrapper import *
-from RectanglePacker import CygonRectanglePacker
 
 MagicNumber = 0x14768126
-FileVersion = 6
+FileVersion = 7
 
 partDictionary = {}      # x = AbstractPart("3005.dat"); partDictionary[x.filename] == x
 currentModelFilename = ""
@@ -2432,6 +2431,8 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
 
         """
         # Try rectangle packer instead
+        from RectanglePacker import CygonRectanglePacker
+
         mx = self.margin.x()
         mx2 = mx * 2.0
         my = self.margin.y()
@@ -3732,6 +3733,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.inverted = invert
         self.abstractPart = None
         self._dataString = None  # Cache data string for tree
+        self.isInPLI = True
 
         self.displacement = []
         self.displaceDirection = None
@@ -3986,8 +3988,14 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self is guaranteed to be selected.  Other stuff may be selected too, so deal.
         """
 
+        stack = self.scene().undoStack
         step = self.getStep()
         menu = QMenu(self.scene().views()[0])
+
+        if self.isInPLI:
+            menu.addAction("Remove from PLI", lambda: stack.push(AddRemovePartToPLICommand(self, False)))
+        else:
+            menu.addAction("Add to PLI", lambda: stack.push(AddRemovePartToPLICommand(self, True)))
 
         if self.calloutPart:
             menu.addAction("Remove from Callout", self.removeFromCalloutSignal)
@@ -4020,15 +4028,14 @@ class Part(PartTreeManager, QGraphicsRectItem):
             menu.addAction("&Remove displacement", lambda: self.displaceSignal(None))
             menu.addAction("&Add Arrow", self.addArrowSignal)
         else:
-            s = self.scene().undoStack
             arrowMenu = menu.addMenu("Displace With &Arrow")
-            arrowMenu.addAction("Move Up", lambda: s.push(BeginEndDisplacementCommand(self, Qt.Key_PageUp)))
-            arrowMenu.addAction("Move Down", lambda: s.push(BeginEndDisplacementCommand(self, Qt.Key_PageDown)))
-            arrowMenu.addAction("Move Forward", lambda: s.push(BeginEndDisplacementCommand(self, Qt.Key_Down)))
-            arrowMenu.addAction("Move Back", lambda: s.push(BeginEndDisplacementCommand(self, Qt.Key_Up)))
-            arrowMenu.addAction("Move Left", lambda: s.push(BeginEndDisplacementCommand(self, Qt.Key_Left)))
-            arrowMenu.addAction("Move Right", lambda: s.push(BeginEndDisplacementCommand(self, Qt.Key_Right)))
-            
+            arrowMenu.addAction("Move Up", lambda: stack.push(BeginEndDisplacementCommand(self, Qt.Key_PageUp)))
+            arrowMenu.addAction("Move Down", lambda: stack.push(BeginEndDisplacementCommand(self, Qt.Key_PageDown)))
+            arrowMenu.addAction("Move Forward", lambda: stack.push(BeginEndDisplacementCommand(self, Qt.Key_Down)))
+            arrowMenu.addAction("Move Back", lambda: stack.push(BeginEndDisplacementCommand(self, Qt.Key_Up)))
+            arrowMenu.addAction("Move Left", lambda: stack.push(BeginEndDisplacementCommand(self, Qt.Key_Left)))
+            arrowMenu.addAction("Move Right", lambda: stack.push(BeginEndDisplacementCommand(self, Qt.Key_Right)))
+
         menu.addSeparator()
         if not self.originalPart:
             arrowMenu2 = menu.addMenu("Change Part")

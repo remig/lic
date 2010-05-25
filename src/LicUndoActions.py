@@ -458,6 +458,32 @@ class AddRemoveGuideCommand(QUndoCommand):
             self.scene.removeItem(self.guide)
             self.scene.guides.remove(self.guide)
 
+class AddRemovePartToPLICommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, part, addPart):
+        QUndoCommand.__init__(self, "%s Part %s PLI" % (("add", "to") if addPart else ("remove", "from")))
+        self.part, self.addPart = part, addPart
+
+    def doAction(self, redo):
+
+        part, step = self.part, self.part.getStep()
+        pli = step.pli
+
+        part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        if (redo and self.addPart) or (not redo and not self.addPart):
+            step.enablePLI()
+            pli.addPart(part)
+        else:
+            pli.removePart(part)
+            if pli.isEmpty():
+                step.disablePLI()
+            part.isInPLI = False
+
+        step.initLayout()
+        part.scene().emit(SIGNAL("layoutChanged()"))
+
 class MovePartsToStepCommand(QUndoCommand):
 
     _id = getNewCommandID()

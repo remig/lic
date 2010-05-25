@@ -189,6 +189,7 @@ def __writePart(stream, part):
         pageNumber, stepNumber = part.getCSI().getPageStepNumberPair()
     stream.writeInt32(pageNumber)
     stream.writeInt32(stepNumber)
+    stream.writeBool(part.isInPLI)
 
     if part.displacement and part.displaceDirection:
         stream.writeBool(True)
@@ -202,7 +203,7 @@ def __writePart(stream, part):
                 __writePart(stream, arrow)
     else:
         stream.writeBool(False)
-        
+
     if isinstance(part, Arrow):
         stream.writeInt32(part.getLength())
         stream.writeFloat(part.axisRotation)
