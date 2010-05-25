@@ -108,10 +108,11 @@ class Instructions(QObject):
         self.mainModel.syncPageNumbers()
         self.mainModel.addInitialPagesAndSteps()
         
+        submodelCount = self.mainModel.submodelCount()
         unused1, partStepCount, unused2 = self.getPartDimensionListAndCount() 
         pageList = self.mainModel.getPageList()
         pageList.sort(key = lambda x: x._number)
-        totalCount = (len(pageList) * 2) + partStepCount + 11  # Rough count only
+        totalCount = (len(pageList) * 2) + partStepCount + submodelCount + 11  # Rough count only
 
         yield totalCount  # Special first value is maximum number of progression steps in load process
 
@@ -3507,22 +3508,26 @@ class Submodel(SubmodelTreeManager, AbstractPart):
                 page.resetSubmodelImage()
                 page.initLayout()
 
-    def pageCount(self):
-        pageCount = len(self.pages)
+    def _genericIterator(self, attr, op):
+        res = op(self.__getattribute__(attr))
         for submodel in self.submodels:
-            pageCount += submodel.pageCount()
-        return pageCount
+            res += submodel._genericIterator(attr, op)
+        return res
+
+    def submodelCount(self):
+        return self._genericIterator('submodels', len)
+
+    def pageCount(self):
+        return self._genericIterator('pages', len)
 
     def getPageList(self):
-        pageList = list(self.pages)
-        for submodel in self.submodels:
-            pageList += submodel.getPageList()
-        return pageList
+        return self._genericIterator('pages', list)
 
     def getFullPartList(self):
-        partList = list(self.parts)
-        for model in self.submodels:
-            partList += model.getFullPartList()
+        partList = [] 
+        for part in [p for p in self.parts if p.isSubmodel()]:
+            partList += part.abstractPart.getFullPartList()
+        partList += [p for p in self.parts if not p.isSubmodel()]
         return partList
 
     def addSubmodelImages(self):

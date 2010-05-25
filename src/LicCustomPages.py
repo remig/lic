@@ -94,11 +94,8 @@ class PartListPage(PartListPageTreeManager, Page):
         self.pli = PartListPLI(self)
 
     def initFullPartList(self):
-        for part in [p for p in self.submodel.parts if not p.isSubmodel()]:
+        for part in self.submodel.getFullPartList():
             self.pli.addPart(part)
-        for submodel in self.submodel.submodels:
-            for part in [p for p in submodel.parts if not p.isSubmodel()]:
-                self.pli.addPart(part)
 
     def initPartialItemList(self, itemList):
         self.pli.pliItems = itemList
