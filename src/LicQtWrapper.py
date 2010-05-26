@@ -184,6 +184,44 @@ class GraphicsRotateArrowItem(GraphicsRoundRectItem):
         painter.drawPolygon(self.ArrowHead)
         painter.restore()
 
+# Make QPointF iterable: p[0] is p.x, p[1] is p.y.  Useful for unpacking x & y easily
+def pointIterator(self, index):
+    if index == 0:
+        return self.x()
+    if index == 1:
+        return self.y()
+    raise IndexError
+QPointF.__getitem__ = pointIterator
+
+def genericGetSceneCorners(self):
+    topLeft = self.mapToScene(self.mapFromParent(self.pos())) # pos is in item.parent coordinates
+    bottomRight = topLeft + QPointF(self.boundingRect().width(), self.boundingRect().height())
+    return topLeft, bottomRight
+
+def genericGetSceneCornerList(self):
+    tl, br = self.getSceneCorners()
+    return [tl.x(), tl.y(), br.x(), br.y()]
+
+def genericGetOrderedCornerList(self, margin = None):
+    r, pos = self.rect(), self.pos()
+    if margin:
+        r.adjust(-margin.x(), -margin.y(), margin.x(), margin.y())
+    return [r.topLeft() + pos, r.topRight() + pos, r.bottomRight() + pos, r.bottomLeft() + pos]
+
+def genericGetPage(self):
+    return self.parentItem().getPage()
+
+# This is necessary because Qt distinguishes between QContextMenuEvent and 
+# QGraphicsSceneContextMenuEvent.  I guess its a C++ thing.  bleh
+# Python is perfectly happy simply accepting event.  Be sure to convert the appropriate event
+# parameters when passing one where another is expected though (like TreeView.contextMenuEvent)
+QGraphicsItem.contextMenuEvent = lambda self, event: event.ignore()
+
+QGraphicsItem.getPage = genericGetPage
+QGraphicsItem.getSceneCorners = genericGetSceneCorners
+QGraphicsItem.getSceneCornerList = genericGetSceneCornerList
+QGraphicsItem.getOrderedCorners = genericGetOrderedCornerList
+
 def genericMousePressEvent(className):
     def _tmp(self, event):
         if event.button() == Qt.RightButton:
@@ -223,55 +261,12 @@ def genericMouseReleaseEvent(className):
 QGraphicsItem.oldPos = None  # Give all items an oldPos; saves a hasAttr check in mouseRelease
 QGraphicsItem.fixedSize = False # Give all items an unset FixedSize 
 
-# Make QPointF iterable: p[0] is p.x, p[1] is p.y.  Useful for unpacking x & y easily
-def pointIterator(self, index):
-    if index == 0:
-        return self.x()
-    if index == 1:
-        return self.y()
-    raise IndexError
-QPointF.__getitem__ = pointIterator
-
-def genericGetSceneCorners(self):
-    topLeft = self.mapToScene(self.mapFromParent(self.pos())) # pos is in item.parent coordinates
-    bottomRight = topLeft + QPointF(self.boundingRect().width(), self.boundingRect().height())
-    return topLeft, bottomRight
-
-def genericGetSceneCornerList(self):
-    tl, br = self.getSceneCorners()
-    return [tl.x(), tl.y(), br.x(), br.y()]
-
-def genericGetOrderedCornerList(self, margin = None):
-    r, pos = self.rect(), self.pos()
-    if margin:
-        r.adjust(-margin.x(), -margin.y(), margin.x(), margin.y())
-    return [r.topLeft() + pos, r.topRight() + pos, r.bottomRight() + pos, r.bottomLeft() + pos]
-
-def genericGetPage(self):
-    return self.parentItem().getPage()
-
-# This is necessary because Qt distinguishes between QContextMenuEvent and 
-# QGraphicsSceneContextMenuEvent.  I guess its a C++ thing.  bleh
-# Python is perfectly happy simply accepting event.  Be sure to convert the appropriate event
-# parameters when passing one where another is expected though (like TreeView.contextMenuEvent)
-QGraphicsItem.contextMenuEvent = lambda self, event: event.ignore()
-
 QGraphicsLineItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
 QGraphicsLineItem.mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsItem)
 
 QGraphicsRectItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
 QGraphicsRectItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)
 QGraphicsRectItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
-
-QGraphicsRectItem.getPage = genericGetPage
-QGraphicsRectItem.getSceneCorners = genericGetSceneCorners
-QGraphicsRectItem.getSceneCornerList = genericGetSceneCornerList
-QGraphicsRectItem.getOrderedCorners = genericGetOrderedCornerList
-
-QGraphicsEllipseItem.getPage = genericGetPage
-QGraphicsEllipseItem.getSceneCorners = genericGetSceneCorners
-QGraphicsEllipseItem.getSceneCornerList = genericGetSceneCornerList
-QGraphicsEllipseItem.getOrderedCorners = genericGetOrderedCornerList
 
 QGraphicsEllipseItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)
 QGraphicsEllipseItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)
@@ -281,6 +276,7 @@ QGraphicsSimpleTextItem.mousePressEvent = genericMousePressEvent(QAbstractGraphi
 QGraphicsSimpleTextItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)
 QGraphicsSimpleTextItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGraphicsShapeItem)
 
-QGraphicsSimpleTextItem.getPage = genericGetPage
-QGraphicsSimpleTextItem.getSceneCorners = genericGetSceneCorners
-QGraphicsSimpleTextItem.getSceneCornerList = genericGetSceneCornerList
+QGraphicsPixmapItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
+QGraphicsPixmapItem.mouseMoveEvent = genericMouseMoveEvent(QGraphicsItem)
+QGraphicsPixmapItem.mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsItem)
+    

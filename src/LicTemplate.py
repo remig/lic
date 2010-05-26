@@ -348,7 +348,7 @@ class TemplatePage(TemplateRectItem, Page):
     def setBackgroundImage(self):
         
         parentWidget = self.scene().views()[0]
-        filename = QFileDialog.getOpenFileName(parentWidget, "Open Background Image", QDir.currentPath())
+        filename = QFileDialog.getOpenFileName(parentWidget, "Open Background Image", QDir.currentPath(), "Images (*.png *.jpg)")
         if filename.isEmpty():
             return
         

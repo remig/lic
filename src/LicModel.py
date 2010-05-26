@@ -603,6 +603,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         if self.submodelItem:
             items.append(self.submodelItem)
 
+        items += self.annotations
         return items
 
     def getExportFilename(self):
@@ -697,6 +698,8 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         for i, item in enumerate(self.children):
             item.setZValue(length - i)
         self.lockIcon.setZValue(length + 1)
+        for i, item in enumerate(self.annotations):  # Annotations on top
+            item.setZValue(length + i + 1)
 
     def addStepSeparator(self, index, rect = None):
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
@@ -958,19 +961,21 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         scene.fullItemSelectionUpdate(newPage)
 
     def addAnnotationSignal(self):
-        formats = "Images (*.png *.jpg)"
-        filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open Annotation Image", "", formats))
+        filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open Annotation Image", "", "Images (*.png *.jpg)"))
+        if not filename:
+            return
+
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         pixmap = QPixmap(filename)
-        item = PageAnnotation(pixmap, self)
+        item = QGraphicsPixmapItem(pixmap, self)
+
+        item.setFlags(AllFlags)
+        item.itemClassName = "Annotation"
+        item.isAnnotation = True
+        item.dataText = "Annotation: " + os.path.basename(filename)
         self.annotations.append(item)
-
-class PageAnnotation(QGraphicsPixmapItem):
-
-    def __init__(self, pixmap, parentPage):
-        QGraphicsPixmapItem.__init__(self, pixmap, parentPage)
-        self.setFlags(AllFlags)
-        self.setZValue(20000)  # Put on top of everything else
-        self.isAnnotation = True
+        self.addChild(len(self.children), item)
+        self.scene().emit(SIGNAL("layoutChanged()"))
 
 class LockIcon(QGraphicsPixmapItem):
 

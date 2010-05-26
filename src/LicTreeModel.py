@@ -178,6 +178,7 @@ class BaseTreeManager(object):
 QGraphicsSimpleTextItem.__bases__ += (BaseTreeManager,)
 QGraphicsEllipseItem.__bases__ += (BaseTreeManager,)
 QGraphicsRectItem.__bases__ += (BaseTreeManager,)
+QGraphicsPixmapItem.__bases__ += (BaseTreeManager,)
 
 class PageTreeManager(BaseTreeManager):
 
