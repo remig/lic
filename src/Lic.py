@@ -51,6 +51,7 @@ class LicGraphicsScene(QGraphicsScene):
         
     def __init__(self, parent):
         QGraphicsScene.__init__(self, parent)
+        self.renderMode = 'full' # Or "background" or "foreground"
         self.reset()
 
     def reset(self):
@@ -101,29 +102,34 @@ class LicGraphicsScene(QGraphicsScene):
         painter.restore()
 
     def drawItems(self, painter, items, options, widget):
-        
+
         # First draw all items that are not annotations
-        for i, item in enumerate(items):
-            if not hasattr(item, 'isAnnotation') or not item.isAnnotation:
-                self.drawOneItem(painter, item, options[i], widget)
+        if self.renderMode == 'full' or self.renderMode == 'background':
+            for i, item in enumerate(items):
+                if not hasattr(item, 'isAnnotation') or not item.isAnnotation:
+                    self.drawOneItem(painter, item, options[i], widget)
 
-        # Setup the set of GL items to be drawn & necessary contexts
-        LicGLHelpers.initFreshContext(False)
-        rect = QRectF(self.views()[0].mapToScene(QPoint()), QSizeF(widget.size()))
-        pagesToDraw = []
-        for page in self.pages:
-            if page.isVisible() and rect.intersects(page.rect().translated(page.pos())):
-                pagesToDraw.append(page)
+        if widget and self.renderMode == 'full':
 
-        # Draw all GL items
-        for page in pagesToDraw:
-            page.drawGLItems(rect)
+            # Setup the set of GL items to be drawn & necessary contexts
+            LicGLHelpers.initFreshContext(False)
+            rect = QRectF(self.views()[0].mapToScene(QPoint()), QSizeF(widget.size()))
+            pagesToDraw = []
+            for page in self.pages:
+                if page.isVisible() and rect.intersects(page.rect().translated(page.pos())):
+                    pagesToDraw.append(page)
+
+            # Draw all GL items
+            for page in pagesToDraw:
+                page.drawGLItems(rect)
+
+            LicGLHelpers.setupForQtPainter()  # Reset all GL lighting, so that subsequent drawing is not affected
 
         # Draw all annotation
-        LicGLHelpers.setupForQtPainter()
-        for i, item in enumerate(items):
-            if hasattr(item, 'isAnnotation') and item.isAnnotation:
-                self.drawOneItem(painter, item, options[i], widget)
+        if self.renderMode == 'full' or self.renderMode == 'foreground':
+            for i, item in enumerate(items):
+                if hasattr(item, 'isAnnotation') and item.isAnnotation:
+                    self.drawOneItem(painter, item, options[i], widget)
 
     def pageUp(self):
         self.clearSelection()

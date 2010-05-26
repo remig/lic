@@ -369,12 +369,15 @@ class Instructions(QObject):
             painter.begin(image)
 
             self.scene.selectPage(page._number)
+            self.scene.renderMode = 'background'
             self.scene.render(painter, QRectF(0, 0, w, h))
             
             glImage = QImage(exportedFilename)
             painter.drawImage(QPoint(0, 0), glImage)
 
-            page.drawAnnotations(painter, scaleFactor)  # TODO: This is totally broken now, with scene.drawItems
+            self.scene.selectPage(page._number)
+            self.scene.renderMode = 'foreground'
+            self.scene.render(painter, QRectF(0, 0, w, h))
 
             painter.end()
             newName = page.getExportFilename()
@@ -391,6 +394,7 @@ class Instructions(QObject):
         glDeleteRenderbuffersEXT(1, [multisampleDepthBuffer])
         glDeleteRenderbuffersEXT(1, [multisampleColorBuffer])
         
+        self.scene.renderMode = 'full'
         self.scene.selectPage(currentPageNumber)
         return pageFileNames
 
