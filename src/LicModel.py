@@ -55,7 +55,7 @@ import config     # For user path info
 from LicQtWrapper import *
 
 MagicNumber = 0x14768126
-FileVersion = 7
+FileVersion = 8
 
 partDictionary = {}      # x = AbstractPart("3005.dat"); partDictionary[x.filename] == x
 currentModelFilename = ""
@@ -510,8 +510,6 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     defaultBrush = QBrush(Qt.NoBrush)
     defaultPen = QPen(Qt.NoPen)
 
-    annotations = []
-
     def __init__(self, submodel, instructions, number, row):
         if not hasattr(Page.defaultPen, "cornerRadius"):
             Page.defaultPen.cornerRadius = 0
@@ -529,6 +527,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         self.steps = []
         self.separators = []
         self.children = []
+        self.annotations = []
         self.submodelItem = None
         self.layout = GridLayout()
         self.color = Page.defaultFillColor
@@ -671,6 +670,17 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         self.steps.remove(step)
         self.children.remove(step)
         self.submodel.updateStepNumbers(step.number, -1)
+
+    def addAnnotation(self, pixmap, dataText, pos = None):
+        item = QGraphicsPixmapItem(pixmap, self)
+        item.dataText = dataText
+        item.setFlags(AllFlags)
+        item.itemClassName = "Annotation"
+        item.isAnnotation = True
+        if pos:
+            item.setPos(pos)
+        self.annotations.append(item)
+        self.addChild(len(self.children), item)
 
     def isEmpty(self):
         return len(self.steps) == 0 and self.submodelItem is None
@@ -935,7 +945,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
                 menu.addAction("Show Step Separators", self.showSeparators)
 
         menu.addAction("Add blank Step", self.addBlankStepSignal)
-        menu.addAction("Add Annotation", self.addAnnotationSignal)
+        menu.addAction("Add Annotation", lambda: self.addAnnotationSignal(event.scenePos()))
         menu.addSeparator()
         if not self.steps:
             menu.addAction("Delete Page", lambda: self.scene().undoStack.push(AddRemovePageCommand(self.scene(), self, False)))
@@ -960,21 +970,13 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         scene.undoStack.push(AddRemovePageCommand(scene, newPage, True))
         scene.fullItemSelectionUpdate(newPage)
 
-    def addAnnotationSignal(self):
+    def addAnnotationSignal(self, pos = None):
         filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open Annotation Image", "", "Images (*.png *.jpg)"))
         if not filename:
             return
 
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        pixmap = QPixmap(filename)
-        item = QGraphicsPixmapItem(pixmap, self)
-
-        item.setFlags(AllFlags)
-        item.itemClassName = "Annotation"
-        item.isAnnotation = True
-        item.dataText = "Annotation: " + os.path.basename(filename)
-        self.annotations.append(item)
-        self.addChild(len(self.children), item)
+        self.addAnnotation(QPixmap(filename), "Annotation: " + os.path.basename(filename), pos)
         self.scene().emit(SIGNAL("layoutChanged()"))
 
 class LockIcon(QGraphicsPixmapItem):

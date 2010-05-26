@@ -208,6 +208,13 @@ def __writePart(stream, part):
         stream.writeInt32(part.getLength())
         stream.writeFloat(part.axisRotation)
 
+def __writeAnnotationSet(stream, page):
+    stream.writeInt32(len(page.annotations))
+    for annotation in page.annotations:
+        stream << annotation.pixmap()
+        stream << QString(annotation.dataText)
+        stream << annotation.pos()
+
 def __writePage(stream, page):
     stream.writeInt32(page.number)
     stream.writeInt32(page._row)
@@ -236,6 +243,8 @@ def __writePage(stream, page):
         stream.writeInt32(border.row())
         stream << border.pos() << border.rect() << border.pen()
 
+    __writeAnnotationSet(stream, page)
+
 def __writeTitlePage(stream, page):
     
     if page is None:
@@ -256,6 +265,8 @@ def __writeTitlePage(stream, page):
     for label in page.labels:
         stream << label.pos() << label.font() << label.text()
 
+    __writeAnnotationSet(stream, page)
+
 def __writePartListPage(stream, page):
     stream.writeInt32(page.number)
     stream.writeInt32(page._row)
@@ -266,6 +277,7 @@ def __writePartListPage(stream, page):
     stream << page.numberItem.pos() << page.numberItem.font()
 
     __writePLI(stream, page.pli)
+    __writeAnnotationSet(stream, page)
 
 def __writeStep(stream, step):
     

@@ -212,10 +212,17 @@ class PartListPageTreeManager(BaseTreeManager):
             return self.numberItem
         if row == 1:
             return self.pli
-        return None
+        return self.annotations[row - 2]
 
     def rowCount(self):
-        return 2
+        return 2 + len(self.annotations)
+
+    def getChildRow(self, child):
+        if child is self.numberItem:
+            return 0
+        if child is self.pli:
+            return 1
+        return 2 + self.annotations.index(child)
 
     def data(self, index):
         return "Part List Page %d" % (self.submodel.partListPages.index(self) + 1)
@@ -227,15 +234,17 @@ class TitlePageTreeManager(BaseTreeManager):
             return self.submodelItem
         if row <= len(self.labels):
             return self.labels[row - 1]
-        return None
+        return self.annotations[row - len(self.labels) - 1]
 
     def rowCount(self):
-        return 1 + len(self.labels)
+        return 1 + len(self.labels) + len(self.annotations)
 
     def getChildRow(self, child):
         if child is self.submodelItem:
             return 0
-        return 1 + self.labels.index(child)
+        if child in self.labels:
+            return 1 + self.labels.index(child)
+        return 1 + len(self.labels) + self.annotations.index(child)
 
     def data(self, index):
         return "Title Page"

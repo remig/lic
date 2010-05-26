@@ -30,6 +30,7 @@ def ro(self, targetType):
     self >> c
     return c
 
+QDataStream.readQPixmap = lambda self: ro(self, QPixmap)
 QDataStream.readQColor = lambda self: ro(self, QColor)
 QDataStream.readQBrush = lambda self: ro(self, QBrush)
 QDataStream.readQFont = lambda self: ro(self, QFont)
@@ -321,6 +322,13 @@ def __readPart(stream):
 
     return part
 
+def __readAnnotationSet(stream, page):
+    for unused in range(stream.readInt32()):
+        pixmap = stream.readQPixmap() 
+        dataText = stream.readQString()
+        pos = stream.readQPointF()
+        page.addAnnotation(pixmap, dataText, pos)
+
 def __readPage(stream, parent, instructions, templateModel = None):
 
     number = stream.readInt32()
@@ -355,6 +363,9 @@ def __readPage(stream, parent, instructions, templateModel = None):
         border.setRect(stream.readQRectF())
         border.setPen(stream.readQPen())
 
+    if stream.licFileVersion >= 8:
+        __readAnnotationSet(stream, page)
+
     return page
 
 def __readTitlePage(stream, instructions):
@@ -373,6 +384,9 @@ def __readTitlePage(stream, instructions):
     for unused in range(stream.readInt32()):
         page.addNewLabel(stream.readQPointF(), stream.readQFont(), str(stream.readQString()))
 
+    if stream.licFileVersion >= 8:
+        __readAnnotationSet(stream, page)
+
     return page
 
 def __readPartListPage(stream, instructions):
@@ -386,6 +400,9 @@ def __readPartListPage(stream, instructions):
     page.numberItem.setFont(stream.readQFont())
 
     page.pli = __readPLI(stream, page, True)
+
+    if stream.licFileVersion >= 8:
+        __readAnnotationSet(stream, page)
 
     return page
 

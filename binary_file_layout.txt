@@ -133,6 +133,9 @@ Page:
   int32 number of borders
   ... Border 0..n ...
 
+  int32 number of annotations  v8
+  ... Annotation 0..n ...
+
 TitlePage:
   bool hasTitlePage (return if False)
   RoundedRectItem pos, rect, pen, brush, cornerRadius
@@ -146,18 +149,29 @@ TitlePage:
      QPointF label.pos
      QFont label.font
      QString label.text
-  
+
+  int32 number of annotations  v8
+  ... Annotation 0..n ...
+
+Annotation:
+  QPixmap annotation.pixmap
+  QString annotation.dataText
+  QPointF annotation.pos
+    
 PartListPage:
   int32 number
   int32 _row
   
   RoundedRectItem pos, rect, pen, brush, cornerRadius
   QColor color
-  
+
   QPointF number.pos
   QFont number.font
 
   PLI pli
+
+  int32 number of annotations  v8
+  ... Annotation 0..n ...
 
 Border:
   int32 child row

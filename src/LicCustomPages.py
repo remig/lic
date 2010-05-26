@@ -125,10 +125,12 @@ class PartListPage(PartListPageTreeManager, Page):
             items.append(pliItem.numberItem)
             if pliItem.lengthIndicator:
                 items.append(pliItem.lengthIndicator)
-        return items
+        return items + self.annotations
 
     def contextMenuEvent(self, event):
-        pass  # PartListPage has no context menu, yet
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Add Annotation", lambda: self.addAnnotationSignal(event.scenePos()))
+        menu.exec_(event.screenPos())
 
     def updatePartList(self):
 
@@ -237,11 +239,12 @@ class TitlePage(TitlePageTreeManager, Page):
         label.moveBy(Page.margin.x(), -Page.margin.y())
 
     def getAllChildItems(self):
-        return [self, self.submodelItem ] + self.labels
+        return [self, self.submodelItem ] + self.labels + self.annotations
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Auto Layout", self.initLayout)
+        menu.addAction("Add Annotation", lambda: self.addAnnotationSignal(event.scenePos()))
         menu.addAction("Add Label", lambda: self.addNewLabel(event.scenePos(), useUndo = True))
         if self.getPartCountLabel() is None:
             menu.addAction("Add Part Count Label", lambda: self.addPartCountLabel(True))
