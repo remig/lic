@@ -119,10 +119,23 @@ ConditionalLineCommand = '5'
 StepCommand = 'STEP'
 FileCommand = 'FILE'
 BFCCommand = 'BFC'
+lineTerm = '\n'
 
 def LDToGLMatrix(matrix):
     m = [float(x) for x in matrix]
     return [m[3], m[6], m[9], 0.0, m[4], m[7], m[10], 0.0, m[5], m[8], m[11], 0.0, m[0], m[1], m[2], 1.0]
+
+def GLToLDMatrix(matrix):
+    m = matrix
+    return [m[12], m[13], m[14], m[0], m[4], m[8], m[1], m[5], m[9], m[2], m[6], m[10]]
+
+def createPartLine(color, matrix, filename):
+    l = [PartCommand, str(color)]
+    m = GLToLDMatrix(matrix)
+    l += [str(x)[:-2] if str(x).endswith(".0") else str(x) for x in m]
+    l.append(filename)
+    line = ' '.join(l)
+    return line + lineTerm
 
 def isPartLine(line):
     return (len(line) > 15) and (line[1] == PartCommand)
@@ -132,6 +145,10 @@ def lineToPart(line):
     color = int(line[2])
     matrix = LDToGLMatrix(line[3:15])
     return (filename, color, matrix)
+
+def createSubmodelLines(filename):
+    filename = os.path.basename(filename)
+    return [' '.join([Comment, FileCommand, filename]) + lineTerm]
 
 def isBFCLine(line):
     return (len(line) > 3) and (line[1] == Comment) and (line[2] == BFCCommand)
@@ -179,6 +196,9 @@ def isFileLine(line):
 
 def isStepLine(line):
     return (len(line) > 2) and (line[1] == Comment) and (line[2] == StepCommand)
+
+def createStepLine():
+    return ' '.join([Comment, StepCommand]) + lineTerm
 
 class LDrawFile(object):
     def __init__(self, filename):

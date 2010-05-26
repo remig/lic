@@ -1038,8 +1038,9 @@ class LicWindow(QMainWindow):
         self.exportMenu = menu.addMenu("E&xport")
         self.exportToImagesAction = self.createMenuAction("&Generate Final Images", self.exportImages, None, "Generate final images of each page in this Instruction book")
         self.exportToPDFAction = self.createMenuAction("Generate &PDF", self.exportToPDF, None, "Create a PDF from this instruction book")
-        self.exportToPOVAction = self.createMenuAction("Generate Images with Pov-Ray", self.exportToPOV, None, "Use Pov-Ray to generate final, ray-traced images of each page in this Instruction book")
-        self.addActions(self.exportMenu, (self.exportToImagesAction, self.exportToPDFAction, self.exportToPOVAction))
+        self.exportToPOVAction = self.createMenuAction("NYI - Generate Images with Pov-Ray", self.exportToPOV, None, "Use Pov-Ray to generate final, ray-traced images of each page in this Instruction book")
+        self.exportToMPDAction = self.createMenuAction("Generate &MPD", self.exportToMPD, None, "Generate an LDraw MPD file from the parts & steps in this Instruction book")
+        self.addActions(self.exportMenu, (self.exportToImagesAction, self.exportToPDFAction, self.exportToPOVAction, None, self.exportToMPDAction))
 
     def changePageSizeAction(self):
         dialog = LicDialogs.PageSizeDlg(self, Page.PageSize, Page.Resolution)
@@ -1257,15 +1258,15 @@ class LicWindow(QMainWindow):
         self.viewMenu.setEnabled(enabled)
         self.exportMenu.setEnabled(enabled)
         self.treeWidget.treeToolBar.setEnabled(enabled)
-        
+
     def fileSaveAs(self):
         if self.filename:
             f = self.filename
         else:
             f = self.instructions.getModelName()
-            f = f.split('.')[0] + '.lic'
-            
-        filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Safe File As", f, "Lic Instruction Book files (*.lic)"))
+            f = os.path.splitext(f)[0] + ".lic"
+
+        filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Save File As", f, "Lic Instruction Book files (*.lic)"))
         if filename:
             self.filename = filename
             self.instructions.filename = filename
@@ -1312,7 +1313,7 @@ class LicWindow(QMainWindow):
         template = self.templatePage
         f = template.filename if template.filename else "template.lic"
 
-        filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Safe Template As", f, "Lic Template files (*.lit)"))
+        filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Save Template As", f, "Lic Template files (*.lit)"))
         if filename:
             template.filename = filename
             self.fileSaveTemplateAction.setEnabled(True)
@@ -1364,6 +1365,19 @@ class LicWindow(QMainWindow):
         print "THIS IS CURRENTLY NOT WORKING - Rendered item Rotation is way out"
         self.instructions.exportToPOV()
         print "\nExport complete"
+
+    def exportToMPD(self):
+        if self.filename:
+            f = self.filename
+        else:
+            f = self.instructions.getModelName()
+            f = os.path.splitext(f)[0] + "_lic.mpd"
+
+        filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Create MPD File", f, "LDraw files (*.mpd)"))
+        if filename:
+            fh = open(filename, 'w')
+            self.instructions.mainModel.exportToLDrawFile(fh)
+            fh.close()
 
 def main():
     

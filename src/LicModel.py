@@ -1779,7 +1779,10 @@ class Step(StepTreeManager, QGraphicsRectItem):
     def disableNumberItem(self):
         self.scene().removeItem(self.numberItem)
         self.numberItem = None
-        
+
+    def exportToLDrawFile(self, fh):
+        fh.write(LicImporters.LDrawImporter.createStepLine())
+
     def initMinimumLayout(self):
 
         if self.hasPLI(): # Do not use on a step with PLI
@@ -2707,16 +2710,16 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             fh = open(datFile, 'w')
             self.exportToLDrawFile(fh)
             fh.close()
-            
+
         povFile = LicL3PWrapper.createPovFromDat(datFile)
         pngFile = LicPovrayWrapper.createPngFromPov(povFile, self.rect().width(), self.rect().height(), self.center, CSI.defaultScale * self.scaling, CSI.defaultRotation)
         self.pngImage = QImage(pngFile)
-        
+
     def exportToLDrawFile(self, fh):
         prevStep = self.parentItem().getPrevStep()
         if prevStep:
             prevStep.csi.exportToLDrawFile(fh)
-            
+
         for partItem in self.parts:
             for part in partItem.parts:
                 part.exportToLDrawFile(fh)
@@ -2728,7 +2731,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             return "CSI_Callout_%d_Step_%d.dat" % (parent.number, step.number)
         else:
             return "CSI_Page_%d_Step_%d.dat" % (parent.number, step.number)
-    
+
     def getPageStepNumberPair(self):
         step = self.parentItem()
         page = step.parentItem()
@@ -3556,6 +3559,17 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         pngFile = LicPovrayWrapper.createPngFromPov(povFile, self.width, self.height, self.center, PLI.defaultScale, PLI.defaultRotation)
         self.pngImage = QImage(pngFile)
 
+    def exportToLDrawFile(self, fh):
+        for line in LicImporters.LDrawImporter.createSubmodelLines(self.filename):
+            fh.write(line)
+        for page in self.pages:
+            for step in page.steps:
+                step.exportToLDrawFile(fh)
+                for part in step.csi.getPartList():
+                    part.exportToLDrawFile(fh)
+        for submodel in self.submodels:
+            submodel.exportToLDrawFile(fh)
+
     def contextMenuEvent(self, event):
         menu = QMenu()
         if self.isSubAssembly:
@@ -3974,8 +3988,8 @@ class Part(PartTreeManager, QGraphicsRectItem):
         GL.glEnd()
 
     def exportToLDrawFile(self, fh):
-        line = LicHelpers.createPartLine(self.color, self.matrix, self.abstractPart.filename)
-        fh.write(line + '\n')
+        line = LicImporters.LDrawImporter.createPartLine(self.color, self.matrix, self.abstractPart.filename)
+        fh.write(line)
 
     def duplicate(self):
         p = Part(self.filename, self.color, list(self.matrix), self.inverted)
