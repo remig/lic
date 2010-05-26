@@ -324,10 +324,12 @@ def __readPart(stream):
 
 def __readAnnotationSet(stream, page):
     for unused in range(stream.readInt32()):
-        pixmap = stream.readQPixmap() 
-        dataText = stream.readQString()
+        pixmap = stream.readQPixmap()
+        filename = str(stream.readQString())
         pos = stream.readQPointF()
-        page.addAnnotation(pixmap, dataText, pos)
+        item = PageAnnotation(page, pixmap, filename, pos)
+        page.annotations.append(item)
+        page.addChild(len(page.children), item)
 
 def __readPage(stream, parent, instructions, templateModel = None):
 

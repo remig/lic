@@ -18,7 +18,7 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-from PyQt4.QtGui import QUndoCommand
+from PyQt4.QtGui import QUndoCommand, QPixmap
 from PyQt4.QtCore import SIGNAL, QSizeF
 
 import LicHelpers
@@ -445,18 +445,40 @@ class AddRemoveGuideCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, scene, guide, addGude):
-        QUndoCommand.__init__(self, "%s Guide" % ("add" if addGude else "remove"))
-        self.scene, self.guide, self.addGude = scene, guide, addGude
+    def __init__(self, scene, guide, addGuide):
+        QUndoCommand.__init__(self, "%s Guide" % ("add" if addGuide else "remove"))
+        self.scene, self.guide, self.addGuide = scene, guide, addGuide
 
     def doAction(self, redo):
 
-        if (redo and self.addGude) or (not redo and not self.addGude):
+        if (redo and self.addGuide) or (not redo and not self.addGuide):
             self.scene.guides.append(self.guide)
             self.scene.addItem(self.guide)
         else:
             self.scene.removeItem(self.guide)
             self.scene.guides.remove(self.guide)
+
+class AddRemoveAnnotationCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, page, annotation, addAnnotation):
+        QUndoCommand.__init__(self, "%s Annotation" % ("add" if addAnnotation else "remove"))
+        self.page, self.annotation, self.addAnnotation = page, annotation, addAnnotation
+
+    def doAction(self, redo):
+
+        page, item = self.page, self.annotation
+        page.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        if (redo and self.addAnnotation) or (not redo and not self.addAnnotation):
+            item.setParentItem(page)
+            page.annotations.append(item)
+            page.addChild(len(page.children), item)
+        else:
+            page.scene().removeItem(item)
+            page.annotations.remove(item)
+            page.children.remove(item)
+        page.scene().emit(SIGNAL("layoutChanged()"))
 
 class AddRemovePartToPLICommand(QUndoCommand):
 
@@ -638,6 +660,18 @@ class SwitchToNextCalloutBase(QUndoCommand):
         self.callout = newCallout
         parent.initLayout()
         parent.scene().emit(SIGNAL("layoutChanged()"))
+
+class ChangeAnnotationPixmap(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, annotation, oldFilename, newFilename):
+        QUndoCommand.__init__(self, "change Annotation picture")
+        self.annotation, self.oldFilename, self.newFilename = annotation, oldFilename, newFilename
+
+    def doAction(self, redo):
+        filename = self.newFilename if redo else self.oldFilename
+        self.annotation.setPixmap(QPixmap(filename))
 
 class ToggleStepNumbersCommand(QUndoCommand):
 

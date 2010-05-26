@@ -671,17 +671,6 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         self.children.remove(step)
         self.submodel.updateStepNumbers(step.number, -1)
 
-    def addAnnotation(self, pixmap, dataText, pos = None):
-        item = QGraphicsPixmapItem(pixmap, self)
-        item.dataText = dataText
-        item.setFlags(AllFlags)
-        item.itemClassName = "Annotation"
-        item.isAnnotation = True
-        if pos:
-            item.setPos(pos)
-        self.annotations.append(item)
-        self.addChild(len(self.children), item)
-
     def isEmpty(self):
         return len(self.steps) == 0 and self.submodelItem is None
 
@@ -972,12 +961,36 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
     def addAnnotationSignal(self, pos = None):
         filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open Annotation Image", "", "Images (*.png *.jpg)"))
-        if not filename:
-            return
+        if filename:
+            item = PageAnnotation(self, QPixmap(filename), filename, pos)
+            self.scene().undoStack.push(AddRemoveAnnotationCommand(self, item, True))
 
-        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.addAnnotation(QPixmap(filename), "Annotation: " + os.path.basename(filename), pos)
-        self.scene().emit(SIGNAL("layoutChanged()"))
+class PageAnnotation(QGraphicsPixmapItem):
+
+    def __init__(self, parent, pixmap, filename, pos = None):
+        QGraphicsPixmapItem.__init__(self, pixmap, parent)
+        self.filename = filename
+        self.dataText = "Annotation: " + os.path.basename(filename)
+        self.setFlags(AllFlags)
+        self.itemClassName = "Annotation"
+        self.isAnnotation = True
+        if pos:
+            self.setPos(pos)
+
+    def contextMenuEvent(self, event):
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Change Picture", self.changePicture)
+        menu.addAction("Remove Annotation", self.removeAnnotation)
+        menu.exec_(event.screenPos())
+
+    def changePicture(self):
+        filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open Annotation Image", "", "Images (*.png *.jpg)"))
+        if filename:
+            self.scene().undoStack.push(ChangeAnnotationPixmap(self, self.filename, filename))
+            self.filename = filename
+
+    def removeAnnotation(self):
+        self.scene().undoStack.push(AddRemoveAnnotationCommand(self.parentItem(), self, False))
 
 class LockIcon(QGraphicsPixmapItem):
 

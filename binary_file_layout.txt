@@ -155,7 +155,7 @@ TitlePage:
 
 Annotation:
   QPixmap annotation.pixmap
-  QString annotation.dataText
+  QString annotation.filename
   QPointF annotation.pos
     
 PartListPage:

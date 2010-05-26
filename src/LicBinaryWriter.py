@@ -212,7 +212,7 @@ def __writeAnnotationSet(stream, page):
     stream.writeInt32(len(page.annotations))
     for annotation in page.annotations:
         stream << annotation.pixmap()
-        stream << QString(annotation.dataText)
+        stream << QString(annotation.filename)
         stream << annotation.pos()
 
 def __writePage(stream, page):
