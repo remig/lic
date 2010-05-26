@@ -374,7 +374,7 @@ class Instructions(QObject):
             glImage = QImage(exportedFilename)
             painter.drawImage(QPoint(0, 0), glImage)
 
-            page.drawAnnotations(painter, scaleFactor)
+            page.drawAnnotations(painter, scaleFactor)  # TODO: This is totally broken now, with scene.drawItems
 
             painter.end()
             newName = page.getExportFilename()
@@ -509,6 +509,8 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     defaultFillColor = QColor(Qt.white)
     defaultBrush = QBrush(Qt.NoBrush)
     defaultPen = QPen(Qt.NoPen)
+
+    annotations = []
 
     def __init__(self, submodel, instructions, number, row):
         if not hasattr(Page.defaultPen, "cornerRadius"):
@@ -895,10 +897,6 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
             for glItem in step.glItemIterator():
                 yield glItem
 
-    def drawAnnotations(self, painter, scale = 1.0):
-        for step in self.steps:
-            step.drawAnnotations(painter, scale)
-
     def acceptDragAndDropList(self, dragItems, row):
 
         steps = [s for s in dragItems if isinstance(s, Step)]
@@ -913,6 +911,12 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         menu = QMenu(self.scene().views()[0])
         if not self.isLocked():
             menu.addAction("Auto Layout", self.initLayout)
+
+        if not self.isLocked() and ((len(self.steps) > 1) or (self.steps and self.submodelItem)):
+            if self.layout.orientation == Horizontal:
+                menu.addAction("Use Vertical layout", self.useVerticalLayout)
+            else:
+                menu.addAction("Use Horizontal layout", self.useHorizontalLayout)
         #menu.addAction("Check for Overlaps", self.checkForLayoutOverlaps)
 
         menu.addSeparator()
@@ -928,12 +932,8 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
                 menu.addAction("Show Step Separators", self.showSeparators)
 
         menu.addAction("Add blank Step", self.addBlankStepSignal)
+        menu.addAction("Add Annotation", self.addAnnotationSignal)
         menu.addSeparator()
-        if not self.isLocked() and ((len(self.steps) > 1) or (self.steps and self.submodelItem)):
-            if self.layout.orientation == Horizontal:
-                menu.addAction("Use Vertical layout", self.useVerticalLayout)
-            else:
-                menu.addAction("Use Horizontal layout", self.useHorizontalLayout)
         if not self.steps:
             menu.addAction("Delete Page", lambda: self.scene().undoStack.push(AddRemovePageCommand(self.scene(), self, False)))
         menu.exec_(event.screenPos())
@@ -956,6 +956,21 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         newPage = Page(self.submodel, self.instructions, number, row)
         scene.undoStack.push(AddRemovePageCommand(scene, newPage, True))
         scene.fullItemSelectionUpdate(newPage)
+
+    def addAnnotationSignal(self):
+        formats = "Images (*.png *.jpg)"
+        filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open Annotation Image", "", formats))
+        pixmap = QPixmap(filename)
+        item = PageAnnotation(pixmap, self)
+        self.annotations.append(item)
+
+class PageAnnotation(QGraphicsPixmapItem):
+
+    def __init__(self, pixmap, parentPage):
+        QGraphicsPixmapItem.__init__(self, pixmap, parentPage)
+        self.setFlags(AllFlags)
+        self.setZValue(20000)  # Put on top of everything else
+        self.isAnnotation = True
 
 class LockIcon(QGraphicsPixmapItem):
 
@@ -1007,18 +1022,16 @@ class CalloutArrowEndItem(QGraphicsRectItem):
         self.setRect(0, 0, width, height)
         self.dataText = dataText
         self._row = row
+        self.isAnnotation = True
         
         self.point = QPointF()
         self.mousePoint = self.keyPoint = None
         self.setFlags(AllFlags)
         self.setPen(parent.pen())
-        
+
     def paint(self, painter, option, widget = None):
-        return  # Do nothing on real paint - will paint as an annotation after GLItems in foreground
-    
-    def paintAsAnnotation(self, painter, scale = 1.0):
         if self.isSelected():
-            painter.drawSelectionRect(self.rect().translated(self.pos()))
+            painter.drawSelectionRect(self.rect())
 
     def mousePressEvent(self, event):
         if event.button() == Qt.RightButton:
@@ -1064,6 +1077,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         self.setPen(self.defaultPen)
         self.setBrush(self.defaultBrush)
         self.setFlags(NoMoveFlags)
+        self.isAnnotation = True
         
         self.tipRect = CalloutArrowEndItem(self, 32, 32, "Arrow Tip", 0)
         self.baseRect = CalloutArrowEndItem(self, 20, 20, "Arrow Base", 1)
@@ -1097,9 +1111,6 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
             
         self.tipRect.point = self.mapToItem(csi, self.tipRect.point)  # Store tip point in CSI space
         
-    def paint(self, painter, option, widget = None):
-        return  # Do nothing on real paint - will paint as an annotation after GLItems in foreground
-    
     def boundPointToRect(self, point, rect, destPoint):
         l, r, t, b = rect.left(), rect.right(), rect.top(), rect.bottom()
         x, y = point
@@ -1172,17 +1183,15 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         self.internalPoints = [tip + offset, mid1, mid2, end]
         self.tipPoint, self.tipRotation = tip, rotation
 
-    def paintAsAnnotation(self, painter, scale = 1.0):
+    def paint(self, painter, option, widget = None):
         
         if not self.internalPoints:
             self.initializePoints()
         
         painter.save()
 
-        if scale != 1.0:
-            painter.scale(scale, scale)
-        scenePos = self.mapToScene(self.pos())
-        painter.translate(scenePos.x(), scenePos.y())
+        #if scale != 1.0:
+        #    painter.scale(scale, scale)  # TODO: Ensure arrows scale when exported as images
         painter.setPen(self.pen())
         painter.setBrush(self.brush())
 
@@ -1197,14 +1206,8 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
 
         # Draw any selection boxes
         painter.save()
-        scenePos = self.mapToScene(self.pos())
-        painter.translate(scenePos.x(), scenePos.y())
-        
         if self.isSelected():
             painter.drawSelectionRect(self.rect())
-
-        self.tipRect.paintAsAnnotation(painter)
-        self.baseRect.paintAsAnnotation(painter)
         painter.restore()
 
     def contextMenuEvent(self, event):
@@ -1214,7 +1217,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         menu.exec_(event.screenPos())
         
     def addPoint(self):
-        print "hi"
+        print "NYI"
 
 class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
@@ -1885,12 +1888,6 @@ class Step(StepTreeManager, QGraphicsRectItem):
                 y = self.csi.pos().y()  # Not enough space to place above CSI, so put beside
                 x -= Page.margin.x()
             self.rotateIcon.setPos(x, y)
-
-    def drawAnnotations(self, painter, scale = 1.0):
-        for callout in self.callouts:
-            callout.arrow.paintAsAnnotation(painter, scale)
-            for step in callout.steps:
-                step.drawAnnotations(painter, scale)
 
     def glItemIterator(self):
         yield self.csi

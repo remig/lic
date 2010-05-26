@@ -16,8 +16,6 @@ BUGS:
 
 - In Merged Callouts, need to handle adding / removing parts 
 
-- Fix Import progress bar so it better handles submodel rescaling
-
  FEATURES:
 
 - Add support for reading colors from LDCONFIG.LDR

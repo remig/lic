@@ -94,21 +94,37 @@ class LicGraphicsScene(QGraphicsScene):
         QGraphicsScene.clear(self)
         self.reset()
 
-    def drawForeground(self, painter, rect):
-        LicGLHelpers.initFreshContext(False)
+    def drawOneItem(self, painter, item, option, widget):
+        painter.save()
+        painter.setMatrix(item.sceneMatrix(), True)
+        item.paint(painter, option, widget)
+        painter.restore()
 
+    def drawItems(self, painter, items, options, widget):
+        
+        # First draw all items that are not annotations
+        for i, item in enumerate(items):
+            if not hasattr(item, 'isAnnotation') or not item.isAnnotation:
+                self.drawOneItem(painter, item, options[i], widget)
+
+        # Setup the set of GL items to be drawn & necessary contexts
+        LicGLHelpers.initFreshContext(False)
+        rect = QRectF(self.views()[0].mapToScene(QPoint()), QSizeF(widget.size()))
         pagesToDraw = []
         for page in self.pages:
             if page.isVisible() and rect.intersects(page.rect().translated(page.pos())):
                 pagesToDraw.append(page)
-                
+
+        # Draw all GL items
         for page in pagesToDraw:
             page.drawGLItems(rect)
 
+        # Draw all annotation
         LicGLHelpers.setupForQtPainter()
-        for page in pagesToDraw:
-            page.drawAnnotations(painter)
-    
+        for i, item in enumerate(items):
+            if hasattr(item, 'isAnnotation') and item.isAnnotation:
+                self.drawOneItem(painter, item, options[i], widget)
+
     def pageUp(self):
         self.clearSelection()
         if self.pages and self.currentPage:
@@ -1406,7 +1422,7 @@ def main():
     #filename = unicode("C:/lic/stack.lic")
     #filename = unicode("C:/lic/1x1.dat")
     #filename = unicode("C:/lic/pyramid.lic")
-    #filename = unicode("C:/lic/2_brick_stack.mpd")
+    #filename = unicode("C:/lic2/SubSubModel.mpd")
 
     if filename:
         QTimer.singleShot(50, lambda: loadFile(window, filename))
