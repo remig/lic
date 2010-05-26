@@ -214,13 +214,13 @@ class TitlePage(TitlePageTreeManager, Page):
         pmy = Page.margin.y()
         title = self.labels[0]
         x = pw2 - (self.submodelItem.rect().width() / 2.0)
-        y = ph2 - (self.submodelItem.rect().height() / 2.0) + (title.boundingRect().height() / 2.0) + (pmy * 2)
+        y = ph2 - (self.submodelItem.rect().height() / 2.0) + (title.rect().height() / 2.0) + (pmy * 2)
         self.submodelItem.setPos(x, y)
 
         # TODO: Auto-shrink submodelImage if it is too big
 
-        x = pw2 - (title.boundingRect().width() / 2.0)
-        y = self.submodelItem.pos().y() - title.boundingRect().height() - (pmy * 3)
+        x = pw2 - (title.rect().width() / 2.0)
+        y = self.submodelItem.pos().y() - title.rect().height() - (pmy * 3)
         title.setPos(x, y)
 
         partCountLabel = self.getPartCountLabel()
@@ -235,7 +235,7 @@ class TitlePage(TitlePageTreeManager, Page):
 
     def setPartCountLabelPos(self, label):
         label.setPos(self.rect().bottomLeft())
-        label.moveBy(0, -label.boundingRect().height())
+        label.moveBy(0, -label.rect().height())
         label.moveBy(Page.margin.x(), -Page.margin.y())
 
     def getAllChildItems(self):

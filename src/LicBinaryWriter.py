@@ -330,11 +330,11 @@ def __writeCallout(stream, callout):
     stream.writeInt32(len(partList))
     for part in partList:
         __writePart(stream, part)
-    
+
 def __writeSubmodelItem(stream, submodelItem):
     stream.writeInt32(submodelItem.row())
     __writeRoundedRectItem(stream, submodelItem)
-    
+
     stream.writeFloat(submodelItem.scaling)
     stream.writeFloat(submodelItem.rotation[0])
     stream.writeFloat(submodelItem.rotation[1])
@@ -344,12 +344,19 @@ def __writeSubmodelItem(stream, submodelItem):
     if submodelItem.isSubAssembly:
         __writePLI(stream, submodelItem.pli)
 
+    if submodelItem.numberItem:
+        stream.writeBool(True)
+        stream.writeInt32(submodelItem.quantity)
+        stream << submodelItem.numberItem.pos() << submodelItem.numberItem.font()
+    else:
+        stream.writeBool(False)
+
 def __writeCSI(stream, csi):
     stream << csi.pos()
     stream.writeInt32(csi.rect().width())
     stream.writeInt32(csi.rect().height())
     stream << csi.center
-    
+
     stream.writeFloat(csi.scaling)
     stream.writeFloat(csi.rotation[0])
     stream.writeFloat(csi.rotation[1])

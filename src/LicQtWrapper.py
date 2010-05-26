@@ -211,6 +211,12 @@ def genericGetOrderedCornerList(self, margin = None):
 def genericGetPage(self):
     return self.parentItem().getPage()
 
+def genericRect(self):
+    return self.boundingRect()
+
+QGraphicsSimpleTextItem.rect = genericRect
+QGraphicsPixmapItem.rect = genericRect
+
 # This is necessary because Qt distinguishes between QContextMenuEvent and 
 # QGraphicsSceneContextMenuEvent.  I guess its a C++ thing.  bleh
 # Python is perfectly happy simply accepting event.  Be sure to convert the appropriate event
@@ -279,4 +285,3 @@ QGraphicsSimpleTextItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGr
 QGraphicsPixmapItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
 QGraphicsPixmapItem.mouseMoveEvent = genericMouseMoveEvent(QGraphicsItem)
 QGraphicsPixmapItem.mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsItem)
-    

@@ -55,7 +55,7 @@ import config     # For user path info
 from LicQtWrapper import *
 
 MagicNumber = 0x14768126
-FileVersion = 8
+FileVersion = 9
 
 partDictionary = {}      # x = AbstractPart("3005.dat"); partDictionary[x.filename] == x
 currentModelFilename = ""
@@ -127,10 +127,10 @@ class Instructions(QObject):
         yield "Initializing CSI Dimensions"
         for label in self.initCSIDimensions():   # Calculate width and height of each CSI in this instruction book
             yield label
-            
+
         yield "Initializing Submodel Images"
         self.mainModel.addSubmodelImages()
-        
+
         yield "Laying out Pages"
         for page in pageList:
             yield page.initLayout()
@@ -732,10 +732,12 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         for s in self.separators:
             s.hide()
     
-    def addSubmodelImage(self):
+    def addSubmodelImage(self, count = 0):
         self.submodelItem = SubmodelPreview(self, self.submodel)
         self.submodelItem.setPos(Page.margin)
         self.addChild(1, self.submodelItem)
+        if count > 1:
+            self.submodelItem.addQuantityLabel(count)
         
     def resetSubmodelImage(self):
         if self.submodelItem:
@@ -748,7 +750,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         return False
     
     def resetPageNumberPosition(self):
-        rect = self.numberItem.boundingRect()
+        rect = self.numberItem.rect()
         rect.moveBottomRight(self.insetRect().bottomRight() - Page.margin)
         self.numberItem.setPos(rect.topLeft())
 
@@ -759,6 +761,8 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
             return  # Don't make any layout changes to locked pages
 
         self.resetPageNumberPosition()
+        if self.submodelItem:
+            self.submodelItem.initLayout()
 
         # Remove any separators; we'll re-add them in the appropriate place later
         self.removeAllSeparators()
@@ -1020,7 +1024,7 @@ class LockIcon(QGraphicsPixmapItem):
         self.isLocked = False
     
     def resetPosition(self):
-        self.setPos(5, Page.PageSize.height() - self.boundingRect().height() - 5)
+        self.setPos(5, Page.PageSize.height() - self.rect().height() - 5)
     
     def changeIcon(self, active):
         if active:
@@ -1345,7 +1349,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             b |= step.rect().translated(step.pos())
             
         if self.qtyLabel:
-            b |= self.qtyLabel.boundingRect().translated(self.qtyLabel.pos())
+            b |= self.qtyLabel.rect().translated(self.qtyLabel.pos())
 
         x, y = Page.margin
         self.setRect(b.adjusted(-x, -y, x, y))
@@ -1773,7 +1777,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
             children.remove(self.pli)
 
         for child in children:
-            r |= child.boundingRect().translated(child.pos())
+            r |= child.rect().translated(child.pos())
 
         self.setRect(r)
         self.normalizePosition()
@@ -1816,7 +1820,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         if self.numberItem:
             self.numberItem.setPos(0.0, 0.0)
-            self.csi.setPos(self.numberItem.boundingRect().bottomRight())
+            self.csi.setPos(self.numberItem.rect().bottomRight())
         else:
             self.csi.setPos(0.0, 0.0)
 
@@ -2152,36 +2156,55 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
         self.rotation = [0.0, 0.0, 0.0]
         self.scaling = 1.0
         self.setFlags(AllFlags)
-        self.setAbstractPart(abstractPart)
         self.pli = None             # TODO: Need to support both sub-model pic and sub-assembly PLI
         self.isSubAssembly = False  # TODO: Need to include main step number under this sub-assembly drawing
-        
+        self.numberItem = None
+        self.quantity = 0
+
+        self.setAbstractPart(abstractPart)
+
     def resetPixmap(self):
         glContext = self.getPage().instructions.glContext
         self.abstractPart.resetPixmap(glContext, self.rotation, self.scaling)
         self.setAbstractPart(self.abstractPart)
+        self.resetRect(False)
         self.abstractPart.resetPixmap(glContext)  # Restore abstractPart - otherwise all pliItems screwed
         
-    def resetRect(self):
+    def resetRect(self, doScaling = True):
         if self.isSubAssembly:
             self.setPos(self.mapToParent(self.pli.pos()))
             self.pli.setPos(0, 0)
             self.setRect(self.pli.rect())
+            return
+        self.setRect(QRectF())
+        part = self.abstractPart
+        if doScaling:
+            self.setRect(0, 0, (part.width * self.scaling) + (PLI.margin.x() * 2), (part.height * self.scaling) + (PLI.margin.y() * 2))
+        else:
+            self.setRect(0, 0, part.width + (PLI.margin.x() * 2), part.height + (PLI.margin.y() * 2))
+        if self.numberItem:
+            numRect = self.numberItem.rect().translated(self.numberItem.pos())
+            numRect.adjust(0, 0, PLI.margin.x(), PLI.margin.y())
+            self.setRect(self.rect() | numRect)
     
     def setAbstractPart(self, part):
         self.abstractPart = part
-        self.partCenter = (part.center.x() / self.scaling, part.center.y() / self.scaling)
-        self.setRect(0, 0, part.width + PLI.margin.x() * 2, part.height + PLI.margin.y() * 2)
+        self.resetRect()
 
     def paintGL(self, f = 1.0):
-        pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
-        dx = pos.x() + (self.rect().width() / 2.0) - (self.abstractPart.center.x() - self.partCenter[0])
-        dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0) - (self.abstractPart.center.y() - self.partCenter[1])
+        dx = self.pos().x() + PLI.margin.x() + (self.abstractPart.width * self.scaling / 2.0)
+        dy = -Page.PageSize.height() + self.pos().y() + PLI.margin.y() + (self.abstractPart.height * self.scaling / 2.0)
         self.abstractPart.paintGL(dx * f, dy * f, self.rotation, self.scaling * f)
 
     def initLayout(self, destRect = None):
         if destRect:
             self.setPos(destRect.topLeft())
+        self.resetRect()
+        if self.numberItem:
+            numRect = self.numberItem.rect()
+            self.numberItem.setPos(self.abstractPart.width, self.abstractPart.height)
+            self.numberItem.moveBy(PLI.margin.x(), PLI.margin.y())
+            self.resetRect()
 
     def convertToSubAssembly(self):
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
@@ -2208,6 +2231,16 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
         self.setBrush(GraphicsRoundRectItem.defaultBrush)
         self.parentItem().initLayout()
         self.scene().emit(SIGNAL("layoutChanged()"))
+
+    def addQuantityLabel(self, qty):
+        self.numberItem = QGraphicsSimpleTextItem("0x", self)
+        self.numberItem.itemClassName = "SubmodelItem Quantity"
+        self.numberItem._row = 0
+        self.numberItem.setFont(QFont("Arial", 12))
+        self.numberItem.setFlags(AllFlags)
+        self.quantity = qty
+        self.numberItem.setText("%dx" % qty)
+        self.numberItem.dataText = "Qty. Label (%dx)" % qty
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
@@ -2288,8 +2321,8 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         # Label's implicit lower top right corner (from qty 'x'), means no padding needed
         self.numberItem.setPos(0.0, part.height)  
        
-        lblWidth = self.numberItem.boundingRect().width()
-        lblHeight = self.numberItem.boundingRect().height()
+        lblWidth = self.numberItem.rect().width()
+        lblHeight = self.numberItem.rect().height()
         if part.leftInset > lblWidth:
             if part.bottomInset > lblHeight:
                 self.numberItem.moveBy(0, -lblHeight)  # Label fits entirely under part: bottom left corners now match
@@ -3534,6 +3567,12 @@ class Submodel(SubmodelTreeManager, AbstractPart):
             res += submodel._genericIterator(attr, op)
         return res
 
+    def submodelInstanceCount(self, submodelName):
+        count = len([p for p in self.parts if p.filename == submodelName])
+        for submodel in self.submodels:
+            count += submodel.submodelInstanceCount(submodelName)
+        return count
+
     def submodelCount(self):
         return self._genericIterator('submodels', len)
 
@@ -3551,7 +3590,8 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         return partList
 
     def addSubmodelImages(self):
-        self.pages[0].addSubmodelImage()
+        count = self.instructions.mainModel.submodelInstanceCount(self.filename)
+        self.pages[0].addSubmodelImage(count)
         for submodel in self.submodels:
             submodel.addSubmodelImages()
 

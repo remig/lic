@@ -354,13 +354,27 @@ class StepTreeManager(BaseTreeManager):
 class SubmodelPreviewTreeManager(BaseTreeManager):
 
     def child(self, row):
-        return self.pli if (self.pli is not None) and self.isSubAssembly and row == 0 else None
+        if row != 0:
+            return None
+        if self.isSubAssembly and self.pli is not None:
+            return self.pli
+        if self.numberItem:
+            return self.numberItem
+        return None
 
     def rowCount(self):
-        return 1 if (self.pli is not None) and self.isSubAssembly else 0
+        if self.isSubAssembly and self.pli is not None:
+            return 1
+        if self.numberItem:
+            return 1
+        return 0
 
     def getChildRow(self, child):
-        return 0 if child is self.pli else None
+        if self.isSubAssembly and self.pli is not None:
+            return 0
+        if self.numberItem:
+            return 0 
+        return None
 
     def data(self, index):
         return "Sub-Assembly" if self.isSubAssembly else "Submodel Preview"

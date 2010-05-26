@@ -483,6 +483,13 @@ def __readSubmodelItem(stream, page):
     if submodelItem.isSubAssembly:
         submodelItem.pli = __readPLI(stream, submodelItem)
 
+    if stream.licFileVersion >= 9:
+        if stream.readBool():  # Have a quantity label
+            submodelItem.quantity = stream.readInt32()
+            submodelItem.addQuantityLabel(submodelItem.quantity)
+            submodelItem.numberItem.setPos(stream.readQPointF())
+            submodelItem.numberItem.setFont(stream.readQFont())
+
     return submodelItem
 
 def __readCSI(stream, step):

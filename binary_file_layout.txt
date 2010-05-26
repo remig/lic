@@ -234,6 +234,11 @@ SubmodelItem:
   bool isSubAssembly
   PLI self.pli, if isSubAssembly
   
+  bool hasNumberItem v9
+    int32 quantity
+    QPointF numberItem.pos
+    QFont numberItem.font
+  
 CSI:
   QPointF pos
   int32 rect.width
