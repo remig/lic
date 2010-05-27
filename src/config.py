@@ -25,9 +25,9 @@ from PyQt4.QtGui import *
 # Path to LDraw, L3P and PovRay.  These are set by user through PathsDialog below.
 # Contents below are just default settings for a very first run of Lic. 
 # TODO: Provide better OS independent defaults for necessary paths.
-LDrawPath = "C:/LDraw"
-L3PPath = "C:/LDraw/Apps/L3p"
-POVRayPath = "C:/Program Files/POV-Ray/bin"
+LDrawPath = "C:\\LDraw"
+L3PPath = "C:\\LDraw\\Apps\\L3p"
+POVRayPath = "C:\\Program Files\\POV-Ray\\bin"
 
 class PathsDialog(QDialog):
 
@@ -60,7 +60,6 @@ class PathsDialog(QDialog):
 
     def makeLabelEditButton(self, text, path, slot):
         edit = QLineEdit(path)
-        edit.setReadOnly(True)
         button = QPushButton(self.tr("Browse..."))
         label = QLabel(self.tr(text))
         label.setBuddy(button)
@@ -68,35 +67,55 @@ class PathsDialog(QDialog):
         return label, edit, button
 
     def browseForLDraw(self):
-        validator = lambda path: os.path.isdir(os.path.join(path, "PARTS")) and os.path.isdir(os.path.join(path, "P"))
-        self.browse("LDraw", "'PARTS' and 'P' folders", LDrawPath, self.ldrawEdit, validator)
+        title = "Path to LDraw (must contain 'PARTS' and 'P' folders)"
+        self.browse(title, LDrawPath, self.ldrawEdit, self.validateLDrawPath)
+
+    def validateLDrawPath(self, path):
+        if not (os.path.isdir(os.path.join(path, "PARTS")) and os.path.isdir(os.path.join(path, "P"))):
+            return "LDraw path must contain 'PARTS' and 'P' folders"
+        return ""
 
     def browseForL3P(self):
-        validator = lambda path: os.path.isfile(os.path.join(path, "l3p.exe"))
-        self.browse("L3P", "l3p.exe", L3PPath, self.l3pEdit, validator)
+        title = "Path to L3P (must contain 'l3p.exe')"
+        self.browse(title, L3PPath, self.l3pEdit, self.validateL3PPath)
+
+    def validateL3PPath(self, path):
+        if not os.path.isfile(os.path.join(path, "l3p.exe")):
+            return "L3P path must contain l3p.exe"
+        return ""
 
     def browseForPOV(self):
-        validator = lambda path: os.path.isfile(os.path.join(path, "pvengine.exe"))
-        self.browse("POVRay", "pvengine.exe", POVRayPath, self.povEdit, validator)
+        title = "Path to POVRay (must contain 'pvengine.exe')"
+        self.browse(title, POVRayPath, self.povEdit, self.validatePOVPath)
 
-    def browse(self, pathName, warning, defaultPath, target, validator):
-        warning = "must contain %s" % warning
-        warningText = "%s path %s" % (pathName, warning)
-        title = "Path to %s (%s)" % (pathName, warning)
-        res = "xx"
-        while res != "" and validator(res) == False:
-            if res != "xx":
-                QMessageBox.warning(self, "Invalid path", warningText)
-            res = str(QFileDialog.getExistingDirectory(self, title, defaultPath, QFileDialog.ShowDirsOnly))
-        if res != "":
-            target.setText(res)
+    def validatePOVPath(self, path):
+        if not os.path.isfile(os.path.join(path, "pvengine.exe")):
+            return "POVRay path must contain pvengine.exe"
+        return ""
+
+    def browse(self, title, defaultPath, target, validator):
+        path = str(QFileDialog.getExistingDirectory(self, title, defaultPath, QFileDialog.ShowDirsOnly))
+        if path != "":
+            valid = validator(path)
+            if valid != "":
+                QMessageBox.warning(self, "Invalid path", valid)
+            else:
+                target.setText(path)
 
     def accept(self):
-        global LDrawPath, L3PPath, POVRayPath
-        LDrawPath = str(self.ldrawEdit.text())
-        L3PPath = str(self.l3pEdit.text())
-        POVRayPath = str(self.povEdit.text())
-        QDialog.accept(self)
+        res = self.validateLDrawPath(str(self.ldrawEdit.text()))
+        #if res == "":
+        #    res = self.validateL3PPath(str(self.l3pEdit.text()))
+        #if res == "":
+        #    res = self.validatePOVPath(str(self.povEdit.text()))
+        if res:
+            QMessageBox.warning(self, "Invalid path", res)
+        else:
+            global LDrawPath, L3PPath, POVRayPath
+            LDrawPath = str(self.ldrawEdit.text())
+            L3PPath = str(self.l3pEdit.text())
+            POVRayPath = str(self.povEdit.text())
+            QDialog.accept(self)
 
 filename = ""  # Set when a file is loaded
 

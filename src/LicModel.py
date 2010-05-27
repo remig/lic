@@ -970,8 +970,12 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     def addAnnotationSignal(self, pos = None):
         filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open Annotation Image", "", "Images (*.png *.jpg)"))
         if filename:
-            item = PageAnnotation(self, QPixmap(filename), filename, pos)
-            self.scene().undoStack.push(AddRemoveAnnotationCommand(self, item, True))
+            pixmap = QPixmap(filename)
+            if pixmap.isNull():
+                QMessageBox.information(self.scene().views()[0], "Lic", "Cannot load " + filename)
+            else:
+                item = PageAnnotation(self, pixmap, filename, pos)
+                self.scene().undoStack.push(AddRemoveAnnotationCommand(self, item, True))
 
 class PageAnnotation(QGraphicsPixmapItem):
 

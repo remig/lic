@@ -354,7 +354,7 @@ class TemplatePage(TemplateRectItem, Page):
         
         image = QImage(filename)
         if image.isNull():
-            QMessageBox.information(self, "Lic", "Cannot load " + filename)
+            QMessageBox.information(self.scene().views()[0], "Lic", "Cannot load " + filename)
             return
 
         stack = self.scene().undoStack

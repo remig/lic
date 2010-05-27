@@ -29,13 +29,16 @@ simply invokes the (bundled) python interpreter with Lic.py.
 """
 
 # To build: cd c:\lic\src  c:\python25\python.exe setup.py py2exe
+# To build a small exe with lots of files, remove zipfile & bundle_files
 
 py2exeOptions = dict(
-                     compressed = True,
+                     #compressed = True,
                      #skip_archive = True,
+                     #bundle_files = 1,
                      packages = ['LicImporters'],
                      excludes = ['doctest', 'difflib', 'pdb', 'unittest', 'inspect', '_ssl'],
                      includes = ['sip', 'OpenGL.platform.win32', 'OpenGL.arrays.lists', 'OpenGL.arrays.ctypesarrays'],
+                     dll_excludes = ['w9xpopen.exe'],
                      )
 
 setup(name = 'Lic',
@@ -45,6 +48,7 @@ setup(name = 'Lic',
       license = 'GNU General Public License (GPL)',
       author = 'Remi Gagne',
       windows = [{'script':'Lic.py'}], 
-      data_files = [('', ['c:\lic\dynamic_template.lit'])],
+      data_files = [('', ['c:\\lic2\\src\\dynamic_template.lit', 'c:\\lic2\\todo_thoughts.txt'])],
       options = {'py2exe': py2exeOptions},
+      #zipfile = None,
       )

@@ -51,6 +51,8 @@ that control auto-page & step generation (one step / page, min / max parts per s
  
 - On Import, auto-shrink CSIs so they fit on a page
  
+- Consider PyInstaller over py2exe, for its multi-platform goodness
+
 - PDF export needs dialog to control export setting, mainly high-res scale multiplier setting (current hardcoded to 3)
 
 - Add status bar on PDF export: in Instructions.exportToPDF(), exportImages() takes 7-10x longer than everything else 
