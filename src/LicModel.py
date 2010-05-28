@@ -165,6 +165,7 @@ class Instructions(QObject):
         # Initialize the main model display list
         yield "Initializing Main Model GL display lists"
         self.mainModel.createOGLDisplayList(True)
+        self.mainModel.initSubmodelImageGLDisplayList()
 
         # Initialize all CSI display lists
         yield "Initializing CSI GL display lists"
@@ -2160,12 +2161,11 @@ class RotateScaleSignalItem(QObject):
 
 class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateScaleSignalItem):
     itemClassName = "SubmodelPreview"
-    
+
     defaultScale = 1.0
     defaultRotation = [20.0, 45.0, 0.0]
     fixedSize = True
-    
-    # TODO: Add a quantity label here, for submodels that need to be built more than once
+
     def __init__(self, parent, abstractPart):
         GraphicsRoundRectItem.__init__(self, parent)
         self.rotation = [0.0, 0.0, 0.0]
@@ -2181,34 +2181,30 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
     def resetPixmap(self):
         glContext = self.getPage().instructions.glContext
         self.abstractPart.resetPixmap(glContext, self.rotation, self.scaling)
-        self.setAbstractPart(self.abstractPart)
-        self.resetRect(False)
-        self.abstractPart.resetPixmap(glContext)  # Restore abstractPart - otherwise all pliItems screwed
+        self.abstractPart.center /= self.scaling
+        self.resetRect()
         
-    def resetRect(self, doScaling = True):
+    def resetRect(self):
         if self.isSubAssembly:
             self.setPos(self.mapToParent(self.pli.pos()))
             self.pli.setPos(0, 0)
             self.setRect(self.pli.rect())
-            return
-        self.setRect(QRectF())
-        part = self.abstractPart
-        if doScaling:
-            self.setRect(0, 0, (part.width * self.scaling) + (PLI.margin.x() * 2), (part.height * self.scaling) + (PLI.margin.y() * 2))
         else:
+            self.setRect(QRectF())
+            part = self.abstractPart
             self.setRect(0, 0, part.width + (PLI.margin.x() * 2), part.height + (PLI.margin.y() * 2))
-        if self.numberItem:
-            numRect = self.numberItem.rect().translated(self.numberItem.pos())
-            numRect.adjust(0, 0, PLI.margin.x(), PLI.margin.y())
-            self.setRect(self.rect() | numRect)
+            if self.numberItem:
+                numRect = self.numberItem.rect().translated(self.numberItem.pos())
+                numRect.adjust(0, 0, PLI.margin.x(), PLI.margin.y())
+                self.setRect(self.rect() | numRect)
     
     def setAbstractPart(self, part):
-        self.abstractPart = part
+        self.abstractPart = part.duplicate()
         self.resetRect()
 
     def paintGL(self, f = 1.0):
-        dx = self.pos().x() + PLI.margin.x() + (self.abstractPart.width * self.scaling / 2.0)
-        dy = -Page.PageSize.height() + self.pos().y() + PLI.margin.y() + (self.abstractPart.height * self.scaling / 2.0)
+        dx = self.pos().x() + PLI.margin.x() + (self.abstractPart.width / 2.0)
+        dy = -Page.PageSize.height() + self.pos().y() + PLI.margin.y() + (self.abstractPart.height / 2.0)
         self.abstractPart.paintGL(dx * f, dy * f, self.rotation, self.scaling * f)
 
     def initLayout(self, destRect = None):
@@ -2931,6 +2927,22 @@ class AbstractPart(object):
         self.leftInset = self.bottomInset = -1
         self.center = QPointF()
 
+    def duplicate(self):
+        newPart = AbstractPart(self.filename)
+        newPart.invertNext = self.invertNext
+        newPart.winding = self.winding
+        newPart.parts = list(self.parts)
+        newPart.primitives = list(self.primitives)
+        newPart.glDispID = self.glDispID
+        newPart.isPrimitive = self.isPrimitive
+        newPart.isSubmodel = self.isSubmodel
+        newPart._boundingBox = self._boundingBox.duplicate() if self._boundingBox else None
+        newPart.pliScale, newPart.pliRotation = self.pliScale, list(self.pliRotation)
+        newPart.width, newPart.height = self.width, self.height
+        newPart.leftInset, newPart.bottomInset = self.leftInset, self.bottomInset
+        newPart.center = QPointF(self.center)
+        return newPart
+
     def createOGLDisplayList(self, skipPartInit = False):
         """ Initialize this part's display list."""
 
@@ -3049,7 +3061,7 @@ class AbstractPart(object):
                 if box:
                     box.growByBoudingBox(p)
                 else:
-                    box = p.copy()
+                    box = p.duplicate()
             
         for part in self.parts:
             p = part.abstractPart.getBoundingBox()
@@ -3057,7 +3069,7 @@ class AbstractPart(object):
                 if box:
                     box.growByBoudingBox(p, part.matrix)
                 else:
-                    box = p.copy(part.matrix)
+                    box = p.duplicate(part.matrix)
 
         self._boundingBox = box
         return box
@@ -3080,7 +3092,7 @@ class BoundingBox(object):
         #return "x1: %.2f, x2: %.2f,  y1: %.2f, y2: %.2f,  z1: %.2f, z2: %.2f" % (self.x1, self.x2, self.y1, self.y2, self.z1, self.z2)
         return "%.0f %.0f | %.0f %.0f | %.0f %.0f" % (self.x1, self.x2, self.y1, self.y2, self.z1, self.z2)
     
-    def copy(self, matrix = None):
+    def duplicate(self, matrix = None):
         b = BoundingBox()
         if matrix:
             b.x1, b.y1, b.z1 = self.transformPoint(matrix,self.x1, self.y1, self.z1)
@@ -3610,6 +3622,14 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         for submodel in self.submodels:
             submodel.addSubmodelImages()
 
+    def initSubmodelImageGLDisplayList(self):
+        item = self.pages[0].submodelItem
+        if item and item.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
+            item.abstractPart.createOGLDisplayList(False)
+            item.resetPixmap()
+        for submodel in self.submodels:
+            submodel.initSubmodelImageGLDisplayList()
+
     def exportImages(self):
         for page in self.pages:
             page.renderFinalImageWithPov()
@@ -3875,7 +3895,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
             m[13] += self.displacement[1]
             m[14] += self.displacement[2]
 
-        return self.abstractPart.getBoundingBox().copy(m)
+        return self.abstractPart.getBoundingBox().duplicate(m)
     
     def xyz(self):
         return [self.matrix[12], self.matrix[13], self.matrix[14]]

@@ -179,6 +179,11 @@ def __readInstructions(stream, instructions):
     for unused in instructions.initGLDisplayLists():
         pass
 
+    if instructions.mainModel.hasTitlePage() and instructions.mainModel.titlePage.submodelItem:
+        item = instructions.mainModel.titlePage.submodelItem
+        item.abstractPart.createOGLDisplayList(False)
+        item.resetPixmap()
+
 def __readSubmodel(stream, instructions, createMainmodel = False):
     global partDictionary
 
