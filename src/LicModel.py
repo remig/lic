@@ -1102,7 +1102,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
     itemClassName = "CalloutArrow"
     
     defaultPen = QPen(Qt.black)
-    defaultBrush = QBrush(Qt.transparent)  # Fill arrow head
+    defaultBrush = QBrush(Qt.white)  # Fill arrow head
     arrowTipLength = 22.0
     arrowTipHeight = 5.0
     ArrowHead = QPolygonF([QPointF(),

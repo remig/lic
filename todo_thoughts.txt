@@ -16,6 +16,8 @@ BUGS:
 
 - In Merged Callouts, need to handle adding / removing parts 
 
+- Add fourth draw layer, to handle Callouts as annotations above other GL items, then Callout GL items very very top
+
  FEATURES:
 
 - Add support for reading colors from LDCONFIG.LDR
