@@ -673,6 +673,18 @@ class ChangeAnnotationPixmap(QUndoCommand):
         filename = self.newFilename if redo else self.oldFilename
         self.annotation.setPixmap(QPixmap(filename))
 
+class ToggleAnnotationOrderCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, annotation, moveForward):
+        QUndoCommand.__init__(self, "move Annotation to %s" % ("Foreground" if moveForward else "Background"))
+        self.annotation, self.moveForward = annotation, moveForward
+
+    def doAction(self, redo):
+        moveForward = (redo and self.moveForward) or (not redo and not self.moveForward)
+        self.annotation.changeOrder(moveForward)
+
 class ToggleStepNumbersCommand(QUndoCommand):
 
     _id = getNewCommandID()

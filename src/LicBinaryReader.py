@@ -327,9 +327,13 @@ def __readAnnotationSet(stream, page):
         pixmap = stream.readQPixmap()
         filename = str(stream.readQString())
         pos = stream.readQPointF()
-        item = PageAnnotation(page, pixmap, filename, pos)
-        page.annotations.append(item)
-        page.addChild(len(page.children), item)
+        annotation = PageAnnotation(page, pixmap, filename, pos)
+        page.annotations.append(annotation)
+        page.addChild(len(page.children), annotation)
+
+        if stream.licFileVersion >= 10:
+            annotation.isAnnotation = stream.readBool()
+            annotation.setZValue(stream.readInt32())
 
 def __readPage(stream, parent, instructions, templateModel = None):
 

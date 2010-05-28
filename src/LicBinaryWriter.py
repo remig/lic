@@ -214,6 +214,8 @@ def __writeAnnotationSet(stream, page):
         stream << annotation.pixmap()
         stream << QString(annotation.filename)
         stream << annotation.pos()
+        stream.writeBool(annotation.isAnnotation)
+        stream.writeInt32(annotation.zValue())
 
 def __writePage(stream, page):
     stream.writeInt32(page.number)

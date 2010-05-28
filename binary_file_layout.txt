@@ -153,11 +153,6 @@ TitlePage:
   int32 number of annotations  v8
   ... Annotation 0..n ...
 
-Annotation:
-  QPixmap annotation.pixmap
-  QString annotation.filename
-  QPointF annotation.pos
-    
 PartListPage:
   int32 number
   int32 _row
@@ -173,6 +168,13 @@ PartListPage:
   int32 number of annotations  v8
   ... Annotation 0..n ...
 
+Annotation:
+  QPixmap annotation.pixmap
+  QString annotation.filename
+  QPointF annotation.pos
+  bool annotation.isAnnotation v10
+  int32 annotation.zValue v10
+    
 Border:
   int32 child row
   QPointF pos

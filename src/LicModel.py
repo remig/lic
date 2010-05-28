@@ -55,7 +55,7 @@ import config     # For user path info
 from LicQtWrapper import *
 
 MagicNumber = 0x14768126
-FileVersion = 9
+FileVersion = 10
 
 partDictionary = {}      # x = AbstractPart("3005.dat"); partDictionary[x.filename] == x
 currentModelFilename = ""
@@ -991,8 +991,13 @@ class PageAnnotation(QGraphicsPixmapItem):
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
+        stack = self.scene().undoStack
         menu.addAction("Change Picture", self.changePicture)
-        menu.addAction("Remove Annotation", self.removeAnnotation)
+        menu.addAction("Remove Annotation", lambda: stack.push(AddRemoveAnnotationCommand(self.parentItem(), self, False)))
+        if self.isAnnotation:
+            menu.addAction("Move to Background", lambda: stack.push(ToggleAnnotationOrderCommand(self, False)))
+        else:
+            menu.addAction("Move to Foreground", lambda: stack.push(ToggleAnnotationOrderCommand(self, True)))
         menu.exec_(event.screenPos())
 
     def changePicture(self):
@@ -1001,8 +1006,10 @@ class PageAnnotation(QGraphicsPixmapItem):
             self.scene().undoStack.push(ChangeAnnotationPixmap(self, self.filename, filename))
             self.filename = filename
 
-    def removeAnnotation(self):
-        self.scene().undoStack.push(AddRemoveAnnotationCommand(self.parentItem(), self, False))
+    def changeOrder(self, moveForward):
+        z = 1200 if moveForward else -1200
+        self.setZValue(z)
+        self.isAnnotation = moveForward
 
 class LockIcon(QGraphicsPixmapItem):
 
