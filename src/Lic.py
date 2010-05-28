@@ -594,6 +594,7 @@ class LicGraphicsView(QGraphicsView):
         self.setRenderHint(QPainter.Antialiasing)
         self.setRenderHint(QPainter.TextAntialiasing)
         self.setBackgroundBrush(QBrush(Qt.gray))
+        self.setAcceptDrops(True)
 
     def scaleView(self, scaleFactor):
         
@@ -606,6 +607,15 @@ class LicGraphicsView(QGraphicsView):
             if factor >= 0.15 and factor <= 5:
                 self.scene().scaleFactor = factor
                 self.scale(scaleFactor, scaleFactor)
+
+    def dragEnterEvent(self, event):
+        self.parentWidget().dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        pass  # Necessary for file drag & drop to work on the graphicsView
+
+    def dropEvent(self, event):
+        self.parentWidget().dropEvent(event)
 
 class LicTreeView(QTreeView):
 
@@ -847,6 +857,7 @@ class LicWindow(QMainWindow):
         
         self.loadSettings()
         self.setWindowIcon(QIcon(":/lic_logo_16x16"))
+        self.setAcceptDrops(True)
         
         self.undoStack = QUndoStack()
         self.connect(self.undoStack, SIGNAL("cleanChanged(bool)"), lambda isClean: self.setWindowModified(not isClean))
@@ -895,13 +906,32 @@ class LicWindow(QMainWindow):
 
         # Need to notify the Model when a particular index was deleted
         self.treeModel.connect(self.scene, SIGNAL("itemDeleted"), self.treeModel.deletePersistentItem)
-            
+
         self.filename = ""   # This will trigger __setFilename below
 
     def getSettingsFile(self):
         iniFile = os.path.join(os.path.dirname(sys.argv[0]), 'Lic.ini')
         return QSettings(QString(iniFile), QSettings.IniFormat)
-        
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasFormat(QString("text/uri-list")):
+            filename = event.mimeData().getFilename()
+            if filename is not None:
+                ext = os.path.splitext(filename)[1]
+                if ext in LicImporters.getFileTypesList() or ext == '.lic':
+                    event.acceptProposedAction()
+                    return
+        event.ignore()
+
+    def dropEvent(self, event):
+        filename = event.mimeData().getFilename()  # Assuming correct drop type, based on dragEnterEvent()
+        ext = os.path.splitext(filename)[1]
+        if ext == '.dat' or ext == '.mpd' or ext == '.ldr':
+            self.importModel(filename)
+        elif ext == '.lic':
+            self.fileOpen(filename)
+        event.acceptProposedAction()
+
     def loadSettings(self):
         settings = self.getSettingsFile()
         self.recentFiles = settings.value("RecentFiles").toStringList()
@@ -1097,7 +1127,7 @@ class LicWindow(QMainWindow):
 
     def setSnapToItems(self, snap):
         self.snapToItems = self.scene.snapToItems = snap
-        
+
     def updateFileMenu(self):
         self.fileMenu.clear()
         self.addActions(self.fileMenu, self.fileMenuActions[:-1])  # Don't add last Exit yet

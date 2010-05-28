@@ -24,7 +24,7 @@
 
 Importers = {
 "LDrawImporter": ("LDraw", "mpd", "ldr", "dat"),
-"LDDImporter":   ("LDD - NYI", "lxf"),
+#"LDDImporter":   ("LDD - NYI", "lxf"),
 }
 
 def getImporter(fileType):
@@ -36,6 +36,12 @@ def getImporter(fileType):
 
 def getFileTypesString():
     return __fileTypes
+
+def getFileTypesList():
+    fileList = []
+    for fileTypes in Importers.values():
+        fileList += fileTypes[1:]
+    return ['.' + f for f in fileTypes]
 
 def __buildFileTypes():
     # (("LDraw", "mpd", "ldr", "dat"), ("LDD", "lxf"))

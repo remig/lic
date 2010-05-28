@@ -285,3 +285,13 @@ QGraphicsSimpleTextItem.mouseReleaseEvent = genericMouseReleaseEvent(QAbstractGr
 QGraphicsPixmapItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
 QGraphicsPixmapItem.mouseMoveEvent = genericMouseMoveEvent(QGraphicsItem)
 QGraphicsPixmapItem.mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsItem)
+
+def getFilename(self):
+    if not self.hasFormat("text/uri-list"):
+        return None
+    filename = str(self.data("text/uri-list"))
+    if len(filename) < 10 or filename[:8] != 'file:///':
+        return None
+    return filename[8:].strip() # trim off leading 'file:///' from uri
+
+QMimeData.getFilename = getFilename
