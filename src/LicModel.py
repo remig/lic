@@ -2809,6 +2809,8 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Rotate CSI", self.rotateSignal)
+        if self.rotation != [0.0, 0.0, 0.0]:
+            menu.addAction("Remove Rotation", self.removeRotation)
         menu.addAction("Scale CSI", self.scaleSignal)
         
         if self.parentItem().getNextStep():
@@ -2845,11 +2847,25 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
 
         self.scene().undoStack.push(AddRemovePartCommand(part, self.parentItem(), True))
 
+    def removeRotation(self):
+        step = self.parentItem()
+        stack = self.scene().undoStack 
+        if step.rotateIcon and not step.isInCallout():
+            stack.beginMacro("remove CSI rotation")
+
+        oldRotation = self.rotation
+        self.rotation = [0.0, 0.0, 0.0]
+        RotateScaleSignalItem.acceptRotation(self, oldRotation)
+
+        if step.rotateIcon and not step.isInCallout():
+            stack.push(AddRemoveRotateIconCommand(self.parentItem(), False))
+            stack.endMacro()
+
     def acceptRotation(self, oldRotation):
         step = self.parentItem()
         stack = self.scene().undoStack 
         if not step.rotateIcon and not step.isInCallout():
-            stack.beginMacro("Item rotation")
+            stack.beginMacro("CSI rotation")
 
         RotateScaleSignalItem.acceptRotation(self, oldRotation)
 

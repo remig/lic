@@ -25,23 +25,19 @@ BUGS:
 - Add a dialog on initial import: if the imported file has no steps, give a handful of options 
 that control auto-page & step generation (one step / page, min / max parts per step, etc)
  
-- Add support for arbitrary annotations, like circles & extra arrows
-
 - Add 'Add Length Indicator' menu option to each PLIItem
 
 - Add Snap to Center of page items, not just left / right edges
 
 - Add ability to merge multiple parts into one new part (like for technic bendy U-joints & turntables)
 
-- Fix Snap to Items so we only consider snapping to meaningful, similar items
+- Fix 'Snap to Items' so we only consider snapping to meaningful, similar items
 
 - Pages that span multiple Submodels (ie, last step of Submodel on same page as MainModel step that adds submodel)
 
 - Page annotations that span Pages (like Submodel-goes-here arrow across facing pages)
 
 - Add Auto-layout menu option to Part List Page
-
-- Add CSI->Remove Rotation for rotated CSIs.  Will remove rotation label too
 
 - When displacing a part, count the # of studs and add an appropriate number of appropriately positioned arrows
 
