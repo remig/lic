@@ -62,18 +62,19 @@ QGridLayout.addWidgetRow = addWidgetRow
 
 class LicProgressDialog(QProgressDialog):
 
-    def __init__(self, parent, filename):
+    def __init__(self, parent, title):
         QProgressDialog.__init__(self, parent, Qt.CustomizeWindowHint | Qt.WindowTitleHint)
 
         self.setWindowModality(Qt.WindowModal)
-        self.setWindowTitle("Importing " + os.path.splitext(filename)[0])
+        self.setWindowTitle(title)
         self.setMinimumDuration(0)
         self.setCancelButtonText("Cancel")
         self.setRange(0, 100000)
-        self.setLabelText("Reading " + filename)
+        self.setLabelText(title)
         self.setValue(1)  # Try and force dialog to show up right away
 
-    def incr(self):
+    def incr(self, label):
+        self.setLabelText(label)
         self.setValue(self.value() + 1)
 
 class ColorButton(QToolButton):

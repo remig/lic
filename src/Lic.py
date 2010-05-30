@@ -1233,7 +1233,7 @@ class LicWindow(QMainWindow):
         self.fileClose()
 
         #startTime = time.time()
-        progress = LicDialogs.LicProgressDialog(self, os.path.basename(filename))
+        progress = LicDialogs.LicProgressDialog(self, "Importing " + os.path.basename(filename))
         progress.setValue(2)  # Try and force dialog to show up right away
 
         loader = self.instructions.importModel(filename)
@@ -1244,8 +1244,7 @@ class LicWindow(QMainWindow):
                 loader.close()
                 self.fileClose()
                 return
-            progress.setLabelText(label)
-            progress.incr()
+            progress.incr(label)
 
         progress.setValue(progress.maximum())
 
@@ -1253,7 +1252,7 @@ class LicWindow(QMainWindow):
         self.treeModel.root = self.instructions.mainModel
 
         try:
-            self.templatePage = LicBinaryReader.loadLicTemplate(r"dynamic_template.lit", self.instructions)  # TODO: Fix Default Template PATH OF EVIL!!
+            self.templatePage = LicBinaryReader.loadLicTemplate(r"dynamic_template.lit", self.instructions)
         except (IOError), e:
             # Could not load default template, so generate one from scratch
             import LicTemplate
@@ -1404,19 +1403,48 @@ class LicWindow(QMainWindow):
                 self.fileClose()
 
     def exportImages(self):
-        self.instructions.exportImages()
+
+        progress = LicDialogs.LicProgressDialog(self, "Exporting Final Images")
+        progress.setValue(2)  # Try and force dialog to show up right away
+
+        loader = self.instructions.exportImages()
+        progress.setMaximum(loader.next() + 2)  # +2 because we're already at 2
+
+        for label in loader:
+            if progress.wasCanceled():
+                loader.close()
+                self.statusBar().showMessage("Image Export aborted")
+                return
+            label = "Rendering " + os.path.splitext(os.path.basename(label))[0].replace('_', ' ')
+            progress.incr(label)
+
         self.glWidget.makeCurrent()
-        print "\nExported images to: " + config.finalImageCachePath()
+        self.statusBar().showMessage("Exported images to: " + config.finalImageCachePath())
 
     def exportToPDF(self):
-        filename = self.instructions.exportToPDF()
+        loader = self.instructions.exportToPDF()
+        filename = loader.next()
+        title = "Exporting " + os.path.splitext(os.path.basename(filename))[0] + " to PDF"
+
+        progress = LicDialogs.LicProgressDialog(self, title)
+        progress.setValue(2)  # Try and force dialog to show up right away
+        progress.setMaximum(loader.next() + 2)  # +2 because we're already at 2
+
+        for label in loader:
+            if progress.wasCanceled():
+                loader.close()
+                self.statusBar().showMessage("PDF Export aborted")
+                return
+            progress.incr(label)
+
+        progress.setValue(progress.maximum())
+
         self.glWidget.makeCurrent()
-        print "\nExported PDF to: " + filename
+        self.statusBar().showMessage("Exported PDF to: " + filename)
                  
     def exportToPOV(self):
-        print "THIS IS CURRENTLY NOT WORKING - Rendered item Rotation is way out"
         self.instructions.exportToPOV()
-        print "\nExport complete"
+        self.statusBar().showMessage("NYI - POV Export is broken")
 
     def exportToMPD(self):
         if self.filename:

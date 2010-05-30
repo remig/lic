@@ -28,6 +28,11 @@ import Image, ImageChops
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
+from OpenGL.GL.ARB.framebuffer_object import *
+from OpenGL.GL.EXT.framebuffer_object import *
+from OpenGL.GL.EXT.framebuffer_multisample import *
+from OpenGL.GL.EXT.framebuffer_blit import *
+
 from PyQt4.QtCore import QPointF
 from PyQt4.QtOpenGL import QGLFormat, QGL
 
@@ -180,6 +185,76 @@ def popAllGLMatrices():
     glMatrixMode(GL_PROJECTION)
     glPopMatrix()
     glPopAttrib()
+
+class FrameBufferManager(object):
+
+    def __init__(self, w, h):
+
+        # Create non-multisample FBO that we can call glReadPixels on
+        self.w, self.h = w, h
+        self.frameBuffer = glGenFramebuffersEXT(1)
+        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, self.frameBuffer)
+
+        # non-multisample color & depth buffers
+        self.colorBuffer = glGenRenderbuffersEXT(1)
+        glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, self.colorBuffer)
+        glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_RGBA, w, h)
+
+        self.depthBuffer = glGenRenderbuffersEXT(1)
+        glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, self.depthBuffer)
+        glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_COMPONENT, w, h)
+
+        # bind depth & color buffer to non-multisample frame buffer
+        glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_RENDERBUFFER_EXT, self.colorBuffer);
+        glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, self.depthBuffer);
+
+        # Setup multisample framebuffer
+        self.multisampleFrameBuffer = glGenFramebuffersEXT(1)
+        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, self.multisampleFrameBuffer)
+
+        # multisample color & depth buffers
+        self.multisampleColorBuffer = glGenRenderbuffersEXT(1)
+        glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, self.multisampleColorBuffer)
+        glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT, 8, GL_RGBA, w, h)
+
+        self.multisampleDepthBuffer = glGenRenderbuffersEXT (1)
+        glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, self.multisampleDepthBuffer)
+        glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT, 8, GL_DEPTH_COMPONENT, w, h)
+
+        # bind multisample color & depth buffers
+        glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_RENDERBUFFER_EXT, self.multisampleColorBuffer);
+        glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, self.multisampleDepthBuffer);
+
+        # Make sure multisample fbo is fully initialized
+        status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+        if status != GL_FRAMEBUFFER_COMPLETE_EXT:
+            print "Error in framebuffer activation - cannot generate images"
+
+    def bindMSFB(self):
+        """ Bind multisampled FBO for writing."""
+        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, self.multisampleFrameBuffer)
+
+    def blitMSFB(self):
+        """ Bind multisampled FBO for reading, regular FBO for writing then blit away."""
+        glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, self.multisampleFrameBuffer);
+        glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, self.frameBuffer);
+        glBlitFramebufferEXT(0, 0, self.w, self.h, 0, 0, self.w, self.h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+    def readFB(self):
+        """ Bind the normal FBO for reading then read."""
+        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, self.frameBuffer)
+        data = glReadPixels(0, 0, self.w, self.h, GL_RGBA, GL_UNSIGNED_BYTE)
+        return data
+
+    def cleanup(self):
+        """ Clean up all internal framebuffers - essential for recovering main glWidget's state."""
+        glDeleteFramebuffersEXT(1, [self.frameBuffer])
+        glDeleteRenderbuffersEXT(1, [self.colorBuffer])
+        glDeleteRenderbuffersEXT(1, [self.depthBuffer])
+
+        glDeleteFramebuffersEXT(1, [self.multisampleFrameBuffer])
+        glDeleteRenderbuffersEXT(1, [self.multisampleDepthBuffer])
+        glDeleteRenderbuffersEXT(1, [self.multisampleColorBuffer])
 
 def _checkImgBounds(top, bottom, left, right, size):
     if (top == 0) or (bottom == size):

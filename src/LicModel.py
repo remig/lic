@@ -30,18 +30,15 @@ import Image
 from OpenGL import GL
 from OpenGL import GLU
 
-from OpenGL.GL.ARB.framebuffer_object import *
-from OpenGL.GL.EXT.framebuffer_object import *
-from OpenGL.GL.EXT.framebuffer_multisample import *
-from OpenGL.GL.EXT.framebuffer_blit import *
-
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
 
 from LicUndoActions import *
 from LicTreeModel import *
+from LicQtWrapper import *
 from LicLayout import *
+
 import LicGLHelpers
 import LicL3PWrapper
 import LicPovrayWrapper
@@ -52,7 +49,6 @@ import LicPartLengths
 import LicImporters
 import resources  # Needed for ":/resource" type paths to work
 import config     # For user path info
-from LicQtWrapper import *
 
 MagicNumber = 0x14768126
 FileVersion = 10
@@ -283,130 +279,82 @@ class Instructions(QObject):
         #    if model.used:
         #        model.createPng()
         self.mainModel.createPng()
-        self.mainModel.exportImages()
+        self.mainModel.exportImagesToPov()
         
     def exportImages(self, scaleFactor = 1.0):
 
-        currentPageNumber = self.scene.currentPage._number
-        w, h = Page.PageSize.width() * scaleFactor, Page.PageSize.height() * scaleFactor
-        w, h = int(w), int(h)  # Absolutely ensure these are ints, else glFoo stuff below dies in a fire
-        
-        if scaleFactor > 1.0:
-            lineWidth = LicGLHelpers.getLightParameters()[2]
-            GL.glLineWidth(lineWidth * scaleFactor)  # Make part lines a bit thicker for higher res output 
-
-        # TODO: Move all this ugly buffer init crap to LicGLHelpers
-        # Create non-multisample FBO that we can call glReadPixels on
-        frameBuffer = glGenFramebuffersEXT(1)
-        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, frameBuffer)
-
-        # non-multisample color & depth buffers
-        colorBuffer = glGenRenderbuffersEXT(1)
-        glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, colorBuffer)
-        glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL.GL_RGBA, w, h)
-        
-        depthBuffer = glGenRenderbuffersEXT(1)
-        glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, depthBuffer)
-        glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL.GL_DEPTH_COMPONENT, w, h)
-
-        # bind depth & color buffer to non-multisample frame buffer
-        glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_RENDERBUFFER_EXT, colorBuffer);
-        glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, depthBuffer);
-    
-        # Setup multisample framebuffer
-        multisampleFrameBuffer = glGenFramebuffersEXT(1)
-        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, multisampleFrameBuffer)
-    
-        # multisample color & depth buffers
-        multisampleColorBuffer = glGenRenderbuffersEXT(1)
-        glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, multisampleColorBuffer)
-        glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT, 8, GL.GL_RGBA, w, h)
-        
-        multisampleDepthBuffer = glGenRenderbuffersEXT (1)
-        glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, multisampleDepthBuffer)
-        glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT, 8, GL.GL_DEPTH_COMPONENT, w, h)
-
-        # bind multisample color & depth buffers
-        glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_RENDERBUFFER_EXT, multisampleColorBuffer);
-        glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, multisampleDepthBuffer);
-
-        # Make sure multisample fbo is fully initialized
-        status = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
-        if status != GL_FRAMEBUFFER_COMPLETE_EXT:
-            print "Error in framebuffer activation"
-            return
-    
-        # Render & save each page, storing the created filename to return later
-        pageFileNames = []
+        # Build the list of pages that need to be exported
         pageList = self.mainModel.getFullPageList()
         pageList.sort(key = lambda x: x._number)
-        for page in pageList:
+        yield len(pageList) # Special first value is number of steps in export process
 
-            page.lockIcon.hide()
-            exportedFilename = page.getGLImageFilename()
+        currentPageNumber = self.scene.currentPage._number  # Store this so we can restore selection later
 
-            glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, multisampleFrameBuffer)
-            LicGLHelpers.initFreshContext(True)
+        if scaleFactor > 1.0:  # Make part lines a bit thicker for higher res output
+            lineWidth = LicGLHelpers.getLightParameters()[2]
+            GL.glLineWidth(lineWidth * scaleFactor) 
 
-            page.drawGLItemsOffscreen(QRectF(0, 0, w, h), scaleFactor)
+        try:
+            w, h = int(Page.PageSize.width() * scaleFactor), int(Page.PageSize.height() * scaleFactor)
+            bufferManager = LicGLHelpers.FrameBufferManager(w, h)
 
-            # Bind multisampled FBO for reading, regular for writing and blit away
-            glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, multisampleFrameBuffer);
-            glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, frameBuffer);
-            glBlitFramebufferEXT(0, 0, w, h, 0, 0, w, h, GL.GL_COLOR_BUFFER_BIT, GL.GL_NEAREST);
+            # Render & save each page as an image
+            for page in pageList:
 
-            # Bind the normal FBO for reading then read
-            glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, frameBuffer);
-            data = GL.glReadPixels(0, 0, w, h, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE)
-            
-            # Create an image from raw pixels and save to disk - would be nice to create QImage directly here
-            image = Image.fromstring("RGBA", (w, h), data)
-            image = image.transpose(Image.FLIP_TOP_BOTTOM)
-            image.save(exportedFilename)
+                page.lockIcon.hide()
+                exportedFilename = page.getGLImageFilename()
 
-            # Create new blank image
-            image = QImage(w, h, QImage.Format_ARGB32)
-            painter = QPainter()
-            painter.begin(image)
+                bufferManager.bindMSFB()
+                LicGLHelpers.initFreshContext(True)
 
-            self.scene.selectPage(page._number)
-            self.scene.renderMode = 'background'
-            self.scene.render(painter, QRectF(0, 0, w, h))
-            
-            glImage = QImage(exportedFilename)
-            painter.drawImage(QPoint(0, 0), glImage)
+                page.drawGLItemsOffscreen(QRectF(0, 0, w, h), scaleFactor)
+                bufferManager.blitMSFB()
+                data = bufferManager.readFB()
 
-            self.scene.selectPage(page._number)
-            self.scene.renderMode = 'foreground'
-            self.scene.render(painter, QRectF(0, 0, w, h))
+                # Create an image from raw pixels and save to disk - would be nice to create QImage directly here
+                image = Image.fromstring("RGBA", (w, h), data)
+                image = image.transpose(Image.FLIP_TOP_BOTTOM)
+                image.save(exportedFilename)
 
-            painter.end()
-            newName = page.getExportFilename()
-            image.save(newName)
-            pageFileNames.append(newName)
-            page.lockIcon.show()
+                # Create new blank image
+                image = QImage(w, h, QImage.Format_ARGB32)
+                painter = QPainter()
+                painter.begin(image)
 
-        # Clean up - essential for recovering main glWidget's state
-        glDeleteFramebuffersEXT(1, [frameBuffer])
-        glDeleteRenderbuffersEXT(1, [colorBuffer])
-        glDeleteRenderbuffersEXT(1, [depthBuffer])
-        
-        glDeleteFramebuffersEXT(1, [multisampleFrameBuffer])
-        glDeleteRenderbuffersEXT(1, [multisampleDepthBuffer])
-        glDeleteRenderbuffersEXT(1, [multisampleColorBuffer])
-        
-        self.scene.renderMode = 'full'
-        self.scene.selectPage(currentPageNumber)
-        return pageFileNames
+                self.scene.selectPage(page._number)
+                self.scene.renderMode = 'background'
+                self.scene.render(painter, QRectF(0, 0, w, h))
+
+                glImage = QImage(exportedFilename)
+                painter.drawImage(QPoint(0, 0), glImage)
+
+                self.scene.selectPage(page._number)
+                self.scene.renderMode = 'foreground'
+                self.scene.render(painter, QRectF(0, 0, w, h))
+    
+                painter.end()
+                newName = page.getExportFilename()
+                image.save(newName)
+
+                yield newName
+                page.lockIcon.show()    
+
+        finally:
+            bufferManager.cleanup()
+            self.scene.renderMode = 'full'
+            self.scene.selectPage(currentPageNumber)
 
     def exportToPDF(self):
 
         # Create an image for each page
         # TODO: Test export to PDF with new higher resolution settings.
         # TODO: Connect PDF export to page resolution settings
-        pageList = self.exportImages(3.0)
         filename = os.path.join(config.pdfCachePath(), os.path.basename(self.mainModel.filename)[:-3] + "pdf")
-        
+        yield filename
+
+        exporter = self.exportImages(3.0)
+        yield 2 * exporter.next()
+
         printer = QPrinter(QPrinter.HighResolution)
         printer.setOutputFileName(filename)
         printer.setOutputFormat(QPrinter.PdfFormat)
@@ -414,15 +362,22 @@ class Instructions(QObject):
         printer.setResolution(Page.Resolution)
         printer.setPaperSize(QSizeF(Page.PageSize), QPrinter.DevicePixel)
 
+        pageFilenameList = []
+        for pageFilename in exporter:
+            fn = os.path.splitext(os.path.basename(pageFilename))[0].replace('_', ' ')
+            yield "Rendering " + fn
+            pageFilenameList.append(pageFilename)
+
         painter = QPainter()
         painter.begin(printer)
-        for pageFilename in pageList:
+        for pageFilename in pageFilenameList:
+            fn = os.path.splitext(os.path.basename(pageFilename))[0].replace('_', ' ')
+            yield "Adding " + fn + " to PDF"
             image = QImage(pageFilename)
             painter.drawImage(QRectF(0.0, 0.0, Page.PageSize.width(), Page.PageSize.height()), image)
-            if pageFilename != pageList[-1]:
+            if pageFilename != pageFilenameList[-1]:
                 printer.newPage()
         painter.end()
-        return filename
 
     def getPartDictionary(self):
         global partDictionary
@@ -1229,9 +1184,6 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
             self.initializePoints()
         
         painter.save()
-
-        #if scale != 1.0:
-        #    painter.scale(scale, scale)  # TODO: Ensure arrows scale when exported as images
         painter.setPen(self.pen())
         painter.setBrush(self.brush())
 
@@ -3646,12 +3598,12 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         for submodel in self.submodels:
             submodel.initSubmodelImageGLDisplayList()
 
-    def exportImages(self):
+    def exportImagesToPov(self):
         for page in self.pages:
             page.renderFinalImageWithPov()
 
         for submodel in self.submodels:
-            submodel.exportImages()
+            submodel.exportImagesToPov()
 
     def createPng(self):
 

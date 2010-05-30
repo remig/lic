@@ -53,9 +53,7 @@ that control auto-page & step generation (one step / page, min / max parts per s
 
 - PDF export needs dialog to control export setting, mainly high-res scale multiplier setting (current hardcoded to 3)
 
-- Add status bar on PDF export: in Instructions.exportToPDF(), exportImages() takes 7-10x longer than everything else 
-
-- Add status indicator to file->open operation
+- Add progress bar to File->Open operation
 
 - Add ability to display page numbers in alternating page corners (odd=left & even=right, etc)
 
