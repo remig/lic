@@ -1131,7 +1131,7 @@ class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
         submodel.addInitialPagesAndSteps()
         submodel.mergeInitialPages()
         if submodel.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
-            submodel.createOGLDisplayList()
+            submodel.createGLDisplayList()
         submodel.resetPixmap()
 
         self.newPart = submodel.createBlankPart()

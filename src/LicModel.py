@@ -156,18 +156,18 @@ class Instructions(QObject):
         yield "Initializing Part GL display lists"
         for part in partDictionary.values():
             if part.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
-                part.createOGLDisplayList()
+                part.createGLDisplayList()
 
         # Initialize the main model display list
         yield "Initializing Main Model GL display lists"
-        self.mainModel.createOGLDisplayList(True)
+        self.mainModel.createGLDisplayList(True)
         self.mainModel.initSubmodelImageGLDisplayList()
 
         # Initialize all CSI display lists
         yield "Initializing CSI GL display lists"
         csiList = self.mainModel.getCSIList()
         for csi in csiList:
-            csi.createOGLDisplayList()
+            csi.createGLDisplayList()
 
     def getPartDimensionListAndCount(self, reset = False):
         if reset:
@@ -1998,10 +1998,11 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
         if isinstance(parent, Page):
             if parent.prevPage() and parent.steps[0] is self:
-                menu.addAction("Move to &Previous Page", self.moveToPrevPage)
+                menu.addAction("Move to &Previous Page", lambda: self.moveToPrevOrNextPage(True))
             if parent.nextPage() and parent.steps[-1] is self:
-                menu.addAction("Move to &Next Page", self.moveToNextPage)
+                menu.addAction("Move to &Next Page", lambda: self.moveToPrevOrNextPage(False))
             
+        menu.addSeparator()
         if self.getPrevStep():
             menu.addAction("Merge with Previous Step", lambda: self.mergeWithStepSignal(self.getPrevStep()))
             menu.addAction("Swap with Previous Step", lambda: self.swapWithStepSignal(self.getPrevStep()))
@@ -2036,31 +2037,19 @@ class Step(StepTreeManager, QGraphicsRectItem):
             self.scene().undoStack.push(AddRemoveCalloutCommand(callout, True))
         else:
             self.addCallout(callout)
-
         if useSelection:
             self.scene().fullItemSelectionUpdate(callout)
-
         return callout
 
-    def moveToPrevPage(self):
+    def moveToPrevOrNextPage(self, toPrev = True):
         scene = self.scene()
+        currentPage = self.parentItem()
+        targetPage = currentPage.prevPage() if toPrev else currentPage.nextPage()
         stepSet = []
         for step in [s for s in scene.selectedItems() if isinstance(s, Step)]:
-            stepSet.append((step, step.parentItem(), step.parentItem().prevPage()))
+            stepSet.append((step, currentPage, targetPage))
         scene.undoStack.push(MoveStepToPageCommand(stepSet))
-
-        if scene.currentPage.isEmpty():
-            scene.undoStack.push(AddRemovePageCommand(scene, scene.currentPage, False))
-
-    def moveToNextPage(self):
-        scene = self.scene()
-        stepSet = []
-        for step in [s for s in scene.selectedItems() if isinstance(s, Step)]:
-            stepSet.append((step, step.parentItem(), step.parentItem().nextPage()))
-        scene.undoStack.push(MoveStepToPageCommand(stepSet))
-
-        if scene.currentPage.isEmpty():
-            scene.undoStack.push(AddRemovePageCommand(scene, scene.currentPage, False))
+        self.scene().fullItemSelectionUpdate(currentPage)
 
     def mergeWithStepSignal(self, step):
         parent = self.parentItem()
@@ -2624,13 +2613,13 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     def containsSubmodel(self):
         return any(part.isSubmodel() for part in self.getPartList())
 
-    def __callPreviousOGLDisplayLists(self, isCurrent = False):
+    def __callPreviousGLDisplayLists(self, isCurrent = False):
 
         # Call all previous step's CSI display list
         prevStep = self.parentItem().getPrevStep()
         if prevStep:
             #if prevStep.csi.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
-            prevStep.csi.__callPreviousOGLDisplayLists(False)
+            prevStep.csi.__callPreviousGLDisplayLists(False)
             #else:
             #    GL.glCallList(prevStep.csi.glDispID)
 
@@ -2639,7 +2628,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             for part in partItem.parts:
                 part.callGLDisplayList(isCurrent)
 
-    def createOGLDisplayList(self):
+    def createGLDisplayList(self):
         """
         Create a display list that includes all previous CSIs plus this one,
         for a single display list giving a full model rendering up to this step.
@@ -2649,7 +2638,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             self.glDispID = GL.glGenLists(1)
         GL.glNewList(self.glDispID, GL.GL_COMPILE)
         #LicGLHelpers.drawCoordLines()
-        self.__callPreviousOGLDisplayLists(True)
+        self.__callPreviousGLDisplayLists(True)
         GL.glEndList()
 
     def resetPixmap(self):
@@ -2666,7 +2655,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
 
         glContext = self.getPage().instructions.glContext
         glContext.makeCurrent()
-        self.createOGLDisplayList()
+        self.createGLDisplayList()
         sizes = [512, 1024, 2048]
 
         for size in sizes:
@@ -2801,7 +2790,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         part.initializeAbstractPart(self.getPage().instructions)
 
         if part.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
-            part.abstractPart.createOGLDisplayList()
+            part.abstractPart.createGLDisplayList()
             glContext = self.getPage().instructions.glContext
             part.abstractPart.resetPixmap(glContext)
 
@@ -2872,9 +2861,9 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
                 oldScaling = csi.scaling
                 csi.scaling = self.scaling
                 csi.acceptScale(oldScaling)
-                
+
         self.scene().undoStack.endMacro()
-    
+
 class AbstractPart(object):
     """
     Represents one 'abstract' part.  Could be regular part, like 2x4 brick, could be a 
@@ -2919,14 +2908,14 @@ class AbstractPart(object):
         newPart.center = QPointF(self.center)
         return newPart
 
-    def createOGLDisplayList(self, skipPartInit = False):
+    def createGLDisplayList(self, skipPartInit = False):
         """ Initialize this part's display list."""
 
         # Ensure any parts in this part have been initialized
         if not skipPartInit:
             for part in self.parts:
                 if part.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
-                    part.abstractPart.createOGLDisplayList()
+                    part.abstractPart.createGLDisplayList()
 
         if self.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             self.glDispID = GL.glGenLists(1)
@@ -2957,7 +2946,7 @@ class AbstractPart(object):
     def resetPixmap(self, glContext, extraRotation = None, extraScale = None):
         
         glContext.makeCurrent()
-        self.createOGLDisplayList()
+        self.createGLDisplayList()
         sizes = [128, 256, 512, 1024, 2048]
         self.width, self.height, self.center, self.leftInset, self.bottomInset = [0] * 5
 
@@ -3147,10 +3136,10 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         name = os.path.splitext(os.path.basename(self.name))[0]
         return name.replace('_', ' ')
 
-    def createOGLDisplayList(self, skipPartInit = False):
+    def createGLDisplayList(self, skipPartInit = False):
         for model in self.submodels:
-            model.createOGLDisplayList(skipPartInit)
-        AbstractPart.createOGLDisplayList(self, skipPartInit)
+            model.createGLDisplayList(skipPartInit)
+        AbstractPart.createGLDisplayList(self, skipPartInit)
 
     def setSelected(self, selected):
         self.pages[0].setSelected(selected)
@@ -3601,7 +3590,7 @@ class Submodel(SubmodelTreeManager, AbstractPart):
     def initSubmodelImageGLDisplayList(self):
         item = self.pages[0].submodelItem
         if item and item.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
-            item.abstractPart.createOGLDisplayList(False)
+            item.abstractPart.createGLDisplayList(False)
             item.resetPixmap()
         for submodel in self.submodels:
             submodel.initSubmodelImageGLDisplayList()
@@ -3960,7 +3949,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def setSelected(self, selected, updatePixmap = True):
         QGraphicsRectItem.setSelected(self, selected)
         if updatePixmap:
-            self.getCSI().createOGLDisplayList()
+            self.getCSI().createGLDisplayList()
 
     def addNewDisplacement(self, direction):
         self.displaceDirection = direction
@@ -4272,7 +4261,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
         if self.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             glContext = step.getPage().instructions.glContext
-            self.abstractPart.createOGLDisplayList()
+            self.abstractPart.createGLDisplayList()
             self.abstractPart.resetPixmap(glContext)
 
         if self.calloutPart:
@@ -4361,7 +4350,7 @@ class Arrow(Part):
         self.abstractPart.primitives.append(tip1)
         self.abstractPart.primitives.append(tip2)
         self.abstractPart.primitives.append(base)
-        self.abstractPart.createOGLDisplayList()
+        self.abstractPart.createGLDisplayList()
 
     def data(self, index):
         x, y, z = LicHelpers.GLMatrixToXYZ(self.matrix)
@@ -4479,7 +4468,7 @@ class Arrow(Part):
         p.points[3] = length
         p.points[6] = length
         self.abstractPart.resetBoundingBox()
-        self.abstractPart.createOGLDisplayList()
+        self.abstractPart.createGLDisplayList()
         self._dataString = None
     
     def adjustLength(self, offset):
@@ -4535,7 +4524,7 @@ class Arrow(Part):
 class Primitive(object):
     """
     Not a primitive in the LDraw sense, just a single line/triangle/quad.
-    Used mainly to construct an OGL display list for a set of points.
+    Used mainly to construct a GL display list for a set of points.
     """
 
     def __init__(self, color, points, type, winding = GL.GL_CW):

@@ -204,11 +204,11 @@ class TemplatePage(TemplateRectItem, Page):
             step.addPart(newPart)
             self.submodelPart.parts.append(newPart)
 
-        self.submodelPart.createOGLDisplayList()
-        self.initOGLDimension(self.submodelPart, glContext)
+        self.submodelPart.createGLDisplayList()
+        self.initGLDimension(self.submodelPart, glContext)
         
-        step.csi.createOGLDisplayList()
-        self.initOGLDimension(step.csi, glContext)
+        step.csi.createGLDisplayList()
+        self.initGLDimension(step.csi, glContext)
 
         step.addBlankCalloutSignal(False)
         if len(self.submodel.parts) >= 2:
@@ -228,7 +228,7 @@ class TemplatePage(TemplateRectItem, Page):
         self.initLayout()
         self.postLoadInit("test_template.lit")
 
-    def initOGLDimension(self, part, glContext):
+    def initGLDimension(self, part, glContext):
 
         glContext.makeCurrent()
         for size in [512, 1024, 2048]:

@@ -118,13 +118,13 @@ def __readTemplate(stream, instructions):
 
     for abstractPart in partDictionary.values():
         if abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
-            abstractPart.createOGLDisplayList()
+            abstractPart.createGLDisplayList()
        
     for glItem in template.glItemIterator():
-        if hasattr(glItem, 'createOGLDisplayList'):
-            glItem.createOGLDisplayList()
+        if hasattr(glItem, 'createGLDisplayList'):
+            glItem.createGLDisplayList()
 
-    template.submodelPart.createOGLDisplayList()
+    template.submodelPart.createGLDisplayList()
     template.submodelItem.setAbstractPart(template.submodelPart)
     template.postLoadInit(filename)
     return template
@@ -183,7 +183,7 @@ def __readInstructions(stream, instructions):
 
     if instructions.mainModel.hasTitlePage() and instructions.mainModel.titlePage.submodelItem:
         item = instructions.mainModel.titlePage.submodelItem
-        item.abstractPart.createOGLDisplayList(False)
+        item.abstractPart.createGLDisplayList(False)
         item.resetPixmap()
 
 def __readSubmodel(stream, instructions, createMainmodel = False):
