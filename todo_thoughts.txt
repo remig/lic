@@ -55,8 +55,6 @@ that control auto-page & step generation (one step / page, min / max parts per s
 
 - Add progress bar to File->Open operation
 
-- Add a Page Count label to default Title Page
-
 - Create a proper Properties dialog.  On it:
   - Expose most of lic.ini settings 
   - Add ability to save or auto-delete backup save files

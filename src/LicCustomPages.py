@@ -202,6 +202,7 @@ class TitlePage(TitlePageTreeManager, Page):
         self.addNewLabel(None, QFont("Arial", 25), self.submodel.getSimpleName())
         self.addNewLabel(Page.margin * 2, None, "1001")
         self.addPartCountLabel(False)
+        self.addPageCountLabel(False)
         self.initLayout()
 
     def initLayout(self):
@@ -223,9 +224,10 @@ class TitlePage(TitlePageTreeManager, Page):
         y = self.submodelItem.pos().y() - title.rect().height() - (pmy * 3)
         title.setPos(x, y)
 
-        partCountLabel = self.getPartCountLabel()
-        if partCountLabel:
-            self.setPartCountLabelPos(partCountLabel)
+        if self.getPartCountLabel():
+            self.setPartCountLabelPos(self.getPartCountLabel())
+        if self.getPageCountLabel():
+            self.setPageCountLabelPos(self.getPageCountLabel())
 
     def getPartCountLabel(self):
         for label in reversed(self.labels):
@@ -233,10 +235,21 @@ class TitlePage(TitlePageTreeManager, Page):
                 return label
         return None
 
+    def getPageCountLabel(self):
+        for label in reversed(self.labels):
+            if label.text().count(" Pages") > 0:
+                return label
+        return None
+
     def setPartCountLabelPos(self, label):
         label.setPos(self.rect().bottomLeft())
         label.moveBy(0, -label.rect().height())
         label.moveBy(Page.margin.x(), -Page.margin.y())
+
+    def setPageCountLabelPos(self, label):
+        label.setPos(self.rect().bottomRight())
+        label.moveBy(-label.rect().width(), -label.rect().height())
+        label.moveBy(-Page.margin.x(), -Page.margin.y())
 
     def getAllChildItems(self):
         return [self, self.submodelItem ] + self.labels + self.annotations
@@ -248,6 +261,8 @@ class TitlePage(TitlePageTreeManager, Page):
         menu.addAction("Add Label", lambda: self.addNewLabel(event.scenePos(), useUndo = True))
         if self.getPartCountLabel() is None:
             menu.addAction("Add Part Count Label", lambda: self.addPartCountLabel(True))
+        if self.getPageCountLabel() is None:
+            menu.addAction("Add Page Count Label", lambda: self.addPageCountLabel(True))
         menu.addAction("Remove Title Page", lambda: self.submodel.hideTitlePage())
         menu.exec_(event.screenPos())
 
@@ -263,7 +278,11 @@ class TitlePage(TitlePageTreeManager, Page):
             self.labels.append(label)
 
     def addPartCountLabel(self, useUndo = False):
-        parts = self.submodel.getFullPartList()
-        text = "%d pcs." % len(parts)
+        text = "%d pcs." % len(self.submodel.getFullPartList())
         self.addNewLabel(None, None, text, useUndo)
         self.setPartCountLabelPos(self.labels[-1])
+
+    def addPageCountLabel(self, useUndo = False):
+        text = "%d Pages" % len(self.submodel.getFullPageList())
+        self.addNewLabel(None, None, text, useUndo)
+        self.setPageCountLabelPos(self.labels[-1])
