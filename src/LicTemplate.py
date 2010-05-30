@@ -174,7 +174,7 @@ class TemplatePage(TemplateRectItem, Page):
 
         self.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Page'))
         step.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Step'))
-        self.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, self.numberItem)
+        self.numberItem.contextMenuEvent = lambda event: self.pageNumberMenuEvent(event)
         step.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, step.numberItem)
 
         if step.hasPLI():
@@ -366,17 +366,41 @@ class TemplatePage(TemplateRectItem, Page):
         dialog.exec_()
         stack.endMacro()
 
+    def pageNumberMenuEvent(self, event):
+
+        def addPosAction(title, pos):
+            action = QAction(title, arrowMenu)
+            action.connect(action, SIGNAL("triggered()"), lambda: stack.push(SetPageNumberPosCommand(self, Page.NumberPos, pos)))
+            if pos == Page.NumberPos:
+                action.setCheckable(True)
+                action.setChecked(True)
+            return action
+
+        stack = self.scene().undoStack
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Set Font", lambda: self.setItemFont(item))
+        arrowMenu = menu.addMenu("Set Position")
+        arrowMenu.addAction(addPosAction("Right Corner", 'right'))
+        arrowMenu.addAction(addPosAction("Left Corner", 'left'))
+        arrowMenu.addAction(addPosAction("Odd # on left - Even # on right", 'evenRight'))
+        arrowMenu.addAction(addPosAction("Even # on left - Odd # on right", 'oddRight'))
+        menu.exec_(event.screenPos())
+
+    def setNumberItemPos(self, pos):
+        Page.NumberPos = pos
+        self.resetPageNumberPosition()
+
     def fontMenuEvent(self, event, item):
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Set Font", lambda: self.setItemFont(item))
         menu.exec_(event.screenPos())
-        
+
     def setItemFont(self, item):
         oldFont = item.font()
         newFont, ok = QFontDialog.getFont(oldFont)
         if ok:
             item.setAllFonts(oldFont, newFont)
-            
+
     def resetCallout(self):
         for callout in self.steps[0].callouts:
             for step in callout.steps:

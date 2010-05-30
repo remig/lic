@@ -796,7 +796,21 @@ class RotateDefaultItemCommand(QUndoCommand):
     def doAction(self, redo):
         self.target.defaultRotation = list(self.newRotation) if redo else list(self.oldRotation)
         self.resetGLItem(self.name, self.template)
-        
+
+class SetPageNumberPosCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, template, oldPos, newPos):
+        QUndoCommand.__init__(self, "change Page Number position")
+        self.template, self.oldPos, self.newPos = template, oldPos, newPos
+
+    def doAction(self, redo):
+        pos = self.newPos if redo else self.oldPos
+        self.template.setNumberItemPos(pos)
+        for page in self.template.instructions.getPageList():
+            page.resetPageNumberPosition()
+
 class SetPageBackgroundColorCommand(QUndoCommand):
 
     _id = getNewCommandID()

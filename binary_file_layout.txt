@@ -17,6 +17,7 @@ Instructions:
   QString imported filename
   QSize Page.PageSize
   float Page.Resolution
+  QString Page.NumberPos
   
   float CSI.scale
   float PLI.scale

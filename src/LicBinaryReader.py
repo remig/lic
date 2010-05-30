@@ -139,6 +139,8 @@ def __readInstructions(stream, instructions):
     
     Page.PageSize = stream.readQSize()
     Page.Resolution = stream.readFloat()
+    if stream.licFileVersion >= 11:
+        Page.NumberPos = stream.readQString()
 
     CSI.defaultScale = stream.readFloat()
     PLI.defaultScale = stream.readFloat()

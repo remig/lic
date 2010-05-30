@@ -51,7 +51,7 @@ import resources  # Needed for ":/resource" type paths to work
 import config     # For user path info
 
 MagicNumber = 0x14768126
-FileVersion = 10
+FileVersion = 11
 
 partDictionary = {}      # x = AbstractPart("3005.dat"); partDictionary[x.filename] == x
 currentModelFilename = ""
@@ -461,6 +461,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
     PageSize = QSize(800, 600)  # Always pixels
     Resolution = 72.0           # Always pixels / inch
+    NumberPos = 'right'         # One of 'left', 'right', 'oddRight', 'evenRight'
 
     defaultPageSize = QSize(800, 600)
     defaultResolution = 72.0
@@ -711,7 +712,14 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     
     def resetPageNumberPosition(self):
         rect = self.numberItem.rect()
-        rect.moveBottomRight(self.insetRect().bottomRight() - Page.margin)
+        pos = Page.NumberPos
+        isOdd = self.number % 2
+        onRight = pos == 'right' or (isOdd and pos == 'oddRight') or (not isOdd and pos == 'evenRight')
+
+        if onRight:
+            rect.moveBottomRight(self.insetRect().bottomRight() - Page.margin)
+        else:
+            rect.moveBottomLeft(QPointF(Page.margin.x(), self.insetRect().bottom() - Page.margin.y()))
         self.numberItem.setPos(rect.topLeft())
 
     def initLayout(self):
@@ -873,7 +881,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         return True
 
     def contextMenuEvent(self, event):
-        
+
         menu = QMenu(self.scene().views()[0])
         if not self.isLocked():
             menu.addAction("Auto Layout", self.initLayout)

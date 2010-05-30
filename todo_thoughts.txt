@@ -55,8 +55,6 @@ that control auto-page & step generation (one step / page, min / max parts per s
 
 - Add progress bar to File->Open operation
 
-- Add ability to display page numbers in alternating page corners (odd=left & even=right, etc)
-
 - Add a Page Count label to default Title Page
 
 - Create a proper Properties dialog.  On it:
