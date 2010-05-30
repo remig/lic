@@ -51,7 +51,6 @@ class LicGraphicsScene(QGraphicsScene):
         
     def __init__(self, parent):
         QGraphicsScene.__init__(self, parent)
-        self.renderMode = 'full' # Or "background" or "foreground"
         self.reset()
 
     def reset(self):
@@ -65,6 +64,7 @@ class LicGraphicsScene(QGraphicsScene):
         self.ySnapLine = self.createSnapLine()
         self.snapToGuides = True
         self.snapToItems = True
+        self.renderMode = 'full' # Or "background" or "foreground"
 
     def createSnapLine(self):
         snapLine = QGraphicsLineItem()
@@ -111,7 +111,7 @@ class LicGraphicsScene(QGraphicsScene):
 
         if widget and self.renderMode == 'full':
 
-            # Setup the set of GL items to be drawn & necessary contexts
+            # Setup the GL items to be drawn & the necessary context
             LicGLHelpers.initFreshContext(False)
             rect = QRectF(self.views()[0].mapToScene(QPoint()), QSizeF(widget.size()))
             pagesToDraw = []
@@ -169,7 +169,7 @@ class LicGraphicsScene(QGraphicsScene):
                 page.show()
                 self.currentPage = page
             elif self.pagesToDisplay == 2:
-                if pageNumber % 2:  # odd pages on right
+                if pageNumber % 2:  # draw odd pages on right
                     if page._number == pageNumber:
                         page.setPos(Page.PageSize.width() + 20, 0)
                         page.show()
@@ -180,7 +180,7 @@ class LicGraphicsScene(QGraphicsScene):
                     else:
                         page.hide()
                         page.setPos(0, 0)
-                else:  # even pages on left
+                else:  # draw even pages on left
                     if page._number == pageNumber:
                         page.setPos(10, 0)
                         page.show()
@@ -224,6 +224,7 @@ class LicGraphicsScene(QGraphicsScene):
     def showOnePage(self):
         self.pagesToDisplay = 1
         self.setSceneRect(0, 0, Page.PageSize.width(), Page.PageSize.height())
+        self.maximizeGuides(Page.PageSize.width(), Page.PageSize.height())
         for page in self.pages:
             page.hide()
             page.setPos(0.0, 0.0)
@@ -235,6 +236,7 @@ class LicGraphicsScene(QGraphicsScene):
 
         self.pagesToDisplay = 2
         self.setSceneRect(0, 0, (Page.PageSize.width() * 2) + 30, Page.PageSize.height() + 20)
+        self.maximizeGuides(Page.PageSize.width() * 2, Page.PageSize.height())
 
         for page in self.pages:
             page.hide()
@@ -260,10 +262,7 @@ class LicGraphicsScene(QGraphicsScene):
         ph = Page.PageSize.height()
         height = (10 * (pc + 1)) + (ph * pc)
         self.setSceneRect(0, 0, Page.PageSize.width() + 20, height)
-        
-        for guide in self.guides:
-            if guide.orientation == LicLayout.Vertical:
-                guide.setLength(height)
+        self.maximizeGuides(0, height)
                 
         for i, page in enumerate(self.pages):
             page.setPos(10, (10 * (i + 1)) + (ph * i))
@@ -280,12 +279,7 @@ class LicGraphicsScene(QGraphicsScene):
         width = pw + pw + 30
         height = (10 * (rows + 1)) + (ph * rows)
         self.setSceneRect(0, 0, width, height)
-        
-        for guide in self.guides:
-            if guide.orientation == LicLayout.Vertical:
-                guide.setLength(height)
-            else:
-                guide.setLength(width)
+        self.maximizeGuides(width, height)
             
         self.pages[0].setPos(10, 10)  # Template page first
         self.pages[0].show()
@@ -336,13 +330,20 @@ class LicGraphicsScene(QGraphicsScene):
         self.undoStack.endMacro()
 
     def addGuide(self, orientation, pos):
-        guide = Guide(orientation, self.sceneRect())
+        guide = Guide(orientation, self)
         guide.setPos(pos)
         self.guides.append(guide)
         self.addItem(guide)
 
     def addNewGuide(self, orientation):
-        self.undoStack.push(LicUndoActions.AddRemoveGuideCommand(self, Guide(orientation, self.sceneRect()), True))
+        self.undoStack.push(LicUndoActions.AddRemoveGuideCommand(self, Guide(orientation, self), True))
+
+    def maximizeGuides(self, width, height):
+        for guide in self.guides:
+            if guide.orientation == LicLayout.Vertical and height > 0:
+                guide.setLength(height)
+            elif guide.orientation == LicLayout.Horizontal and width > 0:
+                guide.setLength(width)
 
     def snap(self, item):
         if not self.snapToGuides and not self.snapToItems:
@@ -553,7 +554,7 @@ class Guide(QGraphicsLineItem):
     
     extends = 500
     
-    def __init__(self, orientation, sceneRect):
+    def __init__(self, orientation, scene):
         QGraphicsLineItem.__init__(self)
         
         self.orientation = orientation
@@ -561,19 +562,27 @@ class Guide(QGraphicsLineItem):
         self.setPen(QPen(QColor(0, 0, 255, 128)))  # Blue 1/2 transparent
         #self.setPen(QPen(QBrush(QColor(0, 0, 255, 128)), 1.5))  # Blue 1/2 transparent, 1.5 thick
         self.setZValue(10000)  # Put on top of everything else
-        
-        length = sceneRect.width() if orientation == LicLayout.Horizontal else sceneRect.height()
-        pw, ph = Page.PageSize.width(), Page.PageSize.height()
+
+        dx = scene.views()[0].horizontalScrollBar().value()
+        dy = scene.views()[0].verticalScrollBar().value()
+        viewRect = scene.views()[0].geometry()
+        sceneRect = scene.sceneRect()
+
+        length = scene.sceneRect().width() if orientation == LicLayout.Horizontal else scene.sceneRect().height()
+        x, y = (min(viewRect.width(), sceneRect.width()) / 2.0) + dx, (min(viewRect.height(), sceneRect.height()) / 2.0) + dy
+
         if orientation == LicLayout.Horizontal:
             self.setCursor(Qt.SplitVCursor)
-            self.setLine(-self.extends, ph / 2.0, length + self.extends, ph / 2.0)
+            self.setPos(0, y)
+            self.setLine(-Guide.extends, 0, length + Guide.extends, 0)
         else:
             self.setCursor(Qt.SplitHCursor)
-            self.setLine(pw / 2.0, -self.extends, pw / 2.0, length + self.extends)
+            self.setPos(x, 0)
+            self.setLine(0, -Guide.extends, 0, length + Guide.extends)
 
     def setLength(self, length):
         line = self.line()
-        line.setLength(length + self.extends + self.extends)
+        line.setLength(length + Guide.extends + Guide.extends)
         self.setLine(line)
 
     def mouseMoveEvent(self, event):

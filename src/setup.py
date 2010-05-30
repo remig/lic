@@ -34,7 +34,7 @@ simply invokes the (bundled) python interpreter with Lic.py.
 py2exeOptions = dict(
                      #compressed = True,
                      #skip_archive = True,
-                     #bundle_files = 1,
+                     bundle_files = 1,
                      packages = ['LicImporters'],
                      excludes = ['doctest', 'difflib', 'pdb', 'unittest', 'inspect', '_ssl'],
                      includes = ['sip', 'OpenGL.platform.win32', 'OpenGL.arrays.lists', 'OpenGL.arrays.ctypesarrays'],
@@ -50,5 +50,5 @@ setup(name = 'Lic',
       windows = [{'script':'Lic.py'}], 
       data_files = [('', ['c:\\lic2\\src\\dynamic_template.lit', 'c:\\lic2\\todo_thoughts.txt'])],
       options = {'py2exe': py2exeOptions},
-      #zipfile = None,
+      zipfile = None,
       )
