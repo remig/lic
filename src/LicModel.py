@@ -4105,12 +4105,12 @@ class Part(PartTreeManager, QGraphicsRectItem):
             menu.addAction("&Add Arrow", self.addArrowSignal)
         else:
             arrowMenu = menu.addMenu("Displace With &Arrow")
-            arrowMenu.addAction("Move Up", lambda: stack.push(BeginEndDisplacementCommand(self, Qt.Key_PageUp)))
-            arrowMenu.addAction("Move Down", lambda: stack.push(BeginEndDisplacementCommand(self, Qt.Key_PageDown)))
-            arrowMenu.addAction("Move Forward", lambda: stack.push(BeginEndDisplacementCommand(self, Qt.Key_Down)))
-            arrowMenu.addAction("Move Back", lambda: stack.push(BeginEndDisplacementCommand(self, Qt.Key_Up)))
-            arrowMenu.addAction("Move Left", lambda: stack.push(BeginEndDisplacementCommand(self, Qt.Key_Left)))
-            arrowMenu.addAction("Move Right", lambda: stack.push(BeginEndDisplacementCommand(self, Qt.Key_Right)))
+            arrowMenu.addAction("Move Up", lambda: self.displacePartsSignal(Qt.Key_PageUp))
+            arrowMenu.addAction("Move Down", lambda: displacePartsSignal(Qt.Key_PageDown))
+            arrowMenu.addAction("Move Forward", lambda: displacePartsSignal(Qt.Key_Down))
+            arrowMenu.addAction("Move Back", lambda: displacePartsSignal(Qt.Key_Up))
+            arrowMenu.addAction("Move Left", lambda: displacePartsSignal(Qt.Key_Left))
+            arrowMenu.addAction("Move Right", lambda: displacePartsSignal(Qt.Key_Right))
 
         menu.addSeparator()
         if not self.originalPart:
@@ -4123,6 +4123,14 @@ class Part(PartTreeManager, QGraphicsRectItem):
         
         menu.exec_(event.screenPos())
 
+    def displacePartsSignal(self, direction):
+        partList = [p for p in self.scene().selectedItems() if isinstance(p, Part)]
+        stack = self.scene().undoStack
+        stack.beginMacro("Displace Part%s" % ('s' if len(partList) > 1 else ''))
+        for part in partList:
+            stack.push(BeginEndDisplacementCommand(part, direction))
+        stack.endMacro()
+
     def createCalloutSignal(self):
         stack = self.scene().undoStack
         stack.beginMacro("Create new Callout from Parts")
@@ -4132,7 +4140,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         stack.push(LayoutItemCommand(step))
         stack.endMacro()
         self.scene().fullItemSelectionUpdate(callout)
-        
+
     def moveToCalloutSignal(self, callout):
         selectedParts = []
         for item in self.scene().selectedItems():
