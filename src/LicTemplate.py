@@ -20,9 +20,9 @@
 
 from LicModel import *
 from LicUndoActions import *
-from LicGradientDialog import GradientDialog
 from LicQtWrapper import *
 
+import LicGradientDialog
 import LicDialogs
 import LicGLHelpers
 
@@ -88,7 +88,7 @@ class TemplateRectItem(TemplateLineItem):
         
     def setBackgroundGradient(self):
         g = self.brush().gradient()
-        dialog = GradientDialog(self.scene().views()[0], self.rect().size().toSize(), g)
+        dialog = LicGradientDialog.GradientDialog(self.scene().views()[0], self.rect().size().toSize(), g)
         if dialog.exec_():
             self.scene().undoStack.push(SetBrushCommand(self, self.brush(), QBrush(dialog.getGradient()), "fill Gradient"))
 
@@ -303,8 +303,37 @@ class TemplatePage(TemplateRectItem, Page):
     def getStep(self, number):
         return self.steps[0] if number == 0 else None
 
+    def changePageSize(self):
+        scene = self.scene()
+        parentWidget = scene.views()[0]
+        dialog = LicDialogs.PageSizeDlg(parentWidget, Page.PageSize, Page.Resolution)
+        if dialog.exec_():
+            newPageSize = dialog.getPageSize()
+            newRes = dialog.getResolution()
+            doRescale = dialog.getRescalePageItems()
+            scene.undoStack.push(ResizePageCommand(self, Page.PageSize, newPageSize, Page.Resolution, newRes, doRescale))
+
+    def setGlobalPageSize(self, newPageSize, newResolution, doRescale, newScale):
+
+        if (newPageSize.width() == Page.PageSize.width() and newPageSize.height() == Page.PageSize.height()) and (newResolution != Page.Resolution):
+            return
+
+        if doRescale:
+            self.scaleAllItems(newScale)
+
+        Page.PageSize, Page.Resolution = newPageSize, newResolution
+        w, h = newPageSize.width(), newPageSize.height()
+        self.setRect(0, 0, w, h)
+        self.initLayout()
+        for page in self.instructions.getPageList():
+            page.setRect(0, 0, w, h)
+            page.initLayout()
+        self.scene().refreshView()
+
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
+        menu.addAction("Change Page Size and Resolution", self.changePageSize)
+        menu.addSeparator()
         menu.addAction("Format Border", self.formatBorder)
         menu.addAction("Background Color", self.setBackgroundColor)
         arrowMenu = menu.addMenu("Background Fill Effect")
@@ -341,7 +370,7 @@ class TemplatePage(TemplateRectItem, Page):
         
     def setBackgroundGradient(self):
         g = self.brush().gradient()
-        dialog = GradientDialog(self.scene().views()[0], Page.PageSize, g)
+        dialog = LicGradientDialog.GradientDialog(self.scene().views()[0], Page.PageSize, g)
         if dialog.exec_():
             self.scene().undoStack.push(SetPageBackgroundBrushCommand(self, self.brush(), QBrush(dialog.getGradient())))
     

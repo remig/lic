@@ -103,7 +103,12 @@ class PartListPage(PartListPageTreeManager, Page):
             item.setParentItem(self.pli)
 
     def initLayout(self):
-        pass  # TODO: Need to handle bumping items from page to page, so can do post-loaded auto-layouts
+        self.lockIcon.resetPosition()
+        if self.lockIcon.isLocked:
+            return  # Don't make any layout changes to locked pages
+        self.resetPageNumberPosition()
+        self.pli.doOverflowLayout()
+        # TODO: Need to handle bumping items from page to page, so can do post-loaded auto-layouts
 
     def doOverflowLayout(self):
         overflowItems = self.pli.doOverflowLayout()

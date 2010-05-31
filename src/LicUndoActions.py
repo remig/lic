@@ -197,29 +197,22 @@ class ResizePageCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, licWindow, oldPageSize, newPageSize, oldResolution, newResolution, doRescale):
+    def __init__(self, template, oldPageSize, newPageSize, oldResolution, newResolution, doRescale):
         QUndoCommand.__init__(self, "Page Resize")
-        
-        self.licWindow = licWindow
+
+        self.template = template
         self.oldPageSize, self.newPageSize = oldPageSize, newPageSize
         self.oldResolution, self.newResolution = oldResolution, newResolution
         self.doRescale = doRescale
         self.oldScale = 1.0
         self.newScale = float(newPageSize.width()) / float(oldPageSize.width())
 
-        if doRescale:  # Temp error check
-            os, ns = QSizeF(oldPageSize), QSizeF(newPageSize)
-            if (os.width() / os.height()) != (ns.width() / ns.height()):
-                print "Cannot rescale page items with new aspect ratio"
-            if (ns.width() / os.width()) != (ns.height() / os.height()):
-                print "Cannot rescale page items with uneven width / height scales"
-        
     def undo(self):
-        self.licWindow.setPageSize(self.oldPageSize, self.oldResolution, self.doRescale, self.oldScale)
-    
+        self.template.setGlobalPageSize(self.oldPageSize, self.oldResolution, self.doRescale, self.oldScale)
+
     def redo(self):
-        self.licWindow.setPageSize(self.newPageSize, self.newResolution, self.doRescale, self.newScale)
-    
+        self.template.setGlobalPageSize(self.newPageSize, self.newResolution, self.doRescale, self.newScale)
+
 class MoveStepToPageCommand(QUndoCommand):
 
     """

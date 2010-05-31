@@ -507,12 +507,6 @@ class LicWindow(QMainWindow):
         viewActions = (addHGuide, addVGuide, removeGuides, None, zoom100, zoomIn, zoomOut, None, onePage, twoPages, continuous, continuousFacing)
         self.addActions(self.viewMenu, viewActions)
 
-        # Page Menu
-        self.pageMenu = menu.addMenu("&Page")
-
-        pageSizeAction = self.createMenuAction("Page Size...", self.changePageSizeAction, None, "Change the overall size of all Pages in this Instruction book")       
-        self.addActions(self.pageMenu, (pageSizeAction,))
-        
         # Export Menu
         self.exportMenu = menu.addMenu("E&xport")
         self.exportToImagesAction = self.createMenuAction("&Generate Final Images", self.exportImages, None, "Generate final images of each page in this Instruction book")
@@ -520,31 +514,6 @@ class LicWindow(QMainWindow):
         self.exportToPOVAction = self.createMenuAction("NYI - Generate Images with Pov-Ray", self.exportToPOV, None, "Use Pov-Ray to generate final, ray-traced images of each page in this Instruction book")
         self.exportToMPDAction = self.createMenuAction("Generate &MPD", self.exportToMPD, None, "Generate an LDraw MPD file from the parts & steps in this Instruction book")
         self.addActions(self.exportMenu, (self.exportToImagesAction, self.exportToPDFAction, self.exportToPOVAction, None, self.exportToMPDAction))
-
-    def changePageSizeAction(self):
-        dialog = LicDialogs.PageSizeDlg(self, Page.PageSize, Page.Resolution)
-        if dialog.exec_():
-            newPageSize = dialog.getPageSize()
-            newRes = dialog.getResolution()
-            doRescale = dialog.getRescalePageItems()
-            self.undoStack.beginMacro("Page Resize")
-            self.undoStack.push(LicUndoActions.ResizePageCommand(self, Page.PageSize, newPageSize, Page.Resolution, newRes, doRescale))
-            self.undoStack.endMacro()
-
-    def setPageSize(self, newPageSize, newResolution, doRescale, newScale):
-        
-        if (newPageSize.width() == Page.PageSize.width() and newPageSize.height() == Page.PageSize.height()) and (newResolution != Page.Resolution):
-            return
-        
-        if doRescale:
-            self.templatePage.scaleAllItems(newScale)
-        
-        Page.PageSize = newPageSize
-        Page.Resolution = newResolution
-        self.templatePage.setRect(0, 0, newPageSize.width(), newPageSize.height())
-        self.templatePage.initLayout()
-        self.instructions.setPageSize(Page.PageSize)
-        self.scene.refreshView()
 
     def zoom(self, factor):
         self.graphicsView.scaleView(factor)
@@ -731,8 +700,6 @@ class LicWindow(QMainWindow):
         self.fileSaveTemplateAction.setEnabled(enabled)
         self.fileSaveTemplateAsAction.setEnabled(enabled)
         self.fileLoadTemplateAction.setEnabled(enabled)
-        #self.editMenu.setEnabled(enabled)
-        self.pageMenu.setEnabled(enabled)
         self.viewMenu.setEnabled(enabled)
         self.exportMenu.setEnabled(enabled)
         self.treeWidget.treeToolBar.setEnabled(enabled)
@@ -912,7 +879,7 @@ def main():
     #filename = unicode("C:/lic/template.dat")
     #filename = unicode("C:/lic/stack.lic")
     #filename = unicode("C:/lic/1x1.dat")
-    #filename = unicode("C:/lic/pyramid.lic")
+    #filename = unicode("C:/lic2/pyramid.lic")
     #filename = unicode("C:/lic2/SubSubModel.mpd")
 
     if filename:

@@ -387,10 +387,6 @@ class Instructions(QObject):
         if self.mainModel:
             self.mainModel.updatePageNumbers(newNumber, increment)
 
-    def setPageSize(self, newPageSize):
-        if self.mainModel:
-            self.mainModel.setPageSize(newPageSize)
-
 class InstructionsProxy(object):
 
     def __init__(self, instructions):
@@ -3503,15 +3499,6 @@ class Submodel(SubmodelTreeManager, AbstractPart):
     def createBlankPart(self):
         return Part(self.filename, matrix = LicGLHelpers.IdentityMatrix())
 
-    def setPageSize(self, newPageSize):
-        
-        for page in self.pages:
-            page.setRect(0, 0, newPageSize.width(), newPageSize.height())
-            page.initLayout()
-            
-        for submodel in self.submodels:
-            submodel.setPageSize(newPageSize)
-
     def getCSIList(self):
         csiList = []
         for page in self.pages:
@@ -3722,6 +3709,11 @@ class Mainmodel(MainModelTreeManager, Submodel):
             if p._row > page._row: 
                 p._row -= 1
         Submodel.deletePage(self, page)
+
+    def initAllPLILayouts(self):
+        Submodel.initAllPLILayouts(self)
+        for page in self.partListPages:
+            page.initLayout()
 
     def updatePageNumbers(self, newNumber, increment = 1):
         for p in self.partListPages:
