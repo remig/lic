@@ -47,6 +47,8 @@ import LicHelpers
 import LicDialogs
 import LicPartLengths
 import LicImporters
+from LicImporters import LDrawImporter
+
 import resources  # Needed for ":/resource" type paths to work
 import config     # For user path info
 
@@ -347,7 +349,6 @@ class Instructions(QObject):
     def exportToPDF(self):
 
         # Create an image for each page
-        # TODO: Test export to PDF with new higher resolution settings.
         # TODO: Connect PDF export to page resolution settings
         filename = os.path.join(config.pdfCachePath(), os.path.basename(self.mainModel.filename)[:-3] + "pdf")
         yield filename
@@ -528,7 +529,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
         for step in self.steps:
             items.append(step)
-            items.append(step.csi)  # TODO: Verify this doesn't break final image rendering
+            items.append(step.csi)
             if step.numberItem:
                 items.append(step.numberItem)
             if step.hasPLI():
@@ -1780,7 +1781,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
         self.numberItem = None
 
     def exportToLDrawFile(self, fh):
-        fh.write(LicImporters.LDrawImporter.createStepLine())
+        fh.write(LDrawImporter.createStepLine())
 
     def initMinimumLayout(self):
 
@@ -3604,7 +3605,7 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         self.pngImage = QImage(pngFile)
 
     def exportToLDrawFile(self, fh):
-        for line in LicImporters.LDrawImporter.createSubmodelLines(self.filename):
+        for line in LDrawImporter.createSubmodelLines(self.filename):
             fh.write(line)
         for page in self.pages:
             for step in page.steps:
@@ -4037,7 +4038,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         GL.glEnd()
 
     def exportToLDrawFile(self, fh):
-        line = LicImporters.LDrawImporter.createPartLine(self.color, self.matrix, self.abstractPart.filename)
+        line = LDrawImporter.createPartLine(self.color, self.matrix, self.abstractPart.filename)
         fh.write(line)
 
     def duplicate(self):

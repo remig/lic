@@ -615,7 +615,7 @@ class LicWindow(QMainWindow):
             return self.fileSave()
         return reply == QMessageBox.No
 
-    def fileImport(self):  # TODO: Handle files with submodels that aren't used
+    def fileImport(self):
         if not self.offerSave():
             return
         dir = os.path.dirname(self.filename) if self.filename is not None else "."
@@ -841,12 +841,8 @@ class LicWindow(QMainWindow):
         self.statusBar().showMessage("NYI - POV Export is broken")
 
     def exportToMPD(self):
-        if self.filename:
-            f = self.filename
-        else:
-            f = self.instructions.getModelName()
-            f = os.path.splitext(f)[0] + "_lic.mpd"
-
+        f = self.filename if self.filename else self.instructions.getModelName()
+        f = os.path.splitext(f)[0] + "_lic.mpd"
         filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Create MPD File", f, "LDraw files (*.mpd)"))
         if filename:
             fh = open(filename, 'w')
