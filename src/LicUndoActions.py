@@ -192,6 +192,8 @@ class BeginEndDisplacementCommand(QUndoCommand):
         part.addNewDisplacement(self.direction) if redo else part.removeDisplacement()
         part.scene().emit(SIGNAL("layoutChanged()"))
         part.getCSI().resetPixmap()
+        if part.originalPart: # Part is in Callout - resize Callout
+            part.getStep().resetRect()
 
 class ResizePageCommand(QUndoCommand):
 

@@ -45,8 +45,6 @@ that control auto-page & step generation (one step / page, min / max parts per s
 
 - Think about 'selection group' class, especially SelectedPart class, to better handle context menus for multiply selected items
 
-- Displacing a part inside a Callout does not auto-resize the overall callout, because Step stays big
- 
 - On Import, auto-shrink CSIs so they fit on a page
  
 - Consider PyInstaller over py2exe, for its multi-platform goodness
