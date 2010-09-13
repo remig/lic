@@ -281,6 +281,7 @@ class LicWindow(QMainWindow):
 
     def __init__(self, parent = None):
         QMainWindow.__init__(self, parent)
+        QGL.setPreferredPaintEngine(QPaintEngine.OpenGL)
         
         self.loadSettings()
         self.setWindowIcon(QIcon(":/lic_logo_16x16"))
@@ -321,7 +322,7 @@ class LicWindow(QMainWindow):
         self.selectionModel = QItemSelectionModel(self.treeModel)  # MUST keep own reference to selection model here
         self.treeWidget.configureTree(self.scene, self.treeModel, self.selectionModel)
         self.treeWidget.tree.connect(self.scene, SIGNAL("sceneClick"), self.treeWidget.tree.updateTreeSelection)
-        self.scene.connect(self.scene, SIGNAL("selectionChanged()"), self.scene.selectionChanged)
+        self.scene.connect(self.scene, SIGNAL("selectionChanged()"), self.scene.selectionChangedHandler)
 
         # Allow the graphics scene to emit the layoutAboutToBeChanged and layoutChanged
         # signals, for easy notification of layout changes everywhere
@@ -499,7 +500,7 @@ class LicWindow(QMainWindow):
         zoomIn = self.createMenuAction("Zoom &In", lambda: self.zoom(1.2), None, "Zoom In")
         zoomOut = self.createMenuAction("Zoom &Out", lambda: self.zoom(1.0 / 1.2), None, "Zoom Out")
 
-        onePage = self.createMenuAction("Show One Page", self.scene.showOnePage, None, "Show One Page")
+        onePage = self.createMenuAction("Show One Page", self.scene.showOnePage, None, "Show One Page")  # TODO: Make these checkable, tied to the state stored in scene
         twoPages = self.createMenuAction("Show Two Pages", self.scene.showTwoPages, None, "Show Two Pages")
         continuous = self.createMenuAction("Continuous", self.scene.continuous, None, "Continuous")
         continuousFacing = self.createMenuAction("Continuous Facing", self.scene.continuousFacing, None, "Continuous Facing")
@@ -586,7 +587,7 @@ class LicWindow(QMainWindow):
             self.saveSettings()
             
             # Need to explicitly disconnect this signal, because the scene emits a selectionChanged right before it's deleted
-            self.disconnect(self.scene, SIGNAL("selectionChanged()"), self.scene.selectionChanged)
+            self.disconnect(self.scene, SIGNAL("selectionChanged()"), self.scene.selectionChangedHandler)
             self.glWidget.doneCurrent()  # Avoid a crash when exiting
             event.accept()
         else:
@@ -875,8 +876,8 @@ def main():
     #filename = unicode("C:/lic/template.dat")
     #filename = unicode("C:/lic/stack.lic")
     #filename = unicode("C:/lic/1x1.dat")
-    #filename = unicode("C:/lic2/pyramid.lic")
-    #filename = unicode("C:/lic2/SubSubModel.mpd")
+    #filename = unicode("C:/lic/pyramid.lic")
+    #filename = unicode("C:/lic/SubSubModel.mpd")
 
     if filename:
         QTimer.singleShot(50, lambda: loadFile(window, filename))

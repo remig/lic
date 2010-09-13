@@ -284,6 +284,10 @@ class Instructions(QObject):
         self.mainModel.exportImagesToPov()
         
     def exportImages(self, scaleFactor = 1.0):
+        
+        pagesToDisplay = self.scene.pagesToDisplay
+        self.scene.clearSelection()
+        self.scene.showOnePage()
 
         # Build the list of pages that need to be exported
         pageList = self.mainModel.getFullPageList()
@@ -344,6 +348,7 @@ class Instructions(QObject):
         finally:
             bufferManager.cleanup()
             self.scene.renderMode = 'full'
+            self.scene.setPagesToDisplay(pagesToDisplay)
             self.scene.selectPage(currentPageNumber)
 
     def exportToPDF(self):
@@ -494,7 +499,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
         self.numberItem.setFont(QFont("Arial", 15))
         self.numberItem.setFlags(AllFlags)
-        self.numberItem.dataText = "Page Number Label"
+        self.numberItem.data = lambda index: "Page Number Label"
         self.numberItem.itemClassName = "Page Number"
         self.children.append(self.numberItem)
         
@@ -666,7 +671,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         s.setPen(QPen(Qt.black))
         s.setBrush(QBrush(Qt.black))
         s.itemClassName = "Separator"
-        s.dataText = "Step Separator"
+        s.data = lambda index: "Step Separator"
         self.separators.append(s)
         self.addChild(index, s)
         self.scene().emit(SIGNAL("layoutChanged()"))
@@ -837,14 +842,13 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         vy = rect.height() + rect.y() - Page.PageSize.height() - self.pos().y()
         f = self.scene().scaleFactor
         LicGLHelpers.adjustGLViewport(vx * f, vy * f, Page.PageSize.width() * f, Page.PageSize.height() * f, True)
-        GL.glTranslatef(rect.x(), rect.y(), 0.0)
         
         for glItem in self.glItemIterator():
             if rect.intersects(glItem.mapToScene(glItem.rect()).boundingRect()):
                 glItem.paintGL()
             elif hasattr(glItem, "isDirty") and glItem.isDirty:
                 glItem.paintGL()
-            
+
         LicGLHelpers.popAllGLMatrices()
 
     def drawGLItemsOffscreen(self, rect, f):
@@ -943,13 +947,15 @@ class PageAnnotation(QGraphicsPixmapItem):
     def __init__(self, parent, pixmap, filename, pos = None):
         QGraphicsPixmapItem.__init__(self, pixmap, parent)
         self.filename = filename
-        self.dataText = "Annotation: " + os.path.basename(filename)
         self.setFlags(AllFlags)
         self.itemClassName = "Annotation"
         self.isAnnotation = True
         if pos:
             self.setPos(pos)
 
+    def data(self, index):
+        return "Annotation: " + os.path.basename(self.filename)
+    
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
         stack = self.scene().undoStack
@@ -1020,7 +1026,7 @@ class CalloutArrowEndItem(QGraphicsRectItem):
     def __init__(self, parent, width, height, dataText, row):
         QGraphicsRectItem.__init__(self, parent)
         self.setRect(0, 0, width, height)
-        self.dataText = dataText
+        self.data = lambda index: dataText
         self._row = row
         self.isAnnotation = True
         
@@ -1072,7 +1078,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
     
     def __init__(self, parent):
         QGraphicsRectItem.__init__(self, parent)
-        self.dataText = "Callout Arrow"
+        self.data = lambda index: "Callout Arrow"
 
         self.setPen(self.defaultPen)
         self.setBrush(self.defaultBrush)
@@ -1383,7 +1389,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         self.qtyLabel.setPos(pos if pos else QPointF(0, 0))
         self.qtyLabel.setFont(font if font else QFont("Arial", 15))
         self.qtyLabel.setFlags(NoMoveFlags if self.getPage().isLocked() else AllFlags)
-        self.qtyLabel.dataText = "Quantity Label"
+        self.qtyLabel.data = lambda index: "Quantity Label"
             
     def removeQuantityLabel(self):
         if self.qtyLabel and self.scene():  # Need this check because, in some undo / redo ops, self is not in a scene
@@ -1745,7 +1751,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
         else:
             r = QRectF(0.0, 0.0, 1.0, 1.0)
 
-        children = self.children()
+        children = self.childItems()
         if not self.hasPLI() and self.pli in children:
             children.remove(self.pli)
 
@@ -1774,7 +1780,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
         self.numberItem.setPos(0, 0)
         self.numberItem.setFont(QFont("Arial", 15))
         self.numberItem.setFlags(AllFlags)
-        self.numberItem.dataText = "Step Number Label"
+        self.numberItem.data = lambda index: "Step Number Label"
 
     def disableNumberItem(self):
         self.scene().removeItem(self.numberItem)
@@ -2073,7 +2079,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
     def swapWithStepSignal(self, step):
         self.scene().undoStack.push(SwapStepsCommand(self, step))
 
-class RotateScaleSignalItem(QObject):
+class RotateScaleSignalItem(object):
 
     def rotateSignal(self):
         parentWidget = self.scene().views()[0]
@@ -2158,7 +2164,6 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
             self.setPos(destRect.topLeft())
         self.resetRect()
         if self.numberItem:
-            numRect = self.numberItem.rect()
             self.numberItem.setPos(self.abstractPart.width, self.abstractPart.height)
             self.numberItem.moveBy(PLI.margin.x(), PLI.margin.y())
             self.resetRect()
@@ -2197,7 +2202,7 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
         self.numberItem.setFlags(AllFlags)
         self.quantity = qty
         self.numberItem.setText("%dx" % qty)
-        self.numberItem.dataText = "Qty. Label (%dx)" % qty
+        self.numberItem.data = lambda index: "Qty. Label (%dx)" % qty
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
@@ -2254,7 +2259,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     def setQuantity(self, quantity):
         self.quantity = quantity
         self.numberItem.setText("%dx" % self.quantity)
-        self.numberItem.dataText = "Qty. Label (%dx)" % self.quantity
+        self.numberItem.data = lambda index: "Qty. Label (%dx)" % self.quantity
         
     def addPart(self):
         self.setQuantity(self.quantity + 1)
@@ -2262,7 +2267,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     def removePart(self):
         self.quantity -= 1
         self.numberItem.setText("%dx" % self.quantity)
-        self.numberItem.dataText = "Qty. Label (%dx)" % self.quantity
+        self.numberItem.data = lambda index: "Qty. Label (%dx)" % self.quantity
 
     def resetRect(self):
         glRect = QRectF(0.0, 0.0, self.abstractPart.width, self.abstractPart.height)
@@ -2354,11 +2359,8 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
 
     def __init__(self, parent):
         GraphicsRoundRectItem.__init__(self, parent)
-
         self.pliItems = []  # {(part filename, color): PLIItem instance}
-
-        self.dataText = "PLI"  # String displayed in Tree - reimplement data(self, index) to override
-        
+        self.data = lambda index: "PLI"
         self.setPos(0.0, 0.0)
         self.setFlags(AllFlags)
 
@@ -2699,7 +2701,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         if not self.parts:
             return result  # A CSI with no parts is already initialized
 
-        params = LicGLHelpers.initImgSize(size, self.glDispID, filename, CSI.defaultScale * self.scaling, CSI.defaultRotation, self.rotation, pBuffer)
+        params = LicGLHelpers.initImgSize(size, self.glDispID, filename, CSI.defaultScale * self.scaling, CSI.defaultRotation, self.rotation)
         if params is None:
             return False
 
@@ -2977,7 +2979,7 @@ class AbstractPart(object):
         # TODO: If a part is rendered at a size > 256, draw it smaller in the PLI - this sounds like a great way to know when to shrink a PLI image...
         rotation = SubmodelPreview.defaultRotation if self.isSubmodel else PLI.defaultRotation
         scaling = SubmodelPreview.defaultScale if self.isSubmodel else PLI.defaultScale
-        params = LicGLHelpers.initImgSize(size, self.glDispID, self.filename, scaling * extraScale, rotation, extraRotation, pBuffer)
+        params = LicGLHelpers.initImgSize(size, self.glDispID, self.filename, scaling * extraScale, rotation, extraRotation)
         if params is None:
             return False
 
@@ -3748,6 +3750,7 @@ class Mainmodel(MainModelTreeManager, Submodel):
             elif isinstance(item, Submodel):
                 pageNumber = item.syncPageNumbers(pageNumber)
 
+        self.instructions.scene.sortPages()
         return pageNumber
 
 class PartTreeItem(PartTreeItemTreeManager, QGraphicsRectItem):
@@ -4099,11 +4102,11 @@ class Part(PartTreeManager, QGraphicsRectItem):
         else:
             arrowMenu = menu.addMenu("Displace With &Arrow")
             arrowMenu.addAction("Move Up", lambda: self.displacePartsSignal(Qt.Key_PageUp))
-            arrowMenu.addAction("Move Down", lambda: displacePartsSignal(Qt.Key_PageDown))
-            arrowMenu.addAction("Move Forward", lambda: displacePartsSignal(Qt.Key_Down))
-            arrowMenu.addAction("Move Back", lambda: displacePartsSignal(Qt.Key_Up))
-            arrowMenu.addAction("Move Left", lambda: displacePartsSignal(Qt.Key_Left))
-            arrowMenu.addAction("Move Right", lambda: displacePartsSignal(Qt.Key_Right))
+            arrowMenu.addAction("Move Down", lambda: self.displacePartsSignal(Qt.Key_PageDown))
+            arrowMenu.addAction("Move Forward", lambda: self.displacePartsSignal(Qt.Key_Down))
+            arrowMenu.addAction("Move Back", lambda: self.displacePartsSignal(Qt.Key_Up))
+            arrowMenu.addAction("Move Left", lambda: self.displacePartsSignal(Qt.Key_Left))
+            arrowMenu.addAction("Move Right", lambda: self.displacePartsSignal(Qt.Key_Right))
 
         menu.addSeparator()
         if not self.originalPart:

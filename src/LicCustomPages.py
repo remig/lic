@@ -30,7 +30,7 @@ class PartListPLI(PLI):
 
     def __init__(self, parent):
         PLI.__init__(self, parent)
-        self.dataText = "Part List PLI"
+        self.data = lambda index: "Part List PLI"
         self._row = 1
         self.setPen(QPen(Qt.NoPen))
         self.setBrush(QBrush(Qt.NoBrush))
@@ -165,8 +165,10 @@ class EditableTextItem(QGraphicsSimpleTextItem):
     def __init__(self, text, parent):
         QGraphicsSimpleTextItem.__init__(self, text, parent)
         self.setFlags(AllFlags)
-        self.dataText = "Label: " + text
         self.setFont(QFont("Arial", 15))
+
+    def data(self, index):
+        return "Label: " + self.text()
         
     def contextMenuEvent(self, event):
         

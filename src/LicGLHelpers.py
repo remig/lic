@@ -117,6 +117,10 @@ def setupMaterial():
     glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
     glEnable(GL_COLOR_MATERIAL)
 
+def clear(clearColor):
+    glClearColor(*clearColor)
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    
 def initFreshContext(doClear):
     global __LIC_GL_LINE_THICKNESS
     
@@ -139,9 +143,10 @@ def initFreshContext(doClear):
     glEnable(GL_NORMALIZE)
 
 def setupForQtPainter():
+    glShadeModel(GL_FLAT)
     glDisable(GL_LIGHTING)
     glDisable(GL_DEPTH_TEST)
-        
+
 def adjustGLViewport(x, y, width, height, altOrtho = False):
     x = int(x)
     y = int(y)
@@ -160,6 +165,7 @@ def adjustGLViewport(x, y, width, height, altOrtho = False):
         glOrtho(-width, width, -height, height, -3000, 3000 )
         
     glMatrixMode(GL_MODELVIEW)
+    glLoadIdentity()
 
 def rotateView(x, y, z):
     glRotatef(x, 1.0, 0.0, 0.0)
@@ -280,14 +286,13 @@ def _getBottomInset(data, height, left):
 
 bgCache = {}
 
-def _getBounds(size, glDispID, filename, defaultScale, defaultRotation, partRotation, pBuffer):
+def _getBounds(size, glDispID, filename, defaultScale, defaultRotation, partRotation):
     
     # Clear the drawing buffer with white
     glClearColor(1.0, 1.0, 1.0, 1.0)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     
     # Draw the piece in black
-    glLoadIdentity()
     glColor3f(0, 0, 0)
     adjustGLViewport(0, 0, size, size)
     rotateToView(defaultRotation, defaultScale)
@@ -309,11 +314,11 @@ def _getBounds(size, glDispID, filename, defaultScale, defaultRotation, partRota
     if box is None:
         return (0, 0, 0, 0, 0, 0)  # Rendered entirely out of frame
 
-    #if filename:
-        #import os
-        #rawFilename = os.path.splitext(os.path.basename(filename))[0]
-        #img.save("C:\\lic\\tmp\\%s_%dx%d.png" % (rawFilename, w, h))
-        #print fn + "box: " + str(bbox if bbox else "No box = shit")
+#    if filename:
+#        import os
+#        rawFilename = os.path.splitext(os.path.basename(filename))[0]
+#        img.save("C:\\lic\\tmp\\%s_%dx%d.png" % (rawFilename, box[2] - box[0], box[3] - box[1]))
+#        print filename + "box: " + str(box if box else "No box = shit")
 
     # Find the bottom left corner inset, used for placing PLIItem quantity labels
     data = img.load()
@@ -321,19 +326,17 @@ def _getBounds(size, glDispID, filename, defaultScale, defaultRotation, partRota
     bottomInset = _getBottomInset(data, size, box[0])
     return box + (leftInset - box[0], bottomInset - box[1])
     
-def initImgSize(size, glDispID, filename, defaultScale, defaultRotation, partRotation, pBuffer):
+def initImgSize(size, glDispID, filename, defaultScale, defaultRotation, partRotation):
     """
     Draw this piece to the already initialized GL Frame Buffer Object, in order to calculate
     its displayed width and height.  These dimensions are required to properly lay out PLIs and CSIs.
     
     Parameters:
-        width: Width of buffer to render to, in pixels.
-        height: Height of buffer to render to, in pixels.
+        size: Width & height of buffer to render to, in pixels (always square).
         glDispID: The GL Display List ID to be rendered and dimensioned.
         filename: String name of this thing to draw.
         defaultRotation: An [x, y, z] rotation to use for this rendering's default rotation
         partRotation: An extra [x, y, z] rotation to use when rendering this part, or None.
-        pBuffer: Target FrameBufferObject context to use for rendering GL calls.
     
     Returns:
         None, if the rendered image has been rendered partially or wholly out of frame.
@@ -341,7 +344,7 @@ def initImgSize(size, glDispID, filename, defaultScale, defaultRotation, partRot
     """
     
     # Draw piece to frame buffer, then calculate bounding box
-    left, top, right, bottom, leftInset, bottomInset = _getBounds(size, glDispID, filename, defaultScale, defaultRotation, partRotation, pBuffer)
+    left, top, right, bottom, leftInset, bottomInset = _getBounds(size, glDispID, filename, defaultScale, defaultRotation, partRotation)
     
     if _checkImgBounds(top, bottom, left, right, size):
         return None  # Drew at least one edge out of bounds - try next buffer size

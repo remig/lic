@@ -24,6 +24,7 @@ from PyQt4.QtGui import *
 from LicModel import *
 import LicUndoActions
 import LicLayout
+import LicGLHelpers
 
 class LicGraphicsView(QGraphicsView):
     def __init__(self, parent):
@@ -32,8 +33,9 @@ class LicGraphicsView(QGraphicsView):
         self.setDragMode(QGraphicsView.RubberBandDrag)
         self.setRenderHint(QPainter.Antialiasing)
         self.setRenderHint(QPainter.TextAntialiasing)
-        self.setBackgroundBrush(QBrush(Qt.gray))
+        self.setCacheMode(QGraphicsView.CacheNone)
         self.setAcceptDrops(True)
+        self.setOptimizationFlag(8, True)  # TODO: When PyQt is fixed, this 8 should be QGraphicsView.IndirectPainting
 
     def scaleView(self, scaleFactor):
         
@@ -88,6 +90,13 @@ class LicGraphicsScene(QGraphicsScene):
         self.addItem(snapLine)
         return snapLine
 
+    def saveSelection(self):  # TODO: implement this, so we can save & restore selections on image export
+        #self.savedSelection = list(self.selectedItems())
+        pass
+
+    def restoreSelection(self):
+        pass
+            
     def clearSelection(self):
         self.clearSelectedParts()
         self.selectedSubmodels = []
@@ -115,15 +124,20 @@ class LicGraphicsScene(QGraphicsScene):
 
     def drawItems(self, painter, items, options, widget):
 
+        LicGLHelpers.clear([0.62, 0.62, 0.65, 1.0])
+
+        #visibleItems = [i for i in items if i.isVisible()]  # TODO: Zip this up with options, so we loop only over visible bits
+        
         # First draw all items that are not annotations
         if self.renderMode == 'full' or self.renderMode == 'background':
             for i, item in enumerate(items):
-                if not hasattr(item, 'isAnnotation') or not item.isAnnotation:
+                if item.isVisible() and (not hasattr(item, 'isAnnotation') or not item.isAnnotation):
                     self.drawOneItem(painter, item, options[i], widget)
 
         if widget and self.renderMode == 'full':
 
             # Setup the GL items to be drawn & the necessary context
+            painter.beginNativePainting()
             LicGLHelpers.initFreshContext(False)
             rect = QRectF(self.views()[0].mapToScene(QPoint()), QSizeF(widget.size()))
             pagesToDraw = []
@@ -136,11 +150,12 @@ class LicGraphicsScene(QGraphicsScene):
                 page.drawGLItems(rect)
 
             LicGLHelpers.setupForQtPainter()  # Reset all GL lighting, so that subsequent drawing is not affected
-
+            painter.endNativePainting()
+            
         # Draw all annotation
         if self.renderMode == 'full' or self.renderMode == 'foreground':
             for i, item in enumerate(items):
-                if hasattr(item, 'isAnnotation') and item.isAnnotation:
+                if item.isVisible() and (hasattr(item, 'isAnnotation') and item.isAnnotation):
                     self.drawOneItem(painter, item, options[i], widget)
 
     def pageUp(self):
@@ -212,7 +227,7 @@ class LicGraphicsScene(QGraphicsScene):
 
         self.scrollToPage(self.currentPage)
 
-    def selectionChanged(self):
+    def selectionChangedHandler(self):
         selList = self.selectedItems()
         if self.pagesToDisplay == 1 or not selList or isinstance(selList[-1], Guide):
             return
@@ -270,7 +285,7 @@ class LicGraphicsScene(QGraphicsScene):
 
     def continuous(self):
         self.pagesToDisplay = self.PageViewContinuous
-        pc = len(self.pages)
+        pc = max(len(self.pages), 1)
         ph = Page.PageSize.height()
         height = (10 * (pc + 1)) + (ph * pc)
         self.setSceneRect(0, 0, Page.PageSize.width() + 20, height)
@@ -322,7 +337,10 @@ class LicGraphicsScene(QGraphicsScene):
             self.pages.append(item)
             self.pages.sort(key = lambda x: x._number)
             self.setPagesToDisplay(self.pagesToDisplay)
-        
+
+    def sortPages(self):
+        self.pages.sort(key = lambda x: x._number)
+                
     def removeItem(self, item):
         self.emit(SIGNAL("itemDeleted"), item)
         QGraphicsScene.removeItem(self, item)
@@ -512,6 +530,9 @@ class LicGraphicsScene(QGraphicsScene):
             return selList[-1].contextMenuEvent(event)
         event.ignore()
 
+    def keyPressEvent(self, event):
+        pass  # Need this to properly ignore built-in press events
+    
     def keyReleaseEvent(self, event):
         if not self.pages:
             return  # No pages = nothing to do here

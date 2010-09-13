@@ -103,7 +103,7 @@ class GraphicsCircleLabelItem(QGraphicsEllipseItem):
         self.setFont(self.defaultFont)
         self.lengthText = length
         self.labelColor = QColor(Qt.black)  # TODO: implement Part length label color
-        self.dataText = "Length Indicator (%s)" % length
+        self.data = lambda index: "Length Indicator (%s)" % length
 
     def paint(self, painter, option, widget = None):
         QGraphicsEllipseItem.paint(self, painter, option, widget)
@@ -141,7 +141,7 @@ class GraphicsRotateArrowItem(GraphicsRoundRectItem):
         self.cornerRadius = 6
 
         self.arrowPen = self.defaultArrowPen
-        self.dataText = "Rotation Icon"
+        self.data = lambda index: "Rotation Icon"
         self.setRect(0, 0, 50, 50)
 
     def changeArrowPen(self, newPen):

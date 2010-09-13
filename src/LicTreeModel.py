@@ -167,9 +167,6 @@ class BaseTreeManager(object):
     def parent(self):
         return self.parentItem()
 
-    def data(self, index):
-        return self.dataText
-
     def row(self):
         if hasattr(self, '_row'):
             return self._row

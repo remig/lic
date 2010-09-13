@@ -92,7 +92,7 @@ class TemplateRectItem(TemplateLineItem):
         if dialog.exec_():
             self.scene().undoStack.push(SetBrushCommand(self, self.brush(), QBrush(dialog.getGradient()), "fill Gradient"))
 
-class TemplateRotateScaleSignalItem(QObject):
+class TemplateRotateScaleSignalItem(object):
 
     def rotateDefaultSignal(self):
         parentWidget = self.scene().views()[0]
@@ -129,7 +129,7 @@ class TemplatePage(TemplateRectItem, Page):
     def __init__(self, submodel, instructions):
         Page.__init__(self, submodel, instructions, 0, 0)
         self.__filename = None
-        self.dataText = "Template Page"
+        self.data = lambda index: "Template Page"
         self.submodelPart = None
 
     def __getFilename(self):
@@ -137,7 +137,7 @@ class TemplatePage(TemplateRectItem, Page):
         
     def __setFilename(self, filename):
         self.__filename = filename
-        self.dataText = "Template - " + os.path.basename(self.filename)
+        self.data = lambda index: "Template - " + os.path.basename(self.filename)
         
     filename = property(__getFilename, __setFilename)
 
@@ -149,7 +149,6 @@ class TemplatePage(TemplateRectItem, Page):
         self.filename = filename
         self.prevPage = lambda: None
         self.nextPage = lambda: None
-        self.data = lambda index: self.dataText
 
         # Promote page members to appropriate Template subclasses, and initialize if necessary
         step = self.steps[0]
@@ -407,7 +406,7 @@ class TemplatePage(TemplateRectItem, Page):
 
         stack = self.scene().undoStack
         menu = QMenu(self.scene().views()[0])
-        menu.addAction("Set Font", lambda: self.setItemFont(item))
+        menu.addAction("Set Font", lambda: self.setItemFont(self.numberItem))
         arrowMenu = menu.addMenu("Set Position")
         arrowMenu.addAction(addPosAction("Right Corner", 'right'))
         arrowMenu.addAction(addPosAction("Left Corner", 'left'))
