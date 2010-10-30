@@ -225,9 +225,10 @@ class LDrawFile(object):
                 f = file(os.path.join(LDrawPath, 'MODELS', self.filename))
             except IOError:
                 try:
-                    f = file(os.path.join(LDrawPath, 'PARTS', self.filename))
                     if (self.filename[:2] == 's\\'):
                         self.isPrimitive = True
+                        self.filename = os.path.join('s', self.filename[2:])
+                    f = file(os.path.join(LDrawPath, 'PARTS', self.filename))
                 except IOError:
                     f = file(os.path.join(LDrawPath, 'P', self.filename))
                     self.isPrimitive = True
