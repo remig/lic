@@ -211,13 +211,13 @@ class LDrawFile(object):
         
         self.filename = filename      # filename, like 3057.dat
         self.name = ""                # coloquial name, like 2 x 2 brick
-        self.isPrimitive = False      # Anything in the 'P' directory
+        self.isPrimitive = False      # Anything in the 'P' or 'Parts\S' directories
         
         self.lineList = []
-        self.loadFileList()
+        self.readFileToLineList()  # Read the file from disk, and copy it to the line list
 
-    def loadFileList(self):
-        
+    def readFileToLineList(self):
+    
         try:
             f = file(self.filename)
         except:
@@ -230,8 +230,13 @@ class LDrawFile(object):
                         self.filename = os.path.join('s', self.filename[2:])
                     f = file(os.path.join(LDrawPath, 'PARTS', self.filename))
                 except IOError:
-                    f = file(os.path.join(LDrawPath, 'P', self.filename))
-                    self.isPrimitive = True
+                    try:
+                        if (self.filename[:3] == '48\\'):
+                            self.filename = os.path.join('48', self.filename[3:])
+                        f = file(os.path.join(LDrawPath, 'P', self.filename))
+                        self.isPrimitive = True
+                    except IOError:
+                        f = None  # TODO: Handle this non-existent file error
         
         # Copy the file into an internal array, for easier access
         i = 1

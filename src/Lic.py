@@ -865,6 +865,8 @@ def main():
         pass  # Ignore missing psyco silently - it's a nice optimization to have, not required
 
     window.show()
+    window.raise_()  # Work around bug in OSX Qt where app launches behind all other windows.  Harmless on other platforms.
+
     if window.needPathConfiguration:
         window.configurePaths(True)
 
