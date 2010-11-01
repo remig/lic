@@ -47,7 +47,7 @@ class LDrawImporter(object):
 
         filename, color, matrix = lineToPart(line)
 
-        if not LDrawFile.isPartFile(filename):
+        if LDrawFile.getPartFilePath(filename) is None:
             print "Could not find Part File - ignoring: " + filename
             return None
 
@@ -206,6 +206,7 @@ def createStepLine():
     return ' '.join([Comment, StepCommand]) + lineTerm
 
 class LDrawFile(object):
+
     def __init__(self, filename):
         """
         Create a new LDrawFile instance based on the passed in LDraw file string.
@@ -222,7 +223,15 @@ class LDrawFile(object):
         self.readFileToLineList()  # Read the file from disk, and copy it to the line list
 
     @staticmethod
-    def isPartFile(filename):
+    def getPartFilePath(filename):
+
+        # Change hardcoded path separators in some LDraw lines to platform specific separator
+        if (filename[:2] == 's\\'):
+            filename = os.path.join('s', filename[2:])
+        elif (filename[:3] == '48\\'):
+            filename = os.path.join('48', filename[3:])
+
+        # Build list of possible lookup paths
         pathList = [filename, 
                     os.path.join(LDrawPath, 'MODELS', filename),
                     os.path.join(LDrawPath, 'PARTS', filename),
@@ -230,32 +239,19 @@ class LDrawFile(object):
 
         for p in pathList:
             if os.path.isfile(p):
-                return True
-        return False
+                return p
+        return None
     
     def readFileToLineList(self):
 
-        try:
-            f = file(self.filename)
-        except:
-            try:
-                f = file(os.path.join(LDrawPath, 'MODELS', self.filename))
-            except IOError:
-                try:
-                    if (self.filename[:2] == 's\\'):
-                        self.isPrimitive = True
-                        self.filename = os.path.join('s', self.filename[2:])
-                    f = file(os.path.join(LDrawPath, 'PARTS', self.filename))
-                except IOError:
-                    try:
-                        if (self.filename[:3] == '48\\'):
-                            self.filename = os.path.join('48', self.filename[3:])
-                        f = file(os.path.join(LDrawPath, 'P', self.filename))
-                        self.isPrimitive = True
-                    except IOError:
-                        print "ERROR: Trying to load non-existent part file: " + self.filename
-                        return
-        
+        fullPath = LDrawFile.getPartFilePath(self.filename)
+        f = file(fullPath)
+
+        # Check if this part is an LDraw primitive
+        sep = os.path.sep
+        if (sep + 's' + sep in fullPath) or (sep + 'P' + sep in fullPath):
+            self.isPrimitive = True
+
         # Copy the file into an internal array, for easier access
         i = 1
         for l in f:
