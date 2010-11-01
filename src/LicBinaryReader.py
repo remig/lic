@@ -535,10 +535,7 @@ def __readPLIItem(stream, pli):
     filename = str(stream.readQString())
 
     global partDictionary
-    if filename in partDictionary:
-        abstractPart = partDictionary[filename]
-    else:
-        print "LOAD ERROR: Could not find part in part dict: " + filename
+    abstractPart = partDictionary[filename]
 
     pliItem = PLIItem(pli, abstractPart, stream.readInt32(), stream.readInt32())
     pliItem.setPos(stream.readQPointF())
@@ -580,12 +577,9 @@ def __linkModelPartNames(model):
         __linkModelPartNames(m)
 
     for part in model.parts:
-        if part.filename in partDictionary:
-            part.abstractPart = partDictionary[part.filename]
-            if part.abstractPart.isSubmodel:
-                part.abstractPart.used = True
-        else:
-            print "LOAD ERROR: could not find am abstract part for part: " + part.filename
+        part.abstractPart = partDictionary[part.filename]
+        if part.abstractPart.isSubmodel:
+            part.abstractPart.used = True
 
     for part in model.parts:
         if part.pageNumber >= 0 and part.stepNumber >= 0:

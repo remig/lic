@@ -1,4 +1,19 @@
-Loading an existing model:
+** Requirements for running Lic from source:
+
+- Python, any version *before* 3.0
+
+- Qt version 4.6.3 or greater.  There's a bug in Qt 4.6.2 and earlier that make Lic *not* work:
+http://bugreports.qt.nokia.com/browse/QTBUG-7880
+
+- PyQt, any version that works with the above Python & Qt.
+
+- PyOpenGL, any version
+
+- Python Image Libary (PIL), any version
+
+The source includes a PyDev .project file, if you have Eclipse & PyDev handy.
+
+** Importing an existing model:
 
 The first time an LDraw file is opened in Lic, Lic has to do a bunch of one-time calculations to be able to draw the instruction window preview.
 Mainly, Lic has to calculate how big each part and step image are when displayed.  It does this by rendering the part to a background frame buffer, 
@@ -9,8 +24,9 @@ Since Lic is still at such an early development stage, I suggest backing up any 
 
 Once a file has been loaded and saved in Lic, subsequent loads should happen quite fast.
 
-Instruction generation:
+** Instruction generation:
 
 Once you have your instruction book the way you like, the menu 'Instructions->Generate Images' will generate high quality POV-Ray renderings
 of your instructions.  Lic will create a folder in the cwd named after the model, and will fill it with one png for each instruction page.  Page
 images are created at the pixel size set in Lic.ini (800 x 600 by default).
+

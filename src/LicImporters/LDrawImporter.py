@@ -21,7 +21,7 @@
 import os.path
 from OpenGL import GL
 
-LDrawPath = "C:/LDraw"  # TODO: Find better platform-agnostic default string
+LDrawPath = None  # This will be set by the object calling this importer
 
 def importModel(filename, instructions):
     LDrawImporter(filename, instructions)
@@ -47,6 +47,10 @@ class LDrawImporter(object):
 
         filename, color, matrix = lineToPart(line)
 
+        if not LDrawFile.isPartFile(filename):
+            print "Could not find Part File - ignoring: " + filename
+            return None
+
         part = self.instructions.createPart(filename, color, matrix)
 
         if part.abstractPart is None:
@@ -69,7 +73,7 @@ class LDrawImporter(object):
         lineList = self.lineList[start + 1 : stop]  # + 1 to skip over introductory FILE line
         self.loadAbstractPartFromLineList(part, lineList)
     
-    def loadAbstractPartFromLineList(self, part, lineList):
+    def loadAbstractPartFromLineList(self, parentPart, lineList):
     
         for line in lineList:
     
@@ -77,26 +81,27 @@ class LDrawImporter(object):
                 return
     
             elif isStepLine(line):
-                self.instructions.addBlankPage(part)
+                self.instructions.addBlankPage(parentPart)
 
             elif isPartLine(line):
-                newPart = self.createNewPartFromLine(line, part)
-                if part:
-                    newPart.setInversion(part.invertNext)
-                    self.configureBlackPartColor(part.filename, newPart, part.invertNext)
-                    part.invertNext = False
-                self.instructions.addPart(newPart, part)
+                newPart = self.createNewPartFromLine(line, parentPart)
+                if newPart is not None:
+                    if parentPart:
+                        newPart.setInversion(parentPart.invertNext)
+                        self.configureBlackPartColor(parentPart.filename, newPart, parentPart.invertNext)
+                        parentPart.invertNext = False
+                    self.instructions.addPart(newPart, parentPart)
     
             elif isPrimitiveLine(line):
                 shape, color, points = lineToPrimitive(line)
-                self.instructions.addPrimitive(shape, color, points, part)
+                self.instructions.addPrimitive(shape, color, points, parentPart)
                 
-            elif part and isBFCLine(line):
+            elif parentPart and isBFCLine(line):
                 if line[3] == 'CERTIFY':
                     isCW = (len(line) == 5 and line[4] == 'CW')
-                    part.winding = GL.GL_CW if isCW else GL.GL_CCW
+                    parentPart.winding = GL.GL_CW if isCW else GL.GL_CCW
                 elif line [3] == 'INVERTNEXT':
-                    part.invertNext = True
+                    parentPart.invertNext = True
 
     def configureBlackPartColor(self, filename, part, invertNext):
         fn = filename.lower()
@@ -216,8 +221,20 @@ class LDrawFile(object):
         self.lineList = []
         self.readFileToLineList()  # Read the file from disk, and copy it to the line list
 
-    def readFileToLineList(self):
+    @staticmethod
+    def isPartFile(filename):
+        pathList = [filename, 
+                    os.path.join(LDrawPath, 'MODELS', filename),
+                    os.path.join(LDrawPath, 'PARTS', filename),
+                    os.path.join(LDrawPath, 'P', filename)]
+
+        for p in pathList:
+            if os.path.isfile(p):
+                return True
+        return False
     
+    def readFileToLineList(self):
+
         try:
             f = file(self.filename)
         except:
@@ -236,7 +253,8 @@ class LDrawFile(object):
                         f = file(os.path.join(LDrawPath, 'P', self.filename))
                         self.isPrimitive = True
                     except IOError:
-                        f = None  # TODO: Handle this non-existent file error
+                        print "ERROR: Trying to load non-existent part file: " + self.filename
+                        return
         
         # Copy the file into an internal array, for easier access
         i = 1
