@@ -47,7 +47,7 @@ class LDrawImporter(object):
 
         filename, color, matrix = lineToPart(line)
 
-        if LDrawFile.getPartFilePath(filename) is None:
+        if (filename not in self.submodels) and (LDrawFile.getPartFilePath(filename) is None):
             print "Could not find Part File - ignoring: " + filename
             return None
 
