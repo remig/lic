@@ -147,11 +147,11 @@ def setupForQtPainter():
     glDisable(GL_LIGHTING)
     glDisable(GL_DEPTH_TEST)
 
-def adjustGLViewport(x, y, width, height, altOrtho = False):
-    x = int(x)
-    y = int(y)
-    width = int(width)
-    height = int(height)
+def adjustGLViewport(x, y, width, height, scale = 1.0, altOrtho = False):
+    x = int(x * scale)
+    y = int(y * scale)
+    width = int(width * scale)
+    height = int(height * scale)
     glViewport(x, y, width, height)
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()

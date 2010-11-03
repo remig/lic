@@ -841,20 +841,20 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         vx = self.pos().x() - rect.x()
         vy = rect.height() + rect.y() - Page.PageSize.height() - self.pos().y()
         f = self.scene().scaleFactor
-        LicGLHelpers.adjustGLViewport(vx * f, vy * f, Page.PageSize.width() * f, Page.PageSize.height() * f, True)
+        LicGLHelpers.adjustGLViewport(vx, vy, Page.PageSize.width(), Page.PageSize.height(), f, True)
         
         for glItem in self.glItemIterator():
             if rect.intersects(glItem.mapToScene(glItem.rect()).boundingRect()):
-                glItem.paintGL()
+                glItem.paintGL(f)
             elif hasattr(glItem, "isDirty") and glItem.isDirty:
-                glItem.paintGL()
+                glItem.paintGL(f)
 
         LicGLHelpers.popAllGLMatrices()
 
     def drawGLItemsOffscreen(self, rect, f):
         
         LicGLHelpers.pushAllGLMatrices()
-        LicGLHelpers.adjustGLViewport(0, 0, rect.width(), rect.height(), True)
+        LicGLHelpers.adjustGLViewport(0, 0, rect.width(), rect.height(), 1.0, True)
         
         for glItem in self.glItemIterator():
             glItem.paintGL(f)

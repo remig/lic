@@ -139,7 +139,7 @@ class LicGraphicsScene(QGraphicsScene):
             # Setup the GL items to be drawn & the necessary context
             painter.beginNativePainting()
             LicGLHelpers.initFreshContext(False)
-            rect = QRectF(self.views()[0].mapToScene(QPoint()), QSizeF(widget.size()))
+            rect = QRectF(self.views()[0].mapToScene(QPoint()), QSizeF(widget.size()) / self.scaleFactor)
             pagesToDraw = []
             for page in self.pages:
                 if page.isVisible() and rect.intersects(page.rect().translated(page.pos())):
