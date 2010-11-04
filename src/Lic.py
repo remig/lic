@@ -595,7 +595,7 @@ class LicWindow(QMainWindow):
 
     def fileClose(self, offerSave = True):
         if offerSave and not self.offerSave():
-            return
+            return False
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.instructions.clear()
         self.treeModel.reset()
@@ -603,6 +603,7 @@ class LicWindow(QMainWindow):
         self.scene.clear()
         self.filename = ""
         self.scene.emit(SIGNAL("layoutChanged()"))
+        return True
 
     def offerSave(self):
         """ 
@@ -623,11 +624,13 @@ class LicWindow(QMainWindow):
         formats = LicImporters.getFileTypesString()
         filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Import Model", dir, formats))
         if filename:
+            self.setWindowModified(False)
             QTimer.singleShot(50, lambda: self.importModel(filename))
 
     def importModel(self, filename):
 
-        self.fileClose()
+        if not self.fileClose():
+            return
 
         #startTime = time.time()
         progress = LicDialogs.LicProgressDialog(self, "Importing " + os.path.basename(filename))
