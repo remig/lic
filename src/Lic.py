@@ -29,6 +29,8 @@ from PyQt4.QtOpenGL import *
 
 from LicModel import *
 from LicCustomPages import *
+from LicInstructions import *
+
 import LicGraphicsWidget
 import LicTreeModel
 import LicBinaryReader
@@ -663,10 +665,7 @@ class LicWindow(QMainWindow):
         self.instructions.mainModel.partListPages = PartListPage.createPartListPages(self.instructions)
         self.templatePage.applyFullTemplate(False)  # Template should apply to part list but not title pages
 
-        self.instructions.mainModel.addTitlePage(TitlePage(self.instructions))
-        self.instructions.mainModel.titlePage.addInitialContent()
-        self.instructions.mainModel.incrementRows(1)
-        self.instructions.mainModel.syncPageNumbers()
+        self.instructions.mainModel.createNewTitlePage(False)
         
         self.scene.emit(SIGNAL("layoutChanged()"))
         self.scene.selectPage(1)
@@ -881,7 +880,7 @@ def main():
     #filename = unicode("C:/lic/template.dat")
     #filename = unicode("C:/lic/stack.lic")
     #filename = unicode("C:/lic/1x1.dat")
-    #filename = unicode("C:/lic/pyramid.lic")
+    #filename = unicode("C:/lic/pyramid.dat")
     #filename = unicode("C:/lic/SubSubModel.mpd")
 
     if filename:

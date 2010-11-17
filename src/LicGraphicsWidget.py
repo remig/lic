@@ -22,6 +22,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 from LicModel import *
+from LicCustomPages import *
 import LicUndoActions
 import LicLayout
 import LicGLHelpers

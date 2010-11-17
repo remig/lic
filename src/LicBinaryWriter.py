@@ -21,6 +21,7 @@
 from PyQt4.QtCore import *
 
 from LicModel import *
+from LicCustomPages import *
 import LicGLHelpers
 
 def saveLicFile(filename, instructions, template):

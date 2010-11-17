@@ -62,964 +62,6 @@ NoFlags = QGraphicsItem.GraphicsItemFlags()
 NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
 AllFlags = NoMoveFlags | QGraphicsItem.ItemIsMovable
 
-class Instructions(QObject):
-    itemClassName = "Instructions"
-
-    def __init__(self, parent, scene, glWidget):
-        QObject.__init__(self, parent)
-
-        self.scene = scene
-        self.mainModel = None
-
-        self.glContext = glWidget
-        self.glContext.makeCurrent()
-
-    def clear(self):
-        global partDictionary, currentModelFilename
-
-        # Remove everything from the graphics scene
-        if self.mainModel:
-            self.mainModel.deleteAllPages(self.scene)
-
-        self.mainModel = None
-        partDictionary = {}
-        currentModelFilename = ""
-        Page.PageSize = Page.defaultPageSize
-        Page.Resolution = Page.defaultResolution
-        CSI.defaultScale = PLI.defaultScale = SubmodelPreview.defaultScale = 1.0
-        CSI.defaultRotation = [20.0, 45.0, 0.0]
-        PLI.defaultRotation = [20.0, -45.0, 0.0]
-        CSI.highlightNewParts = False
-        SubmodelPreview.defaultRotation = [20.0, 45.0, 0.0]
-        LicGLHelpers.resetLightParameters()
-        self.glContext.makeCurrent()
-
-    def importModel(self, filename):
-
-        global currentModelFilename
-        currentModelFilename = filename
-
-        self.mainModel = Mainmodel(self, self, filename)
-        self.mainModel.appendBlankPage()
-        self.mainModel.importModel()
-        
-        self.mainModel.syncPageNumbers()
-        self.mainModel.addInitialPagesAndSteps()
-        
-        submodelCount = self.mainModel.submodelCount()
-        unused1, partStepCount, unused2 = self.getPartDimensionListAndCount() 
-        pageList = self.mainModel.getPageList()
-        pageList.sort(key = lambda x: x._number)
-        totalCount = (len(pageList) * 2) + partStepCount + submodelCount + 11  # Rough count only
-
-        yield totalCount  # Special first value is maximum number of progression steps in load process
-
-        yield "Initializing GL display lists"
-        for label in self.initGLDisplayLists():  # generate all part GL display lists on the general glWidget
-            yield label
-
-        yield "Initializing Part Dimensions"        
-        for label in self.initPartDimensions():  # Calculate width and height of each abstractPart in the part dictionary
-            yield label
-
-        yield "Initializing CSI Dimensions"
-        for label in self.initCSIDimensions():   # Calculate width and height of each CSI in this instruction book
-            yield label
-
-        yield "Initializing Submodel Images"
-        self.mainModel.addSubmodelImages()
-
-        yield "Laying out Pages"
-        for page in pageList:
-            yield page.initLayout()
-
-        self.mainModel.mergeInitialPages()
-        self.mainModel.reOrderSubmodelPages()
-        self.mainModel.syncPageNumbers()
-
-        yield "Adjusting Submodel Images"
-        for page in pageList:
-            page.adjustSubmodelImages()
-            page.resetPageNumberPosition()
-
-        yield "Import Complete!"
-
-    def getModelName(self):
-        return self.mainModel.filename
-
-    def getPageList(self):
-        return self.mainModel.getFullPageList()
-
-    def initGLDisplayLists(self):
-
-        self.glContext.makeCurrent()
-
-        # First initialize all abstractPart display lists
-        yield "Initializing Part GL display lists"
-        for part in partDictionary.values():
-            if part.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
-                part.createGLDisplayList()
-
-        # Initialize the main model display list
-        yield "Initializing Main Model GL display lists"
-        self.mainModel.createGLDisplayList(True)
-        self.mainModel.initSubmodelImageGLDisplayList()
-
-        # Initialize all CSI display lists
-        yield "Initializing CSI GL display lists"
-        csiList = self.mainModel.getCSIList()
-        for csi in csiList:
-            csi.createGLDisplayList()
-
-    def getPartDimensionListAndCount(self, reset = False):
-        if reset:
-            partList = [part for part in partDictionary.values() if (not part.isPrimitive)]
-        else:
-            partList = [part for part in partDictionary.values() if (not part.isPrimitive) and (part.width == part.height == -1)]
-        partList.append(self.mainModel)
-
-        partDivCount = 50
-        partStepCount = int(len(partList) / partDivCount)
-        return (partList, partStepCount, partDivCount)
-    
-    def initPartDimensions(self, reset = False):
-        """
-        Calculates each uninitialized part's display width and height.
-        Creates GL buffer to render a temp copy of each part, then uses those raw pixels to determine size.
-        """
-
-        partList, partStepCount, partDivCount = self.getPartDimensionListAndCount(reset)
-        currentPartCount = currentCount = 0
-
-        if not partList:
-            return    # If there's no parts to initialize, we're done here
-
-        partList2 = []
-        sizes = [128, 256, 512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
-
-        for size in sizes:
-
-            # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, LicGLHelpers.getGLFormat(), self.glContext)
-            pBuffer.makeCurrent()
-
-            # Render each image and calculate their sizes
-            for abstractPart in partList:
-
-                if abstractPart.initSize(size, pBuffer):  # Draw image and calculate its size:                    
-                    currentPartCount += 1
-                    if not currentPartCount % partDivCount:
-                        currentPartCount = 0
-                        currentCount +=1
-                        yield "Initializing Part Dimensions (%d/%d)" % (currentCount, partStepCount)
-                else:
-                    partList2.append(abstractPart)
-
-            if len(partList2) < 1:
-                break  # All images initialized successfully
-            else:
-                partList = partList2  # Some images rendered out of frame - loop and try bigger frame
-                partList2 = []
-
-    def setAllCSIDirty(self):
-        csiList = self.mainModel.getCSIList()
-        for csi in csiList:
-            csi.isDirty = True
-
-    def updateMainModel(self, updatePartList = True):
-        if self.mainModel.hasTitlePage():
-            self.mainModel.titlePage.submodelItem.resetPixmap()
-        if updatePartList:
-            self.mainModel.updatePartList()
-
-    def initCSIDimensions(self, repositionCSI = False):
-
-        self.glContext.makeCurrent()
-
-        csiList = self.mainModel.getCSIList()
-        if not csiList:
-            return  # All CSIs initialized - nothing to do here
-
-        csiList2 = []
-        sizes = [512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels or steps
-
-        for size in sizes:
-
-            # Create a new buffer tied to the existing GLWidget, to get access to its display lists
-            pBuffer = QGLPixelBuffer(size, size, LicGLHelpers.getGLFormat(), self.glContext)
-
-            # Render each CSI and calculate its size
-            for csi in csiList:
-                pBuffer.makeCurrent()
-                oldRect = csi.rect()
-                result = csi.initSize(size, pBuffer)
-                if result:
-                    yield result
-                    if repositionCSI:
-                        newRect = csi.rect()
-                        dx = oldRect.width() - newRect.width()
-                        dy = oldRect.height() - newRect.height()
-                        csi.moveBy(dx / 2.0, dy / 2.0)
-                else:
-                    csiList2.append(csi)
-
-            if len(csiList2) < 1:
-                break  # All images initialized successfully
-            else:
-                csiList = csiList2  # Some images rendered out of frame - loop and try bigger frame
-                csiList2 = []
-
-        self.glContext.makeCurrent()
-
-    def setTemplate(self, template):
-        self.mainModel.template = template
-        self.mainModel.incrementRows(1)
-
-    def exportToPOV(self):  # TODO: Fix POV Export so it works with the last year's worth of updates
-        #global submodelDictionary
-        #for model in submodelDictionary.values():
-        #    if model.used:
-        #        model.createPng()
-        self.mainModel.createPng()
-        self.mainModel.exportImagesToPov()
-        
-    def exportImages(self, scaleFactor = 1.0):
-        
-        pagesToDisplay = self.scene.pagesToDisplay
-        self.scene.clearSelection()
-        self.scene.showOnePage()
-
-        # Build the list of pages that need to be exported
-        pageList = self.mainModel.getFullPageList()
-        pageList.sort(key = lambda x: x._number)
-        yield len(pageList) # Special first value is number of steps in export process
-
-        currentPageNumber = self.scene.currentPage._number  # Store this so we can restore selection later
-
-        if scaleFactor > 1.0:  # Make part lines a bit thicker for higher res output
-            lineWidth = LicGLHelpers.getLightParameters()[2]
-            GL.glLineWidth(lineWidth * scaleFactor) 
-
-        try:
-            w, h = int(Page.PageSize.width() * scaleFactor), int(Page.PageSize.height() * scaleFactor)
-            bufferManager = LicGLHelpers.FrameBufferManager(w, h)
-
-            # Render & save each page as an image
-            for page in pageList:
-
-                page.lockIcon.hide()
-                exportedFilename = page.getGLImageFilename()
-
-                bufferManager.bindMSFB()
-                LicGLHelpers.initFreshContext(True)
-
-                page.drawGLItemsOffscreen(QRectF(0, 0, w, h), scaleFactor)
-                bufferManager.blitMSFB()
-                data = bufferManager.readFB()
-
-                # Create an image from raw pixels and save to disk - would be nice to create QImage directly here
-                image = Image.fromstring("RGBA", (w, h), data)
-                image = image.transpose(Image.FLIP_TOP_BOTTOM)
-                image.save(exportedFilename)
-
-                # Create new blank image
-                image = QImage(w, h, QImage.Format_ARGB32)
-                painter = QPainter()
-                painter.begin(image)
-
-                self.scene.selectPage(page._number)
-                self.scene.renderMode = 'background'
-                self.scene.render(painter, QRectF(0, 0, w, h))
-
-                glImage = QImage(exportedFilename)
-                painter.drawImage(QPoint(0, 0), glImage)
-
-                self.scene.selectPage(page._number)
-                self.scene.renderMode = 'foreground'
-                self.scene.render(painter, QRectF(0, 0, w, h))
-    
-                painter.end()
-                newName = page.getExportFilename()
-                image.save(newName)
-
-                yield newName
-                page.lockIcon.show()    
-
-        finally:
-            bufferManager.cleanup()
-            self.scene.renderMode = 'full'
-            self.scene.setPagesToDisplay(pagesToDisplay)
-            self.scene.selectPage(currentPageNumber)
-
-    def exportToPDF(self):
-
-        # Create an image for each page
-        # TODO: Connect PDF export to page resolution settings
-        filename = os.path.join(config.pdfCachePath(), os.path.basename(self.mainModel.filename)[:-3] + "pdf")
-        yield filename
-
-        exporter = self.exportImages(3.0)
-        yield 2 * exporter.next()
-
-        printer = QPrinter(QPrinter.HighResolution)
-        printer.setOutputFileName(filename)
-        printer.setOutputFormat(QPrinter.PdfFormat)
-        printer.setFullPage(True)
-        printer.setResolution(Page.Resolution)
-        printer.setPaperSize(QSizeF(Page.PageSize), QPrinter.DevicePixel)
-
-        pageFilenameList = []
-        for pageFilename in exporter:
-            fn = os.path.splitext(os.path.basename(pageFilename))[0].replace('_', ' ')
-            yield "Rendering " + fn
-            pageFilenameList.append(pageFilename)
-
-        painter = QPainter()
-        painter.begin(printer)
-        for pageFilename in pageFilenameList:
-            fn = os.path.splitext(os.path.basename(pageFilename))[0].replace('_', ' ')
-            yield "Adding " + fn + " to PDF"
-            image = QImage(pageFilename)
-            painter.drawImage(QRectF(0.0, 0.0, Page.PageSize.width(), Page.PageSize.height()), image)
-            if pageFilename != pageFilenameList[-1]:
-                printer.newPage()
-        painter.end()
-
-    def getPartDictionary(self):
-        global partDictionary
-        return partDictionary
-
-    def updatePageNumbers(self, newNumber, increment = 1):
-        if self.mainModel:
-            self.mainModel.updatePageNumbers(newNumber, increment)
-
-class InstructionsProxy(object):
-
-    def __init__(self, instructions):
-        self.__instructions = instructions
-
-    def createPart(self, fn, color = 16, matrix = None, invert = False):
-        global partDictionary
-
-        part = Part(fn, color, matrix, invert)
-
-        if fn in partDictionary:
-            part.abstractPart = partDictionary[fn]
-        elif fn.upper() in partDictionary:
-            part.abstractPart = partDictionary[fn.upper()]
-        elif fn.lower() in partDictionary:
-            part.abstractPart = partDictionary[fn.lower()]
-
-        return part
-
-    def createAbstractPart(self, fn):
-        global partDictionary
-        partDictionary[fn] = AbstractPart(fn)
-        return partDictionary[fn]
-
-    def createAbstractSubmodel(self, fn, parent = None):
-        global partDictionary
-
-        if parent is None:
-            parent = self.__instructions.mainModel
-
-        part = partDictionary[fn] = Submodel(parent, self.__instructions, fn)
-        part.appendBlankPage()
-        return part 
-    
-    def addPart(self, part, parent = None):
-        if parent is None:
-            parent = self.__instructions.mainModel
-
-        parent.parts.append(part)
-
-        if parent.isSubmodel:
-            parent.pages[-1].steps[-1].addPart(part)
-
-            if part.abstractPart.isSubmodel and not part.abstractPart.used:
-                p = part.abstractPart
-                p._parent = parent
-                p._row = parent.pages[-1]._row
-                p.used = True
-                parent.pages[-1]._row += 1
-                parent.submodels.append(p)
-
-    def addPrimitive(self, shape, color, points, parent = None):
-        if parent is None:
-            parent = self.__instructions.mainModel
-        primitive = Primitive(color, points, shape, parent.winding)
-        parent.primitives.append(primitive)
-
-    def addBlankPage(self, parent):
-        if parent is None:
-            parent = self.__instructions.mainModel
-        if parent.isSubmodel:
-            parent.appendBlankPage()
-
-class Page(PageTreeManager, GraphicsRoundRectItem):
-    """ A single page in an instruction book.  Contains one or more Steps. """
-
-    itemClassName = "Page"
-
-    PageSize = QSize(800, 600)  # Always pixels
-    Resolution = 72.0           # Always pixels / inch
-    NumberPos = 'right'         # One of 'left', 'right', 'oddRight', 'evenRight'
-
-    defaultPageSize = QSize(800, 600)
-    defaultResolution = 72.0
-
-    margin = QPointF(15, 15)
-    defaultFillColor = QColor(Qt.white)
-    defaultBrush = QBrush(Qt.NoBrush)
-    defaultPen = QPen(Qt.NoPen)
-
-    def __init__(self, submodel, instructions, number, row):
-        if not hasattr(Page.defaultPen, "cornerRadius"):
-            Page.defaultPen.cornerRadius = 0
-
-        GraphicsRoundRectItem.__init__(self, None)
-
-        self.setPos(0, 0)
-        self.setRect(0, 0, self.PageSize.width(), self.PageSize.height())
-        self.setFlags(NoMoveFlags)
-
-        self.instructions = instructions
-        self.submodel = submodel
-        self._number = number
-        self._row = row
-        self.steps = []
-        self.separators = []
-        self.children = []
-        self.annotations = []
-        self.submodelItem = None
-        self.layout = GridLayout()
-        self.color = Page.defaultFillColor
-
-        # Setup this page's page number
-        self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
-        self.numberItem.setFont(QFont("Arial", 15))
-        self.numberItem.setFlags(AllFlags)
-        self.numberItem.data = lambda index: "Page Number Label"
-        self.numberItem.itemClassName = "Page Number"
-        self.children.append(self.numberItem)
-        
-        # Setup this page's layout lock icon
-        self.lockIcon = LockIcon(self)
-
-        # Position page number in bottom right page corner
-        self.resetPageNumberPosition()
-        
-        # Need to explicitly add this page to scene, since it has no parent
-        instructions.scene.addItem(self)
-
-    def insetRect(self):
-        r = QGraphicsRectItem.rect(self)
-        inset = self.pen().width()
-        if inset:
-            r.adjust(inset, inset, -inset, -inset)
-        return r
-
-    def _setNumber(self, number):
-        self._number = number
-        self.numberItem.setText("%d" % self._number)
-
-    def _getNumber(self):
-        return self._number
-
-    number = property(_getNumber, _setNumber)
-
-    def getAllChildItems(self):
-
-        items = [self, self.numberItem]
-
-        for step in self.steps:
-            items.append(step)
-            items.append(step.csi)
-            if step.numberItem:
-                items.append(step.numberItem)
-            if step.hasPLI():
-                items.append(step.pli)
-                for pliItem in step.pli.pliItems:
-                    items.append(pliItem)
-                    items.append(pliItem.numberItem)
-                    if pliItem.lengthIndicator:
-                        items.append(pliItem.lengthIndicator)
-            if step.rotateIcon:
-                items.append(step.rotateIcon)
-            for callout in step.callouts:
-                items.append(callout)
-                items.append(callout.arrow)
-                items.append(callout.arrow.tipRect)
-                items.append(callout.arrow.baseRect)
-                if callout.qtyLabel:
-                    items.append(callout.qtyLabel)
-                for step in callout.steps:
-                    items.append(step)
-                    items.append(step.csi)
-                    if step.numberItem:
-                        items.append(step.numberItem)
-
-        for separator in self.separators:
-            items.append(separator)
-
-        if self.submodelItem:
-            items.append(self.submodelItem)
-
-        items += self.annotations
-        return items
-
-    def getExportFilename(self):
-        return os.path.join(config.finalImageCachePath(), "Page_%d.png" % self._number)
-    
-    def getGLImageFilename(self):
-        return os.path.join(config.glImageCachePath(), "Page_%d.png" % self._number)
-
-    def getPage(self):
-        return self
-    
-    def prevPage(self):
-        i = self.submodel.pages.index(self)
-        if i == 0:
-            return None
-        return self.submodel.pages[i - 1]
-
-    def nextPage(self):
-        i = self.submodel.pages.index(self)
-        if i == len(self.submodel.pages) - 1:
-            return None
-        return self.submodel.pages[i + 1]
-        
-    def getStep(self, number):
-        return self.submodel.getStep(number)
-
-    def addStep(self, step):
-
-        self.steps.append(step)
-        self.steps.sort(key = lambda x: x._number)
-        step.setParentItem(self)
-
-        i = 0
-        for i in range(len(self.children) - 1, -1, -1):
-            item = self.children[i]
-            if isinstance(item, Step):
-                if item._number < step._number:
-                    break
-        self.addChild(i + 1, step)
-
-    def getNextStepNumber(self):
-
-        if self.steps:
-            return self.steps[-1].number + 1
-        
-        for page in self.submodel.pages:  # Look forward through pages
-            if page._number > self._number and page.steps:
-                return page.steps[0].number
-
-        for page in reversed(self.submodel.pages):  # Look back
-            if page._number < self._number and page.steps:
-                return page.steps[-1].number + 1
-
-        return 1
-        
-    def addBlankStep(self):
-        self.insertStep(Step(self, self.getNextStepNumber()))
-    
-    def insertStep(self, step):
-        self.submodel.updateStepNumbers(step.number)
-        self.addStep(step)
-
-    def removeStep(self, step):
-        self.scene().removeItem(step)
-        self.steps.remove(step)
-        self.children.remove(step)
-        self.submodel.updateStepNumbers(step.number, -1)
-
-    def isEmpty(self):
-        return len(self.steps) == 0 and self.submodelItem is None
-
-    def isLocked(self):
-        return self.lockIcon.isLocked
-
-    def lock(self, isLocked):
-        for child in self.getAllChildItems():
-            child.setFlags(NoMoveFlags if isLocked else AllFlags)
-        self.setFlags(NoMoveFlags)
-
-    def show(self):
-        GraphicsRoundRectItem.show(self)
-        for step in self.steps:
-            if step.hasPLI():
-                step.pli.show()
-
-    def addChild(self, index, child):
-
-        self.children.insert(index, child)
-
-        # Adjust the z-order of all children: first child has highest z value
-        length = len(self.children)
-        for i, item in enumerate(self.children):
-            item.setZValue(length - i)
-        self.lockIcon.setZValue(length + 1)
-        for i, item in enumerate(self.annotations):  # Annotations on top
-            item.setZValue(length + i + 1)
-
-    def addStepSeparator(self, index, rect = None):
-        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        s = QGraphicsRectItem(self)
-        s.setRect(rect if rect else QRectF(0, 0, 1, 1))
-        s.setFlags(AllFlags)
-        s.setPen(QPen(Qt.black))
-        s.setBrush(QBrush(Qt.black))
-        s.itemClassName = "Separator"
-        s.data = lambda index: "Step Separator"
-        self.separators.append(s)
-        self.addChild(index, s)
-        self.scene().emit(SIGNAL("layoutChanged()"))
-        return s
-
-    def removeAllSeparators(self):
-        if not self.separators:
-            return
-        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        for separator in self.separators:
-            self.scene().removeItem(separator)
-            self.children.remove(separator)
-        del self.separators[:]
-        self.scene().emit(SIGNAL("layoutChanged()"))
-    
-    def showSeparators(self):
-        for s in self.separators:
-            s.show()
-    
-    def hideSeparators(self):
-        for s in self.separators:
-            s.hide()
-    
-    def addSubmodelImage(self, count = 0):
-        self.submodelItem = SubmodelPreview(self, self.submodel)
-        self.submodelItem.setPos(Page.margin)
-        self.addChild(1, self.submodelItem)
-        if count > 1:
-            self.submodelItem.addQuantityLabel(count)
-        
-    def resetSubmodelImage(self):
-        if self.submodelItem:
-            self.submodelItem.resetPixmap()
-
-    def checkForLayoutOverlaps(self):
-        for step in self.steps:
-            if step.checkForLayoutOverlaps():
-                return True
-        return False
-    
-    def resetPageNumberPosition(self):
-        rect = self.numberItem.rect()
-        pos = Page.NumberPos
-        isOdd = self.number % 2
-        onRight = pos == 'right' or (isOdd and pos == 'oddRight') or (not isOdd and pos == 'evenRight')
-
-        if onRight:
-            rect.moveBottomRight(self.insetRect().bottomRight() - Page.margin)
-        else:
-            rect.moveBottomLeft(QPointF(Page.margin.x(), self.insetRect().bottom() - Page.margin.y()))
-        self.numberItem.setPos(rect.topLeft())
-
-    def initLayout(self):
-
-        self.lockIcon.resetPosition()
-        if self.lockIcon.isLocked:
-            return  # Don't make any layout changes to locked pages
-
-        self.resetPageNumberPosition()
-        if self.submodelItem:
-            self.submodelItem.initLayout()
-
-        # Remove any separators; we'll re-add them in the appropriate place later
-        self.removeAllSeparators()
-
-        pageRect = self.insetRect()
-
-        label = "Initializing Page: %d" % self._number
-        if len(self.steps) <= 0:
-            return label # No steps - nothing more to do here
-
-        members = [self.submodelItem] if self.submodelItem else []
-        self.layout.initGridLayout(pageRect, members + self.steps)
-        for index, rect in self.layout.separators:
-            self.addStepSeparator(index, rect)
-
-        return label
-
-    def updateSubmodel(self):
-        if self.submodel and self.submodel.pages and self.submodel.pages[0].submodelItem:
-            self.submodel.pages[0].submodelItem.resetPixmap()
-
-    def adjustSubmodelImages(self):
-
-        # Check if we should shrink submodel image
-        if self.submodelItem and self.submodelItem.scaling > 0.5 and self.checkForLayoutOverlaps():
-            
-            # Scale submodel down and try again
-            newScale = self.submodelItem.scaling - 0.2
-            self.submodelItem.changeScale(newScale)
-            print "scaling page %d submodel down to %.2f" % (self._number, newScale)
-            self.initLayout()
-            self.adjustSubmodelImages()
-    
-    def scaleImages(self):
-        for step in self.steps:
-            if step.hasPLI():
-                step.pli.initLayout()
-            
-        if self.submodelItem:
-            self.resetSubmodelImage()
-
-    def renderFinalImageWithPov(self):
-
-        for step in self.steps:
-            step.csi.createPng()
-            
-            for callout in step.callouts:
-                for s in callout.steps:
-                    s.csi.createPng()
-                    
-            if step.hasPLI():
-                for item in step.pli.pliItems:
-                    item.createPng()
-
-        oldPos = self.pos()
-        self.setPos(0, 0)
-        image = QImage(self.rect().width(), self.rect().height(), QImage.Format_ARGB32)
-        painter = QPainter()
-        painter.begin(image)
-
-        items = self.getAllChildItems()
-        options = QStyleOptionGraphicsItem()
-        optionList = [options] * len(items)
-        self.scene().drawItems(painter, items, optionList)
-
-        for step in self.steps:
-            painter.drawImage(step.csi.scenePos(), step.csi.pngImage)
-                
-            for callout in step.callouts:
-                for s in callout.steps:
-                    painter.drawImage(s.csi.scenePos(), s.csi.pngImage)
-            
-            if step.hasPLI():
-                for item in step.pli.pliItems:
-                    painter.drawImage(item.scenePos(), item.pngImage)
-
-        if self.submodelItem:
-            painter.drawImage(self.submodelItem.pos() + PLI.margin, self.submodel.pngImage)
-
-        painter.end()
-        image.save(self.getExportFilename())
-        self.setPos(oldPos)
-
-    def paint(self, painter, option, widget = None):
-
-        # Draw a slightly down-right translated black rectangle, for the page shadow effect
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(QBrush(Qt.black))
-        painter.drawRect(self.rect().translated(3, 3))
-
-        # Draw the full page in the border color
-        painter.setBrush(QBrush(self.pen().color()))
-        painter.drawRect(self.rect())
-        
-        # Draw the page itself in the chosen fill, with the correctly inset rounded rect 
-        painter.setBrush(QBrush(self.color))
-        painter.drawRoundedRect(self.insetRect(), self.cornerRadius, self.cornerRadius)
-        
-        # Draw any images or gradients this page may have
-        painter.setBrush(self.brush())
-        painter.drawRoundedRect(self.insetRect(), self.cornerRadius, self.cornerRadius)
-
-    def drawGLItems(self, rect):
-        
-        LicGLHelpers.pushAllGLMatrices()
-        vx = self.pos().x() - rect.x()
-        vy = rect.height() + rect.y() - Page.PageSize.height() - self.pos().y()
-        f = self.scene().scaleFactor
-        LicGLHelpers.adjustGLViewport(vx, vy, Page.PageSize.width(), Page.PageSize.height(), f, True)
-        
-        for glItem in self.glItemIterator():
-            if rect.intersects(glItem.mapToScene(glItem.rect()).boundingRect()):
-                glItem.paintGL(f)
-            elif hasattr(glItem, "isDirty") and glItem.isDirty:
-                glItem.paintGL(f)
-
-        LicGLHelpers.popAllGLMatrices()
-
-    def drawGLItemsOffscreen(self, rect, f):
-        
-        LicGLHelpers.pushAllGLMatrices()
-        LicGLHelpers.adjustGLViewport(0, 0, rect.width(), rect.height(), 1.0, True)
-        
-        for glItem in self.glItemIterator():
-            glItem.paintGL(f)
-            
-        LicGLHelpers.popAllGLMatrices()
-
-    def glItemIterator(self):
-        if self.submodelItem:
-            if self.submodelItem.isSubAssembly:
-                for pliItem in self.submodelItem.pli.pliItems:
-                    yield pliItem
-            else:
-                yield self.submodelItem
-        for step in self.steps:
-            for glItem in step.glItemIterator():
-                yield glItem
-
-    def acceptDragAndDropList(self, dragItems, row):
-
-        steps = [s for s in dragItems if isinstance(s, Step)]
-        if not steps:
-            return False
-
-        print "Dropping steps: %d"  %len(steps)
-        return True
-
-    def contextMenuEvent(self, event):
-
-        menu = QMenu(self.scene().views()[0])
-        if not self.isLocked():
-            menu.addAction("Auto Layout", self.initLayout)
-
-        if not self.isLocked() and ((len(self.steps) > 1) or (self.steps and self.submodelItem)):
-            if self.layout.orientation == Horizontal:
-                menu.addAction("Use Vertical layout", self.useVerticalLayout)
-            else:
-                menu.addAction("Use Horizontal layout", self.useHorizontalLayout)
-        #menu.addAction("Check for Overlaps", self.checkForLayoutOverlaps)
-
-        menu.addSeparator()
-
-        menu.addAction("Prepend blank Page", lambda: self.addPageSignal(self.number, self._row))
-        menu.addAction("Append blank Page", lambda: self.addPageSignal(self.number + 1, self._row + 1))
-
-        menu.addSeparator()
-        if self.separators:
-            if [x for x in self.separators if x.isVisible()]:
-                menu.addAction("Hide Step Separators", self.hideSeparators)
-            else:
-                menu.addAction("Show Step Separators", self.showSeparators)
-
-        menu.addAction("Add blank Step", self.addBlankStepSignal)
-        menu.addAction("Add Annotation", lambda: self.addAnnotationSignal(event.scenePos()))
-        menu.addSeparator()
-        if not self.steps:
-            menu.addAction("Delete Page", lambda: self.scene().undoStack.push(AddRemovePageCommand(self.scene(), self, False)))
-        menu.exec_(event.screenPos())
-    
-    def useVerticalLayout(self):
-        self.layout.orientation = Vertical
-        self.initLayout()
-        
-    def useHorizontalLayout(self):
-        self.layout.orientation = Horizontal
-        self.initLayout()
-        
-    def addBlankStepSignal(self):
-        step = Step(self, self.getNextStepNumber())
-        self.scene().undoStack.push(AddRemoveStepCommand(step, True))
-        self.scene().fullItemSelectionUpdate(step)
-
-    def addPageSignal(self, number, row):
-        scene = self.scene()
-        newPage = Page(self.submodel, self.instructions, number, row)
-        scene.undoStack.push(AddRemovePageCommand(scene, newPage, True))
-        scene.fullItemSelectionUpdate(newPage)
-
-    def addAnnotationSignal(self, pos = None):
-        filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open Annotation Image", "", "Images (*.png *.jpg)"))
-        if filename:
-            pixmap = QPixmap(filename)
-            if pixmap.isNull():
-                QMessageBox.information(self.scene().views()[0], "Lic", "Cannot load " + filename)
-            else:
-                item = PageAnnotation(self, pixmap, filename, pos)
-                self.scene().undoStack.push(AddRemoveAnnotationCommand(self, item, True))
-
-class PageAnnotation(QGraphicsPixmapItem):
-
-    def __init__(self, parent, pixmap, filename, pos = None):
-        QGraphicsPixmapItem.__init__(self, pixmap, parent)
-        self.filename = filename
-        self.setFlags(AllFlags)
-        self.itemClassName = "Annotation"
-        self.isAnnotation = True
-        if pos:
-            self.setPos(pos)
-
-    def data(self, index):
-        return "Annotation: " + os.path.basename(self.filename)
-    
-    def contextMenuEvent(self, event):
-        menu = QMenu(self.scene().views()[0])
-        stack = self.scene().undoStack
-        menu.addAction("Change Picture", self.changePicture)
-        menu.addAction("Remove Annotation", lambda: stack.push(AddRemoveAnnotationCommand(self.parentItem(), self, False)))
-        if self.isAnnotation:
-            menu.addAction("Move to Background", lambda: stack.push(ToggleAnnotationOrderCommand(self, False)))
-        else:
-            menu.addAction("Move to Foreground", lambda: stack.push(ToggleAnnotationOrderCommand(self, True)))
-        menu.exec_(event.screenPos())
-
-    def changePicture(self):
-        filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open Annotation Image", "", "Images (*.png *.jpg)"))
-        if filename:
-            self.scene().undoStack.push(ChangeAnnotationPixmap(self, self.filename, filename))
-            self.filename = filename
-
-    def changeOrder(self, moveForward):
-        z = 1200 if moveForward else -1200
-        self.setZValue(z)
-        self.isAnnotation = moveForward
-
-class LockIcon(QGraphicsPixmapItem):
-
-    loaded = False
-    activeOpenIcon = None
-    activeCloseIcon = None
-    deactiveOpenIcon = None
-    deactiveCloseIcon = None
-    
-    def __init__(self, parent):
-        QGraphicsPixmapItem.__init__(self, parent)
-        
-        if not LockIcon.loaded:
-            LockIcon.activeOpenIcon = QPixmap(":/lock_open")
-            LockIcon.activeCloseIcon = QPixmap(":/lock_close")
-            LockIcon.deactiveOpenIcon = QPixmap(":/lock_grey_open")
-            LockIcon.deactiveCloseIcon = QPixmap(":/lock_grey_close")
-            LockIcon.loaded = True
-
-        self.setPixmap(LockIcon.deactiveOpenIcon)
-        self.resetPosition()
-        self.setFlags(NoMoveFlags)
-        self.setAcceptHoverEvents(True)
-        self.hoverEnterEvent = lambda event: self.changeIcon(True)
-        self.hoverLeaveEvent = lambda event: self.changeIcon(False)
-        
-        self.isLocked = False
-    
-    def resetPosition(self):
-        self.setPos(5, Page.PageSize.height() - self.rect().height() - 5)
-    
-    def changeIcon(self, active):
-        if active:
-            self.setPixmap(LockIcon.activeCloseIcon if self.isLocked else LockIcon.activeOpenIcon)
-        else:
-            self.setPixmap(LockIcon.deactiveCloseIcon if self.isLocked else LockIcon.deactiveOpenIcon)
-            
-    def mousePressEvent(self, event):
-        self.isLocked = not self.isLocked
-        self.parentItem().lock(self.isLocked)
-        self.changeIcon(True)
-        event.ignore()
-    
 class CalloutArrowEndItem(QGraphicsRectItem):
     itemClassName = "CalloutArrowEndItem"
     
@@ -1330,7 +372,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         if self.qtyLabel:
             b |= self.qtyLabel.rect().translated(self.qtyLabel.pos())
 
-        x, y = Page.margin
+        x, y = self.getPage().margin
         self.setRect(b.adjusted(-x, -y, x, y))
         self.normalizePosition([self.arrow])
         self.resetArrow()
@@ -1669,7 +711,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
         self.maxRect = None
 
         self.setPen(QPen(Qt.NoPen))
-        self.setPos(Page.margin)
+        self.setPos(self.getPage().margin)
 
         if hasNumberItem:
             self.enableNumberItem()
@@ -1803,7 +845,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
         else:
             self.csi.setPos(0.0, 0.0)
 
-        self.setPos(Page.margin)
+        self.setPos(self.getPage().margin)
         self.maxRect = QRectF()
         self.resetRect()
         self.maxRect = self.rect()
@@ -1848,7 +890,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
         if self.numberItem:
             self.numberItem.setPos(0, 0)
             pliOffset = self.pli.rect().height() if self.hasPLI() else 0.0
-            self.numberItem.moveBy(0, pliOffset + Page.margin.y())
+            self.numberItem.moveBy(0, pliOffset + self.getPage().margin.y())
 
         self.positionInternalBits()
         self.resetRect()
@@ -1885,11 +927,12 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
     def positionRotateIcon(self):
         if self.rotateIcon:
-            x = self.csi.pos().x() - self.rotateIcon.rect().width() - Page.margin.x()
-            y = self.csi.pos().y() - self.rotateIcon.rect().height() - Page.margin.y()
+            margin = self.getPage().margin
+            x = self.csi.pos().x() - self.rotateIcon.rect().width() - margin.x()
+            y = self.csi.pos().y() - self.rotateIcon.rect().height() - margin.y()
             if self.hasPLI() and y < self.pli.rect().bottom():
                 y = self.csi.pos().y()  # Not enough space to place above CSI, so put beside
-                x -= Page.margin.x()
+                x -= margin.x()
             self.rotateIcon.setPos(x, y)
 
     def glItemIterator(self):
@@ -1999,12 +1042,12 @@ class Step(StepTreeManager, QGraphicsRectItem):
             menu.addAction("Merge selected Steps", self.mergeAllStepsSignal)
             menu.addSeparator()
 
-        if isinstance(parent, Page):
+        if not self.isInCallout():
             if parent.prevPage() and parent.steps[0] is self:
                 menu.addAction("Move to &Previous Page", lambda: self.moveToPrevOrNextPage(True))
             if parent.nextPage() and parent.steps[-1] is self:
                 menu.addAction("Move to &Next Page", lambda: self.moveToPrevOrNextPage(False))
-            
+
         menu.addSeparator()
         if self.getPrevStep():
             menu.addAction("Merge with Previous Step", lambda: self.mergeWithStepSignal(self.getPrevStep()))
@@ -2156,7 +1199,7 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
 
     def paintGL(self, f = 1.0):
         dx = self.pos().x() + PLI.margin.x() + (self.abstractPart.width / 2.0)
-        dy = -Page.PageSize.height() + self.pos().y() + PLI.margin.y() + (self.abstractPart.height / 2.0)
+        dy = -self.getPage().PageSize.height() + self.pos().y() + PLI.margin.y() + (self.abstractPart.height / 2.0)
         self.abstractPart.paintGL(dx * f, dy * f, self.rotation, self.scaling * f)
 
     def initLayout(self, destRect = None):
@@ -2171,7 +1214,7 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
     def convertToSubAssembly(self):
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         self.isSubAssembly = True
-        self.setRect(self.parentItem().rect().adjusted(0, 0, -Page.margin.x() * 2, -Page.margin.y() * 2))
+        self.setRect(self.parentItem().rect().adjusted(0, 0, -self.getPage().margin.x() * 2, -self.getPage().margin.y() * 2))
         self.setPen(QPen(Qt.transparent))
         self.setBrush(QBrush(Qt.transparent))
         self.pli = PLI(self)
@@ -2304,7 +1347,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     def paintGL(self, f = 1.0):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.abstractPart.width / 2.0)
-        dy = -Page.PageSize.height() + pos.y() + (self.abstractPart.height / 2.0)
+        dy = -self.getPage().PageSize.height() + pos.y() + (self.abstractPart.height / 2.0)
         dy += (self.lengthIndicator.rect().height() if self.lengthIndicator else 0)
         self.abstractPart.paintGL(dx * f, dy * f, scaling = f, color = self.color)
 
@@ -2579,7 +1622,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
 
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.rect().width() / 2.0) + self.center.x()
-        dy = -Page.PageSize.height() + pos.y() + (self.rect().height() / 2.0) + self.center.y()
+        dy = -self.getPage().PageSize.height() + pos.y() + (self.rect().height() / 2.0) + self.center.y()
         LicGLHelpers.rotateToView(CSI.defaultRotation, CSI.defaultScale * self.scaling * f, dx * f, dy * f, 0.0)
         LicGLHelpers.rotateView(*self.rotation)
 
@@ -2650,7 +1693,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
 
         # Temporarily enlarge CSI, in case recent changes pushed image out of existing bounds.
         oldWidth, oldHeight = self.rect().width(), self.rect().height()
-        self.setRect(0.0, 0.0, Page.PageSize.width(), Page.PageSize.height())
+        self.setRect(0.0, 0.0, self.getPage().PageSize.width(), self.getPage().PageSize.height())
 
         glContext = self.getPage().instructions.glContext
         glContext.makeCurrent()
@@ -3152,7 +2195,7 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         importerName = LicImporters.getImporter(os.path.splitext(self.filename)[1][1:])
         importModule = __import__("LicImporters.%s" % importerName, fromlist = ["LicImporters"])
         importModule.LDrawPath = config.LDrawPath
-        importModule.importModel(self.filename, InstructionsProxy(self.instructions))
+        importModule.importModel(self.filename, self.instructions.getProxy())
 
     def hasImportedSteps(self):
         if not self.pages:
@@ -3242,7 +2285,7 @@ class Submodel(SubmodelTreeManager, AbstractPart):
                 break  # All done
 
             # Create a new page, give it a step, then push all remaining parts to that step
-            newPage = Page(self, self.instructions, self.pages[-1]._number + 1, self.pages[-1]._row + 1)
+            newPage = self.instructions.spawnNewPage(self, self.pages[-1]._number + 1, self.pages[-1]._row + 1)
             newPage.addBlankStep()
             self.addPage(newPage)
 
@@ -3385,11 +2428,11 @@ class Submodel(SubmodelTreeManager, AbstractPart):
 
         pageNumber = firstPageNumber
         for item in rowList:
-            if isinstance(item, Page):
+            if isinstance(item, Submodel):
+                pageNumber = item.syncPageNumbers(pageNumber)
+            else: # have a Page
                 item.number = pageNumber
                 pageNumber += 1
-            elif isinstance(item, Submodel):
-                pageNumber = item.syncPageNumbers(pageNumber)
 
         return pageNumber
     
@@ -3401,17 +2444,17 @@ class Submodel(SubmodelTreeManager, AbstractPart):
             row = 1 + max(self.pages[-1]._row if self.pages else 0, self.submodels[-1]._row if self.submodels else 0)
             
         pageNumber = self.pages[-1].number + 1 if self.pages else 1
-        page = Page(self, self.instructions, pageNumber, row)
+        page = self.instructions.spawnNewPage(self, pageNumber, row)
         for p in self.pages[page._row : ]:
             p._row += 1
         self.pages.insert(page._row, page)
         page.addBlankStep()
         return page
-    
+
     def addPage(self, page):
-        
+
         for p in self.pages:
-            if p._row >= page._row: 
+            if p._row >= page._row:
                 p._row += 1
 
         for s in self.submodels:
@@ -3676,26 +2719,20 @@ class Mainmodel(MainModelTreeManager, Submodel):
     def hasTitlePage(self):
         return self._hasTitlePage and self.titlePage is not None
 
-    def addTitlePage(self, titlePage):
-        self._hasTitlePage = True
-        self.titlePage = titlePage
+    def createNewTitlePage(self, useSignal = True):
+        self.titlePage = self.instructions.spawnNewTitlePage()
+        self.titlePage.addInitialContent()
 
-    def showTitlePage(self):
-        self.showHideTitlePage(True)
+        if useSignal:
+            self.addRemoveTitlePageSignal(True)
+        else:
+            self._hasTitlePage = True
+            self.incrementRows(1)
+            self.syncPageNumbers()
 
-    def hideTitlePage(self):
-        self.showHideTitlePage(False)
-
-    def showHideTitlePage(self, show = True):
+    def addRemoveTitlePageSignal(self, add = True):
         scene = self.instructions.scene
-        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-        self._hasTitlePage = show
-        self.titlePage.setVisible(show)
-        scene.addItem(self.titlePage) if show else scene.removeItem(self.titlePage)
-        self.updatePageNumbers(1, 1 if show else -1)
-        self. incrementRows(1 if show else -1)
-        scene.selectFirstPage()
-        scene.emit(SIGNAL("layoutChanged()"))
+        scene.undoStack.push(AddRemoveTitlePageCommand(scene, self.titlePage, add))
 
     def getFullPageList(self):
         pages = [self.titlePage] if self.titlePage else []
@@ -3744,11 +2781,11 @@ class Mainmodel(MainModelTreeManager, Submodel):
 
         pageNumber = firstPageNumber
         for item in rowList:
-            if isinstance(item, Page):
+            if isinstance(item, Submodel):
+                pageNumber = item.syncPageNumbers(pageNumber)
+            else:  # have a Page
                 item.number = pageNumber
                 pageNumber += 1
-            elif isinstance(item, Submodel):
-                pageNumber = item.syncPageNumbers(pageNumber)
 
         self.instructions.scene.sortPages()
         return pageNumber
@@ -3835,7 +2872,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
             importModule.LDrawPath = config.LDrawPath
 
             abstractPart = AbstractPart(fn)
-            importModule.importPart(fn, InstructionsProxy(instructions), abstractPart)
+            importModule.importPart(fn, instructions.getProxy(), abstractPart)
             self.abstractPart = partDictionary[fn] = abstractPart
 
     def setInversion(self, invert):

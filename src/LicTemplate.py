@@ -19,6 +19,7 @@
 """
 
 from LicModel import *
+from LicCustomPages import *
 from LicUndoActions import *
 from LicQtWrapper import *
 
@@ -341,7 +342,7 @@ class TemplatePage(TemplateRectItem, Page):
         arrowMenu.addAction("None", self.setBackgroundNone)
         if not self.instructions.mainModel.hasTitlePage():
             menu.addSeparator()
-            menu.addAction("Add Title Page", self.instructions.mainModel.showTitlePage)
+            menu.addAction("Add Title Page", self.instructions.mainModel.createNewTitlePage)
 
         menu.addSeparator()
         menu.addAction("Change 3D model Lighting", self.changeLighting)

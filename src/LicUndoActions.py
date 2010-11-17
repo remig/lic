@@ -427,14 +427,46 @@ class AddRemovePageCommand(QUndoCommand):
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
 
         if (redo and self.addPage) or (not redo and not self.addPage):
-            page.parent().addPage(page)
+            page.submodel.addPage(page)
             number = page.number
         else:
-            page.parent().deletePage(page)
+            page.submodel.deletePage(page)
             number = page.number - 1
 
         self.scene.emit(SIGNAL("layoutChanged()"))
         self.scene.selectPage(number)
+        
+class AddRemoveTitlePageCommand(QUndoCommand):
+    
+    _id = getNewCommandID()
+
+    def __init__(self, scene, page, addPage):
+        QUndoCommand.__init__(self, "%s Title Page" % ("add" if addPage else "delete"))
+        self.scene, self.page, self.addPage = scene, page, addPage
+
+    def doAction(self, redo):
+
+        page = self.page
+        model = page.submodel
+
+        self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+
+        if (redo and self.addPage) or (not redo and not self.addPage):
+            model._hasTitlePage = True
+            model.titlePage = page
+            if page.scene() is None:
+                self.scene.addItem(page)
+            model.updatePageNumbers(1, 1)
+            model.incrementRows(1)
+        else:
+            model._hasTitlePage = False
+            model.titlePage = None
+            self.scene.removeItem(page)
+            model.updatePageNumbers(1, -1)
+            model.incrementRows(-1)
+
+        self.scene.emit(SIGNAL("layoutChanged()"))
+        self.scene.selectPage(1)
 
 class AddRemoveGuideCommand(QUndoCommand):
 

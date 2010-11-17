@@ -159,7 +159,9 @@ def __readInstructions(stream, instructions):
 
     instructions.mainModel = __readSubmodel(stream, instructions, True)
 
-    instructions.mainModel.addTitlePage(__readTitlePage(stream, instructions))
+    instructions.mainModel.titlePage = __readTitlePage(stream, instructions)
+    if instructions.mainModel.titlePage is not None:
+        instructions.mainModel._hasTitlePage = True
 
     for unused in range(stream.readInt32()):
         newPage = __readPartListPage(stream, instructions)
