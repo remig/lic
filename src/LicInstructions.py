@@ -35,6 +35,15 @@ class Instructions(QObject):
         self.glContext = glWidget
         self.glContext.makeCurrent()
 
+    def __getTemplate(self):
+        return self.mainModel.template
+    
+    def __setTemplate(self, template):
+        self.mainModel.template = template
+        self.mainModel.incrementRows(1)
+
+    template = property(__getTemplate, __setTemplate)
+
     def clear(self):
         global partDictionary, currentModelFilename
 
@@ -240,10 +249,6 @@ class Instructions(QObject):
                 csiList2 = []
 
         self.glContext.makeCurrent()
-
-    def setTemplate(self, template):
-        self.mainModel.template = template
-        self.mainModel.incrementRows(1)
 
     def exportToPOV(self):  # TODO: Fix POV Export so it works with the last year's worth of updates
         #global submodelDictionary

@@ -129,7 +129,7 @@ class TemplatePage(TemplateRectItem, Page):
 
     def __init__(self, submodel, instructions):
         Page.__init__(self, submodel, instructions, 0, 0)
-        self.__filename = None
+        self.__filename = ""
         self.data = lambda index: "Template Page"
         self.submodelPart = None
 

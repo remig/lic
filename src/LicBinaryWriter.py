@@ -24,14 +24,14 @@ from LicModel import *
 from LicCustomPages import *
 import LicGLHelpers
 
-def saveLicFile(filename, instructions, template):
+def saveLicFile(filename, instructions):
 
     fh, stream = __createStream(filename)
 
     # Need to explicitly de-select parts so they refresh the CSI pixmap
     instructions.scene.clearSelectedParts()
 
-    __writeTemplate(stream, template)
+    __writeTemplate(stream, instructions.template)
     __writeInstructions(stream, instructions)
 
     if fh is not None:

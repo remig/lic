@@ -656,17 +656,17 @@ class LicWindow(QMainWindow):
         self.treeModel.root = self.instructions.mainModel
 
         try:
-            self.templatePage = LicBinaryReader.loadLicTemplate(self.defaultTemplateFilename, self.instructions)
-            self.templatePage.filename = ""  # Do not preserve default template filename
+            template = LicBinaryReader.loadLicTemplate(self.defaultTemplateFilename, self.instructions)
+            template.filename = ""  # Do not preserve default template filename
         except (IOError), e:
             # Could not load default template, so generate one from scratch
             import LicTemplate
-            self.templatePage = LicTemplate.TemplatePage(self.instructions.mainModel, self.instructions)
-            self.templatePage.createBlankTemplate(self.glWidget)
+            template = LicTemplate.TemplatePage(self.instructions.mainModel, self.instructions)
+            template.createBlankTemplate(self.glWidget)
         
-        self.instructions.setTemplate(self.templatePage)
+        self.instructions.template = template
         self.instructions.mainModel.partListPages = PartListPage.createPartListPages(self.instructions)
-        self.templatePage.applyFullTemplate(False)  # Template should apply to part list but not title pages
+        template.applyFullTemplate(False)  # Template should apply to part list but not title pages
 
         self.instructions.mainModel.createNewTitlePage(False)
         
@@ -688,8 +688,6 @@ class LicWindow(QMainWindow):
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         LicBinaryReader.loadLicFile(filename, self.instructions)
         self.treeModel.root = self.instructions.mainModel
-        self.templatePage = self.instructions.mainModel.template
-        self.templatePage.applyFullTemplate(False)
         self.scene.emit(SIGNAL("layoutChanged()"))
         
         self.filename = filename
@@ -735,7 +733,7 @@ class LicWindow(QMainWindow):
             if os.path.isfile(tmpXName):
                 os.remove(tmpXName)
 
-            LicBinaryWriter.saveLicFile(tmpXName, self.instructions, self.templatePage)
+            LicBinaryWriter.saveLicFile(tmpXName, self.instructions)
 
             if os.path.isfile(tmpName):
                 os.remove(tmpName)
@@ -753,7 +751,7 @@ class LicWindow(QMainWindow):
         return False
 
     def fileSaveTemplate(self):
-        template = self.templatePage
+        template = self.instructions.template
         if template.filename == "":
             return self.fileSaveTemplateAs()
 
@@ -768,7 +766,7 @@ class LicWindow(QMainWindow):
             QMessageBox.warning(self, "Lic - Save Error", "Failed to save %s: %s" % (template.filename, e))
     
     def fileSaveTemplateAs(self):
-        template = self.templatePage
+        template = self.instructions.template
         f = template.filename if template.filename else "template.lit"
 
         filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Save Template As", f, "Lic Template files (*.lit)"))
@@ -777,8 +775,8 @@ class LicWindow(QMainWindow):
             return self.fileSaveTemplate()
     
     def fileLoadTemplate(self):
-        templateName = self.templatePage.filename
-        dir = os.path.dirname(templateName) if templateName is not None else "."
+        templateName = self.instructions.template.filename
+        dir = os.path.dirname(templateName) if templateName != "" else "."  # TODO: Check what happens if templateName has no path
         newFilename = unicode(QFileDialog.getOpenFileName(self, "Lic - Load Template", dir, "Lic Template files (*.lit)"))
         if newFilename and newFilename != templateName:
             try:
@@ -787,8 +785,9 @@ class LicWindow(QMainWindow):
                 QMessageBox.warning(self, "Lic - Load Template Error", "Failed to open %s: %s" % (newFilename, e))
             else:
                 self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-                self.templatePage = newTemplate
-                self.templatePage.applyFullTemplate()
+                self.scene.removeItem(self.instructions.template)
+                self.instructions.template = newTemplate
+                newTemplate.applyFullTemplate()
                 self.scene.emit(SIGNAL("layoutChanged()"))
                 self.setWindowModified(True)
     
