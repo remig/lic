@@ -851,7 +851,7 @@ class LightingDialog(QDialog):
         self.values = [ambient, shine, lineWidth]
 
         ambientLabel, self.ambientSpinBox = self.makeLabelSpinBox("&Ambient:", ambient * 100.0, 0.0, 100.0, self.valueChanged)
-        #shineLabel, self.shineSpinBox = self.makeLabelSpinBox("&Shininess:", shine, 0.0, 100.0, self.valueChanged)
+        shineLabel, self.shineSpinBox = self.makeLabelSpinBox("&Shininess:", shine, 0.0, 100.0, self.valueChanged)
         lwLabel, self.lwSpinBox = self.makeLabelSpinBox("&Line Width:", (lineWidth - 1) * 10.0, 0.0, 100.0, self.valueChanged)
         buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
 

@@ -138,7 +138,9 @@ class TemplatePage(TemplateRectItem, Page):
         
     def __setFilename(self, filename):
         self.__filename = filename
-        self.data = lambda index: "Template - " + os.path.basename(self.filename)
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        self.data = lambda index: "Template - %s" % ("default" if filename == "" else os.path.basename(filename))
+        self.scene().emit(SIGNAL("layoutChanged()"))
         
     filename = property(__getFilename, __setFilename)
 
@@ -257,6 +259,7 @@ class TemplatePage(TemplateRectItem, Page):
 
         stack.push(SetPageBackgroundColorCommand(self, originalPage.color, self.color))
         stack.push(SetPageBackgroundBrushCommand(self, originalPage.brush(), self.brush()))
+        stack.push(SetPenCommand(self, originalPage.pen(), self.pen()))
 
         stack.push(SetItemFontsCommand(self, originalPage.numberItem.font(), self.numberItem.font(), 'Page'))
         stack.push(SetItemFontsCommand(self, originalPage.steps[0].numberItem.font(), self.steps[0].numberItem.font(), 'Step'))

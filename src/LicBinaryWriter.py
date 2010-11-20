@@ -67,7 +67,7 @@ def __writeTemplate(stream, template):
         if part.abstractPart.filename not in partDictionary:
             part.abstractPart.buildSubAbstractPartDict(partDictionary)
 
-    stream << QString(template.filename)
+    stream << QString(os.path.basename(template.filename))
     __writePartDictionary(stream, partDictionary)
     __writeSubmodel(stream, template.submodelPart)
     __writePage(stream, template)

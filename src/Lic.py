@@ -281,6 +281,8 @@ class LicTreeWidget(QWidget):
 
 class LicWindow(QMainWindow):
 
+    defaultTemplateFilename = "dynamic_template.lit"
+
     def __init__(self, parent = None):
         QMainWindow.__init__(self, parent)
         QGL.setPreferredPaintEngine(QPaintEngine.OpenGL)
@@ -654,7 +656,8 @@ class LicWindow(QMainWindow):
         self.treeModel.root = self.instructions.mainModel
 
         try:
-            self.templatePage = LicBinaryReader.loadLicTemplate(r"dynamic_template.lit", self.instructions)
+            self.templatePage = LicBinaryReader.loadLicTemplate(self.defaultTemplateFilename, self.instructions)
+            self.templatePage.filename = ""  # Do not preserve default template filename
         except (IOError), e:
             # Could not load default template, so generate one from scratch
             import LicTemplate
@@ -751,6 +754,13 @@ class LicWindow(QMainWindow):
 
     def fileSaveTemplate(self):
         template = self.templatePage
+        if template.filename == "":
+            return self.fileSaveTemplateAs()
+
+        if os.path.basename(template.filename) == self.defaultTemplateFilename:
+            if QMessageBox.No == QMessageBox.question(self, "Lic - Replace Template", "This will replace the default template!  Proceed?", QMessageBox.Yes | QMessageBox.No):
+                return
+
         try:
             LicBinaryWriter.saveLicTemplate(template)
             self.statusBar().showMessage("Saved Template to: " + template.filename)
@@ -759,12 +769,11 @@ class LicWindow(QMainWindow):
     
     def fileSaveTemplateAs(self):
         template = self.templatePage
-        f = template.filename if template.filename else "template.lic"
+        f = template.filename if template.filename else "template.lit"
 
         filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Save Template As", f, "Lic Template files (*.lit)"))
         if filename:
             template.filename = filename
-            self.fileSaveTemplateAction.setEnabled(True)
             return self.fileSaveTemplate()
     
     def fileLoadTemplate(self):
