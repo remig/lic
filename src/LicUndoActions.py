@@ -24,22 +24,22 @@ from PyQt4.QtCore import SIGNAL, QSizeF
 import LicHelpers
 import LicGLHelpers
 
-def resetGLItem(self, name, template):
-    instructions = template.getPage().instructions
-    template.resetPixmap()
-    template.getPage().resetCallout()
-    template.getPage().initLayout()
+def resetGLItem(self, templateItem):
+    instructions = templateItem.getPage().instructions
+    templateItem.resetPixmap()
+    templateItem.getPage().resetCallout()
+    templateItem.getPage().initLayout()
 
-    if name == "CSI":
+    if templateItem.itemClassName == "CSI":
         for unused in instructions.initCSIDimensions(True):
             pass  # Don't care about yielded items here
 
-    elif name == "PLI":
+    elif templateItem.itemClassName == "PLI":
         for unused in instructions.initPartDimensions(True):
             pass  # Don't care about yielded items here
         instructions.mainModel.initAllPLILayouts()
 
-    elif name == "Submodel":
+    elif templateItem.itemClassName == "SubmodelPreview":
         instructions.mainModel.initSubmodelImages()  # TODO: Template rotate Submodel Image is broken for nested submodels (viper.lic)
 
 NextCommandID = 122
@@ -801,28 +801,28 @@ class ScaleDefaultItemCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, target, name, template, oldScale, newScale):
-        QUndoCommand.__init__(self, "Change default %s Scale" % name)
-        self.target, self.name, self.template = target, name, template
+    def __init__(self, target, templateItem, oldScale, newScale):
+        QUndoCommand.__init__(self, "Change default %s Scale" % templateItem.itemClassName)
+        self.target, self.templateItem = target, templateItem
         self.oldScale, self.newScale = oldScale, newScale
 
     def doAction(self, redo):
         self.target.defaultScale = self.newScale if redo else self.oldScale
-        self.resetGLItem(self.name, self.template)
-        self.template.update()  # Need this to force full redraw
+        self.resetGLItem(self.templateItem)
+        self.templateItem.update()  # Need this to force full redraw
             
 class RotateDefaultItemCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, target, name, template, oldRotation, newRotation):
-        QUndoCommand.__init__(self, "Change default %s rotation" % name)
-        self.target, self.name, self.template = target, name, template
+    def __init__(self, target, templateItem, oldRotation, newRotation):
+        QUndoCommand.__init__(self, "Change default %s rotation" % templateItem.itemClassName)
+        self.target, self.templateItem = target, templateItem
         self.oldRotation, self.newRotation = oldRotation, newRotation
 
     def doAction(self, redo):
         self.target.defaultRotation = list(self.newRotation) if redo else list(self.oldRotation)
-        self.resetGLItem(self.name, self.template)
+        self.resetGLItem(self.templateItem)
 
 class SetPageNumberPosCommand(QUndoCommand):
 

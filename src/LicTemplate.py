@@ -107,7 +107,7 @@ class TemplateRotateScaleSignalItem(object):
         self.resetPixmap()
 
     def acceptDefaultRotation(self, oldRotation):
-        action = RotateDefaultItemCommand(self.target, self.name, self, oldRotation, self.target.defaultRotation)
+        action = RotateDefaultItemCommand(self.target, self, oldRotation, self.target.defaultRotation)
         self.scene().undoStack.push(action)
 
     def scaleDefaultSignal(self):
@@ -122,7 +122,7 @@ class TemplateRotateScaleSignalItem(object):
         self.resetPixmap()
     
     def acceptDefaultScale(self, originalScale):
-        action = ScaleDefaultItemCommand(self.target, self.name, self, originalScale, self.target.defaultScale)
+        action = ScaleDefaultItemCommand(self.target, self, originalScale, self.target.defaultScale)
         self.scene().undoStack.push(action)
 
 class TemplatePage(TemplateRectItem, Page):
@@ -158,19 +158,19 @@ class TemplatePage(TemplateRectItem, Page):
         step.__class__ = TemplateStep
         step.postLoadInit()
         step.csi.__class__ = TemplateCSI
-        step.csi.target, step.csi.name = CSI, "CSI"
+        step.csi.target = CSI
 
         if step.pli:
             step.pli.__class__ = TemplatePLI
-            step.pli.target, step.pli.name = PLI, "PLI"
+            step.pli.target = PLI
         if self.submodelItem:
             self.submodelItem.__class__ = TemplateSubmodelPreview
-            self.submodelItem.target, self.submodelItem.name = SubmodelPreview, "Submodel"
+            self.submodelItem.target = SubmodelPreview
         if step.callouts:
             step.callouts[0].__class__ = TemplateCallout
             step.callouts[0].arrow.__class__ = TemplateCalloutArrow
             step.callouts[0].steps[0].csi.__class__ = TemplateCSI
-            step.callouts[0].steps[0].csi.target, step.callouts[0].steps[0].csi.name = CSI, "CSI"
+            step.callouts[0].steps[0].csi.target = CSI
         if step.rotateIcon:
             step.rotateIcon.__class__ = TemplateRotateIcon
 
@@ -242,10 +242,11 @@ class TemplatePage(TemplateRectItem, Page):
             if part.initSize(size, pBuffer):
                 break
         glContext.makeCurrent()
-        
-    def applyFullTemplate(self, useUndo = True):
+
+    def applyFullTemplate(self, useUndo):
         
         originalPage = self.instructions.mainModel.pages[0]
+        step = self.steps[0]
         
         if useUndo:
             stack = self.scene().undoStack
@@ -257,17 +258,39 @@ class TemplatePage(TemplateRectItem, Page):
             
             stack = NoOp()
 
+        if hasattr(self, 'staticInfo'):
+            s = self.staticInfo
+            SMP = SubmodelPreview
+
+            if (Page.PageSize != s.page.PageSize) or (Page.Resolution != s.page.Resolution):
+                stack.push(ResizePageCommand(self, Page.PageSize, s.page.PageSize, Page.Resolution, s.page.Resolution, False))
+            if Page.NumberPos != s.page.NumberPos:
+                stack.push(SetPageNumberPosCommand(self, Page.NumberPos, s.page.NumberPos))
+
+            if CSI.defaultScale != s.csi.defaultScale:
+                stack.push(ScaleDefaultItemCommand(CSI, step.csi, CSI.defaultScale, s.csi.defaultScale))
+            if PLI.defaultScale != s.pli.defaultScale:
+                stack.push(ScaleDefaultItemCommand(PLI, step.pli, PLI.defaultScale, s.pli.defaultScale))
+            if SMP.defaultScale != s.smp.defaultScale:
+                stack.push(ScaleDefaultItemCommand(SMP, self.submodelItem, SMP.defaultScale, s.smp.defaultScale))
+            
+            if CSI.defaultRotation != s.csi.defaultRotation:
+                stack.push(RotateDefaultItemCommand(CSI, step.csi, CSI.defaultRotation, s.csi.defaultRotation))
+            if PLI.defaultRotation != s.pli.defaultRotation:
+                stack.push(RotateDefaultItemCommand(PLI, step.pli, PLI.defaultRotation, s.pli.defaultRotation))
+            if SMP.defaultRotation != s.smp.defaultRotation:
+                stack.push(RotateDefaultItemCommand(SMP, self.submodelItem, SMP.defaultRotation, s.smp.defaultRotation))
+            
         stack.push(SetPageBackgroundColorCommand(self, originalPage.color, self.color))
         stack.push(SetPageBackgroundBrushCommand(self, originalPage.brush(), self.brush()))
         stack.push(SetPenCommand(self, originalPage.pen(), self.pen()))
 
         stack.push(SetItemFontsCommand(self, originalPage.numberItem.font(), self.numberItem.font(), 'Page'))
-        stack.push(SetItemFontsCommand(self, originalPage.steps[0].numberItem.font(), self.steps[0].numberItem.font(), 'Step'))
+        stack.push(SetItemFontsCommand(self, originalPage.steps[0].numberItem.font(), step.numberItem.font(), 'Step'))
         pliItem = self.instructions.mainModel.getFirstPLIItem()
         if pliItem:
-            stack.push(SetItemFontsCommand(self, pliItem.numberItem.font(), self.steps[0].pli.pliItems[0].numberItem.font(), 'PLIItem'))
+            stack.push(SetItemFontsCommand(self, pliItem.numberItem.font(), step.pli.pliItems[0].numberItem.font(), 'PLIItem'))
 
-        step = self.steps[0]
         if step.pli:
             stack.push(SetPenCommand(step.pli, PLI.defaultPen))
             stack.push(SetBrushCommand(step.pli, PLI.defaultBrush))
@@ -538,6 +561,7 @@ class TemplateStep(Step):
 
 class TemplatePLIItem(PLIItem):
     
+    # TODO: this class does nothing when selected, so do not allow it to be selected
     def contextMenuEvent(self, event):
         event.ignore()
 
@@ -558,6 +582,7 @@ class TemplatePLI(TemplateRectItem, PLI, TemplateRotateScaleSignalItem):
         PLI.defaultBrush = newBrush
 
 class TemplateSubmodelPreview(TemplateRectItem, SubmodelPreview, TemplateRotateScaleSignalItem):
+    # TODO: Load pyramid_buggy_smp.lic & see broken submodel preview.  Change its scale to get correct size.
 
     def contextMenuEvent(self, event):
         actions = [("Change Default Submodel Rotation", self.rotateDefaultSignal),

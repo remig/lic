@@ -39,8 +39,9 @@ class Instructions(QObject):
         return self.mainModel.template
     
     def __setTemplate(self, template):
+        if (self.mainModel.template is None):
+            self.mainModel.incrementRows(1)
         self.mainModel.template = template
-        self.mainModel.incrementRows(1)
 
     template = property(__getTemplate, __setTemplate)
 

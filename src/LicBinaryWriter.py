@@ -72,14 +72,14 @@ def __writeTemplate(stream, template):
     __writeSubmodel(stream, template.submodelPart)
     __writePage(stream, template)
 
+    __writeStaticInfo(stream)  # Need to save PageSize, PLI|CSI size, etc, so we can apply these on template load
+
     values = LicGLHelpers.getLightParameters()
     stream.writeInt32(len(values))
     for v in values:
         stream.writeFloat(v)
 
-def __writeInstructions(stream, instructions):
-
-    stream << QString(instructions.mainModel.filename)
+def __writeStaticInfo(stream):
     stream << Page.PageSize
     stream.writeFloat(Page.Resolution)
     stream << QString(Page.NumberPos)
@@ -99,6 +99,12 @@ def __writeInstructions(stream, instructions):
     stream.writeFloat(SubmodelPreview.defaultRotation[0])
     stream.writeFloat(SubmodelPreview.defaultRotation[1])
     stream.writeFloat(SubmodelPreview.defaultRotation[2])
+
+def __writeInstructions(stream, instructions):
+
+    stream << QString(instructions.mainModel.filename)
+
+    __writeStaticInfo(stream)
 
     partDictionary = instructions.getPartDictionary()
     __writePartDictionary(stream, partDictionary)

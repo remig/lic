@@ -778,7 +778,7 @@ class LicWindow(QMainWindow):
         templateName = self.instructions.template.filename
         dir = os.path.dirname(templateName) if templateName != "" else "."  # TODO: Check what happens if templateName has no path
         newFilename = unicode(QFileDialog.getOpenFileName(self, "Lic - Load Template", dir, "Lic Template files (*.lit)"))
-        if newFilename and newFilename != templateName:
+        if newFilename and os.path.basename(newFilename) != templateName:
             try:
                 newTemplate = LicBinaryReader.loadLicTemplate(newFilename, self.instructions)
             except IOError, e:
@@ -787,7 +787,7 @@ class LicWindow(QMainWindow):
                 self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
                 self.scene.removeItem(self.instructions.template)
                 self.instructions.template = newTemplate
-                newTemplate.applyFullTemplate()
+                newTemplate.applyFullTemplate(True)
                 self.scene.emit(SIGNAL("layoutChanged()"))
                 self.setWindowModified(True)
     

@@ -105,6 +105,13 @@ def __readTemplate(stream, instructions):
     template = __readPage(stream, instructions.mainModel, instructions, submodelPart)
     template.submodelPart = submodelPart
 
+    if stream.licFileVersion >= 12:
+        class T(object):
+            pass
+        t = template.staticInfo = T()
+        t.page, t.csi, t.pli, t.smp = T(), T(), T(), T()
+        __readStaticInfo(stream, t.page, t.csi, t.pli, t.smp)
+
     if stream.licFileVersion >= 5:
         values = []
         for unused in range(stream.readInt32()):
@@ -119,7 +126,7 @@ def __readTemplate(stream, instructions):
     for abstractPart in partDictionary.values():
         if abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             abstractPart.createGLDisplayList()
-       
+
     for glItem in template.glItemIterator():
         if hasattr(glItem, 'createGLDisplayList'):
             glItem.createGLDisplayList()
@@ -129,26 +136,30 @@ def __readTemplate(stream, instructions):
     template.postLoadInit(filename)
     return template
 
+def __readStaticInfo(stream, page, csi, pli, smp):
+
+    page.PageSize = stream.readQSize()
+    page.Resolution = stream.readFloat()
+    if stream.licFileVersion >= 11:
+        page.NumberPos = stream.readQString()
+
+    csi.defaultScale = stream.readFloat()
+    pli.defaultScale = stream.readFloat()
+    smp.defaultScale = stream.readFloat()
+
+    csi.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+    pli.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+    smp.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+
 def __readInstructions(stream, instructions):
     global partDictionary
 
     partDictionary = instructions.getPartDictionary()
-    
+
     filename = str(stream.readQString())
     instructions.filename = filename
-    
-    Page.PageSize = stream.readQSize()
-    Page.Resolution = stream.readFloat()
-    if stream.licFileVersion >= 11:
-        Page.NumberPos = stream.readQString()
 
-    CSI.defaultScale = stream.readFloat()
-    PLI.defaultScale = stream.readFloat()
-    SubmodelPreview.defaultScale = stream.readFloat()
-    
-    CSI.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
-    PLI.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
-    SubmodelPreview.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+    __readStaticInfo(stream, Page, CSI, PLI, SubmodelPreview)
 
     __readPartDictionary(stream, partDictionary, instructions)
 
