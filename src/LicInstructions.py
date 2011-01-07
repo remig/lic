@@ -46,7 +46,7 @@ class Instructions(QObject):
     template = property(__getTemplate, __setTemplate)
 
     def clear(self):
-        global partDictionary, currentModelFilename
+        global partDictionary
 
         # Remove everything from the graphics scene
         if self.mainModel:
@@ -54,7 +54,6 @@ class Instructions(QObject):
 
         self.mainModel = None
         partDictionary = {}
-        currentModelFilename = ""
         Page.PageSize = Page.defaultPageSize
         Page.Resolution = Page.defaultResolution
         CSI.defaultScale = PLI.defaultScale = SubmodelPreview.defaultScale = 1.0
@@ -66,9 +65,6 @@ class Instructions(QObject):
         self.glContext.makeCurrent()
 
     def importModel(self, filename):
-
-        global currentModelFilename
-        currentModelFilename = filename
 
         self.mainModel = Mainmodel(self, self, filename)
         self.mainModel.appendBlankPage()

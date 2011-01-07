@@ -56,7 +56,6 @@ MagicNumber = 0x14768126
 FileVersion = 12
 
 partDictionary = {}      # x = AbstractPart("3005.dat"); partDictionary[x.filename] == x
-currentModelFilename = ""
 
 NoFlags = QGraphicsItem.GraphicsItemFlags()
 NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
@@ -1731,7 +1730,6 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             True if CSI rendered successfully.
             False if the CSI has been rendered partially or wholly out of frame.
         """
-        global currentModelFilename
 
         if self.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             print "ERROR: Trying to init a CSI size that has no display list"
