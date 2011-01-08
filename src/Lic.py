@@ -445,8 +445,9 @@ class LicWindow(QMainWindow):
         self.connect(self.fileMenu, SIGNAL("aboutToShow()"), self.updateFileMenu)
 
         fileOpenAction = self.createMenuAction("&Open...", self.fileOpen, QKeySequence.Open, "Open an existing Instruction book")
+        self.fileOpenRecentMenu = QMenu("Open &Recent", self.fileMenu)
         self.fileCloseAction = self.createMenuAction("&Close", self.fileClose, QKeySequence.Close, "Close current Instruction book")
-
+         
         self.fileSaveAction = self.createMenuAction("&Save", self.fileSave, QKeySequence.Save, "Save the Instruction book")
         self.fileSaveAsAction = self.createMenuAction("Save &As...", self.fileSaveAs, None, "Save the Instruction book using a new filename")
         fileImportAction = self.createMenuAction("&Import Model", self.fileImport, None, "Import an existing Model into a new Instruction book")
@@ -456,14 +457,14 @@ class LicWindow(QMainWindow):
         self.fileLoadTemplateAction = self.createMenuAction("Load Template", self.fileLoadTemplate, None, "Discard the current Template and apply a new one")
         fileExitAction = self.createMenuAction("E&xit", SLOT("close()"), "Ctrl+Q", "Exit Lic")
 
-        self.fileMenuActions = (fileOpenAction, self.fileCloseAction, None, 
+        self.fileMenuActions = (fileOpenAction, self.fileOpenRecentMenu, self.fileCloseAction, None, 
                                 self.fileSaveAction, self.fileSaveAsAction, fileImportAction, None, 
                                 self.fileSaveTemplateAction, self.fileSaveTemplateAsAction, self.fileLoadTemplateAction, None,
                                 fileExitAction)
         
         # Edit Menu - undo / redo is generated dynamically in updateEditMenu()
-        self.editMenu = menu.addMenu("&Edit")
-        self.connect(self.editMenu, SIGNAL("aboutToShow()"), self.updateEditMenu)
+        editMenu = menu.addMenu("&Edit")
+        self.connect(editMenu, SIGNAL("aboutToShow()"), self.updateEditMenu)
 
         self.undoAction = self.createMenuAction("&Undo", None, "Ctrl+Z", "Undo last action")
         self.undoAction.connect(self.undoAction, SIGNAL("triggered()"), self.undoStack, SLOT("undo()"))
@@ -475,9 +476,6 @@ class LicWindow(QMainWindow):
         self.redoAction.setEnabled(False)
         self.connect(self.undoStack, SIGNAL("canRedoChanged(bool)"), self.redoAction, SLOT("setEnabled(bool)"))
         
-        editActions = (self.undoAction, self.redoAction, None)
-        self.addActions(self.editMenu, editActions)
-
         # Snap menu (inside Edit Menu): Snap -> Snap to Guides & Snap to Items
         guideSnapAction = self.createMenuAction("Guides", self.setSnapToGuides, None, "Snap To Guides", "toggled(bool)")
         guideSnapAction.setCheckable(True)
@@ -487,12 +485,13 @@ class LicWindow(QMainWindow):
         itemSnapAction.setCheckable(True)
         itemSnapAction.setChecked(self.scene.snapToItems)
         
-        snapMenu = self.editMenu.addMenu("Snap To")
+        snapMenu = editMenu.addMenu("Snap To")
         snapMenu.addAction(guideSnapAction)
         snapMenu.addAction(itemSnapAction)
 
-        self.setPathsAction = self.createMenuAction("Paths...", self.configurePaths, None, "Set paths to LDraw parts, L3p, POVRay, etc")
-        self.editMenu.addAction(self.setPathsAction)
+        setPathsAction = self.createMenuAction("Paths...", self.configurePaths, None, "Set paths to LDraw parts, L3p, POVRay, etc")
+        editActions = (self.undoAction, self.redoAction, None, snapMenu, setPathsAction)
+        self.addActions(editMenu, editActions)
 
         # View Menu
         self.viewMenu = menu.addMenu("&View")
@@ -531,7 +530,7 @@ class LicWindow(QMainWindow):
 
     def updateFileMenu(self):
         self.fileMenu.clear()
-        self.addActions(self.fileMenu, self.fileMenuActions[:-1])  # Don't add last Exit yet
+        self.addActions(self.fileMenu, self.fileMenuActions)
         
         recentFiles = []
         for filename in self.recentFiles:
@@ -539,17 +538,16 @@ class LicWindow(QMainWindow):
                 recentFiles.append(filename)
                 
         if recentFiles:
-            self.fileMenu.addSeparator()
-            
+            self.fileOpenRecentMenu.clear()
+            self.fileOpenRecentMenu.setEnabled(True)
             for i, filename in enumerate(recentFiles):
                 action = QAction("&%d %s" % (i+1, QFileInfo(filename).fileName()), self)
                 action.setData(QVariant(filename))
                 action.setStatusTip(filename)
                 self.connect(action, SIGNAL("triggered()"), self.openRecentFile)
-                self.fileMenu.addAction(action)
-            
-        self.fileMenu.addSeparator()
-        self.fileMenu.addAction(self.fileMenuActions[-1])
+                self.fileOpenRecentMenu.addAction(action)
+        else:
+            self.fileOpenRecentMenu.setEnabled(False)
 
     def openRecentFile(self):
         action = self.sender()
@@ -569,11 +567,13 @@ class LicWindow(QMainWindow):
                 self.recentFiles.takeLast()
     
     def addActions(self, target, actions):
-        for action in actions:
-            if action is None:
+        for item in actions:
+            if item is None:
                 target.addSeparator()
-            else:
-                target.addAction(action)
+            elif isinstance(item, QAction):
+                target.addAction(item)
+            elif isinstance(item, QMenu):
+                target.addMenu(item)
     
     def createMenuAction(self, text, slot = None, shortcut = None, tip = None, signal = "triggered()"):
         action = QAction(text, self)
