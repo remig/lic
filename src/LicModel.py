@@ -55,8 +55,6 @@ import config     # For user path info
 MagicNumber = 0x14768126
 FileVersion = 12
 
-partDictionary = {}      # x = AbstractPart("3005.dat"); partDictionary[x.filename] == x
-
 NoFlags = QGraphicsItem.GraphicsItemFlags()
 NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
 AllFlags = NoMoveFlags | QGraphicsItem.ItemIsMovable
@@ -2856,13 +2854,14 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.setFlags(NoMoveFlags)
 
     def initializeAbstractPart(self, instructions):
-        global partDictionary
         
         fn = self.filename
-        if fn in partDictionary:
-            self.abstractPart = partDictionary[fn]
-        elif fn.upper() in partDictionary:
-            self.abstractPart = partDictionary[fn.upper()]
+        pd = instructions.partDictionary
+
+        if fn in pd:
+            self.abstractPart = pd[fn]
+        elif fn.upper() in pd:
+            self.abstractPart = pd[fn.upper()]
         else:
             # Set up dynamic module to be used for import 
             importerName = LicImporters.getImporter(os.path.splitext(fn)[1][1:])
@@ -2871,7 +2870,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
             abstractPart = AbstractPart(fn)
             importModule.importPart(fn, instructions.getProxy(), abstractPart)
-            self.abstractPart = partDictionary[fn] = abstractPart
+            self.abstractPart = pd[fn] = abstractPart
 
     def setInversion(self, invert):
         # Inversion is annoying as hell.  

@@ -31,6 +31,7 @@ class Instructions(QObject):
 
         self.scene = scene
         self.mainModel = None
+        self.partDictionary = {}      # x = AbstractPart("3005.dat"); partDictionary[x.filename] == x
 
         self.glContext = glWidget
         self.glContext.makeCurrent()
@@ -46,14 +47,13 @@ class Instructions(QObject):
     template = property(__getTemplate, __setTemplate)
 
     def clear(self):
-        global partDictionary
 
         # Remove everything from the graphics scene
         if self.mainModel:
             self.mainModel.deleteAllPages(self.scene)
 
         self.mainModel = None
-        partDictionary = {}
+        self.partDictionary = {}
         Page.PageSize = Page.defaultPageSize
         Page.Resolution = Page.defaultResolution
         CSI.defaultScale = PLI.defaultScale = SubmodelPreview.defaultScale = 1.0
@@ -132,7 +132,7 @@ class Instructions(QObject):
 
         # First initialize all abstractPart display lists
         yield "Initializing Part GL display lists"
-        for part in partDictionary.values():
+        for part in self.partDictionary.values():
             if part.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
                 part.createGLDisplayList()
 
@@ -149,9 +149,9 @@ class Instructions(QObject):
 
     def getPartDimensionListAndCount(self, reset = False):
         if reset:
-            partList = [part for part in partDictionary.values() if (not part.isPrimitive)]
+            partList = [part for part in self.partDictionary.values() if (not part.isPrimitive)]
         else:
-            partList = [part for part in partDictionary.values() if (not part.isPrimitive) and (part.width == part.height == -1)]
+            partList = [part for part in self.partDictionary.values() if (not part.isPrimitive) and (part.width == part.height == -1)]
         partList.append(self.mainModel)
 
         partDivCount = 50
@@ -357,10 +357,6 @@ class Instructions(QObject):
                 printer.newPage()
         painter.end()
 
-    def getPartDictionary(self):
-        global partDictionary
-        return partDictionary
-
     def updatePageNumbers(self, newNumber, increment = 1):
         if self.mainModel:
             self.mainModel.updatePageNumbers(newNumber, increment)
@@ -371,8 +367,8 @@ class InstructionsProxy(object):
         self.__instructions = instructions
 
     def createPart(self, fn, color = 16, matrix = None, invert = False):
-        global partDictionary
 
+        partDictionary = self.__instructions.partDictionary
         part = Part(fn, color, matrix, invert)
 
         if fn in partDictionary:
@@ -385,13 +381,13 @@ class InstructionsProxy(object):
         return part
 
     def createAbstractPart(self, fn):
-        global partDictionary
+        partDictionary = self.__instructions.partDictionary
         partDictionary[fn] = AbstractPart(fn)
         return partDictionary[fn]
 
     def createAbstractSubmodel(self, fn, parent = None):
-        global partDictionary
 
+        partDictionary = self.__instructions.partDictionary
         if parent is None:
             parent = self.__instructions.mainModel
 

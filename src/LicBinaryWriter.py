@@ -106,7 +106,7 @@ def __writeInstructions(stream, instructions):
 
     __writeStaticInfo(stream)
 
-    partDictionary = instructions.getPartDictionary()
+    partDictionary = instructions.partDictionary
     __writePartDictionary(stream, partDictionary)
 
     __writeSubmodel(stream, instructions.mainModel)

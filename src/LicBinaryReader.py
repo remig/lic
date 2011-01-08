@@ -154,7 +154,7 @@ def __readStaticInfo(stream, page, csi, pli, smp):
 def __readInstructions(stream, instructions):
     global partDictionary
 
-    partDictionary = instructions.getPartDictionary()
+    partDictionary = instructions.partDictionary
 
     filename = str(stream.readQString())
     instructions.filename = filename
