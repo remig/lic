@@ -45,8 +45,14 @@ QDataStream.readQSize = lambda self: ro(self, QSize)
 #    if stream.licFileVersion >= 6:
 #        do whatever
 
+# Variables used throughout this module.  
+# Having these global here avoids having to pass them as arguments to every single method in here
+#stream = None  # TODO: refactor all methods here to use global stream instead of passing it around everywhere?
+partDict = {}
+
 def loadLicFile(filename, instructions):
 
+#    global stream
     fh, stream = __createStream(filename)
 
     template = __readTemplate(stream, instructions)
@@ -97,9 +103,9 @@ def __readTemplate(stream, instructions):
     filename = str(stream.readQString())
 
     # Read in the entire abstractPart dictionary
-    global partDictionary
-    partDictionary = {}
-    __readPartDictionary(stream, partDictionary, instructions)
+    global partDict
+    partDict = {}
+    __readPartDictionary(stream, instructions)
 
     submodelPart = __readSubmodel(stream, None)
     template = __readPage(stream, instructions.mainModel, instructions, submodelPart)
@@ -119,11 +125,11 @@ def __readTemplate(stream, instructions):
         LicGLHelpers.setLightParameters(*values)
 
     for part in template.submodelPart.parts:
-        part.abstractPart = partDictionary[part.filename]
+        part.abstractPart = partDict[part.filename]
 
         template.steps[0].csi.addPart(part)
 
-    for abstractPart in partDictionary.values():
+    for abstractPart in partDict.values():
         if abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             abstractPart.createGLDisplayList()
 
@@ -152,21 +158,21 @@ def __readStaticInfo(stream, page, csi, pli, smp):
     smp.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
 
 def __readInstructions(stream, instructions):
-    global partDictionary
 
-    partDictionary = instructions.partDictionary
+    global partDict
+    partDict = instructions.partDictionary
 
     filename = str(stream.readQString())
     instructions.filename = filename
 
     __readStaticInfo(stream, Page, CSI, PLI, SubmodelPreview)
 
-    __readPartDictionary(stream, partDictionary, instructions)
+    __readPartDictionary(stream, instructions)
 
     if stream.licFileVersion < 6:
         for unused in range(stream.readInt32()):
             model = __readSubmodel(stream, instructions)
-            partDictionary[model.filename] = model
+            partDict[model.filename] = model
 
     instructions.mainModel = __readSubmodel(stream, instructions, True)
 
@@ -183,13 +189,13 @@ def __readInstructions(stream, instructions):
 
     __linkModelPartNames(instructions.mainModel)
 
-    for submodel in [p for p in partDictionary.values() if p.isSubmodel]:
+    for submodel in [p for p in partDict.values() if p.isSubmodel]:
         if submodel._parent == "":
             submodel._parent = instructions
         elif submodel._parent == filename:
             submodel._parent = instructions.mainModel
         else:
-            submodel._parent = partDictionary[submodel._parent]
+            submodel._parent = partDict[submodel._parent]
 
     for unused in instructions.initGLDisplayLists():
         pass
@@ -200,7 +206,6 @@ def __readInstructions(stream, instructions):
         item.resetPixmap()
 
 def __readSubmodel(stream, instructions, createMainmodel = False):
-    global partDictionary
 
     submodel = __readAbstractPart(stream, True, createMainmodel)
     submodel.instructions = instructions
@@ -213,7 +218,7 @@ def __readSubmodel(stream, instructions, createMainmodel = False):
     for unused in range(stream.readInt32()):
         if stream.licFileVersion < 6:
             filename = str(stream.readQString())
-            model = partDictionary[filename]
+            model = partDict[filename]
             model.used = True
             submodel.submodels.append(model)
         else:
@@ -225,22 +230,23 @@ def __readSubmodel(stream, instructions, createMainmodel = False):
 
     return submodel
 
-def __readPartDictionary(stream, partDictionary, instructions):
+def __readPartDictionary(stream, instructions):
 
+    global partDict
     for unused in range(stream.readInt32()):
         abstractPart = __readAbstractPart(stream)
-        partDictionary[abstractPart.filename] = abstractPart
+        partDict[abstractPart.filename] = abstractPart
 
     if stream.licFileVersion >= 6:
         for unused in range(stream.readInt32()):
             abstractPart = __readSubmodel(stream, instructions)
-            partDictionary[abstractPart.filename] = abstractPart
+            partDict[abstractPart.filename] = abstractPart
 
     # Each AbstractPart can contain several Parts, but those Parts do
     # not yet have valid AbstractParts of their own.  Create those now.
-    for abstractPart in partDictionary.values():
+    for abstractPart in partDict.values():
         for part in abstractPart.parts:
-            part.abstractPart = partDictionary[part.filename]
+            part.abstractPart = partDict[part.filename]
 
 def __readAbstractPart(stream, createSubmodel = False, createMainmodel = False):
 
@@ -490,7 +496,7 @@ def __readCallout(stream, parent):
 
     for unused in range(stream.readInt32()):
         part = __readPart(stream)
-        part.abstractPart = partDictionary[part.filename]
+        part.abstractPart = partDict[part.filename]
         step = callout.getStep(part.stepNumber)
         step.addPart(part)
 
@@ -546,9 +552,7 @@ def __readPLI(stream, parent, makePartListPLI = False):
 def __readPLIItem(stream, pli):
 
     filename = str(stream.readQString())
-
-    global partDictionary
-    abstractPart = partDictionary[filename]
+    abstractPart = partDict[filename]
 
     pliItem = PLIItem(pli, abstractPart, stream.readInt32(), stream.readInt32())
     pliItem.setPos(stream.readQPointF())
@@ -579,10 +583,8 @@ def __readRoundedRectItem(stream, parent):
 
 def __linkModelPartNames(model):
 
-    global partDictionary
-
     for modelName in model.submodelNames:
-        newSubmodel = partDictionary[modelName]
+        newSubmodel = partDict[modelName]
         newSubmodel.used = True
         model.submodels.append(newSubmodel)
 
@@ -590,7 +592,7 @@ def __linkModelPartNames(model):
         __linkModelPartNames(m)
 
     for part in model.parts:
-        part.abstractPart = partDictionary[part.filename]
+        part.abstractPart = partDict[part.filename]
         if part.abstractPart.isSubmodel:
             part.abstractPart.used = True
 
