@@ -477,12 +477,10 @@ class LicWindow(QMainWindow):
         self.connect(self.undoStack, SIGNAL("canRedoChanged(bool)"), self.redoAction, SLOT("setEnabled(bool)"))
         
         # Snap menu (inside Edit Menu): Snap -> Snap to Guides & Snap to Items
-        guideSnapAction = self.createMenuAction("Guides", self.setSnapToGuides, None, "Snap To Guides", "toggled(bool)")
-        guideSnapAction.setCheckable(True)
+        guideSnapAction = self.createMenuAction("Guides", self.setSnapToGuides, None, "Snap To Guides", "toggled(bool)", True)
         guideSnapAction.setChecked(self.scene.snapToGuides)
         
-        itemSnapAction = self.createMenuAction("Items", self.setSnapToItems, None, "Snap To Items", "toggled(bool)")
-        itemSnapAction.setCheckable(True)
+        itemSnapAction = self.createMenuAction("Items", self.setSnapToItems, None, "Snap To Items", "toggled(bool)", True)
         itemSnapAction.setChecked(self.scene.snapToItems)
         
         snapMenu = editMenu.addMenu("Snap To")
@@ -503,10 +501,17 @@ class LicWindow(QMainWindow):
         zoomIn = self.createMenuAction("Zoom &In", lambda: self.zoom(1.2), None, "Zoom In")
         zoomOut = self.createMenuAction("Zoom &Out", lambda: self.zoom(1.0 / 1.2), None, "Zoom Out")
 
-        onePage = self.createMenuAction("Show One Page", self.scene.showOnePage, None, "Show One Page")  # TODO: Make these checkable, tied to the state stored in scene
-        twoPages = self.createMenuAction("Show Two Pages", self.scene.showTwoPages, None, "Show Two Pages")
-        continuous = self.createMenuAction("Continuous", self.scene.continuous, None, "Continuous")
-        continuousFacing = self.createMenuAction("Continuous Facing", self.scene.continuousFacing, None, "Continuous Facing")
+        onePage = self.createMenuAction("Show One Page", self.scene.showOnePage, None, "Show One Page", checkable=True)
+        twoPages = self.createMenuAction("Show Two Pages", self.scene.showTwoPages, None, "Show Two Pages", checkable=True)
+        continuous = self.createMenuAction("Continuous", self.scene.continuous, None, "Continuous", checkable=True)
+        continuousFacing = self.createMenuAction("Continuous Facing", self.scene.continuousFacing, None, "Continuous Facing", checkable=True)
+
+        pageActions = {1: onePage, 2: twoPages, LicGraphicsWidget.LicGraphicsScene.PageViewContinuous: continuous, LicGraphicsWidget.LicGraphicsScene.PageViewContinuousFacing: continuousFacing}
+        pageActions[self.pagesToDisplay].setChecked(True)
+        
+        pageGroup = QActionGroup(self)
+        for action in pageActions.values():
+            pageGroup.addAction(action)
         
         viewActions = (addHGuide, addVGuide, removeGuides, None, zoom100, zoomIn, zoomOut, None, onePage, twoPages, continuous, continuousFacing)
         self.addActions(self.viewMenu, viewActions)
@@ -572,11 +577,14 @@ class LicWindow(QMainWindow):
                 target.addSeparator()
             elif isinstance(item, QAction):
                 target.addAction(item)
+            elif isinstance(item, QActionGroup):
+                target.addActions(item)
             elif isinstance(item, QMenu):
                 target.addMenu(item)
     
-    def createMenuAction(self, text, slot = None, shortcut = None, tip = None, signal = "triggered()"):
+    def createMenuAction(self, text, slot = None, shortcut = None, tip = None, signal = "triggered()", checkable = False):
         action = QAction(text, self)
+        action.setCheckable(checkable)
         if shortcut is not None:
             action.setShortcut(shortcut)
         if tip is not None:
@@ -888,7 +896,7 @@ def main():
     #filename = unicode("C:/lic/template.dat")
     #filename = unicode("C:/lic/stack.lic")
     #filename = unicode("C:/lic/1x1.dat")
-    #filename = unicode("C:/lic/pyramid.dat")
+    filename = unicode("C:/lic/pyramid.lic")
     #filename = unicode("C:/lic/SubSubModel.mpd")
 
     if filename:

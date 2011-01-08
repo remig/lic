@@ -320,9 +320,6 @@ class LicGraphicsScene(QGraphicsScene):
             page.show()
         self.selectCurrentPage()
 
-    def getPagesToDisplay(self):
-        return self.pagesToDisplay
-    
     def setPagesToDisplay(self, pagesToDisplay):
         if pagesToDisplay == self.PageViewContinuous:
             return self.continuous()
