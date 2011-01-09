@@ -498,6 +498,7 @@ class LicWindow(QMainWindow):
         removeGuides = self.createMenuAction("Remove Guides", self.scene.removeAllGuides, None, "Add Guide")
 
         zoom100 = self.createMenuAction("Zoom &100%", lambda: self.zoom(1.0), None, "Zoom 100%")
+        zoomToFit = self.createMenuAction("Zoom To &Fit", self.graphicsView.scaleToFit, None, "Zoom To Fit")
         zoomIn = self.createMenuAction("Zoom &In", lambda: self.zoom(1.2), None, "Zoom In")
         zoomOut = self.createMenuAction("Zoom &Out", lambda: self.zoom(1.0 / 1.2), None, "Zoom Out")
 
@@ -513,7 +514,7 @@ class LicWindow(QMainWindow):
         for action in pageActions.values():
             pageGroup.addAction(action)
         
-        viewActions = (addHGuide, addVGuide, removeGuides, None, zoom100, zoomIn, zoomOut, None, onePage, twoPages, continuous, continuousFacing)
+        viewActions = (addHGuide, addVGuide, removeGuides, None, zoom100, zoomToFit, zoomIn, zoomOut, None, onePage, twoPages, continuous, continuousFacing)
         self.addActions(self.viewMenu, viewActions)
 
         # Export Menu

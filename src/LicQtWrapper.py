@@ -184,14 +184,25 @@ class GraphicsRotateArrowItem(GraphicsRoundRectItem):
         painter.drawPolygon(self.ArrowHead)
         painter.restore()
 
-# Make QPointF iterable: p[0] is p.x, p[1] is p.y.  Useful for unpacking x & y easily
+# Make QPoint iterable: p[0] is p.x, p[1] is p.y.  Useful for easily unpacking x & y.
 def pointIterator(self, index):
     if index == 0:
         return self.x()
     if index == 1:
         return self.y()
     raise IndexError
+QPoint.__getitem__ = pointIterator
 QPointF.__getitem__ = pointIterator
+
+# Make QSize iterable: p[0] is width, p[1] is height.  Useful for easy unpacking.
+def sizeIterator(self, index):
+    if index == 0:
+        return self.width()
+    if index == 1:
+        return self.height()
+    raise IndexError
+QSize.__getitem__ = sizeIterator
+QSizeF.__getitem__ = sizeIterator
 
 def genericGetSceneCorners(self):
     topLeft = self.mapToScene(self.mapFromParent(self.pos())) # pos is in item.parent coordinates

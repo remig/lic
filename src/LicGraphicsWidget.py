@@ -45,11 +45,20 @@ class LicGraphicsView(QGraphicsView):
             self.resetTransform()
         else:
             factor = self.matrix().scale(scaleFactor, scaleFactor).mapRect(QRectF(0, 0, 1, 1)).width()
-    
             if factor >= 0.15 and factor <= 5:
                 self.scene().scaleFactor = factor
                 self.scale(scaleFactor, scaleFactor)
 
+    def scaleToFit(self):
+        vw, vh = self.geometry().size() - QSize(20, 20)
+        pw, ph = Page.PageSize * self.scene().scaleFactor
+        
+        if (pw > vw) or (ph > pw) or ((pw < (vw-50)) and (ph < (vh-50))):  # Ensure we should scale
+            if vw - pw < vh - ph:
+                self.scaleView(float(vw) / pw)  # Scale to fit width
+            else:
+                self.scaleView(float(vh) / ph)  # Scale to fit height
+        
     def dragEnterEvent(self, event):
         self.parentWidget().dragEnterEvent(event)
 
