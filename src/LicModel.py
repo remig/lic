@@ -53,7 +53,7 @@ import resources  # Needed for ":/resource" type paths to work
 import config     # For user path info
 
 MagicNumber = 0x14768126
-FileVersion = 12
+FileVersion = 13
 
 NoFlags = QGraphicsItem.GraphicsItemFlags()
 NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
@@ -3567,8 +3567,6 @@ class Primitive(object):
     """
 
     def __init__(self, color, points, type, winding = GL.GL_CW):
-        if isinstance(color, int) and color != 24:
-            a = 20  # TODO: Fix compliment color so it returns an actual color
         self.color = color
         self.type = type
         self.points = points

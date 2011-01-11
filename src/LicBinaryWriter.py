@@ -140,6 +140,15 @@ def __writeSubmodel(stream, submodel):
 
     stream.writeBool(submodel.isSubAssembly)
 
+def __writeLicColor(stream, licColor):
+    if licColor is not None:
+        stream.writeBool(True)
+        for v in licColor.rgba:
+            stream.writeFloat(v)
+        stream << QString(licColor.name)
+    else:
+        stream.writeBool(False)
+
 def __writePartDictionary(stream, partDictionary):
 
     partList = [p for p in partDictionary.values() if not p.isSubmodel]
@@ -176,7 +185,7 @@ def __writeAbstractPart(stream, part):
         __writePart(stream, part)
 
 def __writePrimitive(stream, primitive):
-    stream.writeInt32(primitive.color)
+    __writeLicColor(stream, primitive.color)
     stream.writeInt16(primitive.type)
     stream.writeInt32(primitive.winding)
 
@@ -186,7 +195,8 @@ def __writePrimitive(stream, primitive):
 def __writePart(stream, part):
     stream << QString(part.abstractPart.filename)
     stream.writeBool(part.inverted)
-    stream.writeInt32(part.color)
+    __writeLicColor(stream, part.color)
+
     for point in part.matrix:
         stream.writeFloat(point)
 
@@ -380,7 +390,7 @@ def __writePLI(stream, pli):
 
 def __writePLIItem(stream, pliItem):
     stream << QString(pliItem.abstractPart.filename)
-    stream.writeInt32(pliItem.color)
+    __writeLicColor(stream, pliItem.color)
     stream.writeInt32(pliItem.quantity)
     stream << pliItem.pos() << pliItem.rect()
     stream << pliItem.numberItem.pos() << pliItem.numberItem.font()

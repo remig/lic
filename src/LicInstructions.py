@@ -367,7 +367,7 @@ class InstructionsProxy(object):
     def __init__(self, instructions):
         self.__instructions = instructions
 
-    def createPart(self, fn, color = 16, matrix = None, invert = False):
+    def createPart(self, fn, color, matrix, invert = False):
 
         partDictionary = self.__instructions.partDictionary
         rgbColor = LDrawColors.convertToRGBA(color)
@@ -379,7 +379,6 @@ class InstructionsProxy(object):
             part.abstractPart = partDictionary[fn.upper()]
         elif fn.lower() in partDictionary:
             part.abstractPart = partDictionary[fn.lower()]
-
         return part
 
     def createAbstractPart(self, fn):

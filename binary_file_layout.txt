@@ -51,6 +51,11 @@ Submodel:
   QString parent (filename of model using this submodel, ie _parent.filename)
   bool isSubAssembly
 
+licColor:
+  bool color is not None
+  float r, g, b, a
+  QString colorName
+  
 partDictionary:
   int32 length of part dictionary (minus submodels if v6)
   ... PartOGL 0..n ...
@@ -77,7 +82,7 @@ PartOGL:
   ... Part 0..n ...
   
 Primitive:  # 9 points for triangle, 12 points for quad
-  int32 color
+  licColor color
   int8 type
   int32 winding
   
@@ -90,7 +95,7 @@ Primitive:  # 9 points for triangle, 12 points for quad
 Part:
   QString filename  (links this to a partOGL)
   bool inverted
-  int32 color
+  licColor color
   float matrix[0] 
   ... 
   float matrix[15]
@@ -258,7 +263,7 @@ PLI:
 
 PLIItem:
   QString filename
-  int32 color
+  licColor color
   int32 quantity
   QPointF pos
   QRectF rect

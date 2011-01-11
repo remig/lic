@@ -231,6 +231,15 @@ def __readSubmodel(stream, instructions, createMainmodel = False):
 
     return submodel
 
+def __readLicColor(stream):
+    if stream.licFileVersion >= 13:
+        if stream.readBool():
+            r, g, b, a = stream.readFloat(), stream.readFloat(), stream.readFloat(), stream.readFloat()
+            name = str(stream.readQString())
+            return LDrawColors.LicColor(r, g, b, a, name)
+        return None
+    return LDrawColors.convertToRGBA(stream.readInt32())
+
 def __readPartDictionary(stream, instructions):
 
     global partDict
@@ -281,7 +290,7 @@ def __readAbstractPart(stream, createSubmodel = False, createMainmodel = False):
     return part
 
 def __readPrimitive(stream):
-    color = LDrawColors.convertToRGBA(stream.readInt32())
+    color = __readLicColor(stream)
     type = stream.readInt16()
     winding = stream.readInt32()
     
@@ -301,7 +310,7 @@ def __readPart(stream):
     
     filename = str(stream.readQString())
     invert = stream.readBool()
-    color = LDrawColors.convertToRGBA(stream.readInt32())
+    color = __readLicColor(stream)
     matrix = []
 
     for unused in range(16):
@@ -554,8 +563,9 @@ def __readPLIItem(stream, pli):
 
     filename = str(stream.readQString())
     abstractPart = partDict[filename]
+    color = __readLicColor(stream)
 
-    pliItem = PLIItem(pli, abstractPart, stream.readInt32(), stream.readInt32())
+    pliItem = PLIItem(pli, abstractPart, color, stream.readInt32())
     pliItem.setPos(stream.readQPointF())
     pliItem.setRect(stream.readQRectF())
 

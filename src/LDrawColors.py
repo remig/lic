@@ -161,7 +161,7 @@ def convertToRGBA(LDrawColorCode):
     if LDrawColorCode == CurrentColor:
         return None
     if LDrawColorCode == ComplimentColor:
-        return ComplimentColor
+        return None  # TODO: Handle compliment colors
     if LDrawColorCode not in colors:
         print "Could not find LDraw Color: %d - Using Black." % LDrawColorCode
         return LicColor(*colors[0])
@@ -171,7 +171,7 @@ def getColorName(LDrawColorCode):
     if LDrawColorCode == CurrentColor:
         return None
     if LDrawColorCode == ComplimentColor:
-        return ComplimentColor
+        return None  # TODO: Handle compliment colors
     if LDrawColorCode not in colors:
         print "Could not find LDraw Color: %d - Using Black." % LDrawColorCode
         return colors[0][-1]  # Return Black
