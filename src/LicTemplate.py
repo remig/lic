@@ -582,7 +582,6 @@ class TemplatePLI(TemplateRectItem, PLI, TemplateRotateScaleSignalItem):
         PLI.defaultBrush = newBrush
 
 class TemplateSubmodelPreview(TemplateRectItem, SubmodelPreview, TemplateRotateScaleSignalItem):
-    # TODO: Load pyramid_buggy_smp.lic & see broken submodel preview.  Change its scale to get correct size.
 
     def contextMenuEvent(self, event):
         actions = [("Change Default Submodel Rotation", self.rotateDefaultSignal),

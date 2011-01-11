@@ -1476,7 +1476,7 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
 
         # Sort list of parts to lay out first by color (in reverse order), then by width (narrowest first), then remove tallest part, to be added first
         partList = list(self.pliItems)
-        partList.sort(key = lambda i: i.color, reverse = True)  # Sort by color, reversed 
+        partList.sort(key = lambda i: i.color.sortKey(), reverse = True)  # Sort by color, reversed 
         partList.sort(key = lambda i: (i.rect().width(), i.rect().height()))  # Sort by width (then height, for ties)
         tallestPart = max(reversed(partList), key = lambda x: x.abstractPart.height)  # reverse list so we choose last part if two+ parts equally tall
         partList.remove(tallestPart)
@@ -1809,7 +1809,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         menu.addSeparator()
         arrowMenu = menu.addMenu("Select Part")
         for part in self.getPartList():
-            text = "%s - %s" % (part.abstractPart.name, LDrawColors.getColorName(part.color))
+            text = "%s - %s" % (part.abstractPart.name, part.color.name)
             arrowMenu.addAction(text, lambda p = part: self.selectPart(p))
         arrowMenu.addAction("Select All", self.selectAllParts)
 
@@ -1824,7 +1824,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         if not fn:
             return
 
-        part = Part(fn, 0, LicGLHelpers.IdentityMatrix(), False)
+        part = Part(fn, LDrawColors.LicColor(), LicGLHelpers.IdentityMatrix(), False)
         part.initializeAbstractPart(self.getPage().instructions)
 
         if part.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
@@ -2026,29 +2026,27 @@ class AbstractPart(object):
         return True
 
     def paintGL(self, dx, dy, rotation = [0.0, 0.0, 0.0], scaling = 1.0, color = None):
-         
+
         LicGLHelpers.pushAllGLMatrices()
-        
+
         dr = SubmodelPreview.defaultRotation if self.isSubmodel else PLI.defaultRotation
         ds = SubmodelPreview.defaultScale if self.isSubmodel else PLI.defaultScale
 
         dx += self.center.x() * scaling
         dy += self.center.y() * scaling
-        
+
         if color is not None:  # Color means we're drawing a PLIItem, so apply PLI specific scale & rotation
             ds *= self.pliScale
-        
+
         LicGLHelpers.rotateToView(dr, ds * scaling, dx, dy, 0.0)
         LicGLHelpers.rotateView(*rotation)
-        
+
         if color is not None:
 
             LicGLHelpers.rotateView(*self.pliRotation)
             
-            colorRGB = LDrawColors.convertToRGBA(color)
-            if colorRGB == LDrawColors.CurrentColor:
-                colorRGB = LDrawColors.colors[2][:4]
-            GL.glColor4fv(colorRGB)
+            if color is not None:
+                GL.glColor4fv(color.rgba)
 
         GL.glCallList(self.glDispID)
         LicGLHelpers.popAllGLMatrices()
@@ -2829,7 +2827,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
     itemClassName = "Part"
 
-    def __init__(self, filename, color = 16, matrix = None, invert = False):
+    def __init__(self, filename, color = None, matrix = None, invert = False):
         QGraphicsRectItem.__init__(self)
 
         self.filename = filename  # Needed for save / load
@@ -3002,12 +3000,14 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def isSubmodel(self):
         return isinstance(self.abstractPart, Submodel)
 
+    def toBlack(self):
+        self.color = LDrawColors.LicColor.black()
+
     def callGLDisplayList(self, useDisplacement = False):
 
         # must be called inside a glNewList/EndList pair
-        color = LDrawColors.convertToRGBA(self.color)
-
-        if color != LDrawColors.CurrentColor:
+        if self.color is not None:
+            color = list(self.color.rgba)
             if useDisplacement and self.isSelected():
                 color[3] = 0.5
             GL.glPushAttrib(GL.GL_CURRENT_BIT)
@@ -3041,7 +3041,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         if self.inverted:
             GL.glPopAttrib()
 
-        if color != LDrawColors.CurrentColor:
+        if self.color is not None:
             GL.glPopAttrib()
 
         for arrow in self.arrows:
@@ -3079,7 +3079,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         fh.write(line)
 
     def duplicate(self):
-        p = Part(self.filename, self.color, list(self.matrix), self.inverted)
+        p = Part(self.filename, self.color.duplicate(), list(self.matrix), self.inverted)
         p.abstractPart = self.abstractPart
         p.setParentItem(self.parentItem())
         p.displacement = list(self.displacement)
@@ -3357,7 +3357,8 @@ class Arrow(Part):
     itemClassName = "Arrow"
 
     def __init__(self, direction, parentPart = None):
-        Part.__init__(self, "arrow", 4, None, False)
+        red = LDrawColors.LicColor.red
+        Part.__init__(self, "arrow", red(), None, False)
         
         if parentPart:
             self.setParentItem(parentPart)
@@ -3381,9 +3382,9 @@ class Arrow(Part):
         br = [x[3], y[3], 0.0]
         bl = [x[1], y[3], 0.0]
         
-        tip1 = Primitive(4, tip + topEnd + joint, GL.GL_TRIANGLES)
-        tip2 = Primitive(4, tip + joint + botEnd, GL.GL_TRIANGLES)
-        base = Primitive(4, tl + tr + br + bl, GL.GL_QUADS)
+        tip1 = Primitive(red(), tip + topEnd + joint, GL.GL_TRIANGLES)
+        tip2 = Primitive(red(), tip + joint + botEnd, GL.GL_TRIANGLES)
+        base = Primitive(red(), tl + tr + br + bl, GL.GL_QUADS)
 
         self.abstractPart.primitives.append(tip1)
         self.abstractPart.primitives.append(tip2)
@@ -3448,8 +3449,8 @@ class Arrow(Part):
             return
 
         # Must be called inside a glNewList/EndList pair
-        color = LDrawColors.convertToRGBA(self.color)
-        if color != LDrawColors.CurrentColor:
+        if self.color is not None:
+            color = list(self.color.rgba)
             if self.isSelected():
                 color[3] = 0.5
             GL.glPushAttrib(GL.GL_CURRENT_BIT)
@@ -3472,7 +3473,7 @@ class Arrow(Part):
         GL.glCallList(self.abstractPart.glDispID)
         GL.glPopMatrix()
 
-        if color != LDrawColors.CurrentColor:
+        if self.color is not None:
             GL.glPopAttrib()
 
     def getOffsetFromPart(self, part):
@@ -3566,6 +3567,8 @@ class Primitive(object):
     """
 
     def __init__(self, color, points, type, winding = GL.GL_CW):
+        if isinstance(color, int) and color != 24:
+            a = 20  # TODO: Fix compliment color so it returns an actual color
         self.color = color
         self.type = type
         self.points = points
@@ -3643,11 +3646,9 @@ class Primitive(object):
             GL.glPopAttrib()
             return
 
-        color = LDrawColors.convertToRGBA(self.color)
-
-        if color != LDrawColors.CurrentColor:
+        if self.color is not None:
             GL.glPushAttrib(GL.GL_CURRENT_BIT)
-            GL.glColor4fv(color)
+            GL.glColor4fv(self.color.rgba)
 
         if self.winding == GL.GL_CCW:
             normal = self.addNormal(p[0:3], p[3:6], p[6:9])
@@ -3681,7 +3682,7 @@ class Primitive(object):
             GL.glVertex3f(p[3], p[4], p[5])
             GL.glEnd()
 
-        if color != LDrawColors.CurrentColor:
+        if self.color is not None:
             GL.glPopAttrib()
 
     def drawConditionalLines(self):

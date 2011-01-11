@@ -21,7 +21,6 @@
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-import LDrawColors
 import LicHelpers
 
 class LicTreeModel(QAbstractItemModel):
@@ -392,7 +391,7 @@ class PLIItemTreeManager(BaseTreeManager):
         return self.parentItem().pliItems.index(self)
 
     def data(self, index):
-        return "%s - %s" % (self.abstractPart.name, LDrawColors.getColorName(self.color))
+        return "%s - %s" % (self.abstractPart.name, self.color.name)
 
 class PLITreeManager(BaseTreeManager):
 
@@ -517,13 +516,13 @@ class PartTreeManager(BaseTreeManager):
         if self._dataString:
             return self._dataString
 
-        color = LDrawColors.getColorName(self.color)
+        colorName = self.color.name
         if CSITreeManager.showPartGroupings:
             x, y, z = LicHelpers.GLMatrixToXYZ(self.matrix)
-            self._dataString = "%s - (%.1f, %.1f, %.1f)" % (color, x, y, z)
-            #self._dataString = "%s - (%s)" % (color, self.getPartBoundingBox())
+            self._dataString = "%s - (%.1f, %.1f, %.1f)" % (colorName, x, y, z)
+            #self._dataString = "%s - (%s)" % (colorName, self.getPartBoundingBox())
         else:
-            self._dataString = "%s - %s" % (self.abstractPart.name, color)
+            self._dataString = "%s - %s" % (self.abstractPart.name, colorName)
 
         return self._dataString
     

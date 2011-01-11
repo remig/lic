@@ -83,7 +83,7 @@ class ColorButton(QToolButton):
         QToolButton.__init__(self, parent)
         
         rgbColor = LDrawColors.convertToRGBA(color)
-        self.brush = QBrush(QColor.fromRgbF(*rgbColor))
+        self.brush = QBrush(QColor.fromRgbF(*rgbColor.rgba))
         self.colorCode = color
         self.setToolTip(LDrawColors.getColorName(color))
     
@@ -111,7 +111,7 @@ class LDrawColorDialog(QDialog):
             if not LDrawColors.isRealColor(color):
                 continue
             b = ColorButton(self, color)
-            self.connect(b, SIGNAL('clicked(bool)'), lambda b, c = color: self.emit(SIGNAL('changeColor'), c))
+            self.connect(b, SIGNAL('clicked(bool)'), lambda b, c = color: self.emit(SIGNAL('changeColor'), LDrawColors.convertToRGBA(c)))
             grid.addWidget(b, r, c)
             c += 1
             if c > 7:

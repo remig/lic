@@ -619,7 +619,7 @@ class PartListPLI(PLI):
             item.initLayout()
     
         partList = list(self.pliItems)
-        partList.sort(key = lambda x: (x.color, x.rect().width()))
+        partList.sort(key = lambda x: (x.color.sortKey(), x.rect().width()))
         
         columnWidth = 0
         mx, my = PLI.margin.x(), PLI.margin.y() 
@@ -707,15 +707,15 @@ class PartListPage(PartListPageTreeManager, Page):
         self.initFullPartList()
         pageList = [self]
         overflowList = self.doOverflowLayout()
-    
+
         while overflowList != []:
             page = PartListPage(self.instructions, pageList[-1]._number + 1, pageList[-1]._row + 1)
             page.initPartialItemList(overflowList)
             pageList.append(page)
             overflowList = page.doOverflowLayout()
-    
+
         return pageList
-    
+
     @staticmethod
     def createPartListPages(instructions):
 
@@ -842,7 +842,7 @@ class TitlePage(TitlePageTreeManager, Page):
         if self.getPageCountLabel() is None:
             menu.addAction("Add Page Count Label", lambda: self.addPageCountLabel(True))
         if self.submodelItem is None:
-            menu.addAction("Add Model Preview - NYI", lambda: True)  # TODO: All user to add / remove title page model preview
+            menu.addAction("Add Model Preview - NYI", lambda: True)  # TODO: Allow user to add / remove title page model preview
             
         menu.addSeparator()
         menu.addAction("Remove Title Page", lambda: self.submodel.addRemoveTitlePageSignal(False))

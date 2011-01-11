@@ -20,6 +20,7 @@
 
 from PyQt4.QtCore import *
 
+import LDrawColors
 from LicModel import *
 from LicCustomPages import *
 
@@ -369,7 +370,8 @@ class InstructionsProxy(object):
     def createPart(self, fn, color = 16, matrix = None, invert = False):
 
         partDictionary = self.__instructions.partDictionary
-        part = Part(fn, color, matrix, invert)
+        rgbColor = LDrawColors.convertToRGBA(color)
+        part = Part(fn, rgbColor, matrix, invert)
 
         if fn in partDictionary:
             part.abstractPart = partDictionary[fn]
@@ -415,7 +417,8 @@ class InstructionsProxy(object):
     def addPrimitive(self, shape, color, points, parent = None):
         if parent is None:
             parent = self.__instructions.mainModel
-        primitive = Primitive(color, points, shape, parent.winding)
+        rgbColor = LDrawColors.convertToRGBA(color)
+        primitive = Primitive(rgbColor, points, shape, parent.winding)
         parent.primitives.append(primitive)
 
     def addBlankPage(self, parent):

@@ -106,13 +106,13 @@ class LDrawImporter(object):
     def configureBlackPartColor(self, filename, part, invertNext):
         fn = filename.lower()
         if fn == "stud.dat" and part.filename == "4-4cyli.dat":
-            part.color = 512
+            part.toBlack()
         elif fn == "stud2.dat" and part.filename == "4-4cyli.dat":
-            part.color = 512
+            part.toBlack()
         elif fn == "stud2a.dat" and part.filename == "4-4cyli.dat":
-            part.color = 512
+            part.toBlack()
         elif fn == "stud4.dat" and part.filename == "4-4cyli.dat" and invertNext:
-            part.color = 512
+            part.toBlack()
 
 Comment = '0'
 PartCommand = '1'
@@ -173,7 +173,7 @@ def isPrimitiveLine(line):
 
 def lineToPrimitive(line):
     shape = lineTypeToGLShape(line[1])
-    color = float(line[2])
+    color = int(line[2])
     points = [float(x) for x in line[3:]]
     return (shape, color, points)
 

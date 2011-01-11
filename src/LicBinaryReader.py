@@ -24,6 +24,7 @@ from LicModel import *
 from LicTemplate import *
 from LicCustomPages import *
 import LicGLHelpers
+import LDrawColors
 
 def ro(self, targetType):
     c = targetType()
@@ -280,7 +281,7 @@ def __readAbstractPart(stream, createSubmodel = False, createMainmodel = False):
     return part
 
 def __readPrimitive(stream):
-    color = stream.readInt32()
+    color = LDrawColors.convertToRGBA(stream.readInt32())
     type = stream.readInt16()
     winding = stream.readInt32()
     
@@ -300,7 +301,7 @@ def __readPart(stream):
     
     filename = str(stream.readQString())
     invert = stream.readBool()
-    color = stream.readInt32()
+    color = LDrawColors.convertToRGBA(stream.readInt32())
     matrix = []
 
     for unused in range(16):
