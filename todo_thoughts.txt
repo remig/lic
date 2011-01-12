@@ -20,8 +20,6 @@ BUGS:
 
  FEATURES:
 
-- Add support for reading colors from LDCONFIG.LDR
-
 - Add a dialog on initial import: if the imported file has no steps, give a handful of options 
 that control auto-page & step generation (one step / page, min / max parts per step, etc)
  

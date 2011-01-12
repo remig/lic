@@ -761,7 +761,7 @@ class TitlePage(TitlePageTreeManager, Page):
         self.labels = []
         self.numberItem.hide()
 
-    def addInitialContent(self):
+    def addInitialContent(self):  # TODO: shrink title page submodel image so it fits on the page along with the different titles.
 
         self.addSubmodelImage()
         si = self.submodelItem

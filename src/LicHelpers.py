@@ -50,7 +50,7 @@ class LicColorDict(dict):
     def __missing__(self, k):
         print "Could not find LDraw Color: %d - Using Black." % k
         black = LicColor.black()
-        self[k] = black    # Store for future lookups - chances are, if one call failed, may more will...
+        self[k] = black    # Store for future lookups - chances are, if one call failed, many more will
         return black
 
 # lambda is bound dynamically to the last variable used, so we can't 

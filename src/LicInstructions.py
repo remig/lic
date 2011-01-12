@@ -107,7 +107,7 @@ class Instructions(QObject):
         self.mainModel.reOrderSubmodelPages()
         self.mainModel.syncPageNumbers()
 
-        yield "Adjusting Submodel Images"
+        yield "Adjusting Submodel Images"  # TODO: Do a better job of counting these - status bar is way off
         for page in pageList:
             page.adjustSubmodelImages()
             page.resetPageNumberPosition()

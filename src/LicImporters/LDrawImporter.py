@@ -166,7 +166,7 @@ def isPartLine(line):
     return (len(line) > 15) and (line[1] == PartCommand)
 
 def lineToPart(line):
-    filename = line[15]
+    filename = ' '.join(line[15:])
     color = int(line[2])
     matrix = LDToGLMatrix(line[3:15])
     return (filename, color, matrix)
@@ -287,7 +287,7 @@ class LDrawFile(object):
         submodels = [(filename, 0)]
         for i, l in enumerate(self.lineList[1:]):
             if isFileLine(l):
-                submodels.append((l[3], i+1))  # + 1 because we start at line 1 not 0
+                submodels.append((' '.join(l[3:]), i+1))  # + 1 because we start at line 1 not 0
         
         # Fixup submodel list by calculating the ending line number from the file
         for i in range(0, len(submodels)-1):
