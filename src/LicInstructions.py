@@ -20,9 +20,10 @@
 
 from PyQt4.QtCore import *
 
-import LDrawColors
+from LicHelpers import LicColor, LicColorDict
 from LicModel import *
 from LicCustomPages import *
+from LicImporters import LDrawImporter
 
 class Instructions(QObject):
     itemClassName = "Instructions"
@@ -32,6 +33,7 @@ class Instructions(QObject):
 
         self.scene = scene
         self.mainModel = None
+        self.colorDict = LicColorDict()  # Dict of all valid LicColor instances for this particular model, indexed by LDraw color code
         self.partDictionary = {}      # x = AbstractPart("3005.dat"); partDictionary[x.filename] == x
 
         self.glContext = glWidget
@@ -39,7 +41,7 @@ class Instructions(QObject):
 
     def __getTemplate(self):
         return self.mainModel.template
-    
+
     def __setTemplate(self, template):
         if (self.mainModel.template is None):
             self.mainModel.incrementRows(1)
@@ -362,16 +364,20 @@ class Instructions(QObject):
         if self.mainModel:
             self.mainModel.updatePageNumbers(newNumber, increment)
 
+    def loadLDrawColors(self):
+        self.colorDict = LicColorDict()
+        LDrawImporter.importColorFile(self.getProxy())
+
 class InstructionsProxy(object):
 
     def __init__(self, instructions):
         self.__instructions = instructions
 
-    def createPart(self, fn, color, matrix, invert = False):
+    def createPart(self, fn, colorCode, matrix, invert = False):
 
         partDictionary = self.__instructions.partDictionary
-        rgbColor = LDrawColors.convertToRGBA(color)
-        part = Part(fn, rgbColor, matrix, invert)
+        color = self.__instructions.colorDict[colorCode]
+        part = Part(fn, color, matrix, invert)
 
         if fn in partDictionary:
             part.abstractPart = partDictionary[fn]
@@ -394,8 +400,12 @@ class InstructionsProxy(object):
 
         part = partDictionary[fn] = Submodel(parent, self.__instructions, fn)
         part.appendBlankPage()
-        return part 
-    
+        return part
+
+    def addColor(self, colorCode, r = 1.0, g = 1.0, b = 1.0, a = 1.0, name = 'Black'):
+        cd = self.__instructions.colorDict
+        cd[colorCode] = None if r is None else LicColor(r, g, b, a, name)
+
     def addPart(self, part, parent = None):
         if parent is None:
             parent = self.__instructions.mainModel
@@ -413,11 +423,11 @@ class InstructionsProxy(object):
                 parent.pages[-1]._row += 1
                 parent.submodels.append(p)
 
-    def addPrimitive(self, shape, color, points, parent = None):
+    def addPrimitive(self, shape, colorCode, points, parent = None):
         if parent is None:
             parent = self.__instructions.mainModel
-        rgbColor = LDrawColors.convertToRGBA(color)
-        primitive = Primitive(rgbColor, points, shape, parent.winding)
+        color = self.__instructions.colorDict[colorCode]
+        primitive = Primitive(color, points, shape, parent.winding)
         parent.primitives.append(primitive)
 
     def addBlankPage(self, parent):

@@ -23,7 +23,6 @@ from PyQt4.QtGui import *
 
 import os
 import LicHelpers
-import LDrawColors
 
 def makeLabelSpinBox(self, text, value, min, max, signal = None, double = False, percent = False):
     
@@ -81,23 +80,22 @@ class ColorButton(QToolButton):
     
     def __init__(self, parent, color):
         QToolButton.__init__(self, parent)
-        
-        rgbColor = LDrawColors.convertToRGBA(color)
-        self.brush = QBrush(QColor.fromRgbF(*rgbColor.rgba))
+
+        self.brush = QBrush(QColor.fromRgbF(*color.rgba))
         self.colorCode = color
-        self.setToolTip(LDrawColors.getColorName(color))
-    
+        self.setToolTip(color.name)
+
     def paintEvent(self, event):
         QToolButton.paintEvent(self, event)
-        
+
         p = QPainter(self)
         p.setBrush(self.brush)
         p.drawRect(3, 3, self.width() - 9, self.height() - 9)
         p.end()
 
 class LDrawColorDialog(QDialog):
-    
-    def __init__(self, parent, color):
+
+    def __init__(self, parent, color, colorDict):
         QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setWindowTitle(self.tr("Change Color"))
@@ -106,12 +104,11 @@ class LDrawColorDialog(QDialog):
         r, c = 0, 0
         grid = QGridLayout()
         grid.setSizeConstraint(QLayout.SetFixedSize)
-        
-        for color in sorted(LDrawColors.colors):
-            if not LDrawColors.isRealColor(color):
-                continue
+
+        colorList = [i for i in colorDict.values() if i is not None]
+        for color in sorted(colorList, key = lambda k: k.name):
             b = ColorButton(self, color)
-            self.connect(b, SIGNAL('clicked(bool)'), lambda b, c = color: self.emit(SIGNAL('changeColor'), LDrawColors.convertToRGBA(c)))
+            self.connect(b, SIGNAL('clicked(bool)'), lambda b, c = color: self.emit(SIGNAL('changeColor'), c))
             grid.addWidget(b, r, c)
             c += 1
             if c > 7:

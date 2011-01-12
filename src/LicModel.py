@@ -42,7 +42,6 @@ from LicLayout import *
 import LicGLHelpers
 import LicL3PWrapper
 import LicPovrayWrapper
-import LDrawColors
 import LicHelpers
 import LicDialogs
 import LicPartLengths
@@ -1824,7 +1823,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         if not fn:
             return
 
-        part = Part(fn, LDrawColors.LicColor(), LicGLHelpers.IdentityMatrix(), False)
+        part = Part(fn, LicHelpers.LicColor(), LicGLHelpers.IdentityMatrix(), False)
         part.initializeAbstractPart(self.getPage().instructions)
 
         if part.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
@@ -2188,7 +2187,6 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         # Set up dynamic module to be used for import 
         importerName = LicImporters.getImporter(os.path.splitext(self.filename)[1][1:])
         importModule = __import__("LicImporters.%s" % importerName, fromlist = ["LicImporters"])
-        importModule.LDrawPath = config.LDrawPath
         importModule.importModel(self.filename, self.instructions.getProxy())
 
     def hasImportedSteps(self):
@@ -3001,7 +2999,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         return isinstance(self.abstractPart, Submodel)
 
     def toBlack(self):
-        self.color = LDrawColors.LicColor.black()
+        self.color = LicHelpers.LicColor.black()
 
     def callGLDisplayList(self, useDisplacement = False):
 
@@ -3266,10 +3264,11 @@ class Part(PartTreeManager, QGraphicsRectItem):
             scene.undoStack.push(AddRemovePageCommand(scene, currentPage, False))
             
     def changeColorSignal(self):
+        colorDict = self.getPage().instructions.colorDict
         self.scene().clearSelection()
         self.getCSI().isDirty = True
         parentWidget = self.scene().views()[0]
-        dialog = LicDialogs.LDrawColorDialog(parentWidget, self.color)
+        dialog = LicDialogs.LDrawColorDialog(parentWidget, self.color, colorDict)
         parentWidget.connect(dialog, SIGNAL("changeColor"), self.changeColor)
         parentWidget.connect(dialog, SIGNAL("acceptColor"), self.acceptColor)
         dialog.exec_()
@@ -3357,7 +3356,7 @@ class Arrow(Part):
     itemClassName = "Arrow"
 
     def __init__(self, direction, parentPart = None):
-        red = LDrawColors.LicColor.red
+        red = LicHelpers.LicColor.red
         Part.__init__(self, "arrow", red(), None, False)
         
         if parentPart:

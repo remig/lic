@@ -17,35 +17,14 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
-class LicColor(object):
 
-    def __init__(self, r = 0.13, g = 0.13, b = 0.13, a = 1.0, name = 'Black'):
-        self.rgba = [r, g, b, a]
-        self.name = name
-
-    def __eq__(self, other):
-        return self.rgba == other.rgba and self.name == other.name
-
-    def duplicate(self):
-        r, g, b, a = self.rgba
-        return LicColor(r, g, b, a, self.name)
-    
-    def sortKey(self):
-        return sum(self.rgba)
-    
-    @staticmethod
-    def black():
-        return LicColor(0.0, 0.0, 0.0, 1.0, 'Black')
-
-    @staticmethod
-    def red():
-        return LicColor(0.77, 0.00, 0.15, 1.0, 'Red')
+import LicHelpers
 
 CurrentColor = 16
 ComplimentColor = 24
 
 # Dictionary that stores [R,G,B,name] values for each LDraw Color code
-# TODO: Read this from LDCONFIG.LDR
+# TODO: If reading LDConfig.ldr fails for whatever reason, fall back to this.  That, or ship an internal version of LDConfig.ldr with Lic. 
 colors = {
     0:  [0.13, 0.13, 0.13, 1.0, 'Black'],
     1:  [0.00, 0.20, 0.70, 1.0, 'Blue'],
@@ -164,8 +143,8 @@ def convertToRGBA(LDrawColorCode):
         return None  # TODO: Handle compliment colors
     if LDrawColorCode not in colors:
         print "Could not find LDraw Color: %d - Using Black." % LDrawColorCode
-        return LicColor(*colors[0])
-    return LicColor(*colors[LDrawColorCode])
+        return LicHelpers.LicColor(*colors[0])
+    return LicHelpers.LicColor(*colors[LDrawColorCode])
     
 def getColorName(LDrawColorCode):
     if LDrawColorCode == CurrentColor:

@@ -29,15 +29,21 @@ def importModel(filename, instructions):
 def importPart(filename, instructions, abstractPart):
     LDrawImporter(filename, instructions, abstractPart)
 
+def importColorFile(instructions):
+    LDrawImporter.loadLDConfig(instructions)
+
 class LDrawImporter(object):
     
     def __init__(self, filename, instructions, parent = None):
 
+        self.filename = filename
+        self.instructions = instructions
+
+        self.loadLDConfig(instructions)
+
         ldrawFile = LDrawFile(filename)
         self.lineList = ldrawFile.lineList
         self.submodels = ldrawFile.getSubmodels(filename)
-        self.filename = filename
-        self.instructions = instructions
         if parent:
             parent.name = ldrawFile.name
 
@@ -104,15 +110,29 @@ class LDrawImporter(object):
                     parentPart.invertNext = True
 
     def configureBlackPartColor(self, filename, part, invertNext):
-        fn = filename.lower()
-        if fn == "stud.dat" and part.filename == "4-4cyli.dat":
+        fn, pn = filename.lower(), part.filename
+        if fn == "stud.dat" and pn == "4-4cyli.dat":
             part.toBlack()
-        elif fn == "stud2.dat" and part.filename == "4-4cyli.dat":
+        elif fn == "stud2.dat" and pn == "4-4cyli.dat":
             part.toBlack()
-        elif fn == "stud2a.dat" and part.filename == "4-4cyli.dat":
+        elif fn == "stud2a.dat" and pn == "4-4cyli.dat":
             part.toBlack()
-        elif fn == "stud4.dat" and part.filename == "4-4cyli.dat" and invertNext:
+        elif fn == "stud4.dat" and pn == "4-4cyli.dat" and invertNext:
             part.toBlack()
+
+    @staticmethod
+    def loadLDConfig(instructions):
+        ldConfigFile = file(os.path.join(LDrawPath, 'LDConfig.ldr'))
+        for l in ldConfigFile:
+            if l.startswith('0 !COLOUR'):
+                l = l.split()
+                code = int(l[4])
+                rgb = l[6].replace('#', '')
+                r, g, b = [float(i)/256 for i in [int(rgb[0:2], 16), int(rgb[2:4], 16), int(rgb[4:6], 16)]]
+                a = float(l[10])/256 if (len(l) > 10 and l[9] == 'ALPHA') else 1.0
+                name = l[2].replace('_', ' ')
+                instructions.addColor(code, r, g, b, a, name)
+        instructions.addColor(16, None)  # Set special 'CurrentColor' to None
 
 Comment = '0'
 PartCommand = '1'

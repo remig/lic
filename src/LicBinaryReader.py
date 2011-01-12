@@ -24,7 +24,7 @@ from LicModel import *
 from LicTemplate import *
 from LicCustomPages import *
 import LicGLHelpers
-import LDrawColors
+import LicHelpers
 
 def ro(self, targetType):
     c = targetType()
@@ -50,6 +50,7 @@ QDataStream.readQSize = lambda self: ro(self, QSize)
 # Having these global here avoids having to pass them as arguments to every single method in here
 #stream = None  # TODO: refactor all methods here to use global stream instead of passing it around everywhere?
 partDict = {}
+colorDict = None
 
 def loadLicFile(filename, instructions):
 
@@ -104,7 +105,8 @@ def __readTemplate(stream, instructions):
     filename = str(stream.readQString())
 
     # Read in the entire abstractPart dictionary
-    global partDict
+    global partDict, colorDict
+    colorDict = instructions.colorDict
     partDict = {}
     __readPartDictionary(stream, instructions)
 
@@ -160,8 +162,9 @@ def __readStaticInfo(stream, page, csi, pli, smp):
 
 def __readInstructions(stream, instructions):
 
-    global partDict
+    global partDict, colorDict
     partDict = instructions.partDictionary
+    colorDict = instructions.colorDict
 
     filename = str(stream.readQString())
     instructions.filename = filename
@@ -236,9 +239,9 @@ def __readLicColor(stream):
         if stream.readBool():
             r, g, b, a = stream.readFloat(), stream.readFloat(), stream.readFloat(), stream.readFloat()
             name = str(stream.readQString())
-            return LDrawColors.LicColor(r, g, b, a, name)
+            return LicHelpers.LicColor(r, g, b, a, name)
         return None
-    return LDrawColors.convertToRGBA(stream.readInt32())
+    return colorDict[stream.readInt32()]
 
 def __readPartDictionary(stream, instructions):
 

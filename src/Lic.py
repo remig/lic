@@ -379,7 +379,8 @@ class LicWindow(QMainWindow):
         POVRayPath = str(settings.value("POVRayPath").toString())
 
         if LDrawPath and L3PPath and POVRayPath:
-            config.LDrawPath = LDrawPath 
+            config.LDrawPath = LDrawPath
+            LicImporters.LDrawImporter.LDrawPath = config.LDrawPath
             config.L3PPath = L3PPath 
             config.POVRayPath = POVRayPath
             self.needPathConfiguration = False
@@ -694,6 +695,7 @@ class LicWindow(QMainWindow):
     def loadLicFile(self, filename):
 
         #startTime = time.time()  # TODO: need to provide a status bar, since some files take forever to load
+        self.instructions.loadLDrawColors()
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         LicBinaryReader.loadLicFile(filename, self.instructions)
         self.treeModel.root = self.instructions.mainModel
@@ -897,7 +899,8 @@ def main():
     #filename = unicode("C:/lic/template.dat")
     #filename = unicode("C:/lic/stack.lic")
     #filename = unicode("C:/lic/1x1.dat")
-    filename = unicode("C:/lic/pyramid.lic")
+    #filename = unicode("C:/lic/pyramid.lic")
+    #filename = unicode("C:/lic/pyramid.dat")
     #filename = unicode("C:/lic/SubSubModel.mpd")
 
     if filename:

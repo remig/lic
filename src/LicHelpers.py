@@ -21,6 +21,38 @@
 from PyQt4.QtCore import Qt, QPointF
 from PyQt4.QtGui import QPainterPath
 
+class LicColor(object):
+
+    def __init__(self, r = 0.13, g = 0.13, b = 0.13, a = 1.0, name = 'Black', ldrawCode = 16):
+        self.rgba = [r, g, b, a]
+        self.name = name
+        self.ldrawCode = ldrawCode
+
+    def __eq__(self, other):
+        return self.rgba == other.rgba and self.name == other.name
+
+    def duplicate(self):
+        r, g, b, a = self.rgba
+        return LicColor(r, g, b, a, self.name)
+    
+    def sortKey(self):
+        return sum(self.rgba)
+    
+    @staticmethod
+    def black():
+        return LicColor(0.0, 0.0, 0.0, 1.0, 'Black')
+
+    @staticmethod
+    def red():
+        return LicColor(0.77, 0.00, 0.15, 1.0, 'Red')
+    
+class LicColorDict(dict):
+    def __missing__(self, k):
+        print "Could not find LDraw Color: %d - Using Black." % k
+        black = LicColor.black()
+        self[k] = black    # Store for future lookups - chances are, if one call failed, may more will...
+        return black
+
 # lambda is bound dynamically to the last variable used, so we can't 
 # use it in a loop for creating menu actions.  Use this instead.
 # usage: menu.addAction("menu text", makeFunc(self.moveToCallout, callout))
