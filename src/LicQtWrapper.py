@@ -35,6 +35,14 @@ def genericNormalizePosition(self, childrenToSkip = []):
 
 QGraphicsRectItem.normalizePosition = genericNormalizePosition
 
+def genericSetPosCenteredIn(self, rect):
+    x = (rect.width() - self.rect().width()) / 2.0
+    y = (rect.height() - self.rect().height()) / 2.0
+    self.setPos(x, y)
+
+QGraphicsRectItem.setPosCenteredIn = genericSetPosCenteredIn
+QGraphicsSimpleTextItem.setPosCenteredIn = genericSetPosCenteredIn
+
 def genericGetOrientedSize(self, orientation):
     return self.width() if orientation == LicLayout.Horizontal else self.height()
 

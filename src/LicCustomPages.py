@@ -782,15 +782,15 @@ class TitlePage(TitlePageTreeManager, Page):
         if self.lockIcon.isLocked:
             return  # Don't make any layout changes to locked pages
 
-        pw2, ph2 = Page.PageSize.width() / 2.0, Page.PageSize.height() / 2.0
+        pw, ph = Page.PageSize
         pmx, pmy = Page.margin
-        titleRect = self.labels[0].rect() if self.labels else QRectF()
+        th = self.labels[0].rect().height() if self.labels else 0.0
 
         if self.submodelItem:
 
             # Shrink submodel image to fit on page nicely
             sr = self.submodelItem.rect()
-            maxWidth, maxHeight = Page.PageSize.width() - 2*pmx, Page.PageSize.height() - titleRect.height() - 2*pmy
+            maxWidth, maxHeight = pw - pmx - pmx, ph - th - pmy - pmy
 
             scaleWidth = (float(maxWidth) / sr.width()) - 0.1 if (sr.width() > maxWidth) else 1.0
             scaleHeight = (float(maxHeight) / sr.height()) - 0.1 if (sr.height() > maxHeight) else 1.0
@@ -800,21 +800,16 @@ class TitlePage(TitlePageTreeManager, Page):
                 sr = self.submodelItem.rect()
             
             # Position submodel image center of page, below title label
-            x = pw2 - (sr.width() / 2.0)
-            if titleRect.height():
-                interval = (Page.PageSize.height() - sr.height() - titleRect.height()) / 3.0
-                y = interval + titleRect.height() + interval
+            x = (pw - sr.width()) / 2.0
+            if th:
+                y = th + ((ph - sr.height() - th) / 1.5)
             else:
-                y = (Page.PageSize.height() - sr.height()) / 2.0
+                y = (ph - sr.height()) / 2.0
             self.submodelItem.setPos(x, y)
 
         if self.labels:
-            x = pw2 - (titleRect.width() / 2.0)
-            if self.submodelItem:
-                y = (self.submodelItem.pos().y() / 2.0) - (titleRect.height() / 2.0)
-            else:
-                y = ph2 - (titleRect.height() / 2.0)
-            self.labels[0].setPos(x, y)
+            y = self.submodelItem.pos().y() if self.submodelItem else ph
+            self.labels[0].setPosCenteredIn(QRectF(0, 0, pw, y))
 
         if self.getPartCountLabel():
             self.setPartCountLabelPos(self.getPartCountLabel())
