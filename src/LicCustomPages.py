@@ -761,7 +761,7 @@ class TitlePage(TitlePageTreeManager, Page):
         self.labels = []
         self.numberItem.hide()
 
-    def addInitialContent(self):  # TODO: shrink title page submodel image so it fits on the page along with the different titles.
+    def addInitialContent(self):
 
         self.addSubmodelImage()
         si = self.submodelItem
@@ -776,27 +776,42 @@ class TitlePage(TitlePageTreeManager, Page):
         self.addPageCountLabel(False)
         self.initLayout()
 
-    def initLayout(self):
+    def initLayout(self):  # TODO: Now need to generate Title page *inside* progress bar (submodel scaling is slow)
 
         self.lockIcon.resetPosition()
         if self.lockIcon.isLocked:
             return  # Don't make any layout changes to locked pages
 
         pw2, ph2 = Page.PageSize.width() / 2.0, Page.PageSize.height() / 2.0
-        pmy = Page.margin.y()
+        pmx, pmy = Page.margin
         titleRect = self.labels[0].rect() if self.labels else QRectF()
 
         if self.submodelItem:
-            x = pw2 - (self.submodelItem.rect().width() / 2.0)
-            y = ph2 - (self.submodelItem.rect().height() / 2.0) + (titleRect.height() / 2.0) + (pmy * 2)
-            self.submodelItem.setPos(x, y)
 
-        # TODO: Auto-shrink submodelImage if it is too big
+            # Shrink submodel image to fit on page nicely
+            sr = self.submodelItem.rect()
+            maxWidth, maxHeight = Page.PageSize.width() - 2*pmx, Page.PageSize.height() - titleRect.height() - 2*pmy
+
+            scaleWidth = (float(maxWidth) / sr.width()) - 0.1 if (sr.width() > maxWidth) else 1.0
+            scaleHeight = (float(maxHeight) / sr.height()) - 0.1 if (sr.height() > maxHeight) else 1.0
+
+            if scaleWidth < 1.0 or scaleHeight < 1.0:
+                self.submodelItem.changeScale(min(scaleWidth, scaleHeight))
+                sr = self.submodelItem.rect()
+            
+            # Position submodel image center of page, below title label
+            x = pw2 - (sr.width() / 2.0)
+            if titleRect.height():
+                interval = (Page.PageSize.height() - sr.height() - titleRect.height()) / 3.0
+                y = interval + titleRect.height() + interval
+            else:
+                y = (Page.PageSize.height() - sr.height()) / 2.0
+            self.submodelItem.setPos(x, y)
 
         if self.labels:
             x = pw2 - (titleRect.width() / 2.0)
             if self.submodelItem:
-                y = self.submodelItem.pos().y() - titleRect.height() - (pmy * 3)
+                y = (self.submodelItem.pos().y() / 2.0) - (titleRect.height() / 2.0)
             else:
                 y = ph2 - (titleRect.height() / 2.0)
             self.labels[0].setPos(x, y)
