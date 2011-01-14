@@ -485,8 +485,17 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         if not steps:
             return False
 
-        step = steps[0]
-        return self.insertStepAtRow(step, row)
+        if len(steps) > 1:
+            self.scene().undoStack.beginMacro("move Steps to Page")
+
+        for step in steps:
+            action = MoveStepToPageAtRowCommand(self, step, row)
+            self.scene().undoStack.push(action)
+
+        if len(steps) > 1:
+            self.instructions.scene.undoStack.endMacro()
+
+        return True
 
     def contextMenuEvent(self, event):
 

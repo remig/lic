@@ -215,6 +215,21 @@ class ResizePageCommand(QUndoCommand):
     def redo(self):
         self.template.setGlobalPageSize(self.newPageSize, self.newResolution, self.doRescale, self.newScale)
 
+class MoveStepToPageAtRowCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, page, step, row):
+        QUndoCommand.__init__(self, "move Step to Page")
+        self.step, self.page, self.row = step, page, row
+        self.oldRow, self.oldPage = step.row(), step.getPage()
+
+    def doAction(self, redo):
+        if redo:
+            self.page.insertStepAtRow(self.step, self.row)
+        else:
+            self.oldPage.insertStepAtRow(self.step, self.oldRow)
+
 class MoveStepToPageCommand(QUndoCommand):
 
     """
