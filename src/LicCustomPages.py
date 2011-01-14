@@ -158,8 +158,8 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
             return None
         return self.submodel.pages[i + 1]
         
-    def getStep(self, number):
-        return self.submodel.getStep(number)
+    def getStepByNumber(self, number):
+        return self.submodel.getStepByNumber(number)
 
     def addStep(self, step):
 
@@ -193,6 +193,44 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     def addBlankStep(self):
         self.insertStep(Step(self, self.getNextStepNumber()))
     
+    def insertStepAtRow(self, step, row):
+
+        if step.isInCallout():
+            return False  # Cannot move a step from inside a Callout onto this Page
+
+        minStepNum = step.number        
+        parent = step.parentItem()
+        if parent == self:
+            if row == step.row() or row == step.row() + 1:
+                return False  # Step didn't actually move
+            if step.row() < row:
+                row -= 1  # If we're moving the step ahead on the page, account for its removal
+        elif parent.submodel != self.submodel:
+            return False  # Cannot move step from one submodel to another
+
+        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        parent.children.remove(step)
+
+        if parent != self:  # Remove step from it's current page if it's different from this page
+            parent.steps.remove(step)
+            step.setParentItem(self)
+            self.steps.append(step)
+
+        self.children.insert(row, step)
+        self.scene().emit(SIGNAL("layoutChanged()"))
+
+        self.submodel.syncStepNumbers()
+        maxStepNum = step.number
+
+        self.submodel.resetStepSet(minStepNum, maxStepNum)
+
+        step.csi.isDirty = step.csi.nextCSIIsDirty = True
+        self.initLayout()
+        if parent != self:
+            parent.initLayout()
+
+        return True
+
     def insertStep(self, step):
         self.submodel.updateStepNumbers(step.number)
         self.addStep(step)
@@ -447,8 +485,8 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         if not steps:
             return False
 
-        print "Dropping steps: %d"  %len(steps)
-        return True
+        step = steps[0]
+        return self.insertStepAtRow(step, row)
 
     def contextMenuEvent(self, event):
 

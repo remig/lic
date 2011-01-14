@@ -326,7 +326,7 @@ class TemplatePage(TemplateRectItem, Page):
         if useUndo:
             stack.endMacro()
 
-    def getStep(self, number):
+    def getStepByNumber(self, number):
         return self.steps[0] if number == 0 else None
 
     def changePageSize(self):

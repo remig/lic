@@ -547,7 +547,7 @@ class MovePartsToStepCommand(QUndoCommand):
         self.newStep.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
 
         redoSubmodelOrder = False
-        stepsToReset = set([self.newStep])
+        stepsToReset = set([self.newStep.number])
         
         for part, oldStep in self.partListStepPairs:
             if part.filename == 'arrow':
@@ -561,7 +561,7 @@ class MovePartsToStepCommand(QUndoCommand):
                 
             if part.isSubmodel():
                 redoSubmodelOrder = True
-            stepsToReset.add(oldStep)
+            stepsToReset.add(oldStep.number)
 
         if redoSubmodelOrder:
             mainModel = self.newStep.getPage().instructions.mainModel
@@ -571,20 +571,8 @@ class MovePartsToStepCommand(QUndoCommand):
         self.newStep.scene().emit(SIGNAL("layoutChanged()"))
 
         # Need to refresh each step between the lowest and highest numbers
-        minStep = min(stepsToReset, key = lambda step: step.number)
-        maxStep = max(stepsToReset, key = lambda step: step.number)
+        self.newStep.getPage().submodel.resetStepSet(min(stepsToReset), max(stepsToReset))
 
-        nextStep = minStep.getNextStep()
-        while (nextStep is not None and nextStep.number < maxStep.number):
-            stepsToReset.add(nextStep)
-            nextStep = nextStep.getNextStep()
-            
-        for step in stepsToReset:
-            step.csi.isDirty = True
-            step.initLayout()
-            if step.isInCallout():
-                step.parentItem().initLayout()
-    
 class AddPartsToCalloutCommand(QUndoCommand):
 
     _id = getNewCommandID()
@@ -1311,7 +1299,7 @@ class ClonePageStepsFromSubmodel(QUndoCommand):
 
         for part, pageNumber, stepNumber in self.partPageStepList:
             page = dest.getPage(pageNumber)
-            csi = page.getStep(stepNumber).csi
+            csi = page.getStepByNumber(stepNumber).csi
             csi.addPart(part)
 
         scene.fullItemSelectionUpdate(dest.pages[0])

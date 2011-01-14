@@ -310,7 +310,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         else:
             self.disableStepNumbers()
 
-    def getStep(self, number):
+    def getStepByNumber(self, number):
         for step in self.steps:
             if step.number == number:
                 return step
@@ -805,10 +805,10 @@ class Step(StepTreeManager, QGraphicsRectItem):
         return isinstance(self.parentItem(), Callout)
 
     def getNextStep(self):
-        return self.parentItem().getStep(self.number + 1)
+        return self.parentItem().getStepByNumber(self.number + 1)
 
     def getPrevStep(self):
-        return self.parentItem().getStep(self.number - 1)
+        return self.parentItem().getStepByNumber(self.number - 1)
 
     def enableNumberItem(self):
         if self.numberItem is None:
@@ -2412,7 +2412,18 @@ class Submodel(SubmodelTreeManager, AbstractPart):
                 if submodel in [part.abstractPart for part in step.csi.getPartList()]:
                     return step
         return None
-     
+
+    def syncStepNumbers(self):  # Assume all page.children are ordered correctly.  Fixup all step numbers, then resort all page.steps
+        stepNumber = 1
+        for page in self.pages:
+            l = [c for c in page.children if isinstance(c, Step)]
+            for step in l:
+                step.number = stepNumber
+                stepNumber += 1
+                
+        for page in self.pages:
+            page.steps.sort(key = lambda x: x._number)
+    
     def syncPageNumbers(self, firstPageNumber = 1):
 
         rowList = self.pages + self.submodels
@@ -2476,7 +2487,25 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         page.scene().removeItem(page)
         self.pages.remove(page)
         self.instructions.updatePageNumbers(page.number, -1)
-        
+
+    def resetStepSet(self, minStepNum, maxStepNum):
+
+        if minStepNum > maxStepNum:
+            minStepNum, maxStepNum = maxStepNum, minStepNum
+
+        step = self.getStepByNumber(minStepNum)
+        stepsToReset = [step]
+
+        while step is not None and step.number <= maxStepNum:
+            stepsToReset.append(step)
+            step = step.getNextStep()
+
+        for step in stepsToReset:
+            step.csi.isDirty = True
+            step.initLayout()
+            if step.isInCallout():
+                step.parentItem().initLayout()
+
     def updateStepNumbers(self, newNumber, increment = 1):
         for p in self.pages:
             for s in p.steps:
@@ -2499,14 +2528,14 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         for submodel in self.submodels:
             submodel.deleteAllPages(scene)
 
-    def getStep(self, stepNumber):
+    def getStepByNumber(self, stepNumber):
         for page in self.pages:
             for step in page.steps:
                 if step.number == stepNumber:
                     return step
                 
         for submodel in self.submodels:
-            step = submodel.getStep(stepNumber)
+            step = submodel.getStepByNumber(stepNumber)
             if step:
                 return step
         return None

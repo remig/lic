@@ -510,7 +510,7 @@ def __readCallout(stream, parent):
     for unused in range(stream.readInt32()):
         part = __readPart(stream)
         part.abstractPart = partDict[part.filename]
-        step = callout.getStep(part.stepNumber)
+        step = callout.getStepByNumber(part.stepNumber)
         step.addPart(part)
 
     return callout
@@ -613,7 +613,7 @@ def __linkModelPartNames(model):
     for part in model.parts:
         if part.pageNumber >= 0 and part.stepNumber >= 0:
             page = model.getPage(part.pageNumber)
-            csi = page.getStep(part.stepNumber).csi
+            csi = page.getStepByNumber(part.stepNumber).csi
             csi.addPart(part)
 
     # Associate each part that has a matching part in a callout to that matching part, and vice versa
