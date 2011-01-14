@@ -48,18 +48,24 @@ QDataStream.readQSize = lambda self: ro(self, QSize)
 
 # Variables used throughout this module.  
 # Having these global here avoids having to pass them as arguments to every single method in here
-#stream = None  # TODO: refactor all methods here to use global stream instead of passing it around everywhere?
 partDict = {}
 colorDict = None
 
 def loadLicFile(filename, instructions):
 
-#    global stream
     fh, stream = __createStream(filename)
 
-    template = __readTemplate(stream, instructions)
+    if stream.licFileVersion >= 14:
+        yield stream.readInt32()
+    else:
+        yield 500  # Some entirely arbitrary, made up sky number, for older files
 
-    __readInstructions(stream, instructions)
+    template = __readTemplate(stream, instructions)
+    yield
+
+    for unused in __readInstructions(stream, instructions):
+        yield
+
     instructions.licFileVersion = stream.licFileVersion
 
     if template:
@@ -108,7 +114,8 @@ def __readTemplate(stream, instructions):
     global partDict, colorDict
     colorDict = instructions.colorDict
     partDict = {}
-    __readPartDictionary(stream, instructions)
+    for unused in __readPartDictionary(stream, instructions):
+        pass
 
     submodelPart = __readSubmodel(stream, None)
     template = __readPage(stream, instructions.mainModel, instructions, submodelPart)
@@ -171,7 +178,8 @@ def __readInstructions(stream, instructions):
 
     __readStaticInfo(stream, Page, CSI, PLI, SubmodelPreview)
 
-    __readPartDictionary(stream, instructions)
+    for unused in __readPartDictionary(stream, instructions):
+        yield
 
     if stream.licFileVersion < 6:
         for unused in range(stream.readInt32()):
@@ -202,7 +210,7 @@ def __readInstructions(stream, instructions):
             submodel._parent = partDict[submodel._parent]
 
     for unused in instructions.initGLDisplayLists():
-        pass
+        yield
 
     if instructions.mainModel.hasTitlePage() and instructions.mainModel.titlePage.submodelItem:
         item = instructions.mainModel.titlePage.submodelItem
@@ -249,11 +257,13 @@ def __readPartDictionary(stream, instructions):
     for unused in range(stream.readInt32()):
         abstractPart = __readAbstractPart(stream)
         partDict[abstractPart.filename] = abstractPart
+        yield
 
     if stream.licFileVersion >= 6:
         for unused in range(stream.readInt32()):
             abstractPart = __readSubmodel(stream, instructions)
             partDict[abstractPart.filename] = abstractPart
+            yield
 
     # Each AbstractPart can contain several Parts, but those Parts do
     # not yet have valid AbstractParts of their own.  Create those now.

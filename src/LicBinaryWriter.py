@@ -31,6 +31,8 @@ def saveLicFile(filename, instructions):
     # Need to explicitly de-select parts so they refresh the CSI pixmap
     instructions.scene.clearSelectedParts()
 
+    stream.writeInt32(instructions.getQuantitativeSizeMeasure())
+
     __writeTemplate(stream, instructions.template)
     __writeInstructions(stream, instructions)
 

@@ -52,7 +52,7 @@ import resources  # Needed for ":/resource" type paths to work
 import config     # For user path info
 
 MagicNumber = 0x14768126
-FileVersion = 13
+FileVersion = 14
 
 NoFlags = QGraphicsItem.GraphicsItemFlags()
 NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
@@ -1735,7 +1735,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         pageNumber, stepNumber = self.getPageStepNumberPair()
         filename = self.getDatFilename()
 
-        result = "Initializing CSI Page %d Step %d" % (pageNumber, stepNumber)
+        result = "Rendering CSI Page %d Step %d" % (pageNumber, stepNumber)
         if not self.parts:
             return result  # A CSI with no parts is already initialized
 
@@ -2645,7 +2645,7 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         item = self.pages[0].submodelItem
         if item and item.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             item.abstractPart.createGLDisplayList(False)
-            item.resetPixmap()
+            #item.resetPixmap()  # TODO: Removing this breaks imported files with scaled submodel previews, but this call is really really unnecessary, and slow 
         for submodel in self.submodels:
             submodel.initSubmodelImageGLDisplayList()
 

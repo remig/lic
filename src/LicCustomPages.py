@@ -364,14 +364,13 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     def adjustSubmodelImages(self):
 
         # Check if we should shrink submodel image
-        if self.submodelItem and self.submodelItem.scaling > 0.5 and self.checkForLayoutOverlaps():
+        while self.submodelItem and self.submodelItem.scaling > 0.5 and self.checkForLayoutOverlaps():
             
             # Scale submodel down and try again
             newScale = self.submodelItem.scaling - 0.2
+            yield "Scaling " + os.path.basename(self.submodel.name) + " preview to " + str(newScale)
             self.submodelItem.changeScale(newScale)
-            print "scaling page %d submodel down to %.2f" % (self._number, newScale)
             self.initLayout()
-            self.adjustSubmodelImages()
     
     def scaleImages(self):
         for step in self.steps:

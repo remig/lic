@@ -65,15 +65,19 @@ class LicProgressDialog(QProgressDialog):
         QProgressDialog.__init__(self, parent, Qt.CustomizeWindowHint | Qt.WindowTitleHint)
 
         self.setWindowModality(Qt.WindowModal)
+        self.setMinimumSize(300, 0)
         self.setWindowTitle(title)
         self.setMinimumDuration(0)
         self.setCancelButtonText("Cancel")
         self.setRange(0, 100000)
         self.setLabelText(title)
         self.setValue(1)  # Try and force dialog to show up right away
+        self.count = 0
 
-    def incr(self, label):
-        self.setLabelText(label)
+    def incr(self, label = None):
+        self.count += 1
+        if label:
+            self.setLabelText(label)
         self.setValue(self.value() + 1)
 
 class ColorButton(QToolButton):

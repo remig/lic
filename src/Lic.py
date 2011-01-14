@@ -651,7 +651,9 @@ class LicWindow(QMainWindow):
         progress.setValue(2)  # Try and force dialog to show up right away
 
         loader = self.instructions.importModel(filename)
-        progress.setMaximum(loader.next())  # First value yielded after load is # of progress steps
+        max = loader.next()
+        print "max: " % max
+        progress.setMaximum(max)  # First value yielded after load is # of progress steps
 
         for label in loader:
             if progress.wasCanceled():
@@ -660,26 +662,26 @@ class LicWindow(QMainWindow):
                 return
             progress.incr(label)
 
-        progress.setValue(progress.maximum())
-
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
         self.treeModel.root = self.instructions.mainModel
 
         try:
             template = LicBinaryReader.loadLicTemplate(self.defaultTemplateFilename, self.instructions)
             template.filename = ""  # Do not preserve default template filename
-        except (IOError), e:
+        except (IOError), unused:
             # Could not load default template, so generate one from scratch
             import LicTemplate
             template = LicTemplate.TemplatePage(self.instructions.mainModel, self.instructions)
             template.createBlankTemplate(self.glWidget)
         
+        progress.incr("Adding Part List Page")
         self.instructions.template = template
         self.instructions.mainModel.partListPages = PartListPage.createPartListPages(self.instructions)
         template.applyFullTemplate(False)  # Template should apply to part list but not title pages
 
+        progress.incr("Adding Title Page")
         self.instructions.mainModel.createNewTitlePage(False)
-        
+
         self.scene.emit(SIGNAL("layoutChanged()"))
         self.scene.selectPage(1)
 
@@ -689,22 +691,45 @@ class LicWindow(QMainWindow):
         self.enableMenus(True)
         self.copySettingsToScene()
 
+        progress.incr("Finishing up...")
+        progress.setValue(progress.maximum())
+        print "Final count: " % progress.count
+
         #endTime = time.time()
         #print "Total load time: %.2f" % (endTime - startTime)
 
     def loadLicFile(self, filename):
 
-        #startTime = time.time()  # TODO: need to provide a status bar, since some files take forever to load
-        self.instructions.loadLDrawColors()
+        #startTime = time.time()
+        progress = LicDialogs.LicProgressDialog(self, "Opening " + os.path.basename(filename))
+        progress.setValue(2)  # Try and force dialog to show up right away
+
+        loader = LicBinaryReader.loadLicFile(filename, self.instructions)
+        count = loader.next() + 3
+        print "Opening file with count: %d" % count
+        progress.setMaximum(count)  # First value yielded after load is # of progress steps, +3 because we start at 2, and have to load colors
+
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-        LicBinaryReader.loadLicFile(filename, self.instructions)
+        self.instructions.loadLDrawColors()
+        progress.incr()
+        
+        for unused in loader:
+            if progress.wasCanceled():
+                loader.close()
+                self.fileClose()
+                self.statusBar().showMessage("Open File aborted")
+                return
+            progress.incr()
+
         self.treeModel.root = self.instructions.mainModel
         self.scene.emit(SIGNAL("layoutChanged()"))
-        
+
         self.filename = filename
         self.addRecentFile(filename)
         self.scene.selectPage(1)
         self.copySettingsToScene()
+        progress.setValue(progress.maximum())
+        print "Final count: %d" % progress.count
         #endTime = time.time()
         #print "Total load time: %.2f" % (endTime - startTime)
 
@@ -939,7 +964,7 @@ def updateAllSavedLicFiles(window):
                 window.fileOpen(fn)
                 if window.instructions.licFileVersion != FileVersion:
                     window.fileSave()
-                    print "Successfull save %s" % fn
+                    print "Successful save %s" % fn
                 window.fileClose()
 
 if __name__ == '__main__':

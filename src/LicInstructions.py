@@ -77,10 +77,9 @@ class Instructions(QObject):
         self.mainModel.addInitialPagesAndSteps()
         
         submodelCount = self.mainModel.submodelCount()
-        unused1, partStepCount, unused2 = self.getPartDimensionListAndCount() 
         pageList = self.mainModel.getPageList()
         pageList.sort(key = lambda x: x._number)
-        totalCount = (len(pageList) * 2) + partStepCount + submodelCount + 11  # Rough count only
+        totalCount = len(self.partDictionary) + len(self.mainModel.getCSIList()) + submodelCount  # Rough count only
 
         yield totalCount  # Special first value is maximum number of progression steps in load process
 
@@ -88,7 +87,6 @@ class Instructions(QObject):
         for label in self.initGLDisplayLists():  # generate all part GL display lists on the general glWidget
             yield label
 
-        yield "Initializing Part Dimensions"        
         for label in self.initPartDimensions():  # Calculate width and height of each abstractPart in the part dictionary
             yield label
 
@@ -101,18 +99,23 @@ class Instructions(QObject):
 
         yield "Laying out Pages"
         for page in pageList:
-            yield page.initLayout()
+            page.initLayout()
 
+        yield "Reconfiguring Page Layouts"
         self.mainModel.mergeInitialPages()
         self.mainModel.reOrderSubmodelPages()
         self.mainModel.syncPageNumbers()
 
-        yield "Adjusting Submodel Images"  # TODO: Do a better job of counting these - status bar is way off
         for page in pageList:
-            page.adjustSubmodelImages()
+            for label in page.adjustSubmodelImages():
+                yield label
             page.resetPageNumberPosition()
 
-        yield "Import Complete!"
+    def getQuantitativeSizeMeasure(self):  # Get some arbitrary measure of how big / complex this file is (useful for progress bars)
+        count = len(self.partDictionary)
+        count += self.mainModel.pageCount()
+        count += len(self.mainModel.getCSIList()) * 2
+        return count
 
     def getModelName(self):
         return self.mainModel.filename
@@ -134,9 +137,9 @@ class Instructions(QObject):
         self.glContext.makeCurrent()
 
         # First initialize all abstractPart display lists
-        yield "Initializing Part GL display lists"
         for part in self.partDictionary.values():
             if part.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
+                yield "Initializing " + part.name
                 part.createGLDisplayList()
 
         # Initialize the main model display list
@@ -145,10 +148,13 @@ class Instructions(QObject):
         self.mainModel.initSubmodelImageGLDisplayList()
 
         # Initialize all CSI display lists
+        i = 0
         yield "Initializing CSI GL display lists"
         csiList = self.mainModel.getCSIList()
         for csi in csiList:
+            yield "Initializing CSI " + str(i)
             csi.createGLDisplayList()
+            i += 1
 
     def getPartDimensionListAndCount(self, reset = False):
         if reset:
@@ -157,7 +163,7 @@ class Instructions(QObject):
             partList = [part for part in self.partDictionary.values() if (not part.isPrimitive) and (part.width == part.height == -1)]
         partList.append(self.mainModel)
 
-        partDivCount = 50
+        partDivCount = 25
         partStepCount = int(len(partList) / partDivCount)
         return (partList, partStepCount, partDivCount)
     

@@ -12,6 +12,8 @@ BUGS:
  
 - Fix saw.dat so all edges & surfaces render properly
 
+- Add proper support for nice, thick OpenGL rendered lines
+
 - Add full undo / redo support for all auto-layout actions
 
 - In Merged Callouts, need to handle adding / removing parts 
@@ -29,9 +31,9 @@ that control auto-page & step generation (one step / page, min / max parts per s
 
 - Fix 'Snap to Items' so we only consider snapping to meaningful, similar items
 
-- Add ability to merge multiple parts into one new part (like for technic bendy U-joints & turntables)
+- Add ability to merge multiple parts into one new part (like for technic bendy U-joints & turn tables)
 
-- Pages that span multiple Submodels (ie, last step of Submodel on same page as MainModel step that adds submodel)
+- Pages that span multiple Submodels (ie. last step of Submodel on same page as MainModel step that adds submodel)
 
 - Page annotations that span Pages (like Submodel-goes-here arrow across facing pages)
 
@@ -43,18 +45,16 @@ that control auto-page & step generation (one step / page, min / max parts per s
 
 - Think about 'selection group' class, especially SelectedPart class, to better handle context menus for multiply selected items
 
-- On Import, auto-shrink CSIs so they fit on a page
- 
 - Consider PyInstaller over py2exe, for its multi-platform goodness
 
 - PDF export needs dialog to control export setting, mainly high-res scale multiplier setting (current hardcoded to 3)
-
-- Add progress bar to File->Open operation
 
 - Create a proper Properties dialog.  On it:
   - Expose most of lic.ini settings 
   - Add ability to save or auto-delete backup save files
   
+- Consider spinning off a full new class that allows other devs to combine a treeView with a graphicsScene easily
+
 - Clean up load / save: we're creating a lot of objects only to totally overwrite them later in load
   (like step.pli & csi)
   
