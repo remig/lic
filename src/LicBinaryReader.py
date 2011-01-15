@@ -215,7 +215,6 @@ def __readInstructions(stream, instructions):
     if instructions.mainModel.hasTitlePage() and instructions.mainModel.titlePage.submodelItem:
         item = instructions.mainModel.titlePage.submodelItem
         item.abstractPart.createGLDisplayList(False)
-        item.resetPixmap()
 
 def __readSubmodel(stream, instructions, createMainmodel = False):
 
@@ -542,6 +541,11 @@ def __readSubmodelItem(stream, page):
             submodelItem.addQuantityLabel(submodelItem.quantity)
             submodelItem.numberItem.setPos(stream.readQPointF())
             submodelItem.numberItem.setFont(stream.readQFont())
+
+    if submodelItem.scaling != 1.0:
+        part, scale = submodelItem.abstractPart, submodelItem.scaling
+        part.width *= scale
+        part.height *= scale
 
     return submodelItem
 

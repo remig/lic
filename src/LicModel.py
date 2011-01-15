@@ -1181,7 +1181,6 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
             self.pli.setPos(0, 0)
             self.setRect(self.pli.rect())
         else:
-            self.setRect(QRectF())
             part = self.abstractPart
             self.setRect(0, 0, part.width + (PLI.margin.x() * 2), part.height + (PLI.margin.y() * 2))
             if self.numberItem:
@@ -1972,18 +1971,18 @@ class AbstractPart(object):
             
         for primitive in self.primitives:
             primitive.drawConditionalLines()
-    
+
     def buildSubAbstractPartDict(self, partDict):
-            
+
         for part in self.parts:
             if part.abstractPart.filename not in partDict:
                 part.abstractPart.buildSubAbstractPartDict(partDict)
         partDict[self.filename] = self
-    
-    def resetPixmap(self, glContext, extraRotation = None, extraScale = None):
-        
+
+    def resetPixmap(self, glContext, extraRotation = None, extraScale = None, skipPartInit = False):
+
         glContext.makeCurrent()
-        self.createGLDisplayList()
+        self.createGLDisplayList(skipPartInit)
         sizes = [128, 256, 512, 1024, 2048]
         self.width, self.height, self.center, self.leftInset, self.bottomInset = [0] * 5
 

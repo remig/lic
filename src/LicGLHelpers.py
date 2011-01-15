@@ -286,7 +286,7 @@ def _getBottomInset(data, height, left):
 
 bgCache = {}
 
-def _getBounds(size, glDispID, filename, defaultScale, defaultRotation, partRotation):
+def _getBounds(size, glDispID, filename, scale, rotation, partRotation):
     
     # Clear the drawing buffer with white
     glClearColor(1.0, 1.0, 1.0, 1.0)
@@ -295,7 +295,7 @@ def _getBounds(size, glDispID, filename, defaultScale, defaultRotation, partRota
     # Draw the piece in black
     glColor3f(0, 0, 0)
     adjustGLViewport(0, 0, size, size)
-    rotateToView(defaultRotation, defaultScale)
+    rotateToView(rotation, scale)
     rotateView(*partRotation)
 
     glCallList(glDispID)
@@ -304,12 +304,8 @@ def _getBounds(size, glDispID, filename, defaultScale, defaultRotation, partRota
     pixels = glReadPixels(0, 0, size, size, GL_RGB,  GL_UNSIGNED_BYTE)
     img = Image.fromstring("RGB", (size, size), pixels)
     
-    if size in bgCache:
-        bg = bgCache[size]
-    else:
-        bg = bgCache[size] = Image.new("RGB", img.size, (255, 255, 255))
-    dif = ImageChops.difference(img, bg)
-    box = dif.getbbox()
+    bg = bgCache.setdefault(size, Image.new("RGB", img.size, (255, 255, 255)))
+    box = ImageChops.difference(img, bg).getbbox()
 
     if box is None:
         return (0, 0, 0, 0, 0, 0)  # Rendered entirely out of frame
@@ -326,7 +322,7 @@ def _getBounds(size, glDispID, filename, defaultScale, defaultRotation, partRota
     bottomInset = _getBottomInset(data, size, box[0])
     return box + (leftInset - box[0], bottomInset - box[1])
     
-def initImgSize(size, glDispID, filename, defaultScale, defaultRotation, partRotation):
+def initImgSize(size, glDispID, filename, scale, rotation, partRotation):
     """
     Draw this piece to the already initialized GL Frame Buffer Object, in order to calculate
     its displayed width and height.  These dimensions are required to properly lay out PLIs and CSIs.
@@ -335,7 +331,7 @@ def initImgSize(size, glDispID, filename, defaultScale, defaultRotation, partRot
         size: Width & height of buffer to render to, in pixels (always square).
         glDispID: The GL Display List ID to be rendered and dimensioned.
         filename: String name of this thing to draw.
-        defaultRotation: An [x, y, z] rotation to use for this rendering's default rotation
+        rotation: An [x, y, z] rotation to use for this rendering's default rotation
         partRotation: An extra [x, y, z] rotation to use when rendering this part, or None.
     
     Returns:
@@ -344,7 +340,7 @@ def initImgSize(size, glDispID, filename, defaultScale, defaultRotation, partRot
     """
     
     # Draw piece to frame buffer, then calculate bounding box
-    left, top, right, bottom, leftInset, bottomInset = _getBounds(size, glDispID, filename, defaultScale, defaultRotation, partRotation)
+    left, top, right, bottom, leftInset, bottomInset = _getBounds(size, glDispID, filename, scale, rotation, partRotation)
     
     if _checkImgBounds(top, bottom, left, right, size):
         return None  # Drew at least one edge out of bounds - try next buffer size

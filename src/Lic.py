@@ -652,7 +652,7 @@ class LicWindow(QMainWindow):
 
         loader = self.instructions.importModel(filename)
         max = loader.next()
-        print "max: " % max
+        print "max: %d" % max
         progress.setMaximum(max)  # First value yielded after load is # of progress steps
 
         for label in loader:
@@ -693,7 +693,7 @@ class LicWindow(QMainWindow):
 
         progress.incr("Finishing up...")
         progress.setValue(progress.maximum())
-        print "Final count: " % progress.count
+        print "Final count: %d" % progress.count
 
         #endTime = time.time()
         #print "Total load time: %.2f" % (endTime - startTime)
