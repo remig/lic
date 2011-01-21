@@ -558,17 +558,18 @@ class MovePartsToStepCommand(QUndoCommand):
         self.partListStepPairs = [(p, p.getStep()) for p in partList]
 
     def doAction(self, redo):
-        self.newStep.scene().clearSelection()
-        self.newStep.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        step = self.newStep
+        step.scene().clearSelection()
+        step.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
 
         redoSubmodelOrder = False
-        stepsToReset = set([self.newStep.number])
+        stepsToReset = set([step.number])
         
         for part, oldStep in self.partListStepPairs:
             if part.filename == 'arrow':
                 continue
-            startStep = oldStep if redo else self.newStep
-            endStep = self.newStep if redo else oldStep
+            startStep = oldStep if redo else step
+            endStep = step if redo else oldStep
             
             part.setParentItem(None) # Temporarily set part's parent, so it doesn't get deleted by Qt
             startStep.removePart(part)
@@ -579,14 +580,17 @@ class MovePartsToStepCommand(QUndoCommand):
             stepsToReset.add(oldStep.number)
 
         if redoSubmodelOrder:
-            mainModel = self.newStep.getPage().instructions.mainModel
+            mainModel = step.getPage().instructions.mainModel
             mainModel.reOrderSubmodelPages()
             mainModel.syncPageNumbers()
         
-        self.newStep.scene().emit(SIGNAL("layoutChanged()"))
+        step.scene().emit(SIGNAL("layoutChanged()"))
 
         # Need to refresh each step between the lowest and highest numbers
-        self.newStep.getPage().submodel.resetStepSet(min(stepsToReset), max(stepsToReset))
+        if step.isInCallout():
+            step.parentItem().resetStepSet(min(stepsToReset), max(stepsToReset))
+        else:
+            step.getPage().submodel.resetStepSet(min(stepsToReset), max(stepsToReset))
 
 class AddPartsToCalloutCommand(QUndoCommand):
 

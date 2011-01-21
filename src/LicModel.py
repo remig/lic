@@ -376,6 +376,17 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
     def resetArrow(self):
         self.arrow.internalPoints = []
 
+    def resetStepSet(self, minStepNum, maxStepNum):
+
+        if minStepNum > maxStepNum:
+            minStepNum, maxStepNum = maxStepNum, minStepNum
+
+        for step in self.steps:
+            if step.number >= minStepNum and step.number <= maxStepNum:
+                step.csi.isDirty = True
+                step.initLayout()
+                step.parentItem().initLayout()
+
     def getArrowBasePoint(self, side):
         # TODO: arrow base should come out of last step in callout
         r = self.rect()
@@ -1096,14 +1107,18 @@ class Step(StepTreeManager, QGraphicsRectItem):
     def mergeWithStepSignal(self, step):
         parent = self.parentItem()
         scene = self.scene()
-        scene.undoStack.push(MovePartsToStepCommand(self.csi.getPartList(), step))
-        scene.undoStack.push(AddRemoveStepCommand(self, False))
+        stack = scene.undoStack
+
+        stack.beginMacro("Merge Steps")
+        stack.push(MovePartsToStepCommand(self.csi.getPartList(), step))
+        stack.push(AddRemoveStepCommand(self, False))
 
         if parent.isEmpty():
             if self.isInCallout():
-                scene.undoStack.push(AddRemoveCalloutCommand(parent, False))
+                stack.push(AddRemoveCalloutCommand(parent, False))
             else:
-                scene.undoStack.push(AddRemovePageCommand(scene, parent, False))
+                stack.push(AddRemovePageCommand(scene, parent, False))
+        stack.endMacro()
 
     def mergeAllStepsSignal(self):
         scene = self.scene()
@@ -3276,10 +3291,13 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
     def moveToStepSignal(self, destStep):
         scene = self.scene()
+        stack = scene.undoStack
         selectedParts = []
         for item in scene.selectedItems():
             if isinstance(item, Part) and not item.calloutPart:
                 selectedParts.append(item)
+
+        stack.beginMacro("move Parts to Step")
 
         currentStep = self.getStep()
         scene.undoStack.push(MovePartsToStepCommand(selectedParts, destStep))
@@ -3290,6 +3308,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
             
         if currentPage.isEmpty():
             scene.undoStack.push(AddRemovePageCommand(scene, currentPage, False))
+        stack.endMacro()
             
     def changeColorSignal(self):
         colorDict = self.getPage().instructions.colorDict
