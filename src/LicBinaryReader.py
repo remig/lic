@@ -103,7 +103,7 @@ def __createStream(filename, template = False):
 
     stream.licFileVersion = stream.readInt16()
     if stream.licFileVersion > FileVersion:
-        raise IOError, "Cannot read file: %s was created with a newer version of Lic (%d) than you're using(%d)." % (filename, stream.licFileVersion, FileVersion)
+        raise IOError, "Cannot read file %s. It was created with a newer version of Lic (%d) than you're using (%d)." % (filename, stream.licFileVersion, FileVersion)
     return fh, stream
     
 def __readTemplate(stream, instructions):

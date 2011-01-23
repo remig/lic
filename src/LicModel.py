@@ -2659,7 +2659,8 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         item = self.pages[0].submodelItem
         if item and item.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             item.abstractPart.createGLDisplayList(False)
-            #item.resetPixmap()  # TODO: Removing this breaks imported files with scaled submodel previews, but this call is really really unnecessary, and slow 
+            if any(item.rotation):
+                item.resetPixmap() 
         for submodel in self.submodels:
             submodel.initSubmodelImageGLDisplayList()
 
