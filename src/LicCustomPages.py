@@ -822,7 +822,7 @@ class TitlePage(TitlePageTreeManager, Page):
         self.addPageCountLabel(False)
         self.initLayout()
 
-    def initLayout(self):  # TODO: Now need to generate Title page *inside* progress bar (submodel scaling is slow)
+    def initLayout(self):
 
         self.lockIcon.resetPosition()
         if self.lockIcon.isLocked:

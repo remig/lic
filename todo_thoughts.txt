@@ -20,6 +20,8 @@ BUGS:
 
 - Add fourth draw layer, to handle Callouts as annotations above other GL items, then Callout GL items very very top
 
+- Need a way to rotate an entire submodel, so that all its internal CSIs, and all previews generated on it, are also rotated
+
  FEATURES:
 
 - Add a dialog on initial import: if the imported file has no steps, give a handful of options 

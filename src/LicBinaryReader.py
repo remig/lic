@@ -559,6 +559,7 @@ def __readCSI(stream, step):
 
     csi.scaling = stream.readFloat()
     csi.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+    csi.isDirty = False
 
     return csi
 
