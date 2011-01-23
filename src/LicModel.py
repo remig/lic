@@ -1594,7 +1594,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
 
         self.rotation = [0.0, 0.0, 0.0]
         self.scaling = 1.0
-        
+
         self.parts = []
         self.isDirty = True
         self.nextCSIIsDirty = False

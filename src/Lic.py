@@ -896,7 +896,7 @@ class LicWindow(QMainWindow):
             self.instructions.mainModel.exportToLDrawFile(fh)
             fh.close()
 
-def main():
+def real_main():
     
     app = QApplication(sys.argv)
     app.setOrganizationName("BugEyedMonkeys Inc.")
@@ -933,7 +933,8 @@ def main():
 
     #updateAllSavedLicFiles(window)
     
-    sys.exit(app.exec_())
+    app.exec_()
+#    sys.exit(app.exec_())
 
 def loadFile(window, filename):
 
@@ -967,8 +968,20 @@ def updateAllSavedLicFiles(window):
                     print "Successful save %s" % fn
                 window.fileClose()
 
+def profile_main():
+    import cProfile, pstats, StringIO, logging
+    prof = cProfile.Profile()
+    prof = prof.runctx("real_main()", globals(), locals())
+    stream = StringIO.StringIO()
+    stats = pstats.Stats(prof, stream=stream)
+    stats.sort_stats("time")  # Or cumulative
+    stats.print_stats()  # 80 = how many to print
+    stats.print_callees()
+    stats.print_callers()
+    logging.basicConfig(filename="profile.log", level=logging.INFO)
+    logging.info("Profile data:\n%s", stream.getvalue())
+    
 if __name__ == '__main__':
-    #import cProfile
-    #cProfile.run('main()', 'profile_run')
-    main()
+    #real_main()
+    profile_main()
     #recompileResources()
