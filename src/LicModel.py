@@ -1327,7 +1327,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.setRect(self.childrenBoundingRect() | glRect)
         #self.normalizePosition()  # Don't want to normalize PLIItem positions, otherwise we end up with GLItem in top left always.
         self.parentItem().resetRect()
-        
+
     def initLayout(self):
 
         part = self.abstractPart
@@ -1347,9 +1347,8 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
                 dy = slope * (li - lblWidth)
                 self.numberItem.moveBy(0, -dy)
 
-        if self.lengthIndicator: 
-            self.lengthIndicator.setPos(self.abstractPart.width, 0)  # Top left corner of PLIItem
-            self.numberItem.moveBy(0, self.lengthIndicator.rect().height())
+        if self.lengthIndicator:
+            self.lengthIndicator.setPos(self.abstractPart.width, -self.lengthIndicator.rect().height())
 
         glRect = QRectF(0.0, 0.0, self.abstractPart.width, self.abstractPart.height)
         self.setRect(self.childrenBoundingRect() | glRect)
@@ -1358,7 +1357,6 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.abstractPart.width / 2.0)
         dy = -self.getPage().PageSize.height() + pos.y() + (self.abstractPart.height / 2.0)
-        dy += (self.lengthIndicator.rect().height() if self.lengthIndicator else 0)
         self.abstractPart.paintGL(dx * f, dy * f, scaling = f, color = self.color)
 
     """
@@ -1574,7 +1572,12 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
             self.setRect(pliBox)
             prevItem = item
             
-        self.pliItems.sort(key = lambda i: i.pos().x())  # Sort pliITems so tree Model list roughly matches item paint order (left to right) 
+        self.pliItems.sort(key = lambda i: i.pos().x())  # Sort pliITems so tree Model list roughly matches item paint order (left to right)
+
+        # Need to nudge any PLIItems that have length indicators down, to accommodate placing indicators above part        
+        for item in self.pliItems:
+            if item.lengthIndicator:
+                item.moveBy(0, item.lengthIndicator.rect().height())
 
 class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     """ Construction Step Image.  Includes border and positional info. """
