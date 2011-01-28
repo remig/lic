@@ -370,7 +370,7 @@ class LicWindow(QMainWindow):
         self.restoreGeometry(settings.value("Geometry").toByteArray())
         self.restoreState(settings.value("MainWindow/State").toByteArray())
         self.splitterState = settings.value("SplitterSizes").toByteArray()
-        self.pagesToDisplay = settings.value("PageView").toInt()[0]
+        self.pagesToDisplay = settings.value("PageView", 1).toInt()[0]
         self.snapToGuides = settings.value("SnapToGuides").toBool()
         self.snapToItems = settings.value("SnapToItems").toBool()
 
