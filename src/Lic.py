@@ -982,6 +982,6 @@ def profile_main():
     logging.info("Profile data:\n%s", stream.getvalue())
     
 if __name__ == '__main__':
-    #real_main()
-    profile_main()
+    real_main()
+    #profile_main()
     #recompileResources()
