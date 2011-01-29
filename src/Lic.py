@@ -42,7 +42,7 @@ import LicLayout
 import LicGLHelpers
 import LicImporters
 
-__version__ = 0.5
+__version__ = "0.5.8"
 
 _debug = False
 
