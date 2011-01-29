@@ -42,9 +42,12 @@ import LicLayout
 import LicGLHelpers
 import LicImporters
 
-#from modeltest import ModelTest
-
 __version__ = 0.5
+
+_debug = False
+
+if _debug:
+    from PyQt4.modeltest import ModelTest
 
 class LicTreeView(QTreeView):
 
@@ -321,7 +324,8 @@ class LicWindow(QMainWindow):
 
         self.instructions = Instructions(self, self.scene, self.glWidget)
         self.treeModel = LicTreeModel.LicTreeModel(self.treeWidget.tree)
-        #self.modelTest = ModelTest(self.treeModel, self)
+        if _debug:
+            self.modelTest = ModelTest(self.treeModel, self)
         
         self.selectionModel = QItemSelectionModel(self.treeModel)  # MUST keep own reference to selection model here
         self.treeWidget.configureTree(self.scene, self.treeModel, self.selectionModel)

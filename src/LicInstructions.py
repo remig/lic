@@ -279,7 +279,7 @@ class Instructions(QObject):
 
         if scaleFactor > 1.0:  # Make part lines a bit thicker for higher res output
             lineWidth = LicGLHelpers.getLightParameters()[2]
-            GL.glLineWidth(lineWidth * scaleFactor) 
+            GL.glLineWidth(lineWidth * scaleFactor)
 
         try:
             w, h = int(Page.PageSize.width() * scaleFactor), int(Page.PageSize.height() * scaleFactor)

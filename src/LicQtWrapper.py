@@ -212,6 +212,20 @@ def sizeIterator(self, index):
 QSize.__getitem__ = sizeIterator
 QSizeF.__getitem__ = sizeIterator
 
+# Make QRect iterable: p[0] is x, p[1] is y, p[2] is width, p[3] is height.  Useful for easy unpacking.
+def rectIterator(self, index):
+    if index == 0:
+        return self.x()
+    if index == 1:
+        return self.y()
+    if index == 2:
+        return self.width()
+    if index == 3:
+        return self.height()
+    raise IndexError
+QRect.__getitem__ = rectIterator
+QRectF.__getitem__ = rectIterator
+
 def genericGetSceneCorners(self):
     topLeft = self.mapToScene(self.mapFromParent(self.pos())) # pos is in item.parent coordinates
     bottomRight = topLeft + QPointF(self.boundingRect().width(), self.boundingRect().height())
