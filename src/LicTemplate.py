@@ -130,26 +130,27 @@ class TemplatePage(TemplateRectItem, Page):
     def __init__(self, submodel, instructions):
         Page.__init__(self, submodel, instructions, 0, 0)
         self.__filename = ""
-        self.data = lambda index: "Template Page"
         self.submodelPart = None
 
     def __getFilename(self):
         return self.__filename
         
     def __setFilename(self, filename):
-        self.__filename = filename
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.data = lambda index: "Template - %s" % ("default" if filename == "" else os.path.basename(filename))
+        self.__filename = filename
         self.scene().emit(SIGNAL("layoutChanged()"))
         
     filename = property(__getFilename, __setFilename)
+
+    def data(self, index):
+        return "Template - %s" % ("default" if self.__filename == "" else os.path.basename(self.__filename))
 
     def postLoadInit(self, filename):
         # TemplatePages are rarely instantiated directly - instead, they're regular Page
         # instances promoted to TemplatePages by changing their __class__.  Doing that does
         # *not* call TemplatePage.__init__, so, can explicitly call postLoadInit instead. 
 
-        self.filename = filename
+        self.__filename = filename
         self.prevPage = lambda: None
         self.nextPage = lambda: None
 

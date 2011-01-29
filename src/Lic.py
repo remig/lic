@@ -47,7 +47,7 @@ __version__ = "0.5.8"
 _debug = False
 
 if _debug:
-    from PyQt4.modeltest import ModelTest
+    from modeltest import ModelTest
 
 class LicTreeView(QTreeView):
 
@@ -630,7 +630,8 @@ class LicWindow(QMainWindow):
         """
         if not self.isWindowModified():
             return True
-        reply = QMessageBox.question(self, "Lic - Unsaved Changes", "Save unsaved changes?", QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+        reply = QMessageBox.question(self, "Lic - Unsaved Changes", "Save unsaved changes?", 
+                                     QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
         if reply == QMessageBox.Yes:
             return self.fileSave()
         return reply == QMessageBox.No
@@ -656,7 +657,6 @@ class LicWindow(QMainWindow):
 
         loader = self.instructions.importModel(filename)
         max = loader.next()
-        print "max: %d" % max
         progress.setMaximum(max)  # First value yielded after load is # of progress steps
 
         for label in loader:
@@ -697,7 +697,6 @@ class LicWindow(QMainWindow):
 
         progress.incr("Finishing up...")
         progress.setValue(progress.maximum())
-        print "Final count: %d" % progress.count
 
         #endTime = time.time()
         #print "Total load time: %.2f" % (endTime - startTime)
