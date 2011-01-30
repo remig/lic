@@ -89,16 +89,19 @@ class ResizeCommand(QUndoCommand):
     def doAction(self, redo):
         self.item.initLayout(self.newRect if redo else self.oldRect)
 
-class LayoutItemCommand(QUndoCommand):
+class LayoutItemCommand(QUndoCommand):  # TODO: Should be able to undo Step Layouts (for Create Callout, etc)
 
     _id = getNewCommandID()
 
-    def __init__(self, target):
+    def __init__(self, target, originalLayout):
         QUndoCommand.__init__(self, "auto-layout")
-        self.target = target
+        self.target, self.originalLayout = target, originalLayout
 
     def doAction(self, redo):
-        self.target.initLayout()
+        if redo:
+            self.target.initLayout()
+        else:
+            self.target.revertToLayout(self.originalLayout)
 
 class CalloutArrowMoveCommand(QUndoCommand):
 
@@ -390,6 +393,7 @@ class AddRemoveStepCommand(QUndoCommand):
             
         self.step, self.addStep = step, addStep
         self.parent = step.parentItem()
+        self.originalLayout = self.parent.getCurrentLayout()
 
     def doAction(self, redo):
         parent = self.parent
@@ -399,12 +403,13 @@ class AddRemoveStepCommand(QUndoCommand):
             parent.insertStep(self.step)
             parent.scene().emit(SIGNAL("layoutChanged()"))
             self.step.setSelected(True)
+            parent.initLayout()
         else:
             self.step.setSelected(False)
             parent.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-            parent.removeStep(self.step)                
+            parent.removeStep(self.step)
             parent.scene().emit(SIGNAL("layoutChanged()"))
-        parent.initLayout()
+            parent.revertToLayout(self.originalLayout)
 
 class AddRemoveCalloutCommand(QUndoCommand):
 

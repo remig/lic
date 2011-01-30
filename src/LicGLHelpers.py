@@ -141,6 +141,8 @@ def initFreshContext(doClear):
     glDepthFunc(GL_LEQUAL)
     glEnable(GL_DEPTH_TEST)
     glEnable(GL_NORMALIZE)
+    #glEnable(GL_POLYGON_OFFSET_FILL)
+    #glPolygonOffset(-1.0, -1.0)
 
 def setupForQtPainter():
     glShadeModel(GL_FLAT)

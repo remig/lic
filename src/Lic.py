@@ -709,7 +709,6 @@ class LicWindow(QMainWindow):
 
         loader = LicBinaryReader.loadLicFile(filename, self.instructions)
         count = loader.next() + 3
-        print "Opening file with count: %d" % count
         progress.setMaximum(count)  # First value yielded after load is # of progress steps, +3 because we start at 2, and have to load colors
 
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
@@ -732,7 +731,6 @@ class LicWindow(QMainWindow):
         self.scene.selectPage(1)
         self.copySettingsToScene()
         progress.setValue(progress.maximum())
-        print "Final count: %d" % progress.count
         #endTime = time.time()
         #print "Total load time: %.2f" % (endTime - startTime)
 

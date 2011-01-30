@@ -226,6 +226,11 @@ def rectIterator(self, index):
 QRect.__getitem__ = rectIterator
 QRectF.__getitem__ = rectIterator
 
+def betterToString(self):
+    return super.__str__(self).replace(self.__module__, "")[1:]
+QPointF.__str__ = betterToString
+QRectF.__str__ = betterToString
+
 def genericGetSceneCorners(self):
     topLeft = self.mapToScene(self.mapFromParent(self.pos())) # pos is in item.parent coordinates
     bottomRight = topLeft + QPointF(self.boundingRect().width(), self.boundingRect().height())

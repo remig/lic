@@ -283,7 +283,17 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         self.setPos(0.0, 0.0)
         self.setRect(0.0, 0.0, 30.0, 30.0)
         self.setFlags(NoMoveFlags if self.getPage().isLocked() else AllFlags)
-        
+
+    def getAllChildItems(self):
+        items = [self, self.arrow, self.arrow.tipRect, self.arrow.baseRect]
+        if self.qtyLabel:
+            items.append(self.qtyLabel)
+        for step in self.steps:
+            items += [step, step.csi]
+            if step.numberItem:
+                items.append(step.numberItem)
+        return items
+
     def addBlankStep(self, useUndo = True):
         lastNum = self.steps[-1].number + 1 if self.steps else 1
         step = Step(self, lastNum, False, self.showStepNumbers)
@@ -291,7 +301,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             self.scene().undoStack.push(AddRemoveStepCommand(step, True))
         else:
             self.insertStep(step)
-        
+
     def insertStep(self, newStep):
         self.steps.insert(newStep._number - 1, newStep)
         newStep.setParentItem(self)
@@ -398,6 +408,21 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             return r.bottomLeft() + QPointF(r.width() / 2.0, 0.0)
         else:
             return r.topLeft() + QPointF(r.width() / 2.0, 0.0)
+
+    def getCurrentLayout(self, buf = None):
+        if buf is None:
+            buf = []
+        for item in self.getAllChildItems():
+            buf.append([item, item.pos(), item.rect()])
+        return buf
+    
+    def revertToLayout(self, originalLayout):
+        for item, pos, rect in originalLayout:
+            item.setPos(pos)
+            if hasattr(item, 'setRect'):
+                item.setRect(rect)
+            if hasattr(item, 'internalPoints'):
+                item.internalPoints = []
 
     def initLayout(self):
 
@@ -3208,12 +3233,15 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
     def createCalloutSignal(self):
         stack = self.scene().undoStack
-        stack.beginMacro("Create new Callout from Parts")
         step = self.getStep()
+        page = step.getPage()
+
+        stack.beginMacro("Create new Callout from Parts")
         callout = step.addBlankCalloutSignal(True, False)
         self.moveToCalloutSignal(callout)
-        stack.push(LayoutItemCommand(step))
+        stack.push(LayoutItemCommand(page, page.getCurrentLayout()))
         stack.endMacro()
+
         self.scene().fullItemSelectionUpdate(callout)
 
     def moveToCalloutSignal(self, callout):

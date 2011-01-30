@@ -116,17 +116,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
             if step.rotateIcon:
                 items.append(step.rotateIcon)
             for callout in step.callouts:
-                items.append(callout)
-                items.append(callout.arrow)
-                items.append(callout.arrow.tipRect)
-                items.append(callout.arrow.baseRect)
-                if callout.qtyLabel:
-                    items.append(callout.qtyLabel)
-                for step in callout.steps:
-                    items.append(step)
-                    items.append(step.csi)
-                    if step.numberItem:
-                        items.append(step.numberItem)
+                items += callout.getAllChildItems()
 
         for separator in self.separators:
             items.append(separator)
@@ -331,6 +321,24 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
             rect.moveBottomLeft(QPointF(Page.margin.x(), self.insetRect().bottom() - Page.margin.y()))
         self.numberItem.setPos(rect.topLeft())
 
+    def getCurrentLayout(self, buf = None):
+        if self.lockIcon.isLocked:
+            return  # Don't make any layout changes to locked pages
+
+        if buf is None:
+            buf = []
+        for item in self.getAllChildItems()[1:]:  # Skip first because it's the actual page
+            buf.append([item, item.pos(), item.rect()])
+        return buf
+
+    def revertToLayout(self, originalLayout):
+        for item, pos, rect in originalLayout:
+            item.setPos(pos)
+            if hasattr(item, 'setRect'):
+                item.setRect(rect)
+            if hasattr(item, 'internalPoints'):
+                item.internalPoints = []
+
     def initLayout(self):
 
         self.lockIcon.resetPosition()
@@ -498,9 +506,10 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
     def contextMenuEvent(self, event):
 
+        stack = self.scene().undoStack
         menu = QMenu(self.scene().views()[0])
         if not self.isLocked():
-            menu.addAction("Auto Layout", self.initLayout)
+            menu.addAction("Auto Layout", lambda: stack.push(LayoutItemCommand(self, self.getCurrentLayout())))
 
         if not self.isLocked() and ((len(self.steps) > 1) or (self.steps and self.submodelItem)):
             if self.layout.orientation == Horizontal:
@@ -525,17 +534,17 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         menu.addAction("Add Annotation", lambda: self.addAnnotationSignal(event.scenePos()))
         menu.addSeparator()
         if not self.steps:
-            menu.addAction("Delete Page", lambda: self.scene().undoStack.push(AddRemovePageCommand(self.scene(), self, False)))
+            menu.addAction("Delete Page", lambda: stack.push(AddRemovePageCommand(self.scene(), self, False)))
         menu.exec_(event.screenPos())
-    
+
     def useVerticalLayout(self):
         self.layout.orientation = Vertical
         self.initLayout()
-        
+
     def useHorizontalLayout(self):
         self.layout.orientation = Horizontal
         self.initLayout()
-        
+
     def addBlankStepSignal(self):
         step = Step(self, self.getNextStepNumber())
         self.scene().undoStack.push(AddRemoveStepCommand(step, True))
