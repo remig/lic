@@ -75,6 +75,7 @@ class LicGraphicsScene(QGraphicsScene):
         
     def __init__(self, parent):
         QGraphicsScene.__init__(self, parent)
+        self.setBackgroundBrush(Qt.gray)
         self.reset()
 
     def reset(self):

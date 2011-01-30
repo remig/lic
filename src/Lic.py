@@ -308,7 +308,7 @@ class LicWindow(QMainWindow):
         self.graphicsView.setViewport(self.glWidget)
         self.graphicsView.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
         self.graphicsView.setScene(self.scene)
-        self.scene.setSceneRect(0, 0, Page.PageSize.width(), Page.PageSize.height())
+        self.scene.setSceneRect(0, 0, Page.PageSize.width() + 28, Page.PageSize.height() + 25)
         
         # Connect the items moved signal to a push command on undo stack
         self.connect(self.scene, SIGNAL("itemsMoved"), lambda x: self.undoStack.push(LicUndoActions.MoveCommand(x)))
@@ -384,7 +384,6 @@ class LicWindow(QMainWindow):
 
         if LDrawPath and L3PPath and POVRayPath:
             config.LDrawPath = LDrawPath
-            LicImporters.LDrawImporter.LDrawPath = config.LDrawPath
             config.L3PPath = L3PPath 
             config.POVRayPath = POVRayPath
             self.needPathConfiguration = False
