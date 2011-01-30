@@ -180,6 +180,19 @@ def createWin32Dist(root, src_root, lic_version):
     if not os.path.isfile(spec_file):
         perr("Failed to create Spec file - something went horribly awry.  Good luck!")
 
+    print "Updating Spec file so it includes extra necessary data files"
+    fin = open(spec_file, 'r')
+    fou = open(spec_file + '_new', 'w')
+
+    for line in fin:
+        fou.write(line)
+        if line.count('a.binaries') > 0:
+            fou.write('               [("dynamic_template.lit", r"%s", "DATA")],\n' % os.path.join(src_root, 'src', 'dynamic_template.lit'))
+    fin.close()
+    fou.close()
+    os.remove(spec_file)
+    os.rename(spec_file + '_new', spec_file)
+
     #Build.py c:\lic\tmp\Lic.spec
     print "Creating Win32 Binary Distribution"
     subprocess.call('python %s %s' % (os.path.join(pyinstaller_path, 'Build.py'), spec_file))
@@ -212,6 +225,7 @@ def main():
 
     else:
         perr("Cannot run build script on %s" % sys.platform)
-    
+
 if __name__ == '__main__':
     main()
+

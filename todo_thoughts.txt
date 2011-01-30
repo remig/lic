@@ -47,8 +47,6 @@ that control auto-page & step generation (one step / page, min / max parts per s
 
 - Think about 'selection group' class, especially SelectedPart class, to better handle context menus for multiply selected items
 
-- Consider PyInstaller over py2exe, for its multi-platform goodness
-
 - PDF export needs dialog to control export setting, mainly high-res scale multiplier setting (current hardcoded to 3)
 
 - Create a proper Properties dialog.  On it:
