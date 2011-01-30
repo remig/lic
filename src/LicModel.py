@@ -2229,7 +2229,6 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         # Set up dynamic module to be used for import 
         importerName = LicImporters.getImporter(os.path.splitext(self.filename)[1][1:])
         importModule = __import__("LicImporters.%s" % importerName, fromlist = ["LicImporters"])
-        importModule.LDrawPath = config.LDrawPath
         importModule.importModel(self.filename, self.instructions.getProxy())
 
     def hasImportedSteps(self):

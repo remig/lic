@@ -42,7 +42,7 @@ import LicLayout
 import LicGLHelpers
 import LicImporters
 
-__version__ = "0.5.10"
+__version__ = "0.5.11"
 
 _debug = False
 
@@ -386,6 +386,7 @@ class LicWindow(QMainWindow):
             config.LDrawPath = LDrawPath
             config.L3PPath = L3PPath 
             config.POVRayPath = POVRayPath
+            LicImporters.LDrawImporter.LDrawPath = config.LDrawPath
             self.needPathConfiguration = False
         else:
             self.needPathConfiguration = True
@@ -413,6 +414,7 @@ class LicWindow(QMainWindow):
     def configurePaths(self, hideCancelButton = False):
         dialog = config.PathsDialog(self, hideCancelButton)
         dialog.exec_()
+        LicImporters.LDrawImporter.LDrawPath = config.LDrawPath
 
     def __getFilename(self):
         return self.__filename
