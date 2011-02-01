@@ -220,7 +220,7 @@ class FrameBufferManager(object):
         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, self.multisampleFrameBuffer)
 
         # multisample color & depth buffers
-        maxSamples = max(glGetIntegerv(GL_MAX_SAMPLES_EXT), 8)
+        maxSamples = glGetIntegerv(GL_MAX_SAMPLES_EXT)
         self.multisampleColorBuffer = glGenRenderbuffersEXT(1)
         glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, self.multisampleColorBuffer)
         glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER_EXT, maxSamples, GL_RGBA, w, h)
