@@ -48,7 +48,6 @@ import LicPartLengths
 import LicImporters
 from LicImporters import LDrawImporter
 
-import resources  # Needed for ":/resource" type paths to work
 import config     # For user path info
 
 MagicNumber = 0x14768126

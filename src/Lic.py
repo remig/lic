@@ -43,6 +43,24 @@ import LicLayout
 import LicGLHelpers
 import LicImporters
 
+def __recompileResources():
+    # Handy personal function for rebuilding LicResources.py package (which contains the app's icons)
+    import subprocess
+    pyrcc_path = r"C:\Python26\Lib\site-packages\PyQt4\bin\pyrcc4.exe"
+    qrc_path = r"C:\lic\resources.qrc"
+    res_path = r"C:\lic\src\LicResources.py"
+    subprocess.call("%s %s -o %s" % (pyrcc_path, qrc_path, res_path))
+    print "Resource bundle created: %s" % res_path
+
+try:
+    import LicResources  # Needed for ":/resource" type paths to work
+except ImportError:
+    try:
+        __recompileResources()
+        import LicResources
+    except:
+        pass # Ignore missing Resource bundle silently - better to run without icons then to crash entirely
+
 __version__ = "0.5.11"
 
 _debug = False
@@ -285,7 +303,7 @@ class LicTreeWidget(QWidget):
 
 class LicWindow(QMainWindow):
 
-    defaultTemplateFilename = "dynamic_template.lit"
+    defaultTemplateFilename = "default_template.lit"
 
     def __init__(self, parent = None):
         QMainWindow.__init__(self, parent)
@@ -673,13 +691,11 @@ class LicWindow(QMainWindow):
 
         try:
             template = LicBinaryReader.loadLicTemplate(self.defaultTemplateFilename, self.instructions)
-            template.filename = ""  # Do not preserve default template filename
-        except (IOError), unused:
-            # Could not load default template, so generate one from scratch
-            import LicTemplate
-            template = LicTemplate.TemplatePage(self.instructions.mainModel, self.instructions)
-            template.createBlankTemplate(self.glWidget)
+        except IOError, unused:
+            # Could not load default template, so load template stored in resource bundle
+            template = LicBinaryReader.loadLicTemplate(":/default_template", self.instructions)
         
+        template.filename = ""  # Do not preserve default template filename
         progress.incr("Adding Part List Page")
         self.instructions.template = template
         self.instructions.mainModel.partListPages = PartListPage.createPartListPages(self.instructions)
@@ -963,12 +979,6 @@ def loadFile(window, filename):
 
     window.scene.selectFirstPage()
 
-def recompileResources():
-    # Handy function for rebuilding the resources.py package (which contains all the app's icons)
-    # Note that this call is utterly specific to Remi's dev environment, and is not meant to be called anywhere else
-    ret = os.spawnl(os.P_WAIT, r"C:\Python25\Lib\site-packages\PyQt4\pyrcc4.exe", "pyrcc4.exe", "-o", r"C:\lic\src\resources.py", r"C:\lic\resources.qrc")
-    print ret
-
 def updateAllSavedLicFiles(window):
     # Useful for when too many new features accumulate in LicBinaryReader & Writer.
     # Use this to open each .lic file in the project, save it & close it.
@@ -984,7 +994,7 @@ def updateAllSavedLicFiles(window):
                 window.fileClose()
 
 def profile_main():
-    import cProfile, pstats, StringIO, logging
+    import cProfile, pstats, StringIO
     prof = cProfile.Profile()
     prof = prof.runctx("real_main()", globals(), locals())
     stream = StringIO.StringIO()
@@ -998,6 +1008,4 @@ def profile_main():
 
 if __name__ == '__main__':
     real_main()
-
     #profile_main()
-    #recompileResources()
