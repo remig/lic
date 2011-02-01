@@ -28,7 +28,6 @@ import Image, ImageChops
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-from OpenGL.GL.ARB.framebuffer_object import *
 from OpenGL.GL.EXT.framebuffer_object import *
 from OpenGL.GL.EXT.framebuffer_multisample import *
 from OpenGL.GL.EXT.framebuffer_blit import *

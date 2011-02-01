@@ -277,6 +277,7 @@ class Instructions(QObject):
         yield len(pageList) # Special first value is number of steps in export process
 
         currentPageNumber = self.scene.currentPage._number  # Store this so we can restore selection later
+        bufferManager = None
 
         if scaleFactor > 1.0:  # Make part lines a bit thicker for higher res output
             lineWidth = LicGLHelpers.getLightParameters()[2]
@@ -328,7 +329,8 @@ class Instructions(QObject):
                 page.lockIcon.show()    
 
         finally:
-            bufferManager.cleanup()
+            if bufferManager is not None:
+                bufferManager.cleanup()
             self.scene.renderMode = 'full'
             self.scene.setPagesToDisplay(pagesToDisplay)
             self.scene.selectPage(currentPageNumber)

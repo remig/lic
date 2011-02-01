@@ -22,6 +22,7 @@
 import sys
 import time
 import os
+import logging
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -898,8 +899,21 @@ class LicWindow(QMainWindow):
             self.instructions.mainModel.exportToLDrawFile(fh)
             fh.close()
 
+def setupExceptionLogger():
+
+    def myExceptHook(*args):
+        logging.error('Uncaught Root Exception:', exc_info=args)
+        logging.info('------------------------------------------------------\n')
+        sys.__excepthook__(*args)
+
+    sys.excepthook = myExceptHook
+    f = "%(levelname)s: %(asctime)s: %(message)s"
+    logging.basicConfig(filename='lic_errors.log', level=logging.DEBUG, format=f)
+
 def real_main():
-    
+
+    setupExceptionLogger()
+
     app = QApplication(sys.argv)
     app.setOrganizationName("BugEyedMonkeys Inc.")
     app.setOrganizationDomain("bugeyedmonkeys.com")
@@ -934,9 +948,8 @@ def real_main():
         QTimer.singleShot(50, lambda: loadFile(window, filename))
 
     #updateAllSavedLicFiles(window)
-    
+
     app.exec_()
-#    sys.exit(app.exec_())
 
 def loadFile(window, filename):
 
@@ -982,8 +995,9 @@ def profile_main():
     stats.print_callers()
     logging.basicConfig(filename="profile.log", level=logging.INFO)
     logging.info("Profile data:\n%s", stream.getvalue())
-    
+
 if __name__ == '__main__':
     real_main()
+
     #profile_main()
     #recompileResources()
