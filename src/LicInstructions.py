@@ -269,6 +269,7 @@ class Instructions(QObject):
         pagesToDisplay = self.scene.pagesToDisplay
         self.scene.clearSelection()
         self.scene.showOnePage()
+        self.scene.setBackgroundBrush(QBrush(Qt.NoBrush))
 
         # Build the list of pages that need to be exported
         pageList = self.mainModel.getFullPageList()
@@ -331,6 +332,7 @@ class Instructions(QObject):
             self.scene.renderMode = 'full'
             self.scene.setPagesToDisplay(pagesToDisplay)
             self.scene.selectPage(currentPageNumber)
+            self.scene.setBackgroundBrush(Qt.gray)
 
     def exportToPDF(self):
 
