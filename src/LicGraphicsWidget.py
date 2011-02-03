@@ -137,8 +137,6 @@ class LicGraphicsScene(QGraphicsScene):
 
         LicGLHelpers.clear([0.62, 0.62, 0.65, 1.0])
 
-        #visibleItems = [i for i in items if i.isVisible()]  # TODO: Zip this up with options, so we loop only over visible bits
-        
         # First draw all items that are not annotations
         if self.renderMode == 'full' or self.renderMode == 'background':
             for i, item in enumerate(items):
@@ -147,21 +145,24 @@ class LicGraphicsScene(QGraphicsScene):
 
         if widget and self.renderMode == 'full':
 
-            # Setup the GL items to be drawn & the necessary context
-            painter.beginNativePainting()
-            LicGLHelpers.initFreshContext(False)
+            # Build list of pages to be drawn (if any)
             rect = QRectF(self.views()[0].mapToScene(QPoint()), QSizeF(widget.size()) / self.scaleFactor)
             pagesToDraw = []
             for page in self.pages:
                 if page.isVisible() and rect.intersects(page.rect().translated(page.pos())):
                     pagesToDraw.append(page)
 
-            # Draw all GL items
-            for page in pagesToDraw:
-                page.drawGLItems(rect)
-
-            LicGLHelpers.setupForQtPainter()  # Reset all GL lighting, so that subsequent drawing is not affected
-            painter.endNativePainting()
+            if pagesToDraw:
+                # Setup the GL items to be drawn & the necessary context
+                painter.beginNativePainting()
+                LicGLHelpers.initFreshContext(False)
+    
+                # Draw all GL items
+                for page in pagesToDraw:
+                    page.drawGLItems(rect)
+    
+                LicGLHelpers.setupForQtPainter()  # Reset all GL lighting, so that subsequent drawing is not affected
+                painter.endNativePainting()
             
         # Draw all annotation
         if self.renderMode == 'full' or self.renderMode == 'foreground':

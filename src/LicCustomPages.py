@@ -793,8 +793,17 @@ class EditableTextItem(QGraphicsSimpleTextItem):
         
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Set Text", self.setTextSignal)
+        menu.addAction("Set Font", self.setNewFontSignal)
         menu.addAction("Remove Label", self.remove)
         menu.exec_(event.screenPos())
+
+    def setNewFontSignal(self):
+        labelList = [i for i in self.scene().selectedItems() if isinstance(i, EditableTextItem)]
+        if not labelList:
+            return
+        newFont, ok = QFontDialog.getFont(self.font())
+        if ok:
+            self.scene().undoStack.push(SetFontCommand(labelList, newFont))
         
     def remove(self):
         action = AddRemoveLabelCommand(self.parentItem(), self, self.parentItem().labels.index(self), False)

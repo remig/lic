@@ -469,18 +469,18 @@ class LicWindow(QMainWindow):
         self.fileMenu = menu.addMenu("&File")
         self.connect(self.fileMenu, SIGNAL("aboutToShow()"), self.updateFileMenu)
 
-        fileOpenAction = self.createMenuAction("&Open...", self.fileOpen, QKeySequence.Open, "Open an existing Instruction book")
+        fileOpenAction = self.makeAction("&Open...", self.fileOpen, QKeySequence.Open, "Open an existing Instruction book")
         self.fileOpenRecentMenu = QMenu("Open &Recent", self.fileMenu)
-        self.fileCloseAction = self.createMenuAction("&Close", self.fileClose, QKeySequence.Close, "Close current Instruction book")
+        self.fileCloseAction = self.makeAction("&Close", self.fileClose, QKeySequence.Close, "Close current Instruction book")
          
-        self.fileSaveAction = self.createMenuAction("&Save", self.fileSave, QKeySequence.Save, "Save the Instruction book")
-        self.fileSaveAsAction = self.createMenuAction("Save &As...", self.fileSaveAs, None, "Save the Instruction book using a new filename")
-        fileImportAction = self.createMenuAction("&Import Model", self.fileImport, None, "Import an existing Model into a new Instruction book")
+        self.fileSaveAction = self.makeAction("&Save", self.fileSave, QKeySequence.Save, "Save the Instruction book")
+        self.fileSaveAsAction = self.makeAction("Save &As...", self.fileSaveAs, None, "Save the Instruction book using a new filename")
+        fileImportAction = self.makeAction("&Import Model", self.fileImport, None, "Import an existing Model into a new Instruction book")
 
-        self.fileSaveTemplateAction = self.createMenuAction("Save Template", self.fileSaveTemplate, None, "Save only the Template")
-        self.fileSaveTemplateAsAction = self.createMenuAction("Save Template As...", self.fileSaveTemplateAs, None, "Save only the Template using a new filename")
-        self.fileLoadTemplateAction = self.createMenuAction("Load Template", self.fileLoadTemplate, None, "Discard the current Template and apply a new one")
-        fileExitAction = self.createMenuAction("E&xit", SLOT("close()"), "Ctrl+Q", "Exit Lic")
+        self.fileSaveTemplateAction = self.makeAction("Save Template", self.fileSaveTemplate, None, "Save only the Template")
+        self.fileSaveTemplateAsAction = self.makeAction("Save Template As...", self.fileSaveTemplateAs, None, "Save only the Template using a new filename")
+        self.fileLoadTemplateAction = self.makeAction("Load Template", self.fileLoadTemplate, None, "Discard the current Template and apply a new one")
+        fileExitAction = self.makeAction("E&xit", SLOT("close()"), "Ctrl+Q", "Exit Lic")
 
         self.fileMenuActions = (fileOpenAction, self.fileOpenRecentMenu, self.fileCloseAction, None, 
                                 self.fileSaveAction, self.fileSaveAsAction, fileImportAction, None, 
@@ -491,63 +491,67 @@ class LicWindow(QMainWindow):
         editMenu = menu.addMenu("&Edit")
         self.connect(editMenu, SIGNAL("aboutToShow()"), self.updateEditMenu)
 
-        self.undoAction = self.createMenuAction("&Undo", None, "Ctrl+Z", "Undo last action")
+        self.undoAction = self.makeAction("&Undo", None, "Ctrl+Z", "Undo last action")
         self.undoAction.connect(self.undoAction, SIGNAL("triggered()"), self.undoStack, SLOT("undo()"))
         self.undoAction.setEnabled(False)
         self.connect(self.undoStack, SIGNAL("canUndoChanged(bool)"), self.undoAction, SLOT("setEnabled(bool)"))
         
-        self.redoAction = self.createMenuAction("&Redo", None, "Ctrl+Y", "Redo the last undone action")
+        self.redoAction = self.makeAction("&Redo", None, "Ctrl+Y", "Redo the last undone action")
         self.redoAction.connect(self.redoAction, SIGNAL("triggered()"), self.undoStack, SLOT("redo()"))
         self.redoAction.setEnabled(False)
         self.connect(self.undoStack, SIGNAL("canRedoChanged(bool)"), self.redoAction, SLOT("setEnabled(bool)"))
         
         # Snap menu (inside Edit Menu): Snap -> Snap to Guides & Snap to Items
-        guideSnapAction = self.createMenuAction("Guides", self.setSnapToGuides, None, "Snap To Guides", "toggled(bool)", True)
+        guideSnapAction = self.makeAction("Guides", self.setSnapToGuides, None, "Snap To Guides", "toggled(bool)", True)
         guideSnapAction.setChecked(self.scene.snapToGuides)
         
-        itemSnapAction = self.createMenuAction("Items", self.setSnapToItems, None, "Snap To Items", "toggled(bool)", True)
+        itemSnapAction = self.makeAction("Items", self.setSnapToItems, None, "Snap To Items", "toggled(bool)", True)
         itemSnapAction.setChecked(self.scene.snapToItems)
         
         snapMenu = editMenu.addMenu("Snap To")
         snapMenu.addAction(guideSnapAction)
         snapMenu.addAction(itemSnapAction)
 
-        setPathsAction = self.createMenuAction("Paths...", self.configurePaths, None, "Set paths to LDraw parts, L3p, POVRay, etc")
+        setPathsAction = self.makeAction("Paths...", self.configurePaths, None, "Set paths to LDraw parts, L3p, POVRay, etc")
         editActions = (self.undoAction, self.redoAction, None, snapMenu, setPathsAction)
         self.addActions(editMenu, editActions)
 
         # View Menu
         self.viewMenu = menu.addMenu("&View")
-        addHGuide = self.createMenuAction("Add Horizontal Guide", lambda: self.scene.addNewGuide(LicLayout.Horizontal), None, "Add Guide")
-        addVGuide = self.createMenuAction("Add Vertical Guide", lambda: self.scene.addNewGuide(LicLayout.Vertical), None, "Add Guide")
-        removeGuides = self.createMenuAction("Remove Guides", self.scene.removeAllGuides, None, "Add Guide")
+        addHGuide = self.makeAction("Add Horizontal Guide", lambda: self.scene.addNewGuide(LicLayout.Horizontal), None, "Add Guide")
+        addVGuide = self.makeAction("Add Vertical Guide", lambda: self.scene.addNewGuide(LicLayout.Vertical), None, "Add Guide")
+        removeGuides = self.makeAction("Remove Guides", self.scene.removeAllGuides, None, "Add Guide")
 
-        zoom100 = self.createMenuAction("Zoom &100%", lambda: self.zoom(1.0), None, "Zoom 100%")
-        zoomToFit = self.createMenuAction("Zoom To &Fit", self.graphicsView.scaleToFit, None, "Zoom To Fit")
-        zoomIn = self.createMenuAction("Zoom &In", lambda: self.zoom(1.2), None, "Zoom In")
-        zoomOut = self.createMenuAction("Zoom &Out", lambda: self.zoom(1.0 / 1.2), None, "Zoom Out")
+        zoom100 = self.makeAction("Zoom &100%", lambda: self.zoom(1.0), None, "Zoom 100%")
+        zoomToFit = self.makeAction("Zoom To &Fit", self.graphicsView.scaleToFit, None, "Zoom To Fit")
+        zoomIn = self.makeAction("Zoom &In", lambda: self.zoom(1.2), None, "Zoom In")
+        zoomOut = self.makeAction("Zoom &Out", lambda: self.zoom(1.0 / 1.2), None, "Zoom Out")
 
-        onePage = self.createMenuAction("Show One Page", self.scene.showOnePage, None, "Show One Page", checkable=True)
-        twoPages = self.createMenuAction("Show Two Pages", self.scene.showTwoPages, None, "Show Two Pages", checkable=True)
-        continuous = self.createMenuAction("Continuous", self.scene.continuous, None, "Continuous", checkable=True)
-        continuousFacing = self.createMenuAction("Continuous Facing", self.scene.continuousFacing, None, "Continuous Facing", checkable=True)
+        onePage = self.makeAction("Show One Page", self.scene.showOnePage, None, "Show One Page", checkable=True)
+        twoPages = self.makeAction("Show Two Pages", self.scene.showTwoPages, None, "Show Two Pages", checkable=True)
+        continuous = self.makeAction("Continuous", self.scene.continuous, None, "Continuous", checkable=True)
+        continuousFacing = self.makeAction("Continuous Facing", self.scene.continuousFacing, None, "Continuous Facing", checkable=True)
 
-        pageActions = {1: onePage, 2: twoPages, LicGraphicsWidget.LicGraphicsScene.PageViewContinuous: continuous, LicGraphicsWidget.LicGraphicsScene.PageViewContinuousFacing: continuousFacing}
+        pageActions = {1: onePage, 2: twoPages, 
+                       LicGraphicsWidget.LicGraphicsScene.PageViewContinuous: continuous, 
+                       LicGraphicsWidget.LicGraphicsScene.PageViewContinuousFacing: continuousFacing}
         pageActions[self.pagesToDisplay].setChecked(True)
         
         pageGroup = QActionGroup(self)
         for action in pageActions.values():
             pageGroup.addAction(action)
         
-        viewActions = (addHGuide, addVGuide, removeGuides, None, zoom100, zoomToFit, zoomIn, zoomOut, None, onePage, twoPages, continuous, continuousFacing)
+        viewActions = (addHGuide, addVGuide, removeGuides, None, 
+                       zoom100, zoomToFit, zoomIn, zoomOut, None, 
+                       onePage, twoPages, continuous, continuousFacing)
         self.addActions(self.viewMenu, viewActions)
 
         # Export Menu
         self.exportMenu = menu.addMenu("E&xport")
-        self.exportToImagesAction = self.createMenuAction("&Generate Final Images", self.exportImages, None, "Generate final images of each page in this Instruction book")
-        self.exportToPDFAction = self.createMenuAction("Generate &PDF", self.exportToPDF, None, "Create a PDF from this instruction book")
-        self.exportToPOVAction = self.createMenuAction("NYI - Generate Images with Pov-Ray", self.exportToPOV, None, "Use Pov-Ray to generate final, ray-traced images of each page in this Instruction book")
-        self.exportToMPDAction = self.createMenuAction("Generate &MPD", self.exportToMPD, None, "Generate an LDraw MPD file from the parts & steps in this Instruction book")
+        self.exportToImagesAction = self.makeAction("&Generate Final Images", self.exportImages, None, "Generate final images of each page in this Instruction book")
+        self.exportToPDFAction = self.makeAction("Generate &PDF", self.exportToPDF, None, "Create a PDF from this instruction book")
+        self.exportToPOVAction = self.makeAction("NYI - Generate Images with Pov-Ray", self.exportToPOV, None, "Use Pov-Ray to generate final, ray-traced images of each page in this Instruction book")
+        self.exportToMPDAction = self.makeAction("Generate &MPD", self.exportToMPD, None, "Generate an LDraw MPD file from the parts & steps in this Instruction book")
         self.addActions(self.exportMenu, (self.exportToImagesAction, self.exportToPDFAction, self.exportToPOVAction, None, self.exportToMPDAction))
 
     def zoom(self, factor):
@@ -608,7 +612,7 @@ class LicWindow(QMainWindow):
             elif isinstance(item, QMenu):
                 target.addMenu(item)
     
-    def createMenuAction(self, text, slot = None, shortcut = None, tip = None, signal = "triggered()", checkable = False):
+    def makeAction(self, text, slot = None, shortcut = None, tip = None, signal = "triggered()", checkable = False):
         action = QAction(text, self)
         action.setCheckable(checkable)
         if shortcut is not None:
@@ -811,7 +815,9 @@ class LicWindow(QMainWindow):
             return self.fileSaveTemplateAs()
 
         if os.path.basename(template.filename) == self.defaultTemplateFilename:
-            if QMessageBox.No == QMessageBox.question(self, "Lic - Replace Template", "This will replace the default template!  Proceed?", QMessageBox.Yes | QMessageBox.No):
+            if QMessageBox.No == QMessageBox.question(self, "Lic - Replace Template", 
+                                                      "This will replace the default template!  Proceed?", 
+                                                      QMessageBox.Yes | QMessageBox.No):
                 return
 
         try:
@@ -956,7 +962,7 @@ def real_main():
     #filename = unicode("C:/lic/template.dat")
     #filename = unicode("C:/lic/stack.lic")
     #filename = unicode("C:/lic/1x1.dat")
-    #filename = unicode("C:/lic/pyramid.lic")
+    filename = unicode("C:/lic/pyramid.lic")
     #filename = unicode("C:/lic/pyramid.dat")
     #filename = unicode("C:/lic/SubSubModel.mpd")
 

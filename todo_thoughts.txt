@@ -22,8 +22,12 @@ BUGS:
 
 - Need a way to rotate an entire submodel, so that all its internal CSIs, and all previews generated on it, are also rotated
 
+- Check out PIL's ImageQt class, see if it can cut down some unnecessary code & speed things along
+
  FEATURES:
 
+- Add a way to retrieve the machine's OpenGL state.  Seems like most problems on untested hardware relate to missing OpenGL features
+ 
 - Add a dialog on initial import: if the imported file has no steps, give a handful of options 
 that control auto-page & step generation (one step / page, min / max parts per step, etc)
  

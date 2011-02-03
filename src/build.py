@@ -30,7 +30,6 @@ import subprocess
 
 def perr(s):
     print s
-    return
 
 def zipDir(zip_file, zip_dir, root_len):
     z = zipfile.ZipFile(zip_file, 'w')
@@ -50,7 +49,7 @@ def createOSXDist():
         return
     
     if not sys.platform.startswith('darwin'):
-        perr("Must use OSX to create OSX distribution")
+        return perr("Must use OSX to create OSX distribution")
   
     root = "/Users/remig/Code/pywork"
     pyinstaller_path = os.path.join(root, 'pyinstaller')
@@ -61,16 +60,16 @@ def createOSXDist():
     spec_file = os.path.join(app_root, 'Lic.spec')
 
     if not os.path.isdir(pyinstaller_path):
-        perr("Could not find pyinstaller in %s" % pyinstaller_path)
+        return perr("Could not find pyinstaller in %s" % pyinstaller_path)
 
     if os.path.isdir(app_root):
-        perr("Delete %s before proceeding" % app_root)
+        return perr("Delete %s before proceeding" % app_root)
 
     print "Creating OSX Distribution"
     subprocess.call(['%s/Makespec.py' % pyinstaller_path, '--onefile', '--out=%s' % app_root, src_root])
 
     if not os.path.isfile(spec_file):
-        perr("Failed to create Spec file - something went horribly awry.  Good luck!")
+        return perr("Failed to create Spec file - something went horribly awry.  Good luck!")
 
     f = open(spec_file, 'a')
     f.write("\n")
@@ -111,10 +110,10 @@ def createOSXDist():
 def createSvnExport(root):
 
     if sys.platform != 'win32':
-        perr("Must use win32 to create source distribution")
+        return perr("Must use win32 to create source distribution")
 
     if os.path.isdir(root):
-        perr("Delete %s root folder before proceeding" % root)
+        return perr("Delete %s root folder before proceeding" % root)
 
     import pysvn
 
@@ -140,10 +139,10 @@ def createSvnExport(root):
 def createSourceDist(root, src_root):
 
     if sys.platform != 'win32':
-        perr("Must use win32 to create source distribution")
+        return perr("Must use win32 to create source distribution")
 
     if not os.path.isdir(src_root):
-        perr("Source root %s does not exist!! Failed to create Source Distribution." % src_root)
+        return perr("Source root %s does not exist!! Failed to create Source Distribution." % src_root)
 
     print "Zipping source folder"
     zipName = src_root + '.zip'
@@ -154,14 +153,14 @@ def createSourceDist(root, src_root):
 def createWin32Dist(root, src_root, lic_version):
 
     if sys.platform != 'win32':
-        perr("Must use win32 to create win32 distribution")
+        return perr("Must use win32 to create win32 distribution")
 
     if not os.path.isdir(src_root):
-        perr("Source root %s does not exist!! Failed to create Win32 Distribution." % src_root)
+        return perr("Source root %s does not exist!! Failed to create Win32 Distribution." % src_root)
 
     pyinstaller_path = r"C:\Python26\Lib\site-packages\pyinstaller"
     if not os.path.isdir(pyinstaller_path):
-        perr("Could not find pyinstaller in %s" % pyinstaller_path)
+        return perr("Could not find pyinstaller in %s" % pyinstaller_path)
 
     build_root = os.path.join(root, 'lic_%s_pyinst' % lic_version)
     spec_file = os.path.join(build_root, 'Lic.spec')
@@ -172,39 +171,40 @@ def createWin32Dist(root, src_root, lic_version):
             os.path.join(pyinstaller_path, 'Makespec.py'),
             '--windowed',
             '--icon=%s' % os.path.join(src_root,'images', 'lic_logo.ico'),
-            #'--onefile',
+            '--onefile',
             '--out=%s' % build_root,
             '%s' % os.path.join(src_root, 'src', 'Lic.py')]
     subprocess.call(' '.join(args))
 
     if not os.path.isfile(spec_file):
-        perr("Failed to create Spec file - something went horribly awry.  Good luck!")
+        return perr("Failed to create Spec file - something went horribly awry.  Good luck!")
 
-    print "Updating Spec file so it includes extra necessary data files"
-    fin = open(spec_file, 'r')
-    fou = open(spec_file + '_new', 'w')
+    # This is no longer necessary - default_template is compiled into the resource bundle 
+#    print "Updating Spec file so it includes extra necessary data files"
+#    fin = open(spec_file, 'r')
+#    fou = open(spec_file + '_new', 'w')
+#
+#    for line in fin:
+#        fou.write(line)
+#        if line.count('a.binaries') > 0:
+#            fou.write('               [("default_template.lit", r"%s", "DATA")],\n' % os.path.join(src_root, 'src', 'default_template.lit'))
+#    fin.close()
+#    fou.close()
+#    os.remove(spec_file)
+#    os.rename(spec_file + '_new', spec_file)
 
-    for line in fin:
-        fou.write(line)
-        if line.count('a.binaries') > 0:
-            fou.write('               [("dynamic_template.lit", r"%s", "DATA")],\n' % os.path.join(src_root, 'src', 'dynamic_template.lit'))
-    fin.close()
-    fou.close()
-    os.remove(spec_file)
-    os.rename(spec_file + '_new', spec_file)
-
-    #Build.py c:\lic\tmp\Lic.spec
     print "Creating Win32 Binary Distribution"
     subprocess.call('python %s %s' % (os.path.join(pyinstaller_path, 'Build.py'), spec_file))
 
     print "Renaming dist/Lic folder"
-    dist_root = os.path.join(build_root, "dist", "Lic")
-    new_root = dist_root + "_%s_win32" % lic_version
+    dist_root = os.path.join(build_root, "dist")
+    new_root = os.path.join(build_root, "lic_%s_win32" % lic_version)
     os.rename(dist_root, new_root)
+    os.rename(os.path.join(new_root, 'Lic.exe'), os.path.join(new_root, 'Lic_%s.exe') % lic_version)
 
     print "Creating final win32 zip"
     zipName = os.path.join(root, 'lic_%s_win32.zip' % lic_version)
-    zipDir(zipName, new_root, len(os.path.join(build_root, "dist")) + 1)
+    zipDir(zipName, new_root, len(build_root) + 1)
 
     print "Win32 Distribution created: %s" % zipName
 
@@ -214,8 +214,13 @@ def main():
         createOSXDist()
 
     elif sys.platform.startswith('win32'):
+        
         root = "C:\\lic_dist"
-        src_root, lic_version, lic_debug = createSvnExport(root)
+        res = createSvnExport(root)
+        if res is None:
+            return
+
+        src_root, lic_version, lic_debug = res
 
         if lic_debug and raw_input('Trying to build from DEBUG!!  Proceed? y/n: ').lower() != 'y':
             return
@@ -224,8 +229,7 @@ def main():
         createWin32Dist(root, src_root, lic_version)
 
     else:
-        perr("Cannot run build script on %s" % sys.platform)
+        return perr("Cannot run build script on %s" % sys.platform)
 
 if __name__ == '__main__':
     main()
-

@@ -783,6 +783,19 @@ class AdjustArrowRotation(QUndoCommand):
         self.arrow.axisRotation = self.newRotation if redo else self.oldRotation
         self.arrow.getCSI().resetPixmap()
 
+class SetFontCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, labelList, newFont):
+        QUndoCommand.__init__(self, "Set Font")
+        self.newFont = newFont
+        self.labelList = zip(labelList, [i.font() for i in labelList])
+
+    def doAction(self, redo):
+        for label, oldFont in self.labelList:
+            label.setFont(self.newFont if redo else oldFont)
+
 class ScaleItemCommand(QUndoCommand):
 
     _id = getNewCommandID()
