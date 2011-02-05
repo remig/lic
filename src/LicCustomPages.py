@@ -262,13 +262,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
     def addStepSeparator(self, index, rect = None):
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        s = QGraphicsRectItem(self)
-        s.setRect(rect if rect else QRectF(0, 0, 1, 1))
-        s.setFlags(AllFlags)
-        s.setPen(QPen(Qt.black))
-        s.setBrush(QBrush(Qt.black))
-        s.itemClassName = "Separator"
-        s.data = lambda index: "Step Separator"
+        s = StepSeparator(self, rect)
         self.separators.append(s)
         self.addChild(index, s)
         self.scene().emit(SIGNAL("layoutChanged()"))
@@ -565,6 +559,88 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
             else:
                 item = PageAnnotation(self, pixmap, filename, pos)
                 self.scene().undoStack.push(AddRemoveAnnotationCommand(self, item, True))
+
+class StepSeparator(QGraphicsRectItem):
+    itemClassName = "Separator"
+
+    def __init__(self, parentPage, rect = None):
+        QGraphicsRectItem.__init__(self, parentPage)
+        self.setRect(rect if rect else QRectF(0, 0, 1, 1))
+        self.setFlags(AllFlags)
+        self.setPen(QPen(Qt.black))
+        self.setBrush(QBrush(Qt.black))
+        self.setAcceptHoverEvents(True)
+        self.data = lambda index: "Step Separator"
+        self.normalizePosition()
+
+    def contextMenuEvent(self, event):
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Remove", self.remove)
+        menu.exec_(event.screenPos())
+        
+    def remove(self):
+        pass
+
+    def _setEdge(self, edge, cursor):
+        self.edge = edge
+        if cursor is None:
+            self.unsetCursor()
+            self.setHandlesChildEvents(False)
+        else:
+            self.setCursor(cursor)
+            self.setHandlesChildEvents(True)
+
+    def hoverMoveEvent(self, event):
+        if not self.isSelected():
+            return
+
+        w, h = self.rect().size()
+        x, y = event.pos()
+        inset = 10
+
+        self._setEdge(None, None)
+        if w < h:  # Have a vertical separator
+            if y < inset:
+                self._setEdge("top", Qt.SplitVCursor)
+            elif y > h - inset:
+                self._setEdge("bottom", Qt.SplitVCursor)
+        else:
+            if x < inset:
+                self._setEdge("left", Qt.SplitHCursor)
+            elif x > w - inset:
+                self._setEdge("right", Qt.SplitHCursor)
+
+    def hoverLeaveEvent(self, event):
+        self._setEdge(None, None)
+
+    def mousePressEvent(self, event):
+        if self.hasCursor():  # This is a resize move event
+            self.oldRect = self.rect()
+        else:
+            QGraphicsRectItem.mousePressEvent(self, event)
+
+    def mouseMoveEvent(self, event):
+        if self.hasCursor():  # This is a resize move event
+            rect = self.rect()
+            x, y = event.pos()
+
+            if self.edge == "left":
+                rect.setLeft(x)
+            elif self.edge == "top":
+                rect.setTop(y)
+            elif self.edge == "right":
+                rect.setRight(x)
+            elif self.edge == "bottom":
+                rect.setBottom(y)
+            self.setRect(rect)
+        else:
+            QGraphicsRectItem.mouseMoveEvent(self, event)
+
+    def mouseReleaseEvent(self, event):
+        if self.hasCursor():  # This is a resize move event
+            self.scene().undoStack.push(ResizeCommand(self, self.oldRect, self.rect()))
+        else:
+            QGraphicsRectItem.mouseReleaseEvent(self, event)
 
 class PageAnnotation(QGraphicsPixmapItem):
 

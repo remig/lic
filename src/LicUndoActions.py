@@ -87,7 +87,11 @@ class ResizeCommand(QUndoCommand):
         self.item, self.oldRect, self.newRect = item, oldRect, newRect
 
     def doAction(self, redo):
-        self.item.initLayout(self.newRect if redo else self.oldRect)
+        rect = self.newRect if redo else self.oldRect
+        if hasattr(self.item, 'initLayout'):
+            self.item.initLayout(rect)
+        else:
+            self.item.setRect(rect)
 
 class LayoutItemCommand(QUndoCommand):  # TODO: Should be able to undo Step Layouts (for Create Callout, etc)
 

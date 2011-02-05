@@ -997,20 +997,21 @@ class Step(StepTreeManager, QGraphicsRectItem):
         if not self.isSelected():
             return
 
-        x, y = event.pos()
         inset = 5
+        w, h = self.rect().size()
+        x, y = event.pos()
 
         if x < inset:
             if y < inset:
                 self._setEdge("topLeft", Qt.SizeFDiagCursor)
-            elif y > self.rect().height() - inset:
+            elif y > h - inset:
                 self._setEdge("bottomLeft", Qt.SizeBDiagCursor)
             else:
                 self._setEdge("left", Qt.SplitHCursor)
-        elif x > self.rect().width() - inset:
+        elif x > w - inset:
             if y < inset:
                 self._setEdge("topRight", Qt.SizeBDiagCursor)
-            elif y > self.rect().height() - inset:
+            elif y > h - inset:
                 self._setEdge("bottomRight", Qt.SizeFDiagCursor)
             else:
                 self._setEdge("right", Qt.SplitHCursor)

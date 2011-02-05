@@ -416,6 +416,7 @@ def __readPage(stream, parent, instructions, templateModel = None):
         border.setPos(stream.readQPointF())
         border.setRect(stream.readQRectF())
         border.setPen(stream.readQPen())
+        border.normalizePosition()
 
     if stream.licFileVersion >= 8:
         __readAnnotationSet(stream, page)

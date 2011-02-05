@@ -261,9 +261,9 @@ def __writePage(stream, page):
 
     # Write out any page separator lines
     stream.writeInt32(len(page.separators))
-    for border in page.separators:
-        stream.writeInt32(border.row())
-        stream << border.pos() << border.rect() << border.pen()
+    for separator in page.separators:
+        stream.writeInt32(separator.row())
+        stream << separator.pos() << separator.rect() << separator.pen()
 
     __writeAnnotationSet(stream, page)
 
