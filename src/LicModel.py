@@ -1272,6 +1272,9 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
         self.parentItem().initLayout()
         self.scene().emit(SIGNAL("layoutChanged()"))
 
+    def hasQuantity(self):
+        return self.numberItem is not None and self.quantity > 0
+
     def addQuantityLabel(self, qty):
         self.numberItem = QGraphicsSimpleTextItem("0x", self)
         self.numberItem.itemClassName = "SubmodelItem Quantity"

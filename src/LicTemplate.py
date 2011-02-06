@@ -127,7 +127,7 @@ class TemplateRotateScaleSignalItem(object):
 
 class TemplatePage(TemplateRectItem, Page):
 
-    separatorsVisible = False
+    separatorsVisible = True
 
     def __init__(self, submodel, instructions):
         Page.__init__(self, submodel, instructions, 0, 0)
@@ -156,6 +156,10 @@ class TemplatePage(TemplateRectItem, Page):
         self.prevPage = lambda: None
         self.nextPage = lambda: None
 
+        self.addMissingElements()  # For backwards compatibility, add missing template features
+
+        stack = self.scene().undoStack
+
         # Promote page members to appropriate Template subclasses, and initialize if necessary
         step = self.steps[0]
         step.__class__ = TemplateStep
@@ -166,26 +170,32 @@ class TemplatePage(TemplateRectItem, Page):
         if step.pli:
             step.pli.__class__ = TemplatePLI
             step.pli.target = PLI
+
         if self.submodelItem:
             self.submodelItem.__class__ = TemplateSubmodelPreview
             self.submodelItem.target = SubmodelPreview
+            if self.submodelItem.hasQuantity():
+                self.submodelItem.numberItem.setAllFonts = lambda oldFont, newFont: stack.push(SetItemFontsCommand(self, oldFont, newFont, 'Submodel Quantity'))
+                self.submodelItem.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, self.submodelItem.numberItem)
+
         if step.callouts:
             step.callouts[0].__class__ = TemplateCallout
             step.callouts[0].arrow.__class__ = TemplateCalloutArrow
             step.callouts[0].steps[0].csi.__class__ = TemplateCSI
             step.callouts[0].steps[0].csi.target = CSI
+
         if step.rotateIcon:
             step.rotateIcon.__class__ = TemplateRotateIcon
 
-        self.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Page'))
-        step.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'Step'))
+        self.numberItem.setAllFonts = lambda oldFont, newFont: stack.push(SetItemFontsCommand(self, oldFont, newFont, 'Page'))
+        step.numberItem.setAllFonts = lambda oldFont, newFont: stack.push(SetItemFontsCommand(self, oldFont, newFont, 'Step'))
         self.numberItem.contextMenuEvent = lambda event: self.pageNumberMenuEvent(event)
         step.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, step.numberItem)
 
         if step.hasPLI():
             for item in step.pli.pliItems:
                 item.__class__ = TemplatePLIItem
-                item.numberItem.setAllFonts = lambda oldFont, newFont: self.scene().undoStack.push(SetItemFontsCommand(self, oldFont, newFont, 'PLIItem'))
+                item.numberItem.setAllFonts = lambda oldFont, newFont: stack.push(SetItemFontsCommand(self, oldFont, newFont, 'PLIItem'))
                 item.numberItem.contextMenuEvent = lambda event, i = item: self.fontMenuEvent(event, i.numberItem)
                 if item.lengthIndicator:
                     item.lengthIndicator.__class__ = TemplateCircleLabel
@@ -229,20 +239,26 @@ class TemplatePage(TemplateRectItem, Page):
 
         step.callouts[0].steps[0].csi.resetPixmap()
         step.addRotateIcon()
-        
+
         self.addSubmodelImage()
         self.submodelItem.setAbstractPart(self.submodelPart)
-        self.submodelItem.addQuantityLabel(2)
+        self.postLoadInit("test_template.lit")
+
+    def addMissingElements(self):  # This adds new stuff to existing, 'in the wild', templates
+
+        if not self.submodelItem.hasQuantity():
+            self.submodelItem.addQuantityLabel(2)
 
         self.initLayout()
 
-        r = step.rect().translated(step.pos())
-        step.initLayout(r.adjusted(0, 0, -100, 0))
+        if not self.separators:
+            step = self.steps[0]
+            r = step.rect().translated(step.pos())
+            step.initLayout(r.adjusted(0, 0, -100, 0))
 
-        pw, ph = Page.PageSize
-        self.addStepSeparator(-1, QRectF(pw - 80, 15, 1, ph - 30))
-        self.postLoadInit("test_template.lit")
-
+            pw, ph = Page.PageSize
+            self.addStepSeparator(-1, QRectF(pw - 80, 15, 1, ph - 30))
+        
     def initGLDimension(self, part, glContext):
 
         glContext.makeCurrent()

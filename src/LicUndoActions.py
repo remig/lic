@@ -382,8 +382,7 @@ class ShowHideStepSeparatorCommand(QUndoCommand):
         self.template.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         show = (redo and self.show) or (not redo and not self.show)
         self.template.separatorsVisible = show
-        for sep in self.template.separators:
-            sep.setVisible(show)
+        [sep.setVisible(show) for sep in self.template.separators]
         for page in self.template.instructions.getPageList():
             page.showHideSeparators(show)
         self.template.scene().emit(SIGNAL("layoutChanged()"))
@@ -993,6 +992,12 @@ class SetItemFontsCommand(QUndoCommand):
                 for child in page.getAllChildItems():
                     if self.target == child.itemClassName:
                         child.setFont(font)
+
+        elif self.target == 'Submodel Quantity':
+            self.template.submodelItem.numberItem.setFont(font)
+            for page in self.template.instructions.getPageList():
+                if page.submodelItem and page.submodelItem.hasQuantity():
+                    page.submodelItem.numberItem.setFont(font)
 
 class TogglePLIs(QUndoCommand):
 

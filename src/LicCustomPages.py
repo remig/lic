@@ -30,9 +30,9 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
     itemClassName = "Page"
 
-    PageSize = QSize(800, 600)  # Always pixels
-    Resolution = 72.0           # Always pixels / inch
-    NumberPos = 'right'         # One of 'left', 'right', 'oddRight', 'evenRight'
+    PageSize = QSize(800, 600) # Always pixels
+    Resolution = 72.0          # Always pixels / inch
+    NumberPos = 'right'        # One of 'left', 'right', 'oddRight', 'evenRight'
 
     defaultPageSize = QSize(800, 600)
     defaultResolution = 72.0
@@ -123,6 +123,8 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
         if self.submodelItem:
             items.append(self.submodelItem)
+            if self.submodelItem.hasQuantity():
+                items.append(self.submodelItem.numberItem)
 
         items += self.annotations
         return items
@@ -186,7 +188,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     def insertStepAtRow(self, step, row):
 
         if step.isInCallout():
-            return False  # Cannot move a step from inside a Callout onto this Page
+            return False  # Cannot move a step in a Callout onto this Page
 
         minStepNum = step.number        
         parent = step.parentItem()
@@ -201,7 +203,8 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         parent.children.remove(step)
 
-        if parent != self:  # Remove step from it's current page if it's different from this page
+        # Remove step from its page if that page different from this page
+        if parent != self:  
             parent.steps.remove(step)
             step.setParentItem(self)
             self.steps.append(step)
@@ -282,8 +285,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         self.scene().emit(SIGNAL("layoutChanged()"))
     
     def showHideSeparators(self, show):
-        for s in self.separators:
-            s.setVisible(show)
+        [s.setVisible(show) for s in self.separators]
 
     def addSubmodelImage(self, count = 0):
         self.submodelItem = SubmodelPreview(self, self.submodel)
@@ -306,12 +308,15 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         rect = self.numberItem.rect()
         pos = Page.NumberPos
         isOdd = self.number % 2
-        onRight = pos == 'right' or (isOdd and pos == 'oddRight') or (not isOdd and pos == 'evenRight')
+        onRight = (pos == 'right') or \
+                  (isOdd and pos == 'oddRight') or \
+                  (not isOdd and pos == 'evenRight')
 
         if onRight:
             rect.moveBottomRight(self.insetRect().bottomRight() - Page.margin)
         else:
-            rect.moveBottomLeft(QPointF(Page.margin.x(), self.insetRect().bottom() - Page.margin.y()))
+            pt = QPointF(Page.margin.x(), self.insetRect().bottom() - Page.margin.y())
+            rect.moveBottomLeft(pt)
         self.numberItem.setPos(rect.topLeft())
 
     def getCurrentLayout(self, buf = None):
@@ -342,8 +347,8 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         if self.submodelItem:
             self.submodelItem.initLayout()
 
-        # Remove any separators; we'll re-add them in the appropriate place later
-        self.removeAllSeparators()
+        # Remove any separators - we'll re-add them in the appropriate place later
+        self.removeAllSeparators()  # TODO: fix this, since it's expensive because it changes tree model
 
         pageRect = self.insetRect()
 
@@ -363,13 +368,16 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
             self.submodel.pages[0].submodelItem.resetPixmap()
 
     def adjustSubmodelImages(self):
+        if self.submodelItem is None:
+            return
 
         # Check if we should shrink submodel image
-        while self.submodelItem and self.submodelItem.scaling > 0.5 and self.checkForLayoutOverlaps():
-            
+        label = "Scaling " + os.path.basename(self.submodel.name) + " preview to "
+        while self.submodelItem.scaling > 0.5 and self.checkForLayoutOverlaps():
+
             # Scale submodel down and try again
             newScale = self.submodelItem.scaling - 0.2
-            yield "Scaling " + os.path.basename(self.submodel.name) + " preview to " + str(newScale)
+            yield label + str(newScale)
             self.submodelItem.changeScale(newScale)
             self.initLayout()
     
