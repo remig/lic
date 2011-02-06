@@ -70,6 +70,7 @@ def __writeTemplate(stream, template):
             part.abstractPart.buildSubAbstractPartDict(partDictionary)
 
     stream << QString(os.path.basename(template.filename))
+    stream.writeBool(template.separatorsVisible)
     __writePartDictionary(stream, partDictionary)
     __writeSubmodel(stream, template.submodelPart)
     __writePage(stream, template)
@@ -264,6 +265,7 @@ def __writePage(stream, page):
     for separator in page.separators:
         stream.writeInt32(separator.row())
         stream << separator.pos() << separator.rect() << separator.pen()
+        stream.writeBool(separator.isVisible())
 
     __writeAnnotationSet(stream, page)
 

@@ -369,7 +369,24 @@ class AddRemoveLabelCommand(QUndoCommand):
             self.page.scene().removeItem(self.label)
             self.page.labels.remove(self.label)
             self.label.setParentItem(None)
-        self.page.scene().emit(SIGNAL("layoutChanged()"))
+
+class ShowHideStepSeparatorCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, template, show):
+        QUndoCommand.__init__(self, "%s Step Separators" % ("show" if show else "hide"))
+        self.template, self.show = template, show
+
+    def doAction(self, redo):
+        self.template.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        show = (redo and self.show) or (not redo and not self.show)
+        self.template.separatorsVisible = show
+        for sep in self.template.separators:
+            sep.setVisible(show)
+        for page in self.template.instructions.getPageList():
+            page.showHideSeparators(show)
+        self.template.scene().emit(SIGNAL("layoutChanged()"))
 
 class AddRemoveRotateIconCommand(QUndoCommand):
 

@@ -281,14 +281,10 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         del self.separators[:]
         self.scene().emit(SIGNAL("layoutChanged()"))
     
-    def showSeparators(self):
+    def showHideSeparators(self, show):
         for s in self.separators:
-            s.show()
-    
-    def hideSeparators(self):
-        for s in self.separators:
-            s.hide()
-    
+            s.setVisible(show)
+
     def addSubmodelImage(self, count = 0):
         self.submodelItem = SubmodelPreview(self, self.submodel)
         self.submodelItem.setPos(Page.margin)
@@ -522,10 +518,10 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
         menu.addSeparator()
         if self.separators:
-            if [x for x in self.separators if x.isVisible()]:
-                menu.addAction("Hide Step Separators", self.hideSeparators)
+            if any(x.isVisible() for x in self.separators):
+                menu.addAction("Hide Step Separators", lambda: self.showHideSeparators(False))
             else:
-                menu.addAction("Show Step Separators", self.showSeparators)
+                menu.addAction("Show Step Separators", lambda: self.showHideSeparators(True))
 
         menu.addAction("Add blank Step", self.addBlankStepSignal)
         menu.addAction("Add Annotation", lambda: self.addAnnotationSignal(event.scenePos()))
@@ -588,11 +584,6 @@ class StepSeparator(QGraphicsLineItem):
         self.normalizePosition()
 
     def contextMenuEvent(self, event):
-        menu = QMenu(self.scene().views()[0])
-        menu.addAction("Remove", self.remove)
-        menu.exec_(event.screenPos())
-
-    def remove(self):
         pass
 
     def _setEdge(self, edge, cursor):

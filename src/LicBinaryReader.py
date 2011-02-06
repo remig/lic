@@ -109,6 +109,8 @@ def __createStream(filename, template = False):
 def __readTemplate(stream, instructions):
 
     filename = str(stream.readQString())
+    if stream.licFileVersion >= 15:
+        TemplatePage.separatorsVisible = stream.readBool()
 
     # Read in the entire abstractPart dictionary
     global partDict, colorDict
@@ -412,11 +414,13 @@ def __readPage(stream, parent, instructions, templateModel = None):
 
     # Read in any page separator lines
     for unused in range(stream.readInt32()):
-        border = page.addStepSeparator(stream.readInt32())
-        border.setPos(stream.readQPointF())
-        border.setRect(stream.readQRectF())
-        border.setPen(stream.readQPen())
-        border.normalizePosition()
+        separator = page.addStepSeparator(stream.readInt32())
+        separator.setPos(stream.readQPointF())
+        separator.setRect(stream.readQRectF())
+        separator.setPen(stream.readQPen())
+        if stream.licFileVersion >= 15:
+            separator.setVisible(stream.readBool())
+        separator.normalizePosition()
 
     if stream.licFileVersion >= 8:
         __readAnnotationSet(stream, page)

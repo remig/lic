@@ -51,7 +51,7 @@ from LicImporters import LDrawImporter
 import config     # For user path info
 
 MagicNumber = 0x14768126
-FileVersion = 14
+FileVersion = 15
 
 NoFlags = QGraphicsItem.GraphicsItemFlags()
 NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable

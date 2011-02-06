@@ -9,6 +9,7 @@ eof
 Template:
 
   QString filename
+  bool showSeparators
   partDictionary (from page.csi)
   Page templatePage
   Submodel template.subModelPart
@@ -136,8 +137,8 @@ Page:
   bool hasSubmodelItem
   SubmodelItem submodelItem, if it exists
 
-  int32 number of borders
-  ... Border 0..n ...
+  int32 number of step separators
+  ... StepSeparator 0..n ...
 
   int32 number of annotations  v8
   ... Annotation 0..n ...
@@ -181,11 +182,12 @@ Annotation:
   bool annotation.isAnnotation v10
   int32 annotation.zValue v10
     
-Border:
+StepSeparator:
   int32 child row
   QPointF pos
   QRectF rect
   QPen pen
+  bool visible
 
 Step:
   int32 number

@@ -127,6 +127,8 @@ class TemplateRotateScaleSignalItem(object):
 
 class TemplatePage(TemplateRectItem, Page):
 
+    separatorsVisible = False
+
     def __init__(self, submodel, instructions):
         Page.__init__(self, submodel, instructions, 0, 0)
         self.__filename = ""
@@ -334,6 +336,7 @@ class TemplatePage(TemplateRectItem, Page):
             stack.push(SetBrushCommand(icon, GraphicsRotateArrowItem.defaultBrush))
             stack.push(SetPenCommand(icon, GraphicsRotateArrowItem.defaultArrowPen, icon.arrowPen, "changeArrowPen"))
 
+        stack.push(ShowHideStepSeparatorCommand(self, TemplatePage.separatorsVisible))
         if self.separators:
             stack.push(SetPenCommand(self.separators[0], StepSeparator.defaultPen))
         
@@ -372,22 +375,33 @@ class TemplatePage(TemplateRectItem, Page):
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
+        stack = self.scene().undoStack
+
         menu.addAction("Change Page Size and Resolution", self.changePageSize)
         menu.addSeparator()
+
         menu.addAction("Format Border", self.formatBorder)
         menu.addAction("Background Color", self.setBackgroundColor)
         arrowMenu = menu.addMenu("Background Fill Effect")
         arrowMenu.addAction("Gradient", self.setBackgroundGradient)
         arrowMenu.addAction("Image", self.setBackgroundImage)
         arrowMenu.addAction("None", self.setBackgroundNone)
+
         if not self.instructions.mainModel.hasTitlePage():
             menu.addSeparator()
             menu.addAction("Add Title Page", self.instructions.mainModel.createNewTitlePage)
-
         menu.addSeparator()
+
         menu.addAction("Change 3D model Lighting", self.changeLighting)
+        menu.addSeparator()
+
+        if self.separatorsVisible:
+            menu.addAction("Hide Step Separators", lambda: stack.push(ShowHideStepSeparatorCommand(self, False)))
+        else:
+            menu.addAction("Show Step Separators", lambda: stack.push(ShowHideStepSeparatorCommand(self, True)))
+
         menu.exec_(event.screenPos())
-        
+
     def setColor(self, color):
         Page.defaultFillColor = color
         self.color = color
