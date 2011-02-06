@@ -35,6 +35,15 @@ def genericNormalizePosition(self, childrenToSkip = []):
 
 QGraphicsRectItem.normalizePosition = genericNormalizePosition
 
+def genericLineNormalizePosition(self):
+    x, y = self.line().p1()
+    if x == 0 and y == 0:
+        return
+    self.moveBy(x, y)
+    self.setLine(0, 0, self.line().x2() - x, self.line().y2() - y)
+
+QGraphicsLineItem.normalizePosition = genericLineNormalizePosition
+
 def genericSetPosCenteredIn(self, rect):
     x = (rect.width() - self.rect().width()) / 2.0
     y = (rect.height() - self.rect().height()) / 2.0
@@ -306,6 +315,7 @@ QGraphicsItem.oldPos = None  # Give all items an oldPos; saves a hasAttr check i
 QGraphicsItem.fixedSize = False # Give all items an unset FixedSize 
 
 QGraphicsLineItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
+QGraphicsLineItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)
 QGraphicsLineItem.mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsItem)
 
 QGraphicsRectItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)

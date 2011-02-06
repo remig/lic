@@ -196,6 +196,10 @@ class TemplatePage(TemplateRectItem, Page):
             step.callouts[0].arrow.tipRect.setFlags(NoFlags)
             step.callouts[0].arrow.baseRect.setFlags(NoFlags)
 
+        for sep in self.separators:
+            sep.__class__ = TemplateStepSeparator
+            sep.setAcceptHoverEvents(False)
+
     def createBlankTemplate(self, glContext):
         step = Step(self, 0)
         step.data = lambda index: "Template Step"
@@ -222,13 +226,19 @@ class TemplatePage(TemplateRectItem, Page):
             step.callouts[0].addPart(self.submodel.parts[2].duplicate())
 
         step.callouts[0].steps[0].csi.resetPixmap()
+        step.addRotateIcon()
         
         self.addSubmodelImage()
         self.submodelItem.setAbstractPart(self.submodelPart)
-
-        step.addRotateIcon()
+        self.submodelItem.addQuantityLabel(2)
 
         self.initLayout()
+
+        r = step.rect().translated(step.pos())
+        step.initLayout(r.adjusted(0, 0, -100, 0))
+
+        pw, ph = Page.PageSize
+        self.addStepSeparator(-1, QRectF(pw - 80, 15, 1, ph - 30))
         self.postLoadInit("test_template.lit")
 
     def initGLDimension(self, part, glContext):
@@ -324,6 +334,9 @@ class TemplatePage(TemplateRectItem, Page):
             stack.push(SetBrushCommand(icon, GraphicsRotateArrowItem.defaultBrush))
             stack.push(SetPenCommand(icon, GraphicsRotateArrowItem.defaultArrowPen, icon.arrowPen, "changeArrowPen"))
 
+        if self.separators:
+            stack.push(SetPenCommand(self.separators[0], StepSeparator.defaultPen))
+        
         if useUndo:
             stack.endMacro()
 
@@ -536,6 +549,18 @@ class TemplateCallout(TemplateRectItem, Callout):
         arrowMenu.addAction("Step Fit", lambda: stack.push(CalloutBorderFitCommand(self, self.borderFit, Callout.StepBorder)))
         arrowMenu.addAction("Tight Fit", lambda: stack.push(CalloutBorderFitCommand(self, self.borderFit, Callout.TightBorder)))
         menu.exec_(event.screenPos())
+
+class TemplateStepSeparator(TemplateLineItem, StepSeparator):
+
+    def contextMenuEvent(self, event):
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Format Line", self.formatBorder)
+        #menu.addAction("Remove All Step Separators", None) #lambda: self.setItemFont(item))
+        menu.exec_(event.screenPos())
+
+    def setPen(self, newPen):
+        StepSeparator.setPen(self, newPen)
+        StepSeparator.defaultPen = newPen
 
 class TemplateStep(Step):
     

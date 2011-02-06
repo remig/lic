@@ -250,7 +250,10 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
     def addChild(self, index, child):
 
-        self.children.insert(index, child)
+        if index == -1:
+            self.children.append(child)
+        else:
+            self.children.insert(index, child)
 
         # Adjust the z-order of all children: first child has highest z value
         length = len(self.children)
@@ -560,24 +563,35 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
                 item = PageAnnotation(self, pixmap, filename, pos)
                 self.scene().undoStack.push(AddRemoveAnnotationCommand(self, item, True))
 
-class StepSeparator(QGraphicsRectItem):
+class StepSeparator(QGraphicsLineItem):
     itemClassName = "Separator"
+    defaultPen = QPen(QBrush(Qt.black), 2)
 
     def __init__(self, parentPage, rect = None):
         QGraphicsRectItem.__init__(self, parentPage)
-        self.setRect(rect if rect else QRectF(0, 0, 1, 1))
         self.setFlags(AllFlags)
-        self.setPen(QPen(Qt.black))
-        self.setBrush(QBrush(Qt.black))
+        self.setPen(self.defaultPen)
         self.setAcceptHoverEvents(True)
         self.data = lambda index: "Step Separator"
+
+        if rect:
+            self.setRect(rect)
+
+    def rect(self):
+        return QRectF(self.line().x1(), self.line().y1(), self.line().x2(), self.line().y2())
+    
+    def setRect(self, rect):
+        if rect.width() > rect.height():
+            self.setLine(rect.x(), rect.y(), rect.right(), rect.y())
+        else:
+            self.setLine(rect.x(), rect.y(), rect.x(), rect.bottom())
         self.normalizePosition()
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Remove", self.remove)
         menu.exec_(event.screenPos())
-        
+
     def remove(self):
         pass
 
@@ -617,7 +631,7 @@ class StepSeparator(QGraphicsRectItem):
         if self.hasCursor():  # This is a resize move event
             self.oldRect = self.rect()
         else:
-            QGraphicsRectItem.mousePressEvent(self, event)
+            QGraphicsLineItem.mousePressEvent(self, event)
 
     def mouseMoveEvent(self, event):
         if self.hasCursor():  # This is a resize move event
@@ -634,13 +648,13 @@ class StepSeparator(QGraphicsRectItem):
                 rect.setBottom(y)
             self.setRect(rect)
         else:
-            QGraphicsRectItem.mouseMoveEvent(self, event)
+            QGraphicsLineItem.mouseMoveEvent(self, event)
 
     def mouseReleaseEvent(self, event):
         if self.hasCursor():  # This is a resize move event
             self.scene().undoStack.push(ResizeCommand(self, self.oldRect, self.rect()))
         else:
-            QGraphicsRectItem.mouseReleaseEvent(self, event)
+            QGraphicsLineItem.mouseReleaseEvent(self, event)
 
 class PageAnnotation(QGraphicsPixmapItem):
 

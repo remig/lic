@@ -99,14 +99,14 @@ class LicTreeView(QTreeView):
         # instanceType can be either concrete type like PLI or itemClassString
         # like "Page Number" (for specific QGraphicsSimpleTextItems) 
 
-        def cmp(index):
+        def compare(index):
             ptr = index.internalPointer()
             if isinstance(instanceType, str):
                 return ptr.itemClassName == instanceType
             return isinstance(ptr, instanceType)
 
         action = lambda index: self.setRowHidden(index.row(), index.parent(), hide)
-        self.walkTreeModel(cmp, action)
+        self.walkTreeModel(compare, action)
 
     def collapseAll(self):
         QTreeView.collapseAll(self)
@@ -283,9 +283,9 @@ class LicTreeWidget(QWidget):
         LicTreeModel.CSITreeManager.showPartGroupings = show
         
         # Need to reset all cached Part data strings 
-        cmp = lambda index: isinstance(index.internalPointer(), Part)
+        compare = lambda index: isinstance(index.internalPointer(), Part)
         action = lambda index: index.internalPointer().resetDataString()
-        self.tree.walkTreeModel(cmp, action)
+        self.tree.walkTreeModel(compare, action)
         
         model.emit(SIGNAL("layoutChanged()"))
         self.resetHiddenRows()
@@ -663,9 +663,9 @@ class LicWindow(QMainWindow):
     def fileImport(self):
         if not self.offerSave():
             return
-        dir = os.path.dirname(self.filename) if self.filename is not None else "."
+        folder = os.path.dirname(self.filename) if self.filename is not None else "."
         formats = LicImporters.getFileTypesString()
-        filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Import Model", dir, formats))
+        filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Import Model", folder, formats))
         if filename:
             self.setWindowModified(False)
             QTimer.singleShot(50, lambda: self.importModel(filename))
@@ -680,8 +680,7 @@ class LicWindow(QMainWindow):
         progress.setValue(2)  # Try and force dialog to show up right away
 
         loader = self.instructions.importModel(filename)
-        max = loader.next()
-        progress.setMaximum(max)  # First value yielded after load is # of progress steps
+        progress.setMaximum(loader.next())  # First value yielded after load is # of progress steps
 
         for label in loader:
             if progress.wasCanceled():
@@ -695,6 +694,10 @@ class LicWindow(QMainWindow):
 
         try:
             template = LicBinaryReader.loadLicTemplate(self.defaultTemplateFilename, self.instructions)
+
+#            import LicTemplate  # Use this to regenerate new default template from scratch, to add new stuff to it
+#            template = LicTemplate.TemplatePage(self.instructions.mainModel, self.instructions)
+#            template.createBlankTemplate(self.glWidget)
         except IOError, unused:
             # Could not load default template, so load template stored in resource bundle
             template = LicBinaryReader.loadLicTemplate(":/default_template", self.instructions)
@@ -837,8 +840,8 @@ class LicWindow(QMainWindow):
     
     def fileLoadTemplate(self):
         templateName = self.instructions.template.filename
-        dir = os.path.dirname(templateName) if templateName != "" else "."  # TODO: Check what happens if templateName has no path
-        newFilename = unicode(QFileDialog.getOpenFileName(self, "Lic - Load Template", dir, "Lic Template files (*.lit)"))
+        folder = os.path.dirname(templateName) if templateName != "" else "."  # TODO: Check what happens if templateName has no path
+        newFilename = unicode(QFileDialog.getOpenFileName(self, "Lic - Load Template", folder, "Lic Template files (*.lit)"))
         if newFilename and os.path.basename(newFilename) != templateName:
             try:
                 newTemplate = LicBinaryReader.loadLicTemplate(newFilename, self.instructions)
@@ -855,10 +858,10 @@ class LicWindow(QMainWindow):
     def fileOpen(self, filename = None):
         if not self.offerSave():
             return
-        dir = os.path.dirname(self.filename) if self.filename is not None else "."
+        folder = os.path.dirname(self.filename) if self.filename is not None else "."
         
         if filename is None:
-            filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Open Instruction Book", dir, "Lic Instruction Book files (*.lic)"))
+            filename = unicode(QFileDialog.getOpenFileName(self, "Lic - Open Instruction Book", folder, "Lic Instruction Book files (*.lic)"))
             
         if filename and filename != self.filename:
             self.fileClose(False)
@@ -962,7 +965,7 @@ def real_main():
     #filename = unicode("C:/lic/template.dat")
     #filename = unicode("C:/lic/stack.lic")
     #filename = unicode("C:/lic/1x1.dat")
-    filename = unicode("C:/lic/pyramid.lic")
+    #filename = unicode("C:/lic/pyramid.lic")
     #filename = unicode("C:/lic/pyramid.dat")
     #filename = unicode("C:/lic/SubSubModel.mpd")
 
@@ -1013,5 +1016,8 @@ def profile_main():
     logging.info("Profile data:\n%s", stream.getvalue())
 
 if __name__ == '__main__':
+    #pylint --init-hook="import sys; sys.path.append('C:\\lic\\src')" --include-ids=y C:\lic\src\Lic.py > lic_pylint.txt
+    #pylint --help-msg=W0401
+    
     real_main()
     #profile_main()
