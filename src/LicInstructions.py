@@ -18,6 +18,8 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
+import sys
+
 from PyQt4.QtCore import *
 
 from LicHelpers import LicColor, LicColorDict
@@ -343,7 +345,11 @@ class Instructions(QObject):
         filename = os.path.join(config.pdfCachePath(), os.path.basename(self.mainModel.filename)[:-3] + "pdf")
         yield filename
 
-        exporter = self.exportImages(3.0)
+        if sys.platform.startswith('darwin'):  # Temp workaround to PDF crash on OSX
+            exporter = self.exportImages(2.0)
+        else:
+            exporter = self.exportImages(3.0)
+
         yield 2 * exporter.next()
 
         printer = QPrinter(QPrinter.HighResolution)
