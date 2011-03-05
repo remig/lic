@@ -18,17 +18,21 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
+import os
+
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
+from PyQt4.QtOpenGL import *
 
 from LicModel import *
 from LicUndoActions import *
 from LicTreeModel import *
+from LicQtWrapper import *
 
-class Page(PageTreeManager, GraphicsRoundRectItem):
-    """ A single page in an instruction book.  Contains one or more Steps. """
+import LicLayout
+import config
 
-    itemClassName = "Page"
+class BasePage(GraphicsRoundRectItem):
 
     PageSize = QSize(800, 600) # Always pixels
     Resolution = 72.0          # Always pixels / inch
@@ -42,15 +46,34 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
     defaultBrush = QBrush(Qt.NoBrush)
     defaultPen = QPen(Qt.NoPen)
 
-    def __init__(self, submodel, instructions, number, row):
+    def __init__(self):
         if not hasattr(Page.defaultPen, "cornerRadius"):
-            Page.defaultPen.cornerRadius = 0
+            BasePage.defaultPen.cornerRadius = 0
 
         GraphicsRoundRectItem.__init__(self, None)
-
         self.setPos(0, 0)
         self.setRect(0, 0, self.PageSize.width(), self.PageSize.height())
         self.setFlags(NoMoveFlags)
+
+        # Setup this page's layout lock icon
+        self.lockIcon = LockIcon(self)
+
+    def isLocked(self):
+        return self.lockIcon.isLocked
+
+    def lock(self, isLocked):
+        for child in self.getAllChildItems():
+            child.setFlags(NoMoveFlags if isLocked else AllFlags)
+        self.setFlags(NoMoveFlags)
+
+class Page(PageTreeManager, BasePage):
+    """ A single page in an instruction book.  Contains one or more Steps. """
+
+    itemClassName = "Page"
+
+    def __init__(self, submodel, instructions, number, row):
+
+        BasePage.__init__(self)
 
         self.instructions = instructions
         self.submodel = submodel
@@ -61,7 +84,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         self.children = []
         self.annotations = []
         self.submodelItem = None
-        self.layout = GridLayout()
+        self.layout = LicLayout.GridLayout()
         self.color = Page.defaultFillColor
 
         # Setup this page's page number
@@ -72,9 +95,6 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         self.numberItem.itemClassName = "Page Number"
         self.children.append(self.numberItem)
         
-        # Setup this page's layout lock icon
-        self.lockIcon = LockIcon(self)
-
         # Position page number in bottom right page corner
         self.resetPageNumberPosition()
         
@@ -128,12 +148,6 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
         items += self.annotations
         return items
-
-    def getExportFilename(self):
-        return os.path.join(config.finalImageCachePath(), "Page_%d.png" % self._number)
-    
-    def getGLImageFilename(self):
-        return os.path.join(config.glImageCachePath(), "Page_%d.png" % self._number)
 
     def getPage(self):
         return self
@@ -236,14 +250,6 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
 
     def isEmpty(self):
         return len(self.steps) == 0 and self.submodelItem is None
-
-    def isLocked(self):
-        return self.lockIcon.isLocked
-
-    def lock(self, isLocked):
-        for child in self.getAllChildItems():
-            child.setFlags(NoMoveFlags if isLocked else AllFlags)
-        self.setFlags(NoMoveFlags)
 
     def show(self):
         GraphicsRoundRectItem.show(self)
@@ -381,14 +387,6 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
             self.submodelItem.changeScale(newScale)
             self.initLayout()
     
-    def scaleImages(self):
-        for step in self.steps:
-            if step.hasPLI():
-                step.pli.initLayout()
-            
-        if self.submodelItem:
-            self.resetSubmodelImage()
-
     def renderFinalImageWithPov(self):
 
         for step in self.steps:
@@ -428,7 +426,8 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
             painter.drawImage(self.submodelItem.pos() + PLI.margin, self.submodel.pngImage)
 
         painter.end()
-        image.save(self.getExportFilename())
+        newName = os.path.join(config.finalImageCachePath(), "Page_%d.png" % self.number)
+        image.save(newName)
         self.setPos(oldPos)
 
     def paint(self, painter, option, widget = None):
@@ -513,7 +512,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
             menu.addAction("Auto Layout", lambda: stack.push(LayoutItemCommand(self, self.getCurrentLayout())))
 
         if not self.isLocked() and ((len(self.steps) > 1) or (self.steps and self.submodelItem)):
-            if self.layout.orientation == Horizontal:
+            if self.layout.orientation == LicLayout.Horizontal:
                 menu.addAction("Use Vertical layout", self.useVerticalLayout)
             else:
                 menu.addAction("Use Horizontal layout", self.useHorizontalLayout)
@@ -539,11 +538,11 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         menu.exec_(event.screenPos())
 
     def useVerticalLayout(self):
-        self.layout.orientation = Vertical
+        self.layout.orientation = LicLayout.Vertical
         self.initLayout()
 
     def useHorizontalLayout(self):
-        self.layout.orientation = Horizontal
+        self.layout.orientation = LicLayout.Horizontal
         self.initLayout()
 
     def addBlankStepSignal(self):

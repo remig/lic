@@ -22,10 +22,11 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 from LicModel import *
-from LicCustomPages import *
+from LicCustomPages import Page
 import LicUndoActions
 import LicLayout
 import LicGLHelpers
+import LicQtWrapper
 
 class LicGraphicsView(QGraphicsView):
     def __init__(self, parent):
@@ -600,7 +601,7 @@ class Guide(QGraphicsLineItem):
         QGraphicsLineItem.__init__(self)
         
         self.orientation = orientation
-        self.setFlags(AllFlags)
+        self.setFlags(LicQtWrapper.AllFlags)
         self.setPen(QPen(QColor(0, 0, 255, 128)))  # Blue 1/2 transparent
         #self.setPen(QPen(QBrush(QColor(0, 0, 255, 128)), 1.5))  # Blue 1/2 transparent, 1.5 thick
         self.setZValue(10000)  # Put on top of everything else

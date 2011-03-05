@@ -18,14 +18,22 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-import sys
+import sys, os
+import Image
 
 from PyQt4.QtCore import *
+from PyQt4.QtGui import *
+from PyQt4.QtOpenGL import *
+
+from OpenGL import GL
 
 from LicHelpers import LicColor, LicColorDict
-from LicModel import *
-from LicCustomPages import *
+from LicCustomPages import Page, TitlePage
 from LicImporters import LDrawImporter
+from LicModel import *
+
+import config
+import LicGLHelpers
 
 class Instructions(QObject):
     itemClassName = "Instructions"
@@ -293,7 +301,8 @@ class Instructions(QObject):
             for page in pageList:
 
                 page.lockIcon.hide()
-                exportedFilename = page.getGLImageFilename()
+
+                exportedFilename = os.path.join(config.glImageCachePath(), "Page_%d.png" % page.number)
 
                 bufferManager.bindMSFB()
                 LicGLHelpers.initFreshContext(True)
@@ -324,7 +333,8 @@ class Instructions(QObject):
                 self.scene.render(painter, QRectF(0, 0, w, h))
     
                 painter.end()
-                newName = page.getExportFilename()
+
+                newName = os.path.join(config.finalImageCachePath(), "Page_%d.png" % page.number)
                 image.save(newName)
 
                 yield newName

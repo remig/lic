@@ -18,8 +18,14 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
+import os
+
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
+from PyQt4.QtOpenGL import *
+
+from LicCustomPages import Page, StepSeparator
 from LicModel import *
-from LicCustomPages import *
 from LicUndoActions import *
 from LicQtWrapper import *
 
@@ -31,7 +37,7 @@ class TemplateLineItem(object):
 
     def formatBorder(self, fillColor = None):
         
-        self.setSelected(False)  # Deselect to better see new border changes
+        self.setSelected(False)  # De-select to better see new border changes
         parentWidget = self.scene().views()[0]
         dialog = LicDialogs.PenDlg(parentWidget, self.pen(), hasattr(self, 'cornerRadius'), fillColor)
 

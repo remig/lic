@@ -19,10 +19,11 @@
 """
 
 from PyQt4.QtCore import *
+from OpenGL import GL
 
 from LicModel import *
 from LicTemplate import *
-from LicCustomPages import *
+import LicCustomPages
 import LicGLHelpers
 import LicHelpers
 
@@ -50,10 +51,14 @@ QDataStream.readQSize = lambda self: ro(self, QSize)
 # Having these global here avoids having to pass them as arguments to every single method in here
 partDict = {}
 colorDict = None
+FileVersion = None
 
-def loadLicFile(filename, instructions):
+def loadLicFile(filename, instructions, fileVersion, MagicNumber):
+    
+    global FileVersion
+    FileVersion = fileVersion
 
-    fh, stream = __createStream(filename)
+    fh, stream = __createStream(filename, MagicNumber)
 
     if stream.licFileVersion >= 14:
         yield stream.readInt32()
@@ -77,17 +82,19 @@ def loadLicFile(filename, instructions):
     if fh is not None:
         fh.close()
 
-def loadLicTemplate(filename, instructions):
+def loadLicTemplate(filename, instructions, fileVersion, MagicNumber):
 
-    fh, stream = __createStream(filename, True)
+    global FileVersion
+    FileVersion = fileVersion
+
+    fh, stream = __createStream(filename, MagicNumber, True)
     template = __readTemplate(stream, instructions)
     if fh is not None:
         fh.close()
 
     return template
 
-def __createStream(filename, template = False):
-    global FileVersion, MagicNumber
+def __createStream(filename, MagicNumber, template = False):
 
     fh = QFile(filename)
     if not fh.open(QIODevice.ReadOnly):
@@ -377,7 +384,7 @@ def __readAnnotationSet(stream, page):
         pixmap = stream.readQPixmap()
         filename = str(stream.readQString())
         pos = stream.readQPointF()
-        annotation = PageAnnotation(page, pixmap, filename, pos)
+        annotation = LicCustomPages.PageAnnotation(page, pixmap, filename, pos)
         page.annotations.append(annotation)
         page.addChild(len(page.children), annotation)
 
@@ -431,7 +438,7 @@ def __readTitlePage(stream, instructions):
     if not stream.readBool():
         return None
 
-    page = TitlePage(instructions)
+    page = LicCustomPages.TitlePage(instructions)
 
     __readRoundedRectItem(stream, page)
     page.color = stream.readQColor()
@@ -450,7 +457,7 @@ def __readTitlePage(stream, instructions):
 
 def __readPartListPage(stream, instructions):
 
-    page = PartListPage(instructions, stream.readInt32(), stream.readInt32())
+    page = LicCustomPages.PartListPage(instructions, stream.readInt32(), stream.readInt32())
 
     __readRoundedRectItem(stream, page)
     page.color = stream.readQColor()
@@ -571,7 +578,7 @@ def __readCSI(stream, step):
 def __readPLI(stream, parent, makePartListPLI = False):
 
     if makePartListPLI:
-        pli = PartListPLI(parent)
+        pli = LicCustomPages.PartListPLI(parent)
     else:
         pli = PLI(parent)
     __readRoundedRectItem(stream, pli)

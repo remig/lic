@@ -18,15 +18,17 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
+import os
+
 from PyQt4.QtCore import *
 
-from LicModel import *
-from LicCustomPages import *
 import LicGLHelpers
+from LicModel import Arrow, CSI, PLI, SubmodelPreview
+from LicCustomPages import Page
 
-def saveLicFile(filename, instructions):
+def saveLicFile(filename, instructions, FileVersion, MagicNumber):
 
-    fh, stream = __createStream(filename)
+    fh, stream = __createStream(filename, FileVersion, MagicNumber)
 
     # Need to explicitly de-select parts so they refresh the CSI pixmap
     instructions.scene.clearSelectedParts()
@@ -39,17 +41,16 @@ def saveLicFile(filename, instructions):
     if fh is not None:
         fh.close()
         
-def saveLicTemplate(template):
+def saveLicTemplate(template, FileVersion, MagicNumber):
     
-    fh, stream = __createStream(template.filename)
+    fh, stream = __createStream(template.filename, FileVersion, MagicNumber)
 
     __writeTemplate(stream, template)
 
     if fh is not None:
         fh.close()
 
-def __createStream(filename):
-    global FileVersion, MagicNumber
+def __createStream(filename, FileVersion, MagicNumber):
     
     fh = QFile(filename)
     if not fh.open(QIODevice.WriteOnly):

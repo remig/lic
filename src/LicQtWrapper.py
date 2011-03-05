@@ -23,6 +23,14 @@ from PyQt4.QtGui import *
 
 import LicLayout
 
+NoFlags = QGraphicsItem.GraphicsItemFlags()
+NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
+AllFlags = NoMoveFlags | QGraphicsItem.ItemIsMovable
+
+__all__ = ["NoFlags", "NoMoveFlags", "AllFlags",
+           "GraphicsRoundRectItem", "GraphicsCircleLabelItem",
+           "GraphicsRotateArrowItem"]
+
 def genericNormalizePosition(self, childrenToSkip = []):
     x, y = self.rect().topLeft()
     if x == 0 and y == 0:

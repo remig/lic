@@ -19,7 +19,7 @@
 """
 
 from PyQt4.QtGui import QUndoCommand, QPixmap
-from PyQt4.QtCore import SIGNAL, QSizeF
+from PyQt4.QtCore import SIGNAL
 
 import LicHelpers
 import LicGLHelpers

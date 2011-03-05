@@ -18,20 +18,15 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-#from __future__ import division
-import sys
-import time
-import os
-import logging
+import os, sys, logging
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
 
-from LicModel import *
-from LicCustomPages import *
-from LicInstructions import *
-
+import LicModel
+import LicCustomPages
+import LicInstructions
 import LicGraphicsWidget
 import LicTreeModel
 import LicBinaryReader
@@ -63,6 +58,9 @@ except ImportError:
 
 __version__ = "0.6.0"
 _debug = False
+
+MagicNumber = 0x14768126
+FileVersion = 15
 
 if _debug:
     from modeltest import ModelTest
@@ -152,7 +150,7 @@ class LicTreeView(QTreeView):
         target = selList[-1].internalPointer()
 
         # Find the selected item's parent page, then flip to that page
-        if isinstance(target, Submodel):
+        if isinstance(target, LicModel.Submodel):
             self.scene.selectPage(target.pages[0].number)
         else:
             page = target.getPage()
@@ -162,9 +160,9 @@ class LicTreeView(QTreeView):
         partList = []
         for index in selList:
             item = index.internalPointer()
-            if isinstance(item, Part):
+            if isinstance(item, LicModel.Part):
                 partList.append(item)
-            elif isinstance(item, Submodel):
+            elif isinstance(item, LicModel.Submodel):
                 item.setSelected(True)
                 self.scene.selectedSubmodels.append(item)
             else:
@@ -247,11 +245,11 @@ class LicTreeWidget(QWidget):
         
         self.csiCheckAction = addViewAction("Show CSI", self.setShowCSI)  # Special case - stuff inside CSI needs to move into Step if CSI hidden
         
-        self.hiddenRowActions.append(addViewAction("Show PLI", lambda show: self.tree.hideRowInstance(PLI, not show)))
-        self.hiddenRowActions.append(addViewAction("Show PLI Items", lambda show: self.tree.hideRowInstance(PLIItem, not show)))
+        self.hiddenRowActions.append(addViewAction("Show PLI", lambda show: self.tree.hideRowInstance(LicModel.PLI, not show)))
+        self.hiddenRowActions.append(addViewAction("Show PLI Items", lambda show: self.tree.hideRowInstance(LicModel.PLIItem, not show)))
         self.hiddenRowActions.append(addViewAction("Show PLI Item Qty", lambda show: self.tree.hideRowInstance("PLIItem Quantity", not show)))
-        self.hiddenRowActions.append(addViewAction("Show Callouts", lambda show: self.tree.hideRowInstance(Callout, not show)))
-        self.hiddenRowActions.append(addViewAction("Show Submodel Previews", lambda show: self.tree.hideRowInstance(SubmodelPreview, not show)))
+        self.hiddenRowActions.append(addViewAction("Show Callouts", lambda show: self.tree.hideRowInstance(LicModel.Callout, not show)))
+        self.hiddenRowActions.append(addViewAction("Show Submodel Previews", lambda show: self.tree.hideRowInstance(LicModel.SubmodelPreview, not show)))
         
         viewToolButton.setMenu(viewMenu)
         viewToolButton.setPopupMode(QToolButton.InstantPopup)
@@ -282,7 +280,7 @@ class LicTreeWidget(QWidget):
         LicTreeModel.CSITreeManager.showPartGroupings = show
         
         # Need to reset all cached Part data strings 
-        compare = lambda index: isinstance(index.internalPointer(), Part)
+        compare = lambda index: isinstance(index.internalPointer(), LicModel.Part)
         action = lambda index: index.internalPointer().resetDataString()
         self.tree.walkTreeModel(compare, action)
         
@@ -326,7 +324,7 @@ class LicWindow(QMainWindow):
         self.graphicsView.setViewport(self.glWidget)
         self.graphicsView.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
         self.graphicsView.setScene(self.scene)
-        self.scene.setSceneRect(0, 0, Page.PageSize.width() + 28, Page.PageSize.height() + 25)
+        self.scene.setSceneRect(0, 0, LicCustomPages.Page.PageSize.width() + 28, LicCustomPages.Page.PageSize.height() + 25)
         
         # Connect the items moved signal to a push command on undo stack
         self.connect(self.scene, SIGNAL("itemsMoved"), lambda x: self.undoStack.push(LicUndoActions.MoveCommand(x)))
@@ -340,7 +338,7 @@ class LicWindow(QMainWindow):
         self.initMenu()
         self.initToolBars()
 
-        self.instructions = Instructions(self, self.scene, self.glWidget)
+        self.instructions = LicInstructions.Instructions(self, self.scene, self.glWidget)
         self.treeModel = LicTreeModel.LicTreeModel(self.treeWidget.tree)
         if _debug:
             self.modelTest = ModelTest(self.treeModel, self)
@@ -674,6 +672,7 @@ class LicWindow(QMainWindow):
         if not self.fileClose():
             return
 
+        #import time
         #startTime = time.time()
         progress = LicDialogs.LicProgressDialog(self, "Importing " + os.path.basename(filename))
         progress.setValue(2)  # Try and force dialog to show up right away
@@ -692,19 +691,19 @@ class LicWindow(QMainWindow):
         self.treeModel.root = self.instructions.mainModel
 
         try:
-            template = LicBinaryReader.loadLicTemplate(self.defaultTemplateFilename, self.instructions)
+            template = LicBinaryReader.loadLicTemplate(self.defaultTemplateFilename, self.instructions, FileVersion, MagicNumber)
 
 #            import LicTemplate  # Use this to regenerate new default template from scratch, to add new stuff to it
 #            template = LicTemplate.TemplatePage(self.instructions.mainModel, self.instructions)
 #            template.createBlankTemplate(self.glWidget)
         except IOError, unused:
             # Could not load default template, so load template stored in resource bundle
-            template = LicBinaryReader.loadLicTemplate(":/default_template", self.instructions)
+            template = LicBinaryReader.loadLicTemplate(":/default_template", self.instructions, FileVersion, MagicNumber)
         
         template.filename = ""  # Do not preserve default template filename
         progress.incr("Adding Part List Page")
         self.instructions.template = template
-        self.instructions.mainModel.partListPages = PartListPage.createPartListPages(self.instructions)
+        self.instructions.mainModel.partListPages = LicCustomPages.PartListPage.createPartListPages(self.instructions)
         template.applyFullTemplate(False)  # Template should apply to part list but not title pages
 
         progress.incr("Adding Title Page")
@@ -731,7 +730,7 @@ class LicWindow(QMainWindow):
         progress = LicDialogs.LicProgressDialog(self, "Opening " + os.path.basename(filename))
         progress.setValue(2)  # Try and force dialog to show up right away
 
-        loader = LicBinaryReader.loadLicFile(filename, self.instructions)
+        loader = LicBinaryReader.loadLicFile(filename, self.instructions, FileVersion, MagicNumber)
         count = loader.next() + 3
         progress.setMaximum(count)  # First value yielded after load is # of progress steps, +3 because we start at 2, and have to load colors
 
@@ -794,7 +793,7 @@ class LicWindow(QMainWindow):
             if os.path.isfile(tmpXName):
                 os.remove(tmpXName)
 
-            LicBinaryWriter.saveLicFile(tmpXName, self.instructions)
+            LicBinaryWriter.saveLicFile(tmpXName, self.instructions, FileVersion, MagicNumber)
 
             if os.path.isfile(tmpName):
                 os.remove(tmpName)
@@ -823,7 +822,7 @@ class LicWindow(QMainWindow):
                 return
 
         try:
-            LicBinaryWriter.saveLicTemplate(template)
+            LicBinaryWriter.saveLicTemplate(template, FileVersion, MagicNumber)
             self.statusBar().showMessage("Saved Template to: " + template.filename)
         except (IOError, OSError), e:
             QMessageBox.warning(self, "Lic - Save Error", "Failed to save %s: %s" % (template.filename, e))
@@ -843,7 +842,7 @@ class LicWindow(QMainWindow):
         newFilename = unicode(QFileDialog.getOpenFileName(self, "Lic - Load Template", folder, "Lic Template files (*.lit)"))
         if newFilename and os.path.basename(newFilename) != templateName:
             try:
-                newTemplate = LicBinaryReader.loadLicTemplate(newFilename, self.instructions)
+                newTemplate = LicBinaryReader.loadLicTemplate(newFilename, self.instructions, FileVersion, MagicNumber)
             except IOError, e:
                 QMessageBox.warning(self, "Lic - Load Template Error", "Failed to open %s: %s" % (newFilename, e))
             else:

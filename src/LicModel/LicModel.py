@@ -18,10 +18,8 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-import math   # for sqrt
-import os     # for output path creation
-import time
-import Image
+import os
+import math
 
 #import OpenGL
 #OpenGL.ERROR_CHECKING = False
@@ -37,12 +35,10 @@ from PyQt4.QtOpenGL import *
 from LicUndoActions import *
 from LicTreeModel import *
 from LicQtWrapper import *
-from LicLayout import *
+import LicLayout
 
-import LicGLHelpers
 import LicL3PWrapper
 import LicPovrayWrapper
-import LicHelpers
 import LicDialogs
 import LicPartLengths
 import LicImporters
@@ -50,12 +46,10 @@ from LicImporters import LDrawImporter
 
 import config     # For user path info
 
-MagicNumber = 0x14768126
-FileVersion = 15
-
-NoFlags = QGraphicsItem.GraphicsItemFlags()
-NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
-AllFlags = NoMoveFlags | QGraphicsItem.ItemIsMovable
+__all__ = ["CalloutArrowEndItem", "CalloutArrow", "Callout",
+           "Step", "SubmodelPreview", "PLIItem", "PLI", "CSI",
+           "AbstractPart", "Submodel", "Mainmodel", "PartTreeItem",
+           "Part", "Arrow", "Primitive"]
 
 class CalloutArrowEndItem(QGraphicsRectItem):
     itemClassName = "CalloutArrowEndItem"
@@ -277,7 +271,7 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         self.qtyLabel = None
         self.showStepNumbers = showStepNumbers
         self.borderFit = Callout.DefaultBorder
-        self.layout = GridLayout()
+        self.layout = LicLayout.GridLayout()
         
         self.setPos(0.0, 0.0)
         self.setRect(0.0, 0.0, 30.0, 30.0)
@@ -950,7 +944,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
         for callout in self.callouts:
             callout.initLayout()
 
-        GridLayout.initCrossLayout(r, [self.csi] + self.callouts)
+        LicLayout.GridLayout.initCrossLayout(r, [self.csi] + self.callouts)
 
         self.positionRotateIcon()
         for callout in self.callouts:
@@ -1093,10 +1087,16 @@ class Step(StepTreeManager, QGraphicsRectItem):
         menu.addAction("Prepend blank Step", lambda: self.addBlankStepSignal(self._number))
         menu.addAction("Append blank Step", lambda: self.addBlankStepSignal(self._number + 1))
 
-        if self.rotateIcon is None:
-            menu.addSeparator()
-            menu.addAction("Add Rotate Icon", lambda: undo.push(AddRemoveRotateIconCommand(self, True)))
+        menu.addSeparator()
 
+        if self.hasPLI():
+            menu.addAction("Hide PLI", self.disablePLI)
+        else:
+            menu.addAction("Show PLI", self.enablePLI)
+
+        if self.rotateIcon is None:
+            menu.addAction("Add Rotate Icon", lambda: undo.push(AddRemoveRotateIconCommand(self, True)))
+            
         if not self.csi.parts:
             menu.addAction("&Delete Step", lambda: undo.push(AddRemoveStepCommand(self, False)))
 
