@@ -897,7 +897,7 @@ class EditableTextItem(QGraphicsSimpleTextItem):
         newText, ok = QInputDialog.getText(self.scene().views()[0], "Set Text", "New Text:", 
                                            QLineEdit.Normal, self.text(), Qt.CustomizeWindowHint | Qt.WindowTitleHint)
         if ok:
-            self.scene().undoStack.push(CalloutBorderFitCommand(self, self.text(), newText))
+            self.scene().undoStack.push(SetTextCommand(self, self.text(), newText))
 
     def mouseDoubleClickEvent(self, event):
         self.setTextSignal()
