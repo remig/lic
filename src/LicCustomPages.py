@@ -20,10 +20,12 @@
 
 from LicCommonImports import *
 
-from LicModel import *
 from LicUndoActions import *
 from LicTreeModel import *
 from LicQtWrapper import *
+from LicModel import *
+
+__all__ = ["BasePage", "Page", "StepSeparator"]
 
 class BasePage(GraphicsRoundRectItem):
 
@@ -40,7 +42,7 @@ class BasePage(GraphicsRoundRectItem):
     defaultPen = QPen(Qt.NoPen)
 
     def __init__(self):
-        if not hasattr(Page.defaultPen, "cornerRadius"):
+        if not hasattr(BasePage.defaultPen, "cornerRadius"):
             BasePage.defaultPen.cornerRadius = 0
 
         GraphicsRoundRectItem.__init__(self, None)
@@ -58,6 +60,26 @@ class BasePage(GraphicsRoundRectItem):
         for child in self.getAllChildItems():
             child.setFlags(NoMoveFlags if isLocked else AllFlags)
         self.setFlags(NoMoveFlags)
+
+    def paint(self, painter, option, widget = None):
+
+        # Draw a slightly down-right translated black rectangle, for the page shadow effect
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QBrush(Qt.black))
+        painter.drawRect(self.rect().translated(3, 3))
+
+        # Draw the full page in the border color
+        painter.setBrush(QBrush(self.pen().color()))
+        painter.drawRect(self.rect())
+        
+        # Draw the page itself in the chosen fill, with the correctly inset rounded rect
+        r = BasePage.defaultPen.cornerRadius
+        painter.setBrush(QBrush(self.color))
+        painter.drawRoundedRect(self.insetRect(), r, r)
+        
+        # Draw any images or gradients this page may have
+        painter.setBrush(self.brush())
+        painter.drawRoundedRect(self.insetRect(), r, r)
 
 class Page(PageTreeManager, BasePage):
     """ A single page in an instruction book.  Contains one or more Steps. """
@@ -78,7 +100,7 @@ class Page(PageTreeManager, BasePage):
         self.annotations = []
         self.submodelItem = None
         self.layout = LicLayout.GridLayout()
-        self.color = Page.defaultFillColor
+        self.color = BasePage.defaultFillColor
 
         # Setup this page's page number
         self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
@@ -422,25 +444,6 @@ class Page(PageTreeManager, BasePage):
         newName = os.path.join(LicConfig.finalImageCachePath(), "Page_%d.png" % self.number)
         image.save(newName)
         self.setPos(oldPos)
-
-    def paint(self, painter, option, widget = None):
-
-        # Draw a slightly down-right translated black rectangle, for the page shadow effect
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(QBrush(Qt.black))
-        painter.drawRect(self.rect().translated(3, 3))
-
-        # Draw the full page in the border color
-        painter.setBrush(QBrush(self.pen().color()))
-        painter.drawRect(self.rect())
-        
-        # Draw the page itself in the chosen fill, with the correctly inset rounded rect 
-        painter.setBrush(QBrush(self.color))
-        painter.drawRoundedRect(self.insetRect(), self.cornerRadius, self.cornerRadius)
-        
-        # Draw any images or gradients this page may have
-        painter.setBrush(self.brush())
-        painter.drawRoundedRect(self.insetRect(), self.cornerRadius, self.cornerRadius)
 
     def drawGLItems(self, rect):
         

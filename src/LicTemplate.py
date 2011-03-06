@@ -20,10 +20,10 @@
 
 from LicCommonImports import *
 
-from LicCustomPages import Page, StepSeparator
-from LicModel import *
+from LicCustomPages import *
 from LicUndoActions import *
 from LicQtWrapper import *
+from LicModel import *
 
 import LicGradientDialog
 import LicDialogs
@@ -420,16 +420,16 @@ class TemplatePage(TemplateRectItem, Page):
         menu.exec_(event.screenPos())
 
     def setColor(self, color):
-        Page.defaultFillColor = color
+        BasePage.defaultFillColor = color
         self.color = color
         
     def setBrush(self, brush):
-        Page.setBrush(self, brush)
-        Page.defaultBrush = brush
+        BasePage.setBrush(self, brush)
+        BasePage.defaultBrush = brush
         
     def setPen(self, newPen):
-        Page.setPen(self, newPen)
-        Page.defaultPen = newPen
+        BasePage.setPen(self, newPen)
+        BasePage.defaultPen = newPen
 
     def setBackgroundColor(self):
         color = QColorDialog.getColor(self.color, self.scene().views()[0])

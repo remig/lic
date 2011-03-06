@@ -118,43 +118,33 @@ class GridLayout(object):
         # Sets position of each member into a grid
         # MemberList is a list of any objects that have rect(), setPos() and moveBy() methods
 
-        rows, unused = self.getRowColCount(memberList)
+        rows, cols = self.getRowColCount(memberList)
         rowHeights, colWidths = [], []
-        
+
         # Build a table of each row's height and column's width
         for i in range(0, rows):
-            if self.orientation == Horizontal:
-                maxSize = maxSafe([x.rect().width() for x in memberList[i::rows]])  # 0, 3, 6...
-                colWidths.append(maxSize)
-            else:
-                maxSize = maxSafe([x.rect().height() for x in memberList[i::rows]])
-                rowHeights.append(maxSize)
+            maxSize = maxSafe([x.rect().height() for x in memberList[i::rows]])
+            rowHeights.append(maxSize)
 
-        for i in range(0, rows):
-            if self.orientation == Horizontal:
-                maxSize = maxSafe([x.rect().height() for x in memberList[i * rows: (i * rows) + rows]])  # 0, 1, 2...
-                rowHeights.append(maxSize)
-            else:
-                maxSize = maxSafe([x.rect().width() for x in memberList[i * rows: (i * rows) + rows]])
-                colWidths.append(maxSize)
-        
+        for i in range(0, cols):
+            maxSize = maxSafe([x.rect().width() for x in memberList[i * rows: (i * rows) + rows]])
+            colWidths.append(maxSize)
+
         # Position each member in the center of its cell
         for i, member in enumerate(memberList):
             row, col = i % rows, i // rows
-            if self.orientation == Horizontal:
-                row, col = col, row
-                
+
             # Position at top left of cell
             width = sum(colWidths[:col]) + (self.margin * (col + 1)) 
             height = sum(rowHeights[:row]) + (self.margin * (row + 1))
             member.setPos(width, height)
-            
+
             # Move to center of cell, if necessary
             dx = (colWidths[col] - member.rect().width()) / 2.0
             dy = (rowHeights[row] - member.rect().height()) / 2.0
             if dx > 0 or dy > 0:
                 member.moveBy(dx, dy)
-    
+
     def _adjustRow(self, rowMembers, length, size, startPoint):
 
         fixedCount = 0

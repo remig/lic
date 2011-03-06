@@ -117,7 +117,7 @@ class CalloutArrowMoveCommand(QUndoCommand):
         self.arrow.parentItem().internalPoints = []
         self.arrow.update()
 
-class CalloutBorderFitCommand(QUndoCommand):
+class SetTextCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
@@ -130,7 +130,7 @@ class CalloutBorderFitCommand(QUndoCommand):
         self.label.setText(text)
         self.label.data = lambda index: "Label: " + text
 
-class SetTextCommand(QUndoCommand):
+class CalloutBorderFitCommand(QUndoCommand):
 
     _id = getNewCommandID()
 

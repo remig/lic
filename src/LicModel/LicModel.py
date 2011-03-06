@@ -539,6 +539,14 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
         selectedCallouts.remove(self)
         self.scene().undoStack.push(MergeCalloutsCommand(self, selectedCallouts, True))
 
+    def useVerticalLayout(self):
+        self.layout.orientation = LicLayout.Vertical
+        self.initLayout()
+
+    def useHorizontalLayout(self):
+        self.layout.orientation = LicLayout.Horizontal
+        self.initLayout()
+
     def contextMenuEvent(self, event):
 
         # Special case: check if all selected items are Callouts - try merge if so
@@ -551,6 +559,13 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
         stack = self.scene().undoStack
         menu = QMenu(self.scene().views()[0])
+
+        if len(self.steps) > 1:
+            if self.layout.orientation == LicLayout.Horizontal:
+                menu.addAction("Use Vertical layout", self.useVerticalLayout)
+            else:
+                menu.addAction("Use Horizontal layout", self.useHorizontalLayout)
+                
         menu.addAction("Add blank Step", self.addBlankStep)
         
         if self.qtyLabel:
@@ -575,12 +590,18 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             menu.addAction("Move to Next Step", self.moveToNextStepSignal)
 
         menu.addSeparator()
-        arrowMenu = menu.addMenu("Border Shape")
-        arrowMenu.addAction("Rectangle", lambda: stack.push(CalloutBorderFitCommand(self, self.borderFit, Callout.RectangleBorder)))
-        arrowMenu.addAction("Step Fit", lambda: stack.push(CalloutBorderFitCommand(self, self.borderFit, Callout.StepBorder)))
-        arrowMenu.addAction("Tight Fit", lambda: stack.push(CalloutBorderFitCommand(self, self.borderFit, Callout.TightBorder)))
-        arrowMenu.addAction("Default", lambda: stack.push(CalloutBorderFitCommand(self, self.borderFit, Callout.DefaultBorder)))
-        menu.addSeparator()
+
+        if len(self.steps) > 2:
+
+            def pushFit(fit):
+                return lambda: stack.push(CalloutBorderFitCommand(self, self.borderFit, fit))
+            
+            arrowMenu = menu.addMenu("Border Shape")
+            arrowMenu.addAction("Rectangle", pushFit(Callout.RectangleBorder))
+            arrowMenu.addAction("Step Fit", pushFit(Callout.StepBorder))
+            arrowMenu.addAction("Tight Fit", pushFit(Callout.TightBorder))
+            arrowMenu.addAction("Default", pushFit(Callout.DefaultBorder))
+            menu.addSeparator()
 
         if self.partCount() > 0:
             menu.addAction("Convert To Submodel", lambda: stack.push(CalloutToSubmodelCommand(self)))
