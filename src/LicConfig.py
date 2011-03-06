@@ -2,7 +2,7 @@
     Lic - Instruction Book Creation software
     Copyright (C) 2010 Remi Gagne
 
-    This file (config.py) is part of Lic.
+    This file (LicConfig.py) is part of Lic.
 
     Lic is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -18,10 +18,7 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-import os
-import sys
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from LicCommonImports import *
 
 # Path to LDraw, L3P and PovRay.  These are set by user through PathsDialog below.
 # Contents below are just some brain-dead default settings for a very first run of Lic. 
@@ -44,8 +41,8 @@ class PathsDialog(QDialog):
         self.setWindowTitle(self.tr("Set paths to files and applications"))
 
         ldrawLabel, self.ldrawEdit, ldrawButton = self.makeLabelEditButton("L&Draw:", LDrawPath, self.browseForLDraw)
-        l3pLabel, self.l3pEdit, l3pButton = self.makeLabelEditButton("&L3P:", L3PPath, self.browseForL3P)
-        povLabel, self.povEdit, povButton = self.makeLabelEditButton("&POVRay:", POVRayPath, self.browseForPOV)
+        #l3pLabel, self.l3pEdit, l3pButton = self.makeLabelEditButton("&L3P:", L3PPath, self.browseForL3P)
+        #povLabel, self.povEdit, povButton = self.makeLabelEditButton("&POVRay:", POVRayPath, self.browseForPOV)
 
         buttons = QDialogButtonBox.Ok if hideCancelButton else QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         buttonBox = QDialogButtonBox(buttons, Qt.Horizontal)

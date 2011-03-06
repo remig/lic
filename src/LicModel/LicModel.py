@@ -18,33 +18,25 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-import os
-import math
+from LicCommonImports import *
 
 #import OpenGL
 #OpenGL.ERROR_CHECKING = False
 #OpenGL.ERROR_LOGGING = False
 
-from OpenGL import GL
 from OpenGL import GLU
-
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
-from PyQt4.QtOpenGL import *
 
 from LicUndoActions import *
 from LicTreeModel import *
 from LicQtWrapper import *
-import LicLayout
 
-import LicL3PWrapper
 import LicPovrayWrapper
-import LicDialogs
 import LicPartLengths
+import LicL3PWrapper
 import LicImporters
-from LicImporters import LDrawImporter
+import LicDialogs
 
-import config     # For user path info
+from LicImporters import LDrawImporter
 
 __all__ = ["CalloutArrowEndItem", "CalloutArrow", "Callout",
            "Step", "SubmodelPreview", "PLIItem", "PLI", "CSI",
@@ -1406,13 +1398,13 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             return
 
         fn = part.filename
-        datFile = os.path.join(config.LDrawPath, 'PARTS', fn)
+        datFile = os.path.join(LicConfig.LDrawPath, 'PARTS', fn)
         if not os.path.isfile(datFile):
-            datFile = os.path.join(config.LDrawPath, 'P', fn)
+            datFile = os.path.join(LicConfig.LDrawPath, 'P', fn)
             if not os.path.isfile(datFile):
-                datFile = os.path.join(config.LDrawPath, 'MODELS', fn)
+                datFile = os.path.join(LicConfig.LDrawPath, 'MODELS', fn)
                 if not os.path.isfile(datFile):
-                    datFile = os.path.join(config.datCachePath(), fn)
+                    datFile = os.path.join(LicConfig.datCachePath(), fn)
                     if not os.path.isfile(datFile):
                         print " *** Error: could not find dat file for part %s" % fn
                         return
@@ -1796,7 +1788,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     def createPng(self):
 
         csiName = self.getDatFilename()
-        datFile = os.path.join(config.datCachePath(), csiName)
+        datFile = os.path.join(LicConfig.datCachePath(), csiName)
         
         if not os.path.isfile(datFile):
             fh = open(datFile, 'w')
@@ -2704,7 +2696,7 @@ class Submodel(SubmodelTreeManager, AbstractPart):
 
     def createPng(self):
 
-        datFile = os.path.join(config.datCachePath(), self.filename)
+        datFile = os.path.join(LicConfig.datCachePath(), self.filename)
 
         if not os.path.isfile(datFile):
             fh = open(datFile, 'w')
@@ -2937,7 +2929,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
             # Set up dynamic module to be used for import 
             importerName = LicImporters.getImporter(os.path.splitext(fn)[1][1:])
             importModule = __import__("LicImporters.%s" % importerName, fromlist = ["LicImporters"])
-            importModule.LDrawPath = config.LDrawPath
+            importModule.LDrawPath = LicConfig.LDrawPath
 
             abstractPart = AbstractPart(fn)
             importModule.importPart(fn, instructions.getProxy(), abstractPart)

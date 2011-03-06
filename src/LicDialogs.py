@@ -18,11 +18,7 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
-
-import os
-import LicHelpers
+from LicCommonImports import *
 
 def makeLabelSpinBox(self, text, value, min, max, signal = None, double = False, percent = False):
     

@@ -21,6 +21,8 @@
 ##
 #############################################################################
 
+#@PydevCodeAnalysisIgnore
+
 import sip
 from PyQt4 import QtCore, QtGui
 

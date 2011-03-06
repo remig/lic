@@ -18,11 +18,7 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-import os
-
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
-from PyQt4.QtOpenGL import *
+from LicCommonImports import *
 
 from LicCustomPages import Page, StepSeparator
 from LicModel import *
@@ -31,7 +27,6 @@ from LicQtWrapper import *
 
 import LicGradientDialog
 import LicDialogs
-import LicGLHelpers
 
 class TemplateLineItem(object):
 

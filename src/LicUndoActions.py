@@ -18,11 +18,7 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-from PyQt4.QtGui import QUndoCommand, QPixmap
-from PyQt4.QtCore import SIGNAL
-
-import LicHelpers
-import LicGLHelpers
+from LicCommonImports import *
 
 def resetGLItem(self, templateItem):
     instructions = templateItem.getPage().instructions

@@ -18,19 +18,12 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-import os
-
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
-from PyQt4.QtOpenGL import *
+from LicCommonImports import *
 
 from LicModel import *
 from LicUndoActions import *
 from LicTreeModel import *
 from LicQtWrapper import *
-
-import LicLayout
-import config
 
 class BasePage(GraphicsRoundRectItem):
 
@@ -426,7 +419,7 @@ class Page(PageTreeManager, BasePage):
             painter.drawImage(self.submodelItem.pos() + PLI.margin, self.submodel.pngImage)
 
         painter.end()
-        newName = os.path.join(config.finalImageCachePath(), "Page_%d.png" % self.number)
+        newName = os.path.join(LicConfig.finalImageCachePath(), "Page_%d.png" % self.number)
         image.save(newName)
         self.setPos(oldPos)
 

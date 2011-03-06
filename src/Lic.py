@@ -18,25 +18,20 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-import os, sys, logging
+import logging
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
-from PyQt4.QtOpenGL import *
+from LicCommonImports import *
 
-import LicModel
-import LicCustomPages
-import LicInstructions
 import LicGraphicsWidget
-import LicTreeModel
+import LicInstructions
+import LicCustomPages
+import LicUndoActions
 import LicBinaryReader
 import LicBinaryWriter
-import config
-import LicDialogs
-import LicUndoActions
-import LicLayout
-import LicGLHelpers
+import LicTreeModel
 import LicImporters
+import LicDialogs
+import LicModel
 
 def __recompileResources():
     # Handy personal function for rebuilding LicResources.py package (which contains the app's icons)
@@ -399,10 +394,10 @@ class LicWindow(QMainWindow):
         POVRayPath = str(settings.value("POVRayPath").toString())
 
         if LDrawPath and L3PPath and POVRayPath:
-            config.LDrawPath = LDrawPath
-            config.L3PPath = L3PPath 
-            config.POVRayPath = POVRayPath
-            LicImporters.LDrawImporter.LDrawPath = config.LDrawPath
+            LicConfig.LDrawPath = LDrawPath
+            LicConfig.L3PPath = L3PPath 
+            LicConfig.POVRayPath = POVRayPath
+            LicImporters.LDrawImporter.LDrawPath = LicConfig.LDrawPath
             self.needPathConfiguration = False
         else:
             self.needPathConfiguration = True
@@ -418,9 +413,9 @@ class LicWindow(QMainWindow):
         settings.setValue("SnapToGuides", QVariant(str(self.scene.snapToGuides)))
         settings.setValue("SnapToItems", QVariant(str(self.scene.snapToItems)))
 
-        settings.setValue("LDrawPath", QVariant(config.LDrawPath))
-        settings.setValue("L3PPath", QVariant(config.L3PPath))
-        settings.setValue("POVRayPath", QVariant(config.POVRayPath))
+        settings.setValue("LDrawPath", QVariant(LicConfig.LDrawPath))
+        settings.setValue("L3PPath", QVariant(LicConfig.L3PPath))
+        settings.setValue("POVRayPath", QVariant(LicConfig.POVRayPath))
 
     def copySettingsToScene(self):
         self.scene.setPagesToDisplay(self.pagesToDisplay)
@@ -428,9 +423,9 @@ class LicWindow(QMainWindow):
         self.scene.snapToItems = self.snapToItems
 
     def configurePaths(self, hideCancelButton = False):
-        dialog = config.PathsDialog(self, hideCancelButton)
+        dialog = LicConfig.PathsDialog(self, hideCancelButton)
         dialog.exec_()
-        LicImporters.LDrawImporter.LDrawPath = config.LDrawPath
+        LicImporters.LDrawImporter.LDrawPath = LicConfig.LDrawPath
 
     def __getFilename(self):
         return self.__filename
@@ -439,7 +434,7 @@ class LicWindow(QMainWindow):
         self.__filename = filename
         
         if filename:
-            config.filename = filename
+            LicConfig.filename = filename
             self.setWindowTitle("Lic %s - %s [*]" % (__version__, os.path.basename(filename)))
             self.statusBar().showMessage("Instruction book loaded: " + filename)
             enabled = True
@@ -712,7 +707,7 @@ class LicWindow(QMainWindow):
         self.scene.emit(SIGNAL("layoutChanged()"))
         self.scene.selectPage(1)
 
-        config.filename = filename
+        LicConfig.filename = filename
         self.statusBar().showMessage("Model imported: " + filename)
         self.setWindowModified(True)
         self.enableMenus(True)
@@ -886,7 +881,7 @@ class LicWindow(QMainWindow):
             progress.incr(label)
 
         self.glWidget.makeCurrent()
-        self.statusBar().showMessage("Exported images to: " + config.finalImageCachePath())
+        self.statusBar().showMessage("Exported images to: " + LicConfig.finalImageCachePath())
 
     def exportToPDF(self):
         loader = self.instructions.exportToPDF()

@@ -18,8 +18,7 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-import os      # for process creation
-import config
+from LicCommonImports import *
 
 def boolToCommand(command, bool):
     if bool:
@@ -66,7 +65,7 @@ povCommands = {
 
 def __runCommand(d):
 
-    povray = config.POVRayPath
+    povray = LicConfig.POVRayPath
     if not os.path.isfile(povray):
         print "Error: Could not find Pov-Ray - aborting image generation"
         return
@@ -172,7 +171,7 @@ def __fixPovFile(filename, imgWidth, imgHeight, offset, camera):
 def createPngFromPov(povFile, width, height, offset, scale, rotation):
 
     rawFilename = os.path.splitext(os.path.basename(povFile))[0]
-    pngFile = os.path.join(config.pngCachePath(), rawFilename)
+    pngFile = os.path.join(LicConfig.pngCachePath(), rawFilename)
     pngFile = "%s.png" % pngFile
     
     if not os.path.isfile(pngFile):

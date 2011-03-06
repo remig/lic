@@ -18,14 +18,12 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+from LicCommonImports import *
 
 from LicModel import *
 from LicCustomPages import Page
+
 import LicUndoActions
-import LicLayout
-import LicGLHelpers
 import LicQtWrapper
 
 class LicGraphicsView(QGraphicsView):

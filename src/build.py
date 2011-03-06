@@ -23,10 +23,7 @@
 # the currently checked out project.  This is because pysvn doesn't yet work
 # correctly on osx.  Boo.
   
-import os
-import sys
-import zipfile
-import subprocess
+import os, sys, zipfile, subprocess
 
 def perr(s):
     print s

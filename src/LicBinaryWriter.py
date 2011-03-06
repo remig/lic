@@ -18,11 +18,8 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-import os
+from LicCommonImports import *
 
-from PyQt4.QtCore import *
-
-import LicGLHelpers
 from LicModel import Arrow, CSI, PLI, SubmodelPreview
 from LicCustomPages import Page
 

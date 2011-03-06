@@ -18,22 +18,14 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-import sys, os
+from LicCommonImports import *
+
 import Image
-
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
-from PyQt4.QtOpenGL import *
-
-from OpenGL import GL
 
 from LicHelpers import LicColor, LicColorDict
 from LicCustomPages import Page, TitlePage
 from LicImporters import LDrawImporter
 from LicModel import *
-
-import config
-import LicGLHelpers
 
 class Instructions(QObject):
     itemClassName = "Instructions"
@@ -302,7 +294,7 @@ class Instructions(QObject):
 
                 page.lockIcon.hide()
 
-                exportedFilename = os.path.join(config.glImageCachePath(), "Page_%d.png" % page.number)
+                exportedFilename = os.path.join(LicConfig.glImageCachePath(), "Page_%d.png" % page.number)
 
                 bufferManager.bindMSFB()
                 LicGLHelpers.initFreshContext(True)
@@ -334,7 +326,7 @@ class Instructions(QObject):
     
                 painter.end()
 
-                newName = os.path.join(config.finalImageCachePath(), "Page_%d.png" % page.number)
+                newName = os.path.join(LicConfig.finalImageCachePath(), "Page_%d.png" % page.number)
                 image.save(newName)
 
                 yield newName
@@ -352,7 +344,7 @@ class Instructions(QObject):
 
         # Create an image for each page
         # TODO: Connect PDF export to page resolution settings
-        filename = os.path.join(config.pdfCachePath(), os.path.basename(self.mainModel.filename)[:-3] + "pdf")
+        filename = os.path.join(LicConfig.pdfCachePath(), os.path.basename(self.mainModel.filename)[:-3] + "pdf")
         yield filename
 
         if sys.platform.startswith('darwin'):  # Temp workaround to PDF crash on OSX

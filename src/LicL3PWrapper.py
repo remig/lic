@@ -18,8 +18,7 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-import os      # For setting LDraw environment and process creation
-import config  # For path to l3p
+from LicCommonImports import *
 
 def listToCSVStr(l):
     s = ''
@@ -63,12 +62,12 @@ l3pCommands = {
     'LGEO' : ['', lambda b: boolToCommand('-lgeo', b)],   # Boolean
 }
 
-os.environ['LDRAWDIR'] = config.LDrawPath
+os.environ['LDRAWDIR'] = LicConfig.LDrawPath
     
 # d: {'camera position' : [20,-45,0], 'inputFile' : 'hello.dat'}
 def __runCommand(d):
     
-    l3pApp = config.L3PPath
+    l3pApp = LicConfig.L3PPath
     if not os.path.isfile(l3pApp):
         print "Error: Could not find L3p - aborting image generation"
         return
@@ -88,7 +87,7 @@ def __runCommand(d):
 def createPovFromDat(datFile, color = None):
     
     rawFilename = os.path.splitext(os.path.basename(datFile))[0]
-    povFile = os.path.join(config.povCachePath(), rawFilename)
+    povFile = os.path.join(LicConfig.povCachePath(), rawFilename)
     
     if color is None:
         povFile = "%s.pov" % povFile

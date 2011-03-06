@@ -18,14 +18,11 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-from PyQt4.QtCore import *
-from OpenGL import GL
+from LicCommonImports import *
 
 from LicModel import *
-from LicTemplate import *
+import LicTemplate
 import LicCustomPages
-import LicGLHelpers
-import LicHelpers
 
 def ro(self, targetType):
     c = targetType()
@@ -117,7 +114,7 @@ def __readTemplate(stream, instructions):
 
     filename = str(stream.readQString())
     if stream.licFileVersion >= 15:
-        TemplatePage.separatorsVisible = stream.readBool()
+        LicTemplate.TemplatePage.separatorsVisible = stream.readBool()
 
     # Read in the entire abstractPart dictionary
     global partDict, colorDict
@@ -185,7 +182,7 @@ def __readInstructions(stream, instructions):
     filename = str(stream.readQString())
     instructions.filename = filename
 
-    __readStaticInfo(stream, Page, CSI, PLI, SubmodelPreview)
+    __readStaticInfo(stream, LicCustomPages.Page, CSI, PLI, SubmodelPreview)
 
     for unused in __readPartDictionary(stream, instructions):
         yield
@@ -398,11 +395,11 @@ def __readPage(stream, parent, instructions, templateModel = None):
     row = stream.readInt32()
     
     if templateModel:
-        page = TemplatePage(parent, instructions)
+        page = LicTemplate.TemplatePage(parent, instructions)
         if page.submodel is None:
             page.submodel = templateModel
     else:
-        page = Page(parent, instructions, number, row)
+        page = LicCustomPages.Page(parent, instructions, number, row)
 
     __readRoundedRectItem(stream, page)
     page.color = stream.readQColor()
