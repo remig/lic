@@ -784,7 +784,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
     def addPart(self, part):
         self.csi.addPart(part)
-        if self.pli and not part.isSubmodel():  # Visibility here is irrelevant
+        if self.pli:  # Visibility here is irrelevant
             self.pli.addPart(part)
 
     def removePart(self, part):
@@ -1707,7 +1707,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             p.setParentItem(None)
 
     def containsSubmodel(self):
-        return any(part.isSubmodel() for part in self.getPartList())
+        return any(part.isSubmodel for part in self.getPartList())
 
     def __callPreviousGLDisplayLists(self, isCurrent = False):
 
@@ -2310,7 +2310,7 @@ class Submodel(SubmodelTreeManager, AbstractPart):
                     partList = [x for x in partList[:currentPartIndex] if x.abstractPart.name != popularPartName] + partList[currentPartIndex:]
                     currentPartIndex = 0
                     
-                elif currentPartIndex == 1 and not partList[0].isSubmodel():
+                elif currentPartIndex == 1 and not partList[0].isSubmodel:
                     
                     # Have only one part in this layer: search forward until we hit a layer with several parts
                     part = partList[0]
@@ -2340,13 +2340,13 @@ class Submodel(SubmodelTreeManager, AbstractPart):
             self.addPage(newPage)
 
             # Want submodels to be inserted in their own Step, so split those off
-            submodelList = [part for part in partList[:currentPartIndex] if part.isSubmodel()]
+            submodelList = [part for part in partList[:currentPartIndex] if part.isSubmodel]
             if submodelList and len(submodelList) != currentPartIndex:
                 partList = submodelList + partList[currentPartIndex:]
                 currentPartIndex = 0
             
             # Want all identical submodels inserted in same step, so group them all
-            if partList[0].isSubmodel() and currentPartIndex > 0:
+            if partList[0].isSubmodel and currentPartIndex > 0:
                 partList = [part for part in partList if part.filename != partList[0].filename]
                 currentPartIndex = 0
             
@@ -2376,12 +2376,8 @@ class Submodel(SubmodelTreeManager, AbstractPart):
 
                 nextStep = nextPage.steps[0]
                 partList = nextStep.csi.getPartList()
-                submodelList = [p for p in partList if p.isSubmodel()]
+                submodelList = [p for p in partList if p.isSubmodel]
                 if submodelList:  # Check if next Step has any Submodels
-
-                    if len(submodelList) == len(partList):  # Check if next Step is full of Submodels
-                        nextStep.disablePLI()  # Leave Submodel steps as first on page, and hide their PLI.
-
                     nextPage.initLayout()
                     break
 
@@ -2688,9 +2684,9 @@ class Submodel(SubmodelTreeManager, AbstractPart):
 
     def getFullPartList(self):
         partList = [] 
-        for part in [p for p in self.parts if p.isSubmodel()]:
+        for part in [p for p in self.parts if p.isSubmodel]:
             partList += part.abstractPart.getFullPartList()
-        partList += [p for p in self.parts if not p.isSubmodel()]
+        partList += [p for p in self.parts if not p.isSubmodel]
         return partList
 
     def addSubmodelImages(self):
@@ -2937,6 +2933,11 @@ class Part(PartTreeManager, QGraphicsRectItem):
         #self.setPen(QPen(Qt.black))
         self.setFlags(NoMoveFlags)
 
+    def __isSubmodel(self):
+        return isinstance(self.abstractPart, Submodel)
+
+    isSubmodel = property(__isSubmodel)
+
     def initializeAbstractPart(self, instructions):
         
         fn = self.filename
@@ -3082,9 +3083,6 @@ class Part(PartTreeManager, QGraphicsRectItem):
         self.displacement = []
         self.arrows = []
         self._dataString = None
-
-    def isSubmodel(self):
-        return isinstance(self.abstractPart, Submodel)
 
     def toBlack(self):
         self.color = LicHelpers.LicColor.black()

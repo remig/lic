@@ -55,7 +55,7 @@ __version__ = "0.6.0"
 _debug = False
 
 MagicNumber = 0x14768126
-FileVersion = 15
+FileVersion = 16
 
 if _debug:
     from modeltest import ModelTest

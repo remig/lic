@@ -116,6 +116,9 @@ def __readTemplate(stream, instructions):
     if stream.licFileVersion >= 15:
         LicTemplate.TemplatePage.separatorsVisible = stream.readBool()
 
+    if stream.licFileVersion >= 16:
+        LicTemplate.TemplatePLI.includeSubmodels = stream.readBool()
+
     # Read in the entire abstractPart dictionary
     global partDict, colorDict
     colorDict = instructions.colorDict
@@ -423,7 +426,7 @@ def __readPage(stream, parent, instructions, templateModel = None):
         separator.setRect(stream.readQRectF())
         separator.setPen(stream.readQPen())
         if stream.licFileVersion >= 15:
-            separator.setVisible(stream.readBool())
+            separator.enabled = stream.readBool()
         separator.normalizePosition()
 
     if stream.licFileVersion >= 8:

@@ -306,7 +306,9 @@ class Page(PageTreeManager, BasePage):
         self.scene().emit(SIGNAL("layoutChanged()"))
     
     def showHideSeparators(self, show):
-        [s.setVisible(show) for s in self.separators]
+        for s in self.separators:
+            s.enabled = show
+            s.setVisible(show)
 
     def addSubmodelImage(self, count = 0):
         self.submodelItem = SubmodelPreview(self, self.submodel)
@@ -571,14 +573,19 @@ class StepSeparator(QGraphicsLineItem):
         self.setFlags(AllFlags)
         self.setPen(self.defaultPen)
         self.setAcceptHoverEvents(True)
+        self.enabled = True # Cannot rely on visibility to save / restore state
         self.data = lambda index: "Step Separator"
 
         if rect:
             self.setRect(rect)
 
+    def paint(self, painter, option, widget = None):
+        if self.enabled:
+            QGraphicsLineItem.paint(self, painter, option, widget)
+    
     def rect(self):
         return QRectF(self.line().x1(), self.line().y1(), self.line().x2(), self.line().y2())
-    
+
     def setRect(self, rect):
         if rect.width() > rect.height():
             self.setLine(rect.x(), rect.y(), rect.right(), rect.y())

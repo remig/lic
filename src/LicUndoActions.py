@@ -366,6 +366,36 @@ class AddRemoveLabelCommand(QUndoCommand):
             self.page.labels.remove(self.label)
             self.label.setParentItem(None)
 
+class ShowHideSubmodelsInPLICommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, templatePLI, show):
+        QUndoCommand.__init__(self, "%s Submodels in PLI" % ("show" if show else "remove"))
+        self.templatePLI, self.show = templatePLI, show
+
+    def doAction(self, redo):
+        self.templatePLI.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+        show = (redo and self.show) or (not redo and not self.show)
+        self.templatePLI.__class__.includeSubmodels = show
+
+        for page in self.templatePLI.getPage().instructions.getPageList():
+            for step in page.steps:
+                for part in [p for p in step.csi.getPartList() if p.isSubmodel]:
+                    if show:
+                        step.enablePLI()
+                        if not part.isInPLI:
+                            step.pli.addPart(part)
+                    else:
+                        if part.isInPLI:
+                            step.pli.removePart(part)
+                        if step.pli.isEmpty():
+                            step.disablePLI()
+                    part.isInPLI = show
+                step.initLayout()
+
+        self.templatePLI.scene().emit(SIGNAL("layoutChanged()"))
+
 class ShowHideStepSeparatorCommand(QUndoCommand):
 
     _id = getNewCommandID()
@@ -375,13 +405,14 @@ class ShowHideStepSeparatorCommand(QUndoCommand):
         self.template, self.show = template, show
 
     def doAction(self, redo):
-        self.template.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         show = (redo and self.show) or (not redo and not self.show)
-        self.template.separatorsVisible = show
-        [sep.setVisible(show) for sep in self.template.separators]
+        self.template.__class__.separatorsVisible = show
+
+        for s in self.template.separators:
+            s.enabled = show
+
         for page in self.template.instructions.getPageList():
             page.showHideSeparators(show)
-        self.template.scene().emit(SIGNAL("layoutChanged()"))
 
 class AddRemoveRotateIconCommand(QUndoCommand):
 
@@ -560,6 +591,7 @@ class AddRemovePartToPLICommand(QUndoCommand):
         if (redo and self.addPart) or (not redo and not self.addPart):
             step.enablePLI()
             pli.addPart(part)
+            part.isInPLI = True
         else:
             pli.removePart(part)
             if pli.isEmpty():
@@ -596,7 +628,7 @@ class MovePartsToStepCommand(QUndoCommand):
             startStep.removePart(part)
             endStep.addPart(part)
                 
-            if part.isSubmodel():
+            if part.isSubmodel:
                 redoSubmodelOrder = True
             stepsToReset.add(oldStep.number)
 

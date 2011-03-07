@@ -20,8 +20,9 @@
 
 from LicCommonImports import *
 
-from LicModel import Arrow, CSI, PLI, SubmodelPreview
 from LicCustomPages import Page
+from LicTemplate import TemplatePage, TemplatePLI
+from LicModel import Arrow, CSI, PLI, SubmodelPreview
 
 def saveLicFile(filename, instructions, FileVersion, MagicNumber):
 
@@ -68,7 +69,8 @@ def __writeTemplate(stream, template):
             part.abstractPart.buildSubAbstractPartDict(partDictionary)
 
     stream << QString(os.path.basename(template.filename))
-    stream.writeBool(template.separatorsVisible)
+    stream.writeBool(TemplatePage.separatorsVisible)
+    stream.writeBool(TemplatePLI.includeSubmodels)
     __writePartDictionary(stream, partDictionary)
     __writeSubmodel(stream, template.submodelPart)
     __writePage(stream, template)
@@ -263,7 +265,7 @@ def __writePage(stream, page):
     for separator in page.separators:
         stream.writeInt32(separator.row())
         stream << separator.pos() << separator.rect() << separator.pen()
-        stream.writeBool(separator.isVisible())
+        stream.writeBool(separator.enabled)
 
     __writeAnnotationSet(stream, page)
 

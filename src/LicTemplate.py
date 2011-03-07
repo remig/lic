@@ -66,7 +66,7 @@ class TemplateRectItem(TemplateLineItem):
     def getContextMenu(self, prependActions = []):
         menu = QMenu(self.scene().views()[0])
         for text, action in prependActions:
-            menu.addAction(text, action)
+            menu.addAction(text, action) if text else menu.addSeparator()
         if prependActions:
             menu.addSeparator()
         menu.addAction("Format Border", self.formatBorder)
@@ -259,6 +259,7 @@ class TemplatePage(TemplateRectItem, Page):
 
             pw, ph = Page.PageSize
             self.addStepSeparator(-1, QRectF(pw - 80, 15, 1, ph - 30))
+            self.separators[0].enabled = TemplatePage.separatorsVisible
         
     def initGLDimension(self, part, glContext):
 
@@ -322,6 +323,7 @@ class TemplatePage(TemplateRectItem, Page):
             stack.push(SetItemFontsCommand(self, pliItem.numberItem.font(), step.pli.pliItems[0].numberItem.font(), 'PLIItem'))
 
         if step.pli:
+            stack.push(ShowHideSubmodelsInPLICommand(step.pli, TemplatePLI.includeSubmodels))
             stack.push(SetPenCommand(step.pli, PLI.defaultPen))
             stack.push(SetBrushCommand(step.pli, PLI.defaultBrush))
 
@@ -412,7 +414,7 @@ class TemplatePage(TemplateRectItem, Page):
         menu.addAction("Change 3D model Lighting", self.changeLighting)
         menu.addSeparator()
 
-        if self.separatorsVisible:
+        if TemplatePage.separatorsVisible:
             menu.addAction("Hide Step Separators", lambda: stack.push(ShowHideStepSeparatorCommand(self, False)))
         else:
             menu.addAction("Show Step Separators", lambda: stack.push(ShowHideStepSeparatorCommand(self, True)))
@@ -623,12 +625,24 @@ class TemplatePLIItem(PLIItem):
         event.ignore()
 
 class TemplatePLI(TemplateRectItem, PLI, TemplateRotateScaleSignalItem):
-    
+
+    includeSubmodels = False
+
     def contextMenuEvent(self, event):
-        actions = [("Change Default PLI Rotation", self.rotateDefaultSignal),
+        if TemplatePLI.includeSubmodels:
+            action = ("Remove Submodels from PLI", lambda: self.setIncludeSubmodels(False))
+        else:
+            action = ("Show Submodels in PLI", lambda: self.setIncludeSubmodels(True))
+
+        actions = [action,
+                   (None, None),
+                   ("Change Default PLI Rotation", self.rotateDefaultSignal),
                    ("Change Default PLI Scale", self.scaleDefaultSignal)]
         menu = TemplateRectItem.getContextMenu(self, actions)
         menu.exec_(event.screenPos())
+
+    def setIncludeSubmodels(self, include = True):
+        self.scene().undoStack.push(ShowHideSubmodelsInPLICommand(self, include))
     
     def setPen(self, newPen):
         PLI.setPen(self, newPen)
