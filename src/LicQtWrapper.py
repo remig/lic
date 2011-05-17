@@ -260,9 +260,6 @@ def genericGetOrderedCornerList(self, margin = None):
         r.adjust(-margin.x(), -margin.y(), margin.x(), margin.y())
     return [r.topLeft() + pos, r.topRight() + pos, r.bottomRight() + pos, r.bottomLeft() + pos]
 
-def genericGetPage(self):
-    return self.parentItem().getPage()
-
 def genericRect(self):
     return self.boundingRect()
 
@@ -275,7 +272,9 @@ QGraphicsPixmapItem.rect = genericRect
 # parameters when passing one where another is expected though (like TreeView.contextMenuEvent)
 QGraphicsItem.contextMenuEvent = lambda self, event: event.ignore()
 
-QGraphicsItem.getPage = genericGetPage
+QGraphicsItem.getPage = lambda self: self.parentItem().getPage()
+QGraphicsItem.getInstructions = lambda self: self.parentItem().getPage().instructions
+QGraphicsItem.getContext = lambda self: self.getPage().instructions.glContext
 QGraphicsItem.getSceneCorners = genericGetSceneCorners
 QGraphicsItem.getSceneCornerList = genericGetSceneCornerList
 QGraphicsItem.getOrderedCorners = genericGetOrderedCornerList

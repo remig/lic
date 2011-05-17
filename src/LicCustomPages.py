@@ -287,12 +287,14 @@ class Page(PageTreeManager, BasePage):
         for i, item in enumerate(self.annotations):  # Annotations on top
             item.setZValue(length + i + 1)
 
-    def addStepSeparator(self, index, rect = None):
-        self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
+    def addStepSeparator(self, index, rect = None, signal = True):
+        if signal:
+            self.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         s = StepSeparator(self, rect)
         self.separators.append(s)
         self.addChild(index, s)
-        self.scene().emit(SIGNAL("layoutChanged()"))
+        if signal:
+            self.scene().emit(SIGNAL("layoutChanged()"))
         return s
 
     def removeAllSeparators(self):

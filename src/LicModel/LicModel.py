@@ -1334,6 +1334,16 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             self.lengthIndicator = GraphicsCircleLabelItem(self, str(length))
             self.lengthIndicator.setFlags(AllFlags)
 
+    def changeBasePart(self):
+        originalFn = self.abstractPart.filename
+        dir = os.path.dirname(originalFn) if originalFn is not None else "."
+        formats = LicImporters.getFileTypesString()
+        filename = unicode(QFileDialog.getOpenFileName(self.scene().activeWindow(), "Lic - Open Part", dir, formats))
+        fn = os.path.basename(filename)
+        if fn and fn != originalFn:
+            self.abstractPart = self.getInstructions().getAbstractPart(filename)
+            self.resetPixmap()
+    
     def __getRotation(self):
         return self.abstractPart.pliRotation
     
@@ -1395,6 +1405,8 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.setRect(self.childrenBoundingRect() | glRect)
 
     def paintGL(self, f = 1.0):
+        if not self.isVisible():
+            return
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.abstractPart.width / 2.0)
         dy = -self.getPage().PageSize.height() + pos.y() + (self.abstractPart.height / 2.0)
@@ -1407,8 +1419,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     """
 
     def resetPixmap(self):
-        glContext = self.getPage().instructions.glContext
-        self.abstractPart.resetPixmap(glContext)
+        self.abstractPart.resetPixmap(self.getContext())
         self.parentItem().initLayout()
         
     def createPng(self):
@@ -1435,12 +1446,15 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.pngImage = QImage(pngFile)
 
     def contextMenuEvent(self, event):
-        
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Rotate PLI Item", self.rotateSignal)
         menu.addAction("Scale PLI Item", self.scaleSignal)
-        menu.exec_(event.screenPos())
 
+#        menu.addSeparator()  # Doesn't work yet
+#        menu.addAction("Change base Part image", self.changeBasePart)
+
+        menu.exec_(event.screenPos())
+        
 class PLI(PLITreeManager, GraphicsRoundRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
     itemClassName = "PLI"
@@ -1522,12 +1536,12 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
             self.setRect(QRectF())
             return
 
-        # Initialize each item in this PLI, so they have good rects and properly positioned quantity labels
-        for item in self.pliItems:
+        # Initialize each visible item in this PLI, so they have good rects and properly positioned quantity labels
+        partList = list(self.pliItems)
+        for item in partList:
             item.initLayout()
 
         # Sort list of parts to lay out first by color (in reverse order), then by width (narrowest first), then remove tallest part, to be added first
-        partList = list(self.pliItems)
         partList.sort(key = lambda i: i.color.sortKey(), reverse = True)  # Sort by color, reversed 
         partList.sort(key = lambda i: (i.rect().width(), i.rect().height()))  # Sort by width (then height, for ties)
         tallestPart = max(reversed(partList), key = lambda x: x.abstractPart.height)  # reverse list so we choose last part if two+ parts equally tall
@@ -1882,12 +1896,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             return
 
         part = Part(fn, LicHelpers.LicColor(), LicGLHelpers.IdentityMatrix(), False)
-        part.initializeAbstractPart(self.getPage().instructions)
-
-        if part.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
-            part.abstractPart.createGLDisplayList()
-            glContext = self.getPage().instructions.glContext
-            part.abstractPart.resetPixmap(glContext)
+        part.abstractPart = self.getInstructions().getAbstractPart(fn)
 
         self.scene().undoStack.push(AddRemovePartCommand(part, self.parentItem(), True))
 
@@ -1961,11 +1970,12 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
 
 class AbstractPart(object):
     """
-    Represents one 'abstract' part.  Could be regular part, like 2x4 brick, could be a 
-    simple primitive, like stud.dat.  
-    Used inside 'concrete' Part below. One AbstractPart instance will be shared across several Part instances.  
-    In other words, AbstractPart represents everything that two 2x4 bricks have
-    in common when present in a model; everything inside 3001.dat.
+    Represents one 'abstract' part.  Could be regular part, like 2x4 brick, 
+    could be a simple primitive, like stud.dat.  
+    Used inside 'concrete' Part below. One AbstractPart instance will be shared 
+    across several Part instances.  In other words, AbstractPart represents 
+    everything that two 2x4 bricks have in common when present in a model; 
+    everything inside 3001.dat.
     """
 
     def __init__(self, filename = None):
@@ -2938,25 +2948,6 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
     isSubmodel = property(__isSubmodel)
 
-    def initializeAbstractPart(self, instructions):
-        
-        fn = self.filename
-        pd = instructions.partDictionary
-
-        if fn in pd:
-            self.abstractPart = pd[fn]
-        elif fn.upper() in pd:
-            self.abstractPart = pd[fn.upper()]
-        else:
-            # Set up dynamic module to be used for import 
-            importerName = LicImporters.getImporter(os.path.splitext(fn)[1][1:])
-            importModule = __import__("LicImporters.%s" % importerName, fromlist = ["LicImporters"])
-            importModule.LDrawPath = LicConfig.LDrawPath
-
-            abstractPart = AbstractPart(fn)
-            importModule.importPart(fn, instructions.getProxy(), abstractPart)
-            self.abstractPart = pd[fn] = abstractPart
-
     def setInversion(self, invert):
         # Inversion is annoying as hell.  
         # Possible the containing part used a BFC INVERTNEXT (invert arg)
@@ -3227,6 +3218,13 @@ class Part(PartTreeManager, QGraphicsRectItem):
             arrowMenu.addAction("Move Right", lambda: self.displacePartsSignal(Qt.Key_Right))
 
         menu.addSeparator()
+
+#        selList = self.scene().selectedItems()
+#        selList.remove(self)
+#        if selList and all(isinstance(item, Part) for item in selList):  # Doesn't work yet
+#            menu.addAction("Merge Parts into one new Part", lambda: self.mergeParts(selList))
+#            menu.addSeparator()
+
         if not self.originalPart:
             arrowMenu2 = menu.addMenu("Change Part")
             arrowMenu2.addAction("Change Color", self.changeColorSignal)
@@ -3236,6 +3234,31 @@ class Part(PartTreeManager, QGraphicsRectItem):
             arrowMenu2.addAction("Delete Part", self.deletePartSignal)
         
         menu.exec_(event.screenPos())
+        
+    def mergeParts(self, partList):
+        csi = self.getCSI()
+        step = self.getStep()
+        page = step.getPage()
+        submodel = page.submodel
+        scene = csi.scene()
+
+        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        scene.clearSelection()
+
+        for part in partList:
+            scene.removeItem(part)
+            step.removePart(part)
+            submodel.parts.remove(part)
+
+            self.abstractPart.parts.append(part)
+    
+        self.abstractPart.resetPixmap(self.getContext(), skipPartInit = True)
+        page.instructions.updateMainModel()
+        page.updateSubmodel()
+
+        csi.isDirty = csi.nextCSIIsDirty = True
+        step.initLayout()
+        scene.emit(SIGNAL("layoutChanged()"))
 
     def displacePartsSignal(self, direction):
         partList = [p for p in self.scene().selectedItems() if isinstance(p, Part)]
@@ -3387,19 +3410,13 @@ class Part(PartTreeManager, QGraphicsRectItem):
         step.removePart(self)
 
         self.filename = filename
-        self.initializeAbstractPart(step.getPage().instructions)
-
-        if self.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
-            glContext = step.getPage().instructions.glContext
-            self.abstractPart.createGLDisplayList()
-            self.abstractPart.resetPixmap(glContext)
+        self.abstractPart = step.getInstructions().getAbstractPart(filename)
 
         if self.calloutPart:
             self.calloutPart.changeAbstractPart(filename)
 
         step.addPart(self)
-        step.csi.isDirty = True
-        step.csi.nextCSIIsDirty = True
+        step.csi.isDirty = step.csi.nextCSIIsDirty = True
         if self.originalPart:
             step.parentItem().initLayout()
         else:

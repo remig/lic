@@ -89,6 +89,9 @@ class LDrawImporter(object):
             elif isStepLine(line):
                 self.instructions.addBlankPage(parentPart)
 
+            elif isRotStepLine(line):
+                pass
+            
             elif isPartLine(line):
                 newPart = self.createNewPartFromLine(line, parentPart)
                 if newPart is not None:
@@ -142,6 +145,7 @@ QuadCommand = '4'
 ConditionalLineCommand = '5'
 
 StepCommand = 'STEP'
+RotStepCommand = 'ROTSTEP'
 FileCommand = 'FILE'
 BFCCommand = 'BFC'
 lineTerm = '\n'
@@ -224,6 +228,9 @@ def isStepLine(line):
 
 def createStepLine():
     return ' '.join([Comment, StepCommand]) + lineTerm
+
+def isRotStepLine(line):
+    return (len(line) > 3) and (line[1] == Comment) and (line[2] == RotStepCommand)
 
 class LDrawFile(object):
 

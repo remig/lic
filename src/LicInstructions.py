@@ -24,8 +24,8 @@ import Image
 
 from LicHelpers import LicColor, LicColorDict
 from LicCustomPages import Page, TitlePage
-from LicImporters import LDrawImporter
 from LicModel import *
+import LicImporters
 
 class Instructions(QObject):
     itemClassName = "Instructions"
@@ -157,6 +157,30 @@ class Instructions(QObject):
             yield "Initializing CSI " + str(i)
             csi.createGLDisplayList()
             i += 1
+
+    def getAbstractPart(self, filename):
+        pd = self.partDictionary
+        part = None
+
+        if filename in pd:
+            part = pd[filename]
+        elif filename.upper() in pd:
+            part = pd[filename.upper()]
+        else:
+            # Set up dynamic module to be used for import 
+            importerName = LicImporters.getImporter(os.path.splitext(filename)[1][1:])
+            importModule = __import__("LicImporters.%s" % importerName, fromlist = ["LicImporters"])
+            importModule.LDrawPath = LicConfig.LDrawPath
+
+            part = AbstractPart(filename)
+            importModule.importPart(filename, self.getProxy(), part)
+            pd[filename] = part
+
+        if part.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
+            part.createGLDisplayList()
+            part.resetPixmap(self.glContext)
+            
+        return part
 
     def getPartDimensionListAndCount(self, reset = False):
         if reset:
@@ -384,7 +408,7 @@ class Instructions(QObject):
 
     def loadLDrawColors(self):
         self.colorDict = LicColorDict()
-        LDrawImporter.importColorFile(self.getProxy())
+        LicImporters.LDrawImporter.importColorFile(self.getProxy())
 
 class InstructionsProxy(object):
 

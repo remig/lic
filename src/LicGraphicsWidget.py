@@ -75,8 +75,19 @@ class LicGraphicsScene(QGraphicsScene):
     def __init__(self, parent):
         QGraphicsScene.__init__(self, parent)
         self.setBackgroundBrush(Qt.gray)
+        self.emitCount = 0
         self.reset()
 
+    def emit(self, sig, *args):
+        if "layoutAboutToBeChanged" in sig:
+            self.emitCount += 1
+
+        if self.emitCount < 2 or "layout" not in sig: 
+            QGraphicsScene.emit(self, sig, *args)
+
+        if "layoutChanged" in sig:
+            self.emitCount -= 1
+        
     def reset(self):
         self.scaleFactor = 1.0
         self.pagesToDisplay = 1

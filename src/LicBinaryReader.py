@@ -421,7 +421,7 @@ def __readPage(stream, parent, instructions, templateModel = None):
 
     # Read in any page separator lines
     for unused in range(stream.readInt32()):
-        separator = page.addStepSeparator(stream.readInt32())
+        separator = page.addStepSeparator(stream.readInt32(), signal = False)
         separator.setPos(stream.readQPointF())
         separator.setRect(stream.readQRectF())
         separator.setPen(stream.readQPen())

@@ -258,7 +258,7 @@ class TemplatePage(TemplateRectItem, Page):
             step.initLayout(r.adjusted(0, 0, -100, 0))
 
             pw, ph = Page.PageSize
-            self.addStepSeparator(-1, QRectF(pw - 80, 15, 1, ph - 30))
+            self.addStepSeparator(-1, QRectF(pw - 80, 15, 1, ph - 30), False)
             self.separators[0].enabled = TemplatePage.separatorsVisible
         
     def initGLDimension(self, part, glContext):
