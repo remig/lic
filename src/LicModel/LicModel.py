@@ -2746,25 +2746,6 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         for submodel in self.submodels:
             submodel.exportToLDrawFile(fh)
 
-    def contextMenuEvent(self, event):
-        menu = QMenu()
-        if self.isSubAssembly:
-            menu.addAction("Change Sub Assembly to Callout", self.convertToCalloutSignal)
-            menu.addAction("Change Sub Assembly to Submodel", self.convertFromSubAssemblySignal)
-        else:
-            menu.addAction("Change Submodel to Callout", self.convertToCalloutSignal)
-            menu.addAction("Change Submodel to Sub Assembly", self.convertToSubAssemblySignal)
-        menu.addAction("Remove all Pages & Steps", self.removeAllPagesAndSteps)
-
-        selectedSubmodels = list(self.instructions.scene.selectedSubmodels)
-        if len(selectedSubmodels) == 2 and self in selectedSubmodels:
-            menu.addSeparator()
-            selectedSubmodels.remove(self)
-            names = (selectedSubmodels[0].getSimpleName(), self.getSimpleName())
-            menu.addAction("Clone Steps from '%s' to '%s'" % names, lambda: self.cloneStepsFromSubmodel(selectedSubmodels[0]))
-
-        menu.exec_(event.screenPos())
-
     def removeAllPagesAndSteps(self):
         self.instructions.scene.undoStack.beginMacro("remove all Pages and Steps")
         step = self.pages[0].steps[0]
@@ -2787,6 +2768,25 @@ class Submodel(SubmodelTreeManager, AbstractPart):
     def convertFromSubAssemblySignal(self):
         self.pages[0].scene().undoStack.push(SubmodelToFromSubAssembly(self, False))
 
+    def contextMenuEvent(self, event):
+        menu = QMenu()
+        if self.isSubAssembly:
+            menu.addAction("Change Sub Assembly to Callout", self.convertToCalloutSignal)
+            menu.addAction("Change Sub Assembly to Submodel", self.convertFromSubAssemblySignal)
+        else:
+            menu.addAction("Change Submodel to Callout", self.convertToCalloutSignal)
+            menu.addAction("Change Submodel to Sub Assembly", self.convertToSubAssemblySignal)
+        menu.addAction("Remove all Pages & Steps", self.removeAllPagesAndSteps)
+
+        selectedSubmodels = list(self.instructions.scene.selectedSubmodels)
+        if len(selectedSubmodels) == 2 and self in selectedSubmodels:
+            menu.addSeparator()
+            selectedSubmodels.remove(self)
+            names = (selectedSubmodels[0].getSimpleName(), self.getSimpleName())
+            menu.addAction("Clone Steps from '%s' to '%s'" % names, lambda: self.cloneStepsFromSubmodel(selectedSubmodels[0]))
+
+        menu.exec_(event.screenPos())
+
 class Mainmodel(MainModelTreeManager, Submodel):
     """ A MainModel is a Submodel plus a template, title & part list pages. It's used as the root of a tree mdoel. """
     itemClassName = "Mainmodel"
@@ -2802,6 +2802,18 @@ class Mainmodel(MainModelTreeManager, Submodel):
         self.hasPartListPages = False  # TODO: Implement mainModel.hasPartListPages so user can show / hide part list pages, like title pages
         self.partListPages = []
 
+    def addRow(self, row):
+        Submodel.addRow(self, row)
+        if self.titlePage._row > row:
+            self.titlePage._row += 1
+        for page in [p for p in self.partListPages if p._row > row]:
+            page._row += 1
+    
+    def removeRow(self, row):
+        Submodel.removeRow(self, row)
+        for page in [p for p in self.partListPages if p._row > row]:
+            page._row -= 1
+    
     def hasTitlePage(self):
         return self._hasTitlePage and self.titlePage is not None
 
@@ -3163,78 +3175,6 @@ class Part(PartTreeManager, QGraphicsRectItem):
             p.arrows.append(arrow.duplicate(p))
         return p
 
-    def contextMenuEvent(self, event):
-        """ 
-        This is called if any part is the target of a right click.  
-        self is guaranteed to be selected.  Other stuff may be selected too, so deal.
-        """
-
-        stack = self.scene().undoStack
-        step = self.getStep()
-        menu = QMenu(self.scene().views()[0])
-
-        if self.isInPLI:
-            menu.addAction("Remove from PLI", lambda: stack.push(AddRemovePartToPLICommand(self, False)))
-        else:
-            menu.addAction("Add to PLI", lambda: stack.push(AddRemovePartToPLICommand(self, True)))
-
-        if self.calloutPart:
-            menu.addAction("Remove from Callout", self.removeFromCalloutSignal)
-        else:
-            menu.addAction("Create Callout from Parts", self.createCalloutSignal)
-
-            if step.callouts:
-                subMenu = menu.addMenu("Move Part to Callout")
-                for callout in step.callouts:
-                    subMenu.addAction("Callout %d" % callout.number, lambda x = callout: self.moveToCalloutSignal(x))
-        
-        menu.addSeparator()
-
-        needSeparator = False
-        if step.getPrevStep() and not self.calloutPart:
-            menu.addAction("Move to &Previous Step", lambda: self.moveToStepSignal(step.getPrevStep()))
-            needSeparator = True
-
-        if step.getNextStep() and not self.calloutPart:
-            menu.addAction("Move to &Next Step", lambda: self.moveToStepSignal(step.getNextStep()))
-            needSeparator = True
-
-        if needSeparator:
-            menu.addSeparator()
-
-        if self.displacement:
-            #menu.addAction("&Increase displacement", lambda: self.displaceSignal(self.displaceDirection))
-            #menu.addAction("&Decrease displacement", lambda: self.displaceSignal(LicHelpers.getOppositeDirection(self.displaceDirection)))
-            menu.addAction("&Change displacement", self.adjustDisplaceSignal)
-            menu.addAction("&Remove displacement", lambda: self.displaceSignal(None))
-            menu.addAction("&Add Arrow", self.addArrowSignal)
-        else:
-            arrowMenu = menu.addMenu("Displace With &Arrow")
-            arrowMenu.addAction("Move Up", lambda: self.displacePartsSignal(Qt.Key_PageUp))
-            arrowMenu.addAction("Move Down", lambda: self.displacePartsSignal(Qt.Key_PageDown))
-            arrowMenu.addAction("Move Forward", lambda: self.displacePartsSignal(Qt.Key_Down))
-            arrowMenu.addAction("Move Back", lambda: self.displacePartsSignal(Qt.Key_Up))
-            arrowMenu.addAction("Move Left", lambda: self.displacePartsSignal(Qt.Key_Left))
-            arrowMenu.addAction("Move Right", lambda: self.displacePartsSignal(Qt.Key_Right))
-
-        menu.addSeparator()
-
-#        selList = self.scene().selectedItems()
-#        selList.remove(self)
-#        if selList and all(isinstance(item, Part) for item in selList):  # Doesn't work yet
-#            menu.addAction("Merge Parts into one new Part", lambda: self.mergeParts(selList))
-#            menu.addSeparator()
-
-        if not self.originalPart:
-            arrowMenu2 = menu.addMenu("Change Part")
-            arrowMenu2.addAction("Change Color", self.changeColorSignal)
-            arrowMenu2.addAction("Change to Different Part", self.changeBasePartSignal)
-            arrowMenu2.addAction("Change Position && Rotation", self.changePartPositionSignal)
-            arrowMenu2.addAction("Duplicate Part", self.duplicatePartSignal)
-            arrowMenu2.addAction("Delete Part", self.deletePartSignal)
-        
-        menu.exec_(event.screenPos())
-        
     def mergeParts(self, partList):
         csi = self.getCSI()
         step = self.getStep()
@@ -3462,6 +3402,78 @@ class Part(PartTreeManager, QGraphicsRectItem):
         action = ChangePartPosRotCommand(self, oldPos, self.xyz(), oldRot, self.xyzRotation())
         self.scene().undoStack.push(action)
 
+    def contextMenuEvent(self, event):
+        """ 
+        This is called if any part is the target of a right click.  
+        self is guaranteed to be selected.  Other stuff may be selected too, so deal.
+        """
+
+        stack = self.scene().undoStack
+        step = self.getStep()
+        menu = QMenu(self.scene().views()[0])
+
+        if self.isInPLI:
+            menu.addAction("Remove from PLI", lambda: stack.push(AddRemovePartToPLICommand(self, False)))
+        else:
+            menu.addAction("Add to PLI", lambda: stack.push(AddRemovePartToPLICommand(self, True)))
+
+        if self.calloutPart:
+            menu.addAction("Remove from Callout", self.removeFromCalloutSignal)
+        else:
+            menu.addAction("Create Callout from Parts", self.createCalloutSignal)
+
+            if step.callouts:
+                subMenu = menu.addMenu("Move Part to Callout")
+                for callout in step.callouts:
+                    subMenu.addAction("Callout %d" % callout.number, lambda x = callout: self.moveToCalloutSignal(x))
+        
+        menu.addSeparator()
+
+        needSeparator = False
+        if step.getPrevStep() and not self.calloutPart:
+            menu.addAction("Move to &Previous Step", lambda: self.moveToStepSignal(step.getPrevStep()))
+            needSeparator = True
+
+        if step.getNextStep() and not self.calloutPart:
+            menu.addAction("Move to &Next Step", lambda: self.moveToStepSignal(step.getNextStep()))
+            needSeparator = True
+
+        if needSeparator:
+            menu.addSeparator()
+
+        if self.displacement:
+            #menu.addAction("&Increase displacement", lambda: self.displaceSignal(self.displaceDirection))
+            #menu.addAction("&Decrease displacement", lambda: self.displaceSignal(LicHelpers.getOppositeDirection(self.displaceDirection)))
+            menu.addAction("&Change displacement", self.adjustDisplaceSignal)
+            menu.addAction("&Remove displacement", lambda: self.displaceSignal(None))
+            menu.addAction("&Add Arrow", self.addArrowSignal)
+        else:
+            arrowMenu = menu.addMenu("Displace With &Arrow")
+            arrowMenu.addAction("Move Up", lambda: self.displacePartsSignal(Qt.Key_PageUp))
+            arrowMenu.addAction("Move Down", lambda: self.displacePartsSignal(Qt.Key_PageDown))
+            arrowMenu.addAction("Move Forward", lambda: self.displacePartsSignal(Qt.Key_Down))
+            arrowMenu.addAction("Move Back", lambda: self.displacePartsSignal(Qt.Key_Up))
+            arrowMenu.addAction("Move Left", lambda: self.displacePartsSignal(Qt.Key_Left))
+            arrowMenu.addAction("Move Right", lambda: self.displacePartsSignal(Qt.Key_Right))
+
+        menu.addSeparator()
+
+#        selList = self.scene().selectedItems()
+#        selList.remove(self)
+#        if selList and all(isinstance(item, Part) for item in selList):  # Doesn't work yet
+#            menu.addAction("Merge Parts into one new Part", lambda: self.mergeParts(selList))
+#            menu.addSeparator()
+
+        if not self.originalPart:
+            arrowMenu2 = menu.addMenu("Change Part")
+            arrowMenu2.addAction("Change Color", self.changeColorSignal)
+            arrowMenu2.addAction("Change to Different Part", self.changeBasePartSignal)
+            arrowMenu2.addAction("Change Position && Rotation", self.changePartPositionSignal)
+            arrowMenu2.addAction("Duplicate Part", self.duplicatePartSignal)
+            arrowMenu2.addAction("Delete Part", self.deletePartSignal)
+        
+        menu.exec_(event.screenPos())
+        
 class Arrow(Part):
     itemClassName = "Arrow"
 

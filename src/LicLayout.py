@@ -197,12 +197,14 @@ class GridLayout(object):
 
         return sizeList
 
-    def initGridLayout(self, rect, memberList):
+    def initGridLayout(self, rect, memberList, rows = None, cols = None):
         # Divides rect into equally sized rows & columns, and sizes each member to fit inside.
         # If row / col count are -1 (unset), will be set to something appropriate.
         # MemberList is a list of any objects that have an initLayout(rect) method
 
-        rows, cols = self.getRowColCount(memberList)
+        if rows == None and cols == None:
+            rows, cols = self.getRowColCount(memberList)
+
         startPoint = rect.topLeft()
         self.separators = []
 

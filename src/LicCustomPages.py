@@ -24,6 +24,7 @@ from LicUndoActions import *
 from LicTreeModel import *
 from LicQtWrapper import *
 from LicModel import *
+import LicDialogs
 
 __all__ = ["BasePage", "Page", "StepSeparator"]
 
@@ -362,7 +363,7 @@ class Page(PageTreeManager, BasePage):
             if hasattr(item, 'internalPoints'):
                 item.internalPoints = []
 
-    def initLayout(self):
+    def initLayout(self, rows = None, cols = None):
 
         self.lockIcon.resetPosition()
         if self.lockIcon.isLocked:
@@ -382,7 +383,7 @@ class Page(PageTreeManager, BasePage):
             return label # No steps - nothing more to do here
 
         members = [self.submodelItem] if self.submodelItem else []
-        self.layout.initGridLayout(pageRect, members + self.steps)
+        self.layout.initGridLayout(pageRect, members + self.steps, rows, cols)
         for index, rect in self.layout.separators:
             self.addStepSeparator(index, rect)
 
@@ -504,39 +505,6 @@ class Page(PageTreeManager, BasePage):
 
         return True
 
-    def contextMenuEvent(self, event):
-
-        stack = self.scene().undoStack
-        menu = QMenu(self.scene().views()[0])
-        if not self.isLocked():
-            menu.addAction("Auto Layout", lambda: stack.push(LayoutItemCommand(self, self.getCurrentLayout())))
-
-        if not self.isLocked() and ((len(self.steps) > 1) or (self.steps and self.submodelItem)):
-            if self.layout.orientation == LicLayout.Horizontal:
-                menu.addAction("Use Vertical layout", self.useVerticalLayout)
-            else:
-                menu.addAction("Use Horizontal layout", self.useHorizontalLayout)
-        #menu.addAction("Check for Overlaps", self.checkForLayoutOverlaps)
-
-        menu.addSeparator()
-
-        menu.addAction("Prepend blank Page", lambda: self.addPageSignal(self.number, self._row))
-        menu.addAction("Append blank Page", lambda: self.addPageSignal(self.number + 1, self._row + 1))
-
-        menu.addSeparator()
-        if self.separators:
-            if any(x.isVisible() for x in self.separators):
-                menu.addAction("Hide Step Separators", lambda: self.showHideSeparators(False))
-            else:
-                menu.addAction("Show Step Separators", lambda: self.showHideSeparators(True))
-
-        menu.addAction("Add blank Step", self.addBlankStepSignal)
-        menu.addAction("Add Annotation", lambda: self.addAnnotationSignal(event.scenePos()))
-        menu.addSeparator()
-        if not self.steps:
-            menu.addAction("Delete Page", lambda: stack.push(AddRemovePageCommand(self.scene(), self, False)))
-        menu.exec_(event.screenPos())
-
     def useVerticalLayout(self):
         self.layout.orientation = LicLayout.Vertical
         self.initLayout()
@@ -565,6 +533,58 @@ class Page(PageTreeManager, BasePage):
             else:
                 item = PageAnnotation(self, pixmap, filename, pos)
                 self.scene().undoStack.push(AddRemoveAnnotationCommand(self, item, True))
+
+    def rowColLayout(self):
+        
+        def changeValue(newValues):
+            self.rowColCount = newValues
+            rows, cols = newValues
+            self.initLayout(rows, cols)
+            
+        def acceptValue(oldValue):
+            pass
+
+        itemCount = len(self.steps) + (1 if self.submodelItem else 0)
+        parentWidget = self.scene().views()[0]
+        dialog = LicDialogs.RowColDialog(parentWidget, 2, 3, itemCount)
+        parentWidget.connect(dialog, SIGNAL("changeValue"), changeValue)
+        parentWidget.connect(dialog, SIGNAL("acceptValue"), acceptValue)
+        dialog.exec_()
+        
+    def contextMenuEvent(self, event):
+
+        stack = self.scene().undoStack
+        menu = QMenu(self.scene().views()[0])
+        if not self.isLocked():
+            menu.addAction("Auto Layout", lambda: stack.push(LayoutItemCommand(self, self.getCurrentLayout())))
+
+        if not self.isLocked() and ((len(self.steps) > 1) or (self.steps and self.submodelItem)):
+            if self.layout.orientation == LicLayout.Horizontal:
+                menu.addAction("Use Vertical layout", self.useVerticalLayout)
+            else:
+                menu.addAction("Use Horizontal layout", self.useHorizontalLayout)
+        #menu.addAction("Check for Overlaps", self.checkForLayoutOverlaps)
+                
+        menu.addAction("Layout by Row && Column...", self.rowColLayout)
+
+        menu.addSeparator()
+
+        menu.addAction("Prepend blank Page", lambda: self.addPageSignal(self.number, self._row))
+        menu.addAction("Append blank Page", lambda: self.addPageSignal(self.number + 1, self._row + 1))
+
+        menu.addSeparator()
+        if self.separators:
+            if any(x.isVisible() for x in self.separators):
+                menu.addAction("Hide Step Separators", lambda: self.showHideSeparators(False))
+            else:
+                menu.addAction("Show Step Separators", lambda: self.showHideSeparators(True))
+
+        menu.addAction("Add blank Step", self.addBlankStepSignal)
+        menu.addAction("Add Annotation", lambda: self.addAnnotationSignal(event.scenePos()))
+        menu.addSeparator()
+        if not self.steps:
+            menu.addAction("Delete Page", lambda: stack.push(AddRemovePageCommand(self.scene(), self, False)))
+        menu.exec_(event.screenPos())
 
 class StepSeparator(QGraphicsLineItem):
     itemClassName = "Separator"

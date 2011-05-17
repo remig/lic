@@ -1139,6 +1139,10 @@ class SubmodelToCalloutCommand(QUndoCommand):
         # Convert a Submodel into a Callout
 
         self.targetStep = self.parentModel.findSubmodelStep(self.submodel)
+        instructions = self.targetStep.getPage().instructions
+        
+        targetModel = self.submodel._parent
+        
         scene = self.targetStep.scene()
         scene.clearSelection()
         scene.emit(SIGNAL("layoutAboutToBeChanged()"))
@@ -1150,7 +1154,9 @@ class SubmodelToCalloutCommand(QUndoCommand):
         self.addedParts = []
         for part in self.targetStep.csi.getPartList():
             if part.abstractPart == self.submodel:
+                part.setParentItem(None) # Temporarily set part's parent, so it doesn't get deleted by Qt
                 self.targetStep.removePart(part)
+                targetModel.parts.remove(part)
                 self.submodelInstanceList.append(part)
 
         calloutDone = False
@@ -1161,6 +1167,7 @@ class SubmodelToCalloutCommand(QUndoCommand):
                         newPart = part.duplicate()
                         newPart.matrix = LicHelpers.multiplyMatrices(newPart.matrix, submodelPart.matrix)
                         self.addedParts.append(newPart)
+                        targetModel.parts.append(newPart)
                         
                         self.targetStep.addPart(newPart)
                         if not calloutDone:
@@ -1180,7 +1187,11 @@ class SubmodelToCalloutCommand(QUndoCommand):
         self.targetCallout.initLayout()
                     
         self.parentModel.removeSubmodel(self.submodel)
+        instructions.partDictionary.pop(self.submodel.filename)
         scene.emit(SIGNAL("layoutChanged()"))
+
+        instructions.updateMainModel()
+
         scene.selectPage(self.targetStep.parentItem().number)
         self.targetCallout.setSelected(True)
         scene.emit(SIGNAL("sceneClick"))

@@ -638,6 +638,44 @@ class XYZWidget(QWidget):
     
     def selectFirst(self):
         self.xSpinBox.selectAll()
+
+class RowColDialog(QDialog):
+
+    def __init__(self, parent, rows, cols, max):
+        QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle(self.tr("Row & Column Page Layout"))
+
+        self.originalValues = (rows, cols)
+
+        rowLabel, self.rowSpinBox = self.makeLabelSpinBox("&Rows:", rows, 1, max, self.valueChanged)
+        colLabel, self.colSpinBox = self.makeLabelSpinBox("&Cols:", cols, 1, max, self.valueChanged)
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
+
+        grid = QGridLayout()
+        grid.addWidget(rowLabel, 0, 0)
+        grid.addWidget(self.rowSpinBox, 0, 1)
+        grid.addWidget(colLabel, 1, 0)
+        grid.addWidget(self.colSpinBox, 1, 1)
+        grid.addWidget(buttonBox, 2, 0, 1, 2)
+        self.setLayout(grid)
+
+        self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
+        self.connect(buttonBox, SIGNAL("rejected()"), self, SLOT("reject()"))
+        self.rowSpinBox.selectAll()
+        
+    def valueChanged(self):
+        rows = self.rowSpinBox.value()
+        cols = self.colSpinBox.value()
+        self.emit(SIGNAL("changeValue"), (rows, cols))
+    
+    def accept(self):
+        self.emit(SIGNAL("acceptValue"), self.originalValues)
+        QDialog.accept(self)
+        
+    def reject(self):
+        self.emit(SIGNAL("changeValue"), self.originalValues)
+        QDialog.reject(self)
     
 class RotationDialog(QDialog):
     
