@@ -1330,7 +1330,7 @@ class ClonePageStepsFromSubmodel(QUndoCommand):
         for page in list(dest.pages):
             dest.deletePage(page)
 
-        # Now have toally empty dest, and submodel with lots of pages & steps
+        # Now have totally empty dest, and submodel with lots of pages & steps
         # Add the right number of blank pages and steps
         for page in self.target.pages:
             dest.appendBlankPage()

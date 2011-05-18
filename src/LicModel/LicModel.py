@@ -847,10 +847,10 @@ class Step(StepTreeManager, QGraphicsRectItem):
         return isinstance(self.parentItem(), Callout)
 
     def getNextStep(self):
-        return self.parentItem().getStepByNumber(self.number + 1)
+        return self.parentItem().getStepByNumber(self._number + 1)
 
     def getPrevStep(self):
-        return self.parentItem().getStepByNumber(self.number - 1)
+        return self.parentItem().getStepByNumber(self._number - 1)
 
     def enableNumberItem(self):
         if self.numberItem is None:
@@ -2601,6 +2601,7 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         for submodel in self.submodels:
             step = submodel.getStepByNumber(stepNumber)
             if step:
+                print("ERROR!! - SEARCHING SUBMODEL FOR A STEP BY NUMBER!!")
                 return step
         return None
 
