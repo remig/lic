@@ -52,7 +52,7 @@ except ImportError:
         pass # Ignore missing Resource bundle silently - better to run without icons then to crash entirely
 
 __version__ = "0.6.0"
-_debug = False
+_debug = True
 
 MagicNumber = 0x14768126
 FileVersion = 16
@@ -683,7 +683,7 @@ class LicWindow(QMainWindow):
             progress.incr(label)
 
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.treeModel.root = self.instructions.mainModel
+        self.treeModel.root = self.instructions
 
         try:
             template = LicBinaryReader.loadLicTemplate(self.defaultTemplateFilename, self.instructions, FileVersion, MagicNumber)
@@ -741,7 +741,7 @@ class LicWindow(QMainWindow):
                 return
             progress.incr()
 
-        self.treeModel.root = self.instructions.mainModel
+        self.treeModel.root = self.instructions
         self.scene.emit(SIGNAL("layoutChanged()"))
 
         self.filename = filename
@@ -950,7 +950,7 @@ def real_main():
     if window.needPathConfiguration:
         window.configurePaths(True)
 
-    # Load a particular file on Lic launch - handy for debugging 
+    # Load a particular file on Lic launch - handy for debugging
     filename = ""
     #filename = unicode("C:/lic/viper.mpd")
     #filename = unicode("C:/lic/6x10.lic")
