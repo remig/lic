@@ -683,7 +683,7 @@ class LicWindow(QMainWindow):
             progress.incr(label)
 
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.treeModel.root = self.instructions
+        self.treeModel.root = self.instructions.mainModel
 
         try:
             template = LicBinaryReader.loadLicTemplate(self.defaultTemplateFilename, self.instructions, FileVersion, MagicNumber)
@@ -741,7 +741,7 @@ class LicWindow(QMainWindow):
                 return
             progress.incr()
 
-        self.treeModel.root = self.instructions
+        self.treeModel.root = self.instructions.mainModel
         self.scene.emit(SIGNAL("layoutChanged()"))
 
         self.filename = filename

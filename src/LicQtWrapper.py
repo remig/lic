@@ -319,7 +319,7 @@ QGraphicsItem.oldPos = None  # Give all items an oldPos; saves a hasAttr check i
 QGraphicsItem.fixedSize = False # Give all items an unset FixedSize 
 
 QGraphicsLineItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
-QGraphicsLineItem.mouseMoveEvent = genericMouseMoveEvent(QAbstractGraphicsShapeItem)
+QGraphicsLineItem.mouseMoveEvent = genericMouseMoveEvent(QGraphicsItem)
 QGraphicsLineItem.mouseReleaseEvent = genericMouseReleaseEvent(QGraphicsItem)
 
 QGraphicsRectItem.mousePressEvent = genericMousePressEvent(QAbstractGraphicsShapeItem)

@@ -154,7 +154,7 @@ class LicTreeModel(QAbstractItemModel):
             self.changePersistentIndex(index, newIndex)
 
     def deletePersistentItem(self, item):
-        if self.persistentIndexList():
+        if isinstance(item, BaseTreeManager) and self.persistentIndexList():
             index = self.createIndex(item.row(), 0, item)
             self.changePersistentIndex(index, QModelIndex())
 
@@ -171,14 +171,11 @@ class BaseTreeManager(object):
 QGraphicsSimpleTextItem.__bases__ += (BaseTreeManager,)
 QGraphicsEllipseItem.__bases__ += (BaseTreeManager,)
 QGraphicsRectItem.__bases__ += (BaseTreeManager,)
-QGraphicsLineItem.__bases__ += (BaseTreeManager,)
 QGraphicsPixmapItem.__bases__ += (BaseTreeManager,)
 
 class PageTreeManager(BaseTreeManager):
 
     def parent(self):
-        if (self.submodel == self.instructions.mainModel):
-            return self.instructions
         return self.submodel
 
     def child(self, row):
@@ -203,9 +200,6 @@ class PageTreeManager(BaseTreeManager):
 
 class PartListPageTreeManager(BaseTreeManager):
 
-    def parent(self):
-        return self.instructions
-
     def child(self, row):
         if row == 0:
             return self.numberItem
@@ -227,9 +221,6 @@ class PartListPageTreeManager(BaseTreeManager):
         return "Part List Page %d" % (self.submodel.partListPages.index(self) + 1)
 
 class TitlePageTreeManager(BaseTreeManager):
-
-    def parent(self):
-        return self.instructions
 
     def child(self, row):
         if row == 0:
@@ -438,8 +429,6 @@ class CSITreeManager(BaseTreeManager):
 class SubmodelTreeManager(BaseTreeManager):
 
     def parent(self):
-        if (self._parent == self.instructions.mainModel):
-            return self.instructions
         return self._parent
 
     def child(self, row):
@@ -482,46 +471,6 @@ class MainModelTreeManager(SubmodelTreeManager):
         for submodel in self.submodels:
             submodel._row += increment
         for page in self.partListPages:
-            page._row += increment
-
-class InstructionTreeManager(BaseTreeManager):
-
-    def parent(self):
-        return self._parent
-
-    def setRow(self, row):
-        self.mainModel._row = row
-        
-    def data(self, index):
-        return "Submodel: %s" % self.mainModel.getSimpleName()
-
-    def child(self, row):
-        if row == 0:
-            return self.mainModel.template
-        if row == 1 and self.mainModel.hasTitlePage():
-            return self.mainModel.titlePage
-
-        offset = len(self.mainModel.pages) + len(self.mainModel.submodels) + 1 + (1 if self.mainModel.hasTitlePage() else 0)
-        if row >= offset:
-            return self.mainModel.partListPages[row - offset]
-
-        for page in self.mainModel.pages:
-            if page._row == row:
-                return page
-        for submodel in self.mainModel.submodels:
-            if submodel._row == row:
-                return submodel
-        return None
-
-    def rowCount(self):
-        return len(self.mainModel.pages) + len(self.mainModel.submodels) + len(self.mainModel.partListPages) + 1 + (1 if self.mainModel.hasTitlePage() else 0)
-
-    def incrementRows(self, increment):
-        for page in self.mainModel.pages:
-            page._row += increment
-        for submodel in self.mainModel.submodels:
-            submodel._row += increment
-        for page in self.mainModel.partListPages:
             page._row += increment
 
 class PartTreeItemTreeManager(BaseTreeManager):

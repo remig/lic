@@ -586,7 +586,7 @@ class Page(PageTreeManager, BasePage):
             menu.addAction("Delete Page", lambda: stack.push(AddRemovePageCommand(self.scene(), self, False)))
         menu.exec_(event.screenPos())
 
-class StepSeparator(QGraphicsLineItem):
+class StepSeparator(BaseTreeManager, QGraphicsLineItem):
     itemClassName = "Separator"
     defaultPen = QPen(QBrush(Qt.black), 2)
 

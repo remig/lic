@@ -25,10 +25,9 @@ import Image
 from LicHelpers import LicColor, LicColorDict
 from LicCustomPages import Page, TitlePage
 from LicModel import *
-from LicTreeModel import InstructionTreeManager
 import LicImporters
 
-class Instructions(InstructionTreeManager, QObject):
+class Instructions(QObject):
     itemClassName = "Instructions"
 
     def __init__(self, parent, scene, glWidget):
@@ -41,16 +40,6 @@ class Instructions(InstructionTreeManager, QObject):
 
         self.glContext = glWidget
         self.glContext.makeCurrent()
-
-#        self.pages = []  # And so it begins
-
-#        self.template = None
-
-#        self._hasTitlePage = False
-#        self.titlePage = None
-
-#        self.hasPartListPages = False
-#        self.partListPages = []
 
     def __getTemplate(self):
         return self.mainModel.template
