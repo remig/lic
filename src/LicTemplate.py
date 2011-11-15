@@ -180,17 +180,25 @@ class TemplatePage(TemplateRectItem, Page):
                 self.submodelItem.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, self.submodelItem.numberItem)
 
         if step.callouts:
-            step.callouts[0].__class__ = TemplateCallout
-            step.callouts[0].arrow.__class__ = TemplateCalloutArrow
-            step.callouts[0].steps[0].csi.__class__ = TemplateCSI
-            step.callouts[0].steps[0].csi.target = CSI
+            callout = step.callouts[0]
+            callout.__class__ = TemplateCallout
+            callout.arrow.__class__ = TemplateCalloutArrow
+            callout.qtyLabel.setAllFonts = lambda oldFont, newFont: stack.push(SetItemFontsCommand(self, oldFont, newFont, 'Callout Quantity'))
+            callout.qtyLabel.contextMenuEvent = lambda event: self.fontMenuEvent(event, callout.qtyLabel)
+
+            s = callout.steps[0]
+            s.csi.__class__ = TemplateCSI
+            s.csi.target = CSI
+            s.numberItem.setAllFonts = lambda oldFont, newFont: stack.push(SetItemFontsCommand(self, oldFont, newFont, 'Callout Step'))
+            s.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, s.numberItem)
 
         if step.rotateIcon:
             step.rotateIcon.__class__ = TemplateRotateIcon
 
         self.numberItem.setAllFonts = lambda oldFont, newFont: stack.push(SetItemFontsCommand(self, oldFont, newFont, 'Page'))
-        step.numberItem.setAllFonts = lambda oldFont, newFont: stack.push(SetItemFontsCommand(self, oldFont, newFont, 'Step'))
         self.numberItem.contextMenuEvent = lambda event: self.pageNumberMenuEvent(event)
+
+        step.numberItem.setAllFonts = lambda oldFont, newFont: stack.push(SetItemFontsCommand(self, oldFont, newFont, 'Step'))
         step.numberItem.contextMenuEvent = lambda event: self.fontMenuEvent(event, step.numberItem)
 
         if step.hasPLI():
@@ -249,6 +257,11 @@ class TemplatePage(TemplateRectItem, Page):
 
         if not self.submodelItem.hasQuantity():
             self.submodelItem.addQuantityLabel(2)
+
+        callout = self.steps[0].callouts[0]
+        if callout.qtyLabel is None:
+            callout.enableStepNumbers()
+            callout.addQuantityLabel()
 
         self.initLayout()
 
@@ -478,6 +491,10 @@ class TemplatePage(TemplateRectItem, Page):
                 action.setChecked(True)
             return action
 
+        def hideLabel():
+            for page in self.instructions.getPageList():
+                page.numberItem.hide()
+        
         stack = self.scene().undoStack
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Set Font", lambda: self.setItemFont(self.numberItem))
@@ -486,6 +503,9 @@ class TemplatePage(TemplateRectItem, Page):
         arrowMenu.addAction(addPosAction("Left Corner", 'left'))
         arrowMenu.addAction(addPosAction("Odd # on left - Even # on right", 'evenRight'))
         arrowMenu.addAction(addPosAction("Even # on left - Odd # on right", 'oddRight'))
+
+        menu.addAction("Remove", hideLabel)
+        
         menu.exec_(event.screenPos())
 
     def setNumberItemPos(self, pos):
@@ -724,6 +744,7 @@ class TemplateRotateIcon(TemplateRectItem, GraphicsRotateArrowItem):
 
         parentWidget.connect(dialog, SIGNAL("changePen"), self.changeArrowPen)
         parentWidget.connect(dialog, SIGNAL("acceptPen"), self.acceptArrowPen)
+        self.setFlags(AllFlags)
 
         dialog.exec_()
 

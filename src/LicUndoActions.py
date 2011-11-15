@@ -997,7 +997,7 @@ class SetItemFontsCommand(QUndoCommand):
             self.template.numberItem.setFont(font)
             for page in self.template.instructions.getPageList():
                 page.numberItem.setFont(font)
-                
+
         elif self.target == 'Step':
             self.template.steps[0].numberItem.setFont(font)
             for page in self.template.instructions.getPageList():
@@ -1026,6 +1026,23 @@ class SetItemFontsCommand(QUndoCommand):
             for page in self.template.instructions.getPageList():
                 if page.submodelItem and page.submodelItem.hasQuantity():
                     page.submodelItem.numberItem.setFont(font)
+
+        elif self.target == 'Callout Step':
+            self.template.steps[0].callouts[0].steps[0].numberItem.setFont(font)
+            for page in self.template.instructions.getPageList():
+                for step in page.steps:
+                    for callout in step.callouts:
+                        for step in callout.steps:
+                            if step.numberItem is not None:
+                                step.numberItem.setFont(font)
+
+        elif self.target == 'Callout Quantity':
+            self.template.steps[0].callouts[0].qtyLabel.setFont(font)
+            for page in self.template.instructions.getPageList():
+                for step in page.steps:
+                    for callout in step.callouts:
+                        if callout.qtyLabel is not None:
+                            callout.qtyLabel.setFont(font)
 
 class TogglePLIs(QUndoCommand):
 
@@ -1165,13 +1182,16 @@ class SubmodelToCalloutCommand(QUndoCommand):
                 for step in page.steps:
                     for part in step.csi.getPartList():
                         newPart = part.duplicate()
+                        originalMatrix = newPart.matrix
                         newPart.matrix = LicHelpers.multiplyMatrices(newPart.matrix, submodelPart.matrix)
                         self.addedParts.append(newPart)
                         targetModel.parts.append(newPart)
                         
                         self.targetStep.addPart(newPart)
                         if not calloutDone:
-                            self.targetCallout.addPart(newPart.duplicate())
+                            calloutPart = newPart.duplicate()
+                            calloutPart.matrix = list(originalMatrix)
+                            self.targetCallout.addPart(calloutPart)
 
                     if step != page.steps[-1] and not calloutDone:
                         self.targetCallout.addBlankStep(False)
@@ -1249,7 +1269,7 @@ class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
         submodel.mergeInitialPages()
         if submodel.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             submodel.createGLDisplayList()
-        submodel.resetPixmap()
+#        submodel.resetPixmap(callout.getContext(), True)
 
         self.newPart = submodel.createBlankPart()
         self.newPart.abstractPart = submodel

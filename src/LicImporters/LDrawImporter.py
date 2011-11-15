@@ -122,6 +122,8 @@ class LDrawImporter(object):
             part.toBlack()
         elif fn == "stud4.dat" and pn == "4-4cyli.dat" and invertNext:
             part.toBlack()
+        elif fn == "6541.dat" and pn == "4-4cyli.dat":
+            part.toBlack()
 
     @staticmethod
     def loadLDConfig(instructions):

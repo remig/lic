@@ -248,6 +248,12 @@ def __writePage(stream, page):
     stream.writeInt32(page.layout.orientation)
     stream << page.numberItem.pos() << page.numberItem.font()
 
+    if page.numberItem and page.numberItem._customNumber:
+        stream.writeBool(True)
+        stream.writeInt32(page.numberItem._customNumber)
+    else:
+        stream.writeBool(False)
+
     # Write out each step in this page
     stream.writeInt32(len(page.steps))
     for step in page.steps:
@@ -309,6 +315,7 @@ def __writeStep(stream, step):
     stream.writeBool(True if step.pli else False)
     stream.writeBool(True if step.numberItem else False)
     
+    assert(step.maxRect is not None)
     stream << step.pos() << step.rect() << step.maxRect
     
     __writeCSI(stream, step.csi)
@@ -328,6 +335,12 @@ def __writeStep(stream, step):
         stream.writeBool(True)
         __writeRoundedRectItem(stream, step.rotateIcon)
         stream << step.rotateIcon.arrowPen
+    else:
+        stream.writeBool(False)
+        
+    if step.numberItem and step.numberItem._customNumber:
+        stream.writeBool(True)
+        stream.writeInt32(step.numberItem._customNumber)
     else:
         stream.writeBool(False)
 
@@ -374,6 +387,11 @@ def __writeSubmodelItem(stream, submodelItem):
         stream << submodelItem.numberItem.pos() << submodelItem.numberItem.font()
     else:
         stream.writeBool(False)
+        
+    stream.writeInt32(submodelItem.abstractPart.width)
+    stream.writeInt32(submodelItem.abstractPart.height)
+    stream.writeInt32(submodelItem.abstractPart.center.x())
+    stream.writeInt32(submodelItem.abstractPart.center.y())
 
 def __writeCSI(stream, csi):
     stream << csi.pos()

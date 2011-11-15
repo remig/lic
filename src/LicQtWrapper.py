@@ -90,6 +90,7 @@ class GraphicsRoundRectItem(QGraphicsRectItem):
     def paint(self, painter, option, widget = None):
         
         if self.cornerRadius:
+            painter.setRenderHint(QPainter.Antialiasing)
             painter.setPen(self.pen())
             painter.setBrush(self.brush())
             painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
@@ -171,6 +172,7 @@ class GraphicsRotateArrowItem(GraphicsRoundRectItem):
         self.update()
 
     def paint(self, painter, option, widget = None):
+        painter.setRenderHint(QPainter.Antialiasing)
         GraphicsRoundRectItem.paint(self, painter, option, widget)
         painter.setPen(self.arrowPen)
         painter.setBrush(QBrush(Qt.transparent))
@@ -295,7 +297,7 @@ def genericMouseMoveEvent(className):
         if event.buttons() == Qt.RightButton or self.oldPos is None:
             return
         className.mouseMoveEvent(self, event)
-        if (self.flags() & QGraphicsItem.ItemIsMovable) == QGraphicsItem.ItemIsMovable:
+        if self.parentItem() and (self.flags() & QGraphicsItem.ItemIsMovable) == QGraphicsItem.ItemIsMovable:
             self.scene().snap(self)
         #snapToGrid(self)
     return _tmp

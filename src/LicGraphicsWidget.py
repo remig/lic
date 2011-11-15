@@ -620,14 +620,15 @@ class Guide(QGraphicsLineItem):
         viewRect = scene.views()[0].geometry()
         sceneRect = scene.sceneRect()
 
-        length = scene.sceneRect().width() if orientation == LicLayout.Horizontal else scene.sceneRect().height()
-        x, y = (min(viewRect.width(), sceneRect.width()) / 2.0) + dx, (min(viewRect.height(), sceneRect.height()) / 2.0) + dy
+        length = sceneRect.width() if orientation == LicLayout.Horizontal else sceneRect.height()
 
         if orientation == LicLayout.Horizontal:
+            y = (min(viewRect.height() / scene.scaleFactor, sceneRect.height()) / 2.0) + dy
             self.setCursor(Qt.SplitVCursor)
             self.setPos(0, y)
             self.setLine(-Guide.extends, 0, length + Guide.extends, 0)
         else:
+            x = (min(viewRect.width() / scene.scaleFactor, sceneRect.width()) / 2.0) + dx
             self.setCursor(Qt.SplitHCursor)
             self.setPos(x, 0)
             self.setLine(0, -Guide.extends, 0, length + Guide.extends)

@@ -410,6 +410,10 @@ def __readPage(stream, parent, instructions, templateModel = None):
     page.numberItem.setPos(stream.readQPointF())
     page.numberItem.setFont(stream.readQFont())
 
+    if stream.licFileVersion >= 17:
+        if stream.readBool():
+            page.numberItem._customNumber = stream.readInt32()
+
     # Read in each step in this page
     for unused in range(stream.readInt32()):
         page.addStep(__readStep(stream, page))
@@ -507,6 +511,10 @@ def __readStep(stream, parent):
             __readRoundedRectItem(stream, step.rotateIcon)
             step.rotateIcon.arrowPen = stream.readQPen()
 
+    if stream.licFileVersion >= 17:
+        if stream.readBool():
+            step.numberItem._customNumber = stream.readInt32()
+
     return step
 
 def __readCallout(stream, parent):
@@ -558,6 +566,12 @@ def __readSubmodelItem(stream, page):
         part, scale = submodelItem.abstractPart, submodelItem.scaling
         part.width *= scale
         part.height *= scale
+
+    if stream.licFileVersion >= 18:
+        submodelItem.abstractPart.width = stream.readInt32()
+        submodelItem.abstractPart.height = stream.readInt32()
+        submodelItem.abstractPart.center.setX(stream.readInt32())
+        submodelItem.abstractPart.center.setY(stream.readInt32())
 
     return submodelItem
 

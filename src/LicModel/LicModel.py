@@ -18,6 +18,8 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
+import colorsys
+
 from LicCommonImports import *
 
 #import OpenGL
@@ -41,8 +43,46 @@ from LicImporters import LDrawImporter
 __all__ = ["CalloutArrowEndItem", "CalloutArrow", "Callout",
            "Step", "SubmodelPreview", "PLIItem", "PLI", "CSI",
            "AbstractPart", "Submodel", "Mainmodel", "PartTreeItem",
-           "Part", "Arrow", "Primitive"]
+           "Part", "Arrow", "Primitive", "LicNumberLabel"]
 
+class LicNumberLabel(QGraphicsSimpleTextItem):
+    
+    def __init__(self, parent, number, itemClass, data):
+        QGraphicsSimpleTextItem.__init__(self, str(number), parent)
+        
+        self._number = number
+        self._customNumber = None
+        self.setText(str(self._number))
+        self.itemClassName = itemClass
+        self.setPos(0, 0)
+        self.setFont(QFont("Arial", 15))
+        self.setFlags(AllFlags)
+        self.data = lambda index: data
+
+    def paint(self, painter, option, widget = None):
+        if self._customNumber is not None:
+            self.setText(str(self._customNumber))
+        QGraphicsSimpleTextItem.paint(self, painter, option, widget)
+        if self._customNumber is not None:
+            self.setText(str(self._number))
+
+    def changeNumber(self):
+        parentWidget = self.scene().views()[0]
+        i, ok = QInputDialog.getInteger(parentWidget, "New Number", "New Number:", 
+                        self._customNumber if self._customNumber is not None else self._number, 
+                        -5000, 5000, 1, Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        if ok:
+            self._customNumber = i
+
+    def clearCustomNumber(self):
+        self._customNumber = None
+            
+    def contextMenuEvent(self, event):
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("Change Number", self.changeNumber)
+        menu.addAction("Clear Custom Number", self.clearCustomNumber)
+        menu.exec_(event.screenPos())
+        
 class CalloutArrowEndItem(QGraphicsRectItem):
     itemClassName = "CalloutArrowEndItem"
     
@@ -92,7 +132,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
     
     defaultPen = QPen(Qt.black)
     defaultBrush = QBrush(Qt.white)  # Fill arrow head
-    arrowTipLength = 22.0
+    arrowTipLength = 18.0
     arrowTipHeight = 5.0
     ArrowHead = QPolygonF([QPointF(),
                            QPointF(arrowTipLength + 3, -arrowTipHeight),
@@ -218,6 +258,7 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
             self.initializePoints()
         
         painter.save()
+        painter.setRenderHint(QPainter.Antialiasing)
         painter.setPen(self.pen())
         painter.setBrush(self.brush())
 
@@ -411,6 +452,9 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
     def initLayout(self):
 
+        if self.getPage().isLocked():
+            return  # Don't layout stuff on locked pages
+         
         if not self.steps:
             self.setRect(0.0, 0.0, 10.0, 10.0)
             return  # Nothing to layout here
@@ -746,7 +790,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
         self.callouts = []
         self.rotateIcon = None
         
-        self.maxRect = None
+        self.maxRect = QRectF()
 
         self.setPen(QPen(Qt.NoPen))
         self.setPos(self.getPage().margin)
@@ -826,7 +870,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
         page.addStep(self)
 
     def resetRect(self):
-        if self.maxRect:
+        if self.maxRect == QRectF():
             r = QRectF(0.0, 0.0, max(1, self.maxRect.width()), max(1, self.maxRect.height()))
         else:
             r = QRectF(0.0, 0.0, 1.0, 1.0)
@@ -854,13 +898,7 @@ class Step(StepTreeManager, QGraphicsRectItem):
 
     def enableNumberItem(self):
         if self.numberItem is None:
-            self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
-        self.numberItem.setText(str(self._number))
-        self.numberItem.itemClassName = "Step Number"
-        self.numberItem.setPos(0, 0)
-        self.numberItem.setFont(QFont("Arial", 15))
-        self.numberItem.setFlags(AllFlags)
-        self.numberItem.data = lambda index: "Step Number Label"
+            self.numberItem = LicNumberLabel(self, self._number, "Step Number", "Step Number Label")
 
     def disableNumberItem(self):
         self.scene().removeItem(self.numberItem)
@@ -1405,8 +1443,6 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.setRect(self.childrenBoundingRect() | glRect)
 
     def paintGL(self, f = 1.0):
-        if not self.isVisible():
-            return
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.abstractPart.width / 2.0)
         dy = -self.getPage().PageSize.height() + pos.y() + (self.abstractPart.height / 2.0)
@@ -1723,20 +1759,20 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     def containsSubmodel(self):
         return any(part.isSubmodel for part in self.getPartList())
 
-    def __callPreviousGLDisplayLists(self, isCurrent = False):
+    def __callPreviousGLDisplayLists(self, isCurrent, greyedOut):
 
         # Call all previous step's CSI display list
         prevStep = self.parentItem().getPrevStep()
         if prevStep:
             #if prevStep.csi.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
-            prevStep.csi.__callPreviousGLDisplayLists(False)
+            prevStep.csi.__callPreviousGLDisplayLists(False, greyedOut = True)
             #else:
             #    GL.glCallList(prevStep.csi.glDispID)
 
         # Draw all the parts in this CSI
         for partItem in self.parts:
             for part in partItem.parts:
-                part.callGLDisplayList(isCurrent)
+                part.callGLDisplayList(isCurrent, greyedOut)
 
     def createGLDisplayList(self):
         """
@@ -1748,7 +1784,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
             self.glDispID = GL.glGenLists(1)
         GL.glNewList(self.glDispID, GL.GL_COMPILE)
         #LicGLHelpers.drawCoordLines()
-        self.__callPreviousGLDisplayLists(True)
+        self.__callPreviousGLDisplayLists(True, greyedOut = False)
         GL.glEndList()
 
     def resetPixmap(self):
@@ -1986,6 +2022,7 @@ class AbstractPart(object):
         self.parts = []
         self.primitives = []
         self.glDispID = LicGLHelpers.UNINIT_GL_DISPID
+        self.notCurrentDispID = LicGLHelpers.UNINIT_GL_DISPID
         self.isPrimitive = False  # primitive here means sub-part or part that's internal to another part
         self.isSubmodel = False
         self._boundingBox = None
@@ -2027,10 +2064,22 @@ class AbstractPart(object):
         GL.glNewList(self.glDispID, GL.GL_COMPILE)
 
         for part in self.parts:
-            part.callGLDisplayList()
+            part.callGLDisplayList(greyedOut = False)
 
         for primitive in self.primitives:
-            primitive.callGLDisplayList()
+            primitive.callGLDisplayList(greyedOut = False)
+
+        GL.glEndList()
+
+        if self.notCurrentDispID == LicGLHelpers.UNINIT_GL_DISPID:
+            self.notCurrentDispID = GL.glGenLists(1)
+        GL.glNewList(self.notCurrentDispID, GL.GL_COMPILE)
+
+        for part in self.parts:
+            part.callGLDisplayList(greyedOut = True)
+
+        for primitive in self.primitives:
+            primitive.callGLDisplayList(greyedOut = True)
 
         GL.glEndList()
 
@@ -2805,11 +2854,11 @@ class Mainmodel(MainModelTreeManager, Submodel):
 
     def addRow(self, row):
         Submodel.addRow(self, row)
-        if self.titlePage._row > row:
+        if self.titlePage and self.titlePage._row > row:
             self.titlePage._row += 1
         for page in [p for p in self.partListPages if p._row > row]:
             page._row += 1
-    
+
     def removeRow(self, row):
         Submodel.removeRow(self, row)
         for page in [p for p in self.partListPages if p._row > row]:
@@ -3090,16 +3139,51 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
     def toBlack(self):
         self.color = LicHelpers.LicColor.black()
+        self.isBlackened = True
 
-    def callGLDisplayList(self, useDisplacement = False):
+    def callGLDisplayList(self, useDisplacement = False, greyedOut = False):
+
+        colorIsSet = False
+        greyedOut = False
 
         # must be called inside a glNewList/EndList pair
         if self.color is not None:
-            color = list(self.color.rgba)
-            if useDisplacement and self.isSelected():
-                color[3] = 0.5
-            GL.glPushAttrib(GL.GL_CURRENT_BIT)
-            GL.glColor4fv(color)
+            r, g, b = self.color.rgba[:3]
+            if greyedOut:
+                if r == g == b == 0: # remove black from the side of studs
+                    color = None
+                elif self.color.name == 'White':
+                    color = [0.82, 0.82, 0.82, 1.0]  # more: [0.85, 0.85, 0.85, 1.0] 
+                elif self.color.name == 'Light Bluish Gray':
+                    color = [0.72, 0.72, 0.72, 1.0]  # more: [0.78, 0.78, 0.78, 1.0]
+                elif self.color.name == 'Black':
+                    color = [0.48, 0.48, 0.48, 1.0]  # more: [0.55, 0.55, 0.55, 1.0]
+                elif self.color.name == 'Tan':
+                    color = [0.92, 0.86, 0.75, 1.0]  # more: [0.92, 0.86, 0.75, 1.0]
+                elif self.color.name == 'Reddish Brown':
+                    color = [0.65, 0.5, 0.4, 1.0]  # more: [0.715, 0.55, 0.44, 1.0]
+                elif self.color.name == 'Dark Bluish Gray':
+                    color = [0.6, 0.6, 0.6, 1.0]  # more: [0.7, 0.7, 0.7, 1.0]
+                elif self.color.name == 'Dark Tan':
+                    color = [0.82, 0.7, 0.54, 1.0]  # more: [0.91, 0.77, 0.59, 1.0]
+                else:
+                    h, s, v = colorsys.rgb_to_hsv(r, g, b)
+                    s *= 0.1;
+                    v *= 1.2;
+                    r,g,b = colorsys.hsv_to_rgb(h, s, v)
+                    color = [r, g, b, self.color.rgba[-1]]
+
+                if color:
+                    GL.glPushAttrib(GL.GL_CURRENT_BIT)
+                    GL.glColor4fv(color)
+                    colorIsSet = True
+            else:
+                color = list(self.color.rgba)
+                if useDisplacement and self.isSelected():
+                    color[3] = 0.5
+                GL.glPushAttrib(GL.GL_CURRENT_BIT)
+                GL.glColor4fv(color)
+                colorIsSet = True
 
         if self.inverted:
             GL.glPushAttrib(GL.GL_POLYGON_BIT)
@@ -3120,7 +3204,10 @@ class Part(PartTreeManager, QGraphicsRectItem):
             self.drawGLBoundingBox()
             GL.glPopAttrib()
 
-        GL.glCallList(self.abstractPart.glDispID)
+        if greyedOut:
+            GL.glCallList(self.abstractPart.notCurrentDispID)
+        else:
+            GL.glCallList(self.abstractPart.glDispID)
         #self.abstractPart.drawConditionalLines()
 
         if self.matrix:
@@ -3129,7 +3216,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         if self.inverted:
             GL.glPopAttrib()
 
-        if self.color is not None:
+        if colorIsSet:
             GL.glPopAttrib()
 
         for arrow in self.arrows:
@@ -3749,8 +3836,10 @@ class Primitive(object):
             return +1
         return 0
     
-    def callGLDisplayList(self):
+    def callGLDisplayList(self, greyedOut = False):
 
+        greyedOut = False
+        
         # must be called inside a glNewList/EndList pair
         p = self.points
         if self.type == GL.GL_LINES:
@@ -3758,7 +3847,10 @@ class Primitive(object):
                 return
 
             GL.glPushAttrib(GL.GL_CURRENT_BIT)
-            GL.glColor4f(0.0, 0.0, 0.0, 1.0)
+            if greyedOut:
+                GL.glColor4f(1.0, 1.0, 1.0, 1.0)
+            else:
+                GL.glColor4f(0.0, 0.0, 0.0, 1.0)
             GL.glBegin(self.type)
             GL.glVertex3f(p[0], p[1], p[2])
             GL.glVertex3f(p[3], p[4], p[5])

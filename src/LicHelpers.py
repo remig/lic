@@ -38,6 +38,9 @@ class LicColor(object):
     def sortKey(self):
         return sum(self.rgba)
     
+    def isBlack(self):
+        return self.ldrawCode == 0
+    
     @staticmethod
     def black():
         return LicColor(0.0, 0.0, 0.0, 1.0, 'Black')
@@ -69,7 +72,7 @@ def determinant3x3(m):
 
 def multiplyMatrices(matrix1, matrix2):
     # m1 & m2 must be in the form [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-    # ie, matrix list straigth from a Part
+    # ie, matrix list straight from a Part
     m1 = listToMatrix(matrix1)
     m2 = listToMatrix(matrix2)
     m = [[0]*4, [0]*4, [0]*4, [0]*4]

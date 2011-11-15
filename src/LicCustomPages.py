@@ -64,7 +64,11 @@ class BasePage(GraphicsRoundRectItem):
 
     def paint(self, painter, option, widget = None):
 
+        if hasattr(self, "doNotRender") and self.doNotRender:
+            return
+        
         # Draw a slightly down-right translated black rectangle, for the page shadow effect
+        painter.setRenderHint(QPainter.Antialiasing)
         painter.setPen(Qt.NoPen)
         painter.setBrush(QBrush(Qt.black))
         painter.drawRect(self.rect().translated(3, 3))
@@ -104,11 +108,7 @@ class Page(PageTreeManager, BasePage):
         self.color = BasePage.defaultFillColor
 
         # Setup this page's page number
-        self.numberItem = QGraphicsSimpleTextItem(str(self._number), self)
-        self.numberItem.setFont(QFont("Arial", 15))
-        self.numberItem.setFlags(AllFlags)
-        self.numberItem.data = lambda index: "Page Number Label"
-        self.numberItem.itemClassName = "Page Number"
+        self.numberItem = LicNumberLabel(self, self._number, "Page Number", "Page Number Label")
         self.children.append(self.numberItem)
         
         # Position page number in bottom right page corner
