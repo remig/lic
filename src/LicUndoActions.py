@@ -921,11 +921,7 @@ class SetPageBackgroundColorCommand(QUndoCommand):
 
     def doAction(self, redo):
         color = self.newColor if redo else self.oldColor
-        self.template.setColor(color)
-        self.template.update()
-        for page in self.template.instructions.getPageList():
-            page.color = color
-            page.update()
+        self.template.instructions.templateSettings.Page.backgroundColor = color
 
 class SetPageBackgroundBrushCommand(QUndoCommand):
 
@@ -937,11 +933,7 @@ class SetPageBackgroundBrushCommand(QUndoCommand):
 
     def doAction(self, redo):
         brush = self.newBrush if redo else self.oldBrush
-        self.template.setBrush(brush)
-        self.template.update()
-        for page in self.template.instructions.getPageList():
-            page.setBrush(brush)
-            page.update()
+        self.template.instructions.templateSettings.Page.brush = brush
 
 class SetPenCommand(QUndoCommand):
 
@@ -951,17 +943,10 @@ class SetPenCommand(QUndoCommand):
         QUndoCommand.__init__(self, "change Border")
         self.target, self.oldPen, self.penSetter = target, oldPen, penSetter
         self.newPen = newPen if newPen else target.pen()
-        self.template = target.getPage()
 
     def doAction(self, redo):
         pen = self.newPen if redo else self.oldPen
         self.target.__getattribute__(self.penSetter)(pen)
-        self.target.update()
-        for page in self.template.instructions.getPageList():
-            for child in page.getAllChildItems():
-                if self.target.itemClassName == child.itemClassName:
-                    child.__getattribute__(self.penSetter)(pen)
-                    child.update()
 
 class SetBrushCommand(QUndoCommand):
 
@@ -971,17 +956,10 @@ class SetBrushCommand(QUndoCommand):
         QUndoCommand.__init__(self, text)
         self.target, self.oldBrush = target, oldBrush
         self.newBrush = newBrush if newBrush else target.brush()
-        self.template = target.getPage()
 
     def doAction(self, redo):
         brush = self.newBrush if redo else self.oldBrush
         self.target.setBrush(brush)
-        self.target.update()
-        for page in self.template.instructions.getPageList():
-            for child in page.getAllChildItems():
-                if self.target.itemClassName == child.itemClassName:
-                    child.setBrush(brush)
-                    child.update()
     
 class SetItemFontsCommand(QUndoCommand):
 

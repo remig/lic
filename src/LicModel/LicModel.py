@@ -96,7 +96,6 @@ class CalloutArrowEndItem(QGraphicsRectItem):
         self.point = QPointF()
         self.mousePoint = self.keyPoint = None
         self.setFlags(AllFlags)
-        self.setPen(parent.pen())
 
     def paint(self, painter, option, widget = None):
         if self.isSelected():
@@ -130,8 +129,6 @@ class CalloutArrowEndItem(QGraphicsRectItem):
 class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
     itemClassName = "CalloutArrow"
     
-    defaultPen = QPen(Qt.black)
-    defaultBrush = QBrush(Qt.white)  # Fill arrow head
     arrowTipLength = 18.0
     arrowTipHeight = 5.0
     ArrowHead = QPolygonF([QPointF(),
@@ -143,8 +140,6 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         QGraphicsRectItem.__init__(self, parent)
         self.data = lambda index: "Callout Arrow"
 
-        self.setPen(self.defaultPen)
-        self.setBrush(self.defaultBrush)
         self.setFlags(NoMoveFlags)
         self.isAnnotation = True
         
@@ -259,8 +254,9 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
         
         painter.save()
         painter.setRenderHint(QPainter.Antialiasing)
-        painter.setPen(self.pen())
-        painter.setBrush(self.brush())
+        settings = self.getPage().instructions.templateSettings.Callout.arrow
+        painter.setPen(settings.pen)
+        painter.setBrush(settings.brush)
 
         # Draw step line
         painter.drawPolyline(QPolygonF(self.internalPoints))
@@ -661,10 +657,11 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             GraphicsRoundRectItem.paint(self, painter, option, widget)
             return
 
-        painter.setPen(self.pen())
-        painter.setBrush(self.brush())
+        painter.setPen(self.getSettings().pen)
+        painter.setBrush(self.getSettings().brush)
 
         # Get tight border polygon
+        cornerRadius = self.pen().cornerRadius
         poly = QPolygonF()
         for step in self.steps:
             poly = poly.united(QPolygonF(step.getOrderedCorners(Callout.margin)))
@@ -675,10 +672,10 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             newPoly.append(poly[i])
 
         if fit == Callout.TightBorder:
-            path = LicHelpers.polygonToCurvedPath(newPoly, self.cornerRadius * 2.5)
+            path = LicHelpers.polygonToCurvedPath(newPoly, cornerRadius * 2.5)
             painter.drawPath(path)
             if self.isSelected():
-                painter.drawSelectionRect(self.rect(), self.cornerRadius)
+                painter.drawSelectionRect(self.rect(), cornerRadius)
             return
 
         l = t = 2000
@@ -733,11 +730,11 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             if l1.y() != t:
                 newPoly.append(QPointF(t1.x(), l1.y()))
 
-        path = LicHelpers.polygonToCurvedPath(newPoly, self.cornerRadius * 2.5)
+        path = LicHelpers.polygonToCurvedPath(newPoly, cornerRadius * 2.5)
         painter.drawPath(path)
 
         if self.isSelected():
-            painter.drawSelectionRect(self.rect(), self.cornerRadius)
+            painter.drawSelectionRect(self.rect(), cornerRadius)
 
     def removeCalloutSignal(self):
         scene = self.scene()
@@ -1318,8 +1315,6 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
         self.pli.setParentItem(None)
         self.pli = None
         self.resetPixmap()
-        self.setPen(GraphicsRoundRectItem.defaultPen)
-        self.setBrush(GraphicsRoundRectItem.defaultBrush)
         self.parentItem().initLayout()
         self.scene().emit(SIGNAL("layoutChanged()"))
 

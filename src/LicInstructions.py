@@ -26,6 +26,7 @@ from LicHelpers import LicColor, LicColorDict
 from LicCustomPages import Page, TitlePage
 from LicModel import *
 import LicImporters
+from LicTemplateSettings import TemplateSettings
 
 class Instructions(QObject):
     itemClassName = "Instructions"
@@ -33,6 +34,8 @@ class Instructions(QObject):
     def __init__(self, parent, scene, glWidget):
         QObject.__init__(self, parent)
 
+        self.templateSettings = TemplateSettings()
+        
         self.scene = scene
         self.mainModel = None
         self.colorDict = LicColorDict()  # Dict of all valid LicColor instances for this particular model, indexed by LDraw color code
@@ -352,6 +355,11 @@ class Instructions(QObject):
 
                 newName = os.path.join(LicConfig.finalImageCachePath(), "Page_%d.png" % page.number)
                 image.save(newName)
+
+                # Need to re-open file to set DPI with PIL.  WTF Qt QImage?!
+                # TODO: when we have proper page size & resolution export dialogs, enable this
+                #image = Image.open(newName)
+                #image.save(newName, "PNG", dpi=(300, 300))
 
                 yield newName
                 page.lockIcon.show()    

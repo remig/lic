@@ -38,15 +38,12 @@ class BasePage(GraphicsRoundRectItem):
     defaultResolution = 72.0
 
     margin = QPointF(15, 15)
-    defaultFillColor = QColor(Qt.white)
-    defaultBrush = QBrush(Qt.NoBrush)
-    defaultPen = QPen(Qt.NoPen)
 
-    def __init__(self):
-        if not hasattr(BasePage.defaultPen, "cornerRadius"):
-            BasePage.defaultPen.cornerRadius = 0
-
+    def __init__(self, instructions):
         GraphicsRoundRectItem.__init__(self, None)
+
+        self.instructions = instructions
+
         self.setPos(0, 0)
         self.setRect(0, 0, self.PageSize.width(), self.PageSize.height())
         self.setFlags(NoMoveFlags)
@@ -62,6 +59,13 @@ class BasePage(GraphicsRoundRectItem):
             child.setFlags(NoMoveFlags if isLocked else AllFlags)
         self.setFlags(NoMoveFlags)
 
+    def insetRect(self):
+        r = QGraphicsRectItem.rect(self)
+        inset = self.instructions.templateSettings.Page.pen.width()
+        if inset:
+            r.adjust(inset, inset, -inset, -inset)
+        return r
+
     def paint(self, painter, option, widget = None):
 
         if hasattr(self, "doNotRender") and self.doNotRender:
@@ -74,17 +78,19 @@ class BasePage(GraphicsRoundRectItem):
         painter.drawRect(self.rect().translated(3, 3))
 
         # Draw the full page in the border color
-        painter.setBrush(QBrush(self.pen().color()))
+        settings = self.instructions.templateSettings.Page
+        painter.setBrush(QBrush(settings.pen.color()))
         painter.drawRect(self.rect())
         
         # Draw the page itself in the chosen fill, with the correctly inset rounded rect
-        r = BasePage.defaultPen.cornerRadius
-        painter.setBrush(QBrush(self.color))
-        painter.drawRoundedRect(self.insetRect(), r, r)
+        r = settings.pen.cornerRadius
+        rect = self.insetRect()
+        painter.setBrush(QBrush(settings.backgroundColor))
+        painter.drawRoundedRect(rect, r, r)
         
         # Draw any images or gradients this page may have
-        painter.setBrush(self.brush())
-        painter.drawRoundedRect(self.insetRect(), r, r)
+        painter.setBrush(settings.brush)
+        painter.drawRoundedRect(rect, r, r)
 
 class Page(PageTreeManager, BasePage):
     """ A single page in an instruction book.  Contains one or more Steps. """
@@ -93,9 +99,8 @@ class Page(PageTreeManager, BasePage):
 
     def __init__(self, submodel, instructions, number, row):
 
-        BasePage.__init__(self)
+        BasePage.__init__(self, instructions)
 
-        self.instructions = instructions
         self.submodel = submodel
         self._number = number
         self._row = row
@@ -105,7 +110,6 @@ class Page(PageTreeManager, BasePage):
         self.annotations = []
         self.submodelItem = None
         self.layout = LicLayout.GridLayout()
-        self.color = BasePage.defaultFillColor
 
         # Setup this page's page number
         self.numberItem = LicNumberLabel(self, self._number, "Page Number", "Page Number Label")
@@ -116,13 +120,6 @@ class Page(PageTreeManager, BasePage):
         
         # Need to explicitly add this page to scene, since it has no parent
         instructions.scene.addItem(self)
-
-    def insetRect(self):
-        r = QGraphicsRectItem.rect(self)
-        inset = self.pen().width()
-        if inset:
-            r.adjust(inset, inset, -inset, -inset)
-        return r
 
     def _setNumber(self, number):
         self._number = number
@@ -764,9 +761,6 @@ class PartListPLI(PLI):
         PLI.__init__(self, parent)
         self.data = lambda index: "Part List PLI"
         self._row = 1
-        self.setPen(QPen(Qt.NoPen))
-        self.setBrush(QBrush(Qt.NoBrush))
-        self.cornerRadius = 0
 
     def resetRect(self):
         inset = Page.margin.x()
@@ -943,9 +937,7 @@ class TitlePage(TitlePageTreeManager, Page):
         self.addSubmodelImage()
         si = self.submodelItem
         si._row = 0
-        si.setPen(QPen(Qt.NoPen))
-        si.setBrush(QBrush(Qt.NoBrush))
-        si.itemClassName = "TitleSubmodelPreview"  # Override regular name so we don't set this in any template action
+        si.itemClassName = "TitleSubmodelPreview"  # Override regular name so this preview can have different fill / border than the rest
 
         self.addNewLabel(None, QFont("Arial", 25), self.submodel.getSimpleName())
         self.addNewLabel(Page.margin * 2, None, "1001")

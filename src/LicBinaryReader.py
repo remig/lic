@@ -24,21 +24,23 @@ from LicModel import *
 import LicTemplate
 import LicCustomPages
 
-def ro(self, targetType):
-    c = targetType()
-    self >> c
-    return c
+def ro(targetType):
+    def tmp(self):
+        c = targetType()
+        self >> c
+        return c
+    return tmp
 
-QDataStream.readQPixmap = lambda self: ro(self, QPixmap)
-QDataStream.readQColor = lambda self: ro(self, QColor)
-QDataStream.readQBrush = lambda self: ro(self, QBrush)
-QDataStream.readQFont = lambda self: ro(self, QFont)
-QDataStream.readQPen = lambda self: ro(self, QPen)
-QDataStream.readQRectF = lambda self: ro(self, QRectF)
-QDataStream.readQPointF = lambda self: ro(self, QPointF)
-QDataStream.readQString = lambda self: ro(self, QString)
-QDataStream.readQSizeF = lambda self: ro(self, QSizeF)
-QDataStream.readQSize = lambda self: ro(self, QSize)
+QDataStream.readQPixmap = ro(QPixmap)
+QDataStream.readQColor = ro(QColor)
+QDataStream.readQBrush = ro(QBrush)
+QDataStream.readQFont = ro(QFont)
+QDataStream.readQPen = ro(QPen)
+QDataStream.readQRectF = ro(QRectF)
+QDataStream.readQPointF = ro(QPointF)
+QDataStream.readQString = ro(QString)
+QDataStream.readQSizeF = ro(QSizeF)
+QDataStream.readQSize = ro(QSize)
 
 # To check file version:
 #    if stream.licFileVersion >= 6:
@@ -159,6 +161,10 @@ def __readTemplate(stream, instructions):
     template.submodelPart.createGLDisplayList()
     template.submodelItem.setAbstractPart(template.submodelPart)
     template.postLoadInit(filename)
+
+    if stream.licFileVersion >= 20:
+        template.instructions.templateSettings.readFromStream(stream)
+
     return template
 
 def __readStaticInfo(stream, page, csi, pli, smp):
@@ -405,7 +411,12 @@ def __readPage(stream, parent, instructions, templateModel = None):
         page = LicCustomPages.Page(parent, instructions, number, row)
 
     __readRoundedRectItem(stream, page)
-    page.color = stream.readQColor()
+    if stream.licFileVersion < 20:
+        page.color = stream.readQColor()
+
+    if templateModel and stream.licFileVersion < 20:
+        instructions.templateSettings.Page.backgroundColor = QColor(page.color);
+        
     page.layout.orientation = stream.readInt32()
     page.numberItem.setPos(stream.readQPointF())
     page.numberItem.setFont(stream.readQFont())
@@ -422,6 +433,14 @@ def __readPage(stream, parent, instructions, templateModel = None):
     if stream.readBool():
         page.submodelItem = __readSubmodelItem(stream, page)
         page.addChild(page.submodelItem._row, page.submodelItem)
+
+    if templateModel and stream.licFileVersion < 20:
+        step = page.steps[0]
+        arrow = step.callouts[0].arrow
+        instructions.templateSettings.Callout.arrow.pen = QPen(arrow.pen())
+        instructions.templateSettings.Callout.arrow.pen.cornerRadius = 0
+        instructions.templateSettings.Callout.arrow.brush = QBrush(arrow.brush())
+        instructions.templateSettings.GraphicsRotateArrowItem.arrowPen = QPen(step.rotateIcon.arrowPen)
 
     # Read in any page separator lines
     for unused in range(stream.readInt32()):
@@ -445,7 +464,8 @@ def __readTitlePage(stream, instructions):
     page = LicCustomPages.TitlePage(instructions)
 
     __readRoundedRectItem(stream, page)
-    page.color = stream.readQColor()
+    if stream.licFileVersion < 20:
+        page.color = stream.readQColor()
 
     if stream.readBool():
         page.submodelItem = __readSubmodelItem(stream, page)
@@ -464,7 +484,8 @@ def __readPartListPage(stream, instructions):
     page = LicCustomPages.PartListPage(instructions, stream.readInt32(), stream.readInt32())
 
     __readRoundedRectItem(stream, page)
-    page.color = stream.readQColor()
+    if stream.licFileVersion < 20:
+        page.color = stream.readQColor()
 
     page.numberItem.setPos(stream.readQPointF())
     page.numberItem.setFont(stream.readQFont())
@@ -509,7 +530,8 @@ def __readStep(stream, parent):
         if stream.readBool():
             step.addRotateIcon()
             __readRoundedRectItem(stream, step.rotateIcon)
-            step.rotateIcon.arrowPen = stream.readQPen()
+            if stream.licFileVersion < 20:
+                step.rotateIcon.arrowPen = stream.readQPen()
 
     if stream.licFileVersion >= 17:
         if stream.readBool():
@@ -525,8 +547,9 @@ def __readCallout(stream, parent):
     
     callout.arrow.tipRect.point = stream.readQPointF()
     callout.arrow.baseRect.point = stream.readQPointF()
-    callout.arrow.setPen(stream.readQPen())
-    callout.arrow.setBrush(stream.readQBrush())
+    if stream.licFileVersion < 20:
+        callout.arrow.setPen(stream.readQPen())
+        callout.arrow.setBrush(stream.readQBrush())
 
     if stream.readBool():  # has quantity label
         callout.addQuantityLabel(stream.readQPointF(), stream.readQFont())
@@ -632,9 +655,12 @@ def __readPLIItem(stream, pli):
 def __readRoundedRectItem(stream, parent):
     parent.setPos(stream.readQPointF())
     parent.setRect(stream.readQRectF())
-    parent.setPen(stream.readQPen())
-    parent.setBrush(stream.readQBrush())
-    parent.cornerRadius = stream.readInt16()
+    
+    if stream.licFileVersion < 20:
+        pen = stream.readQPen()
+        parent.setBrush(stream.readQBrush())
+        pen.cornerRadius = stream.readInt16()
+        parent.setPen(pen)
 
 def __linkModelPartNames(model):
 

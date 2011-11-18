@@ -571,6 +571,11 @@ class PenDlg(QDialog):
         pen = QPen(color, width, style, cap, join)
         pen.cornerRadius = self.cornerRadiusSpinBox.value() if self.hasRadius else 0
         brush = QBrush(self.fillColorButton.color) if self.fillColor else None
+        
+        # Pen cap & join do nothing on rounded rects, so disable those combo box options if we have a corner radius
+        self.penCapComboBox.setEnabled(pen.cornerRadius == 0)
+        self.penJoinComboBox.setEnabled(pen.cornerRadius == 0)
+        
         self.emit(SIGNAL("changePen"), pen, brush)
 
     def accept(self):

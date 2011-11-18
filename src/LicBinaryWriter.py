@@ -81,6 +81,8 @@ def __writeTemplate(stream, template):
     stream.writeInt32(len(values))
     for v in values:
         stream.writeFloat(v)
+        
+    template.instructions.templateSettings.writeToStream(stream)
 
 def __writeStaticInfo(stream):
     stream << Page.PageSize
@@ -242,8 +244,7 @@ def __writePage(stream, page):
     stream.writeInt32(page.number)
     stream.writeInt32(page._row)
     
-    __writeRoundedRectItem(stream, page)
-    stream << page.color
+    stream << page.pos() << page.rect()
 
     stream.writeInt32(page.layout.orientation)
     stream << page.numberItem.pos() << page.numberItem.font()
@@ -282,8 +283,7 @@ def __writeTitlePage(stream, page):
         return
     
     stream.writeBool(True)
-    __writeRoundedRectItem(stream, page)
-    stream << page.color
+    stream << page.pos() << page.rect()
 
     if page.submodelItem:
         stream.writeBool(True)
@@ -301,9 +301,7 @@ def __writePartListPage(stream, page):
     stream.writeInt32(page.number)
     stream.writeInt32(page._row)
 
-    __writeRoundedRectItem(stream, page)
-    stream << page.color
-
+    stream << page.pos() << page.rect()
     stream << page.numberItem.pos() << page.numberItem.font()
 
     __writePLI(stream, page.pli)
@@ -333,8 +331,7 @@ def __writeStep(stream, step):
 
     if step.rotateIcon:
         stream.writeBool(True)
-        __writeRoundedRectItem(stream, step.rotateIcon)
-        stream << step.rotateIcon.arrowPen
+        stream << step.rotateIcon.pos() << step.rotateIcon.rect()
     else:
         stream.writeBool(False)
         
@@ -349,10 +346,10 @@ def __writeCallout(stream, callout):
     stream.writeBool(callout.showStepNumbers)
     stream.writeInt32(callout.borderFit)
 
-    __writeRoundedRectItem(stream, callout)
+    stream << callout.pos() << callout.rect()
+
     stream << callout.arrow.tipRect.point
     stream << callout.arrow.baseRect.point
-    stream << callout.arrow.pen() << callout.arrow.brush()
     
     stream.writeBool(True if callout.qtyLabel else False)
     if callout.qtyLabel:
@@ -370,7 +367,7 @@ def __writeCallout(stream, callout):
 
 def __writeSubmodelItem(stream, submodelItem):
     stream.writeInt32(submodelItem.row())
-    __writeRoundedRectItem(stream, submodelItem)
+    stream << submodelItem.pos() << submodelItem.rect()
 
     stream.writeFloat(submodelItem.scaling)
     stream.writeFloat(submodelItem.rotation[0])
@@ -405,7 +402,7 @@ def __writeCSI(stream, csi):
     stream.writeFloat(csi.rotation[2])
 
 def __writePLI(stream, pli):
-    __writeRoundedRectItem(stream, pli)
+    stream << pli.pos() << pli.rect()
     stream.writeInt32(len(pli.pliItems))
     for item in pli.pliItems:
         __writePLIItem(stream, item)
@@ -423,8 +420,3 @@ def __writePLIItem(stream, pliItem):
         stream << li.pos() << li.rect() << li.font() << QString(li.lengthText) << li.labelColor << li.pen() << li.brush()
     else:
         stream.writeBool(False)
-
-def __writeRoundedRectItem(stream, parent):
-    stream << parent.pos() << parent.rect() << parent.pen() << parent.brush()
-    stream.writeInt16(parent.cornerRadius)
-

@@ -78,37 +78,41 @@ QPainter.drawSelectionRect = genericDrawSelectionRect
 
 class GraphicsRoundRectItem(QGraphicsRectItem):
     
-    defaultPen = QPen(Qt.black)
-    defaultBrush = QBrush(Qt.white)
-    
     def __init__(self, parent):
         QGraphicsRectItem.__init__(self, parent)
-        self.cornerRadius = 10
-        self.setPen(self.defaultPen)
-        self.setBrush(self.defaultBrush)
-       
-    def paint(self, painter, option, widget = None):
         
-        if self.cornerRadius:
+    def getSettings(self):
+        return self.getPage().instructions.templateSettings.__getattribute__(self.itemClassName) 
+
+    def paint(self, painter, option, widget = None):
+
+        settings = self.getSettings()
+        painter.setPen(settings.pen)
+        painter.setBrush(settings.brush)
+
+        if settings.pen.cornerRadius:
             painter.setRenderHint(QPainter.Antialiasing)
-            painter.setPen(self.pen())
-            painter.setBrush(self.brush())
-            painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
-            if self.isSelected():
-                painter.drawSelectionRect(self.rect(), self.cornerRadius)
+            painter.drawRoundedRect(self.rect(), settings.pen.cornerRadius, settings.pen.cornerRadius)
         else:
-            QGraphicsRectItem.paint(self, painter, option, widget)
+            painter.drawRect(self.rect())
+
+        if self.isSelected():
+            painter.drawSelectionRect(self.rect(), settings.pen.cornerRadius)
     
     def pen(self):
-        pen = QGraphicsRectItem.pen(self)
-        pen.cornerRadius = self.cornerRadius
-        return pen
-
+        return self.getSettings().pen
+    
     def setPen(self, newPen):
-        QGraphicsRectItem.setPen(self, newPen)
-        if hasattr(newPen, "cornerRadius"):  # Need this check because some setPen() calls come from Qt directly
-            self.cornerRadius = newPen.cornerRadius
+        settings = self.getSettings()
+        settings.pen = newPen
 
+    def brush(self):
+        return self.getSettings().brush
+        
+    def setBrush(self, newBrush):
+        settings = self.getSettings()
+        settings.brush = newBrush
+    
 class GraphicsCircleLabelItem(QGraphicsEllipseItem):
 
     itemClassName = "GraphicsCircleLabelItem"
@@ -150,8 +154,6 @@ class GraphicsCircleLabelItem(QGraphicsEllipseItem):
 class GraphicsRotateArrowItem(GraphicsRoundRectItem):
 
     itemClassName = "GraphicsRotateArrowItem"
-
-    defaultArrowPen = QPen(Qt.blue, 0, Qt.SolidLine, Qt.SquareCap, Qt.MiterJoin)
     arrowTipLength = 9.0
     arrowTipHeight = 4.0
     ArrowHead = QPolygonF([QPointF(),
@@ -161,20 +163,13 @@ class GraphicsRotateArrowItem(GraphicsRoundRectItem):
 
     def __init__(self, parent):
         GraphicsRoundRectItem.__init__(self, parent)
-        self.cornerRadius = 6
-
-        self.arrowPen = self.defaultArrowPen
         self.data = lambda index: "Rotation Icon"
         self.setRect(0, 0, 50, 50)
-
-    def changeArrowPen(self, newPen):
-        self.arrowPen = newPen
-        self.update()
 
     def paint(self, painter, option, widget = None):
         painter.setRenderHint(QPainter.Antialiasing)
         GraphicsRoundRectItem.paint(self, painter, option, widget)
-        painter.setPen(self.arrowPen)
+        painter.setPen(self.getSettings().arrowPen)
         painter.setBrush(QBrush(Qt.transparent))
         
         w, h2 = self.rect().width(), self.rect().height() / 2.0
@@ -195,17 +190,17 @@ class GraphicsRotateArrowItem(GraphicsRoundRectItem):
 
         painter.drawPath(path)
 
-        painter.setBrush(QBrush(self.arrowPen.color()))
+        painter.setBrush(QBrush(self.getSettings().arrowPen.color()))
         painter.save()
         painter.translate(w - inset, h2 - inset)
         painter.rotate(-135)
-        painter.drawPolygon(self.ArrowHead)
+        painter.drawPolygon(GraphicsRotateArrowItem.ArrowHead)
         painter.restore()
 
         painter.save()
         painter.translate(inset, h2 + inset)
         painter.rotate(45)
-        painter.drawPolygon(self.ArrowHead)
+        painter.drawPolygon(GraphicsRotateArrowItem.ArrowHead)
         painter.restore()
 
 # Make QPoint iterable: p[0] is p.x, p[1] is p.y.  Useful for easily unpacking x & y.
