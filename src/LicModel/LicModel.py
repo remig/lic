@@ -32,9 +32,7 @@ from LicUndoActions import *
 from LicTreeModel import *
 from LicQtWrapper import *
 
-import LicPovrayWrapper
 import LicPartLengths
-import LicL3PWrapper
 import LicImporters
 import LicDialogs
 
@@ -1333,6 +1331,7 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
 
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
+        
         menu.addAction("Rotate Submodel Image", self.rotateSignal)
         menu.addAction("Scale Submodel Image", self.scaleSignal)
         menu.exec_(event.screenPos())
@@ -1453,29 +1452,6 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.abstractPart.resetPixmap(self.getContext())
         self.parentItem().initLayout()
         
-    def createPng(self):
-
-        part = self.abstractPart
-        if part.isSubmodel:
-            self.pngImage = part.pngImage
-            return
-
-        fn = part.filename
-        datFile = os.path.join(LicConfig.LDrawPath, 'PARTS', fn)
-        if not os.path.isfile(datFile):
-            datFile = os.path.join(LicConfig.LDrawPath, 'P', fn)
-            if not os.path.isfile(datFile):
-                datFile = os.path.join(LicConfig.LDrawPath, 'MODELS', fn)
-                if not os.path.isfile(datFile):
-                    datFile = os.path.join(LicConfig.datCachePath(), fn)
-                    if not os.path.isfile(datFile):
-                        print " *** Error: could not find dat file for part %s" % fn
-                        return
-
-        povFile = LicL3PWrapper.createPovFromDat(datFile, self.color)
-        pngFile = LicPovrayWrapper.createPngFromPov(povFile, part.width, part.height, part.center, PLI.defaultScale, PLI.defaultRotation)
-        self.pngImage = QImage(pngFile)
-
     def contextMenuEvent(self, event):
         menu = QMenu(self.scene().views()[0])
         menu.addAction("Rotate PLI Item", self.rotateSignal)
@@ -1548,7 +1524,6 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
         self.initLayout()
     
     def resetPixmap(self):
-        
         glContext = self.getPage().instructions.glContext
         for part in set([item.abstractPart for item in self.pliItems]):
             part.resetPixmap(glContext)
@@ -1850,20 +1825,6 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         self.setRect(0.0, 0.0, w, h)
         self.isDirty = False
         return result
-
-    def createPng(self):
-
-        csiName = self.getDatFilename()
-        datFile = os.path.join(LicConfig.datCachePath(), csiName)
-        
-        if not os.path.isfile(datFile):
-            fh = open(datFile, 'w')
-            self.exportToLDrawFile(fh)
-            fh.close()
-
-        povFile = LicL3PWrapper.createPovFromDat(datFile)
-        pngFile = LicPovrayWrapper.createPngFromPov(povFile, self.rect().width(), self.rect().height(), self.center, CSI.defaultScale * self.scaling, CSI.defaultRotation)
-        self.pngImage = QImage(pngFile)
 
     def exportToLDrawFile(self, fh):
         prevStep = self.parentItem().getPrevStep()
@@ -2758,27 +2719,6 @@ class Submodel(SubmodelTreeManager, AbstractPart):
                 item.resetPixmap() 
         for submodel in self.submodels:
             submodel.initSubmodelImageGLDisplayList()
-
-    def exportImagesToPov(self):
-        for page in self.pages:
-            page.renderFinalImageWithPov()
-
-        for submodel in self.submodels:
-            submodel.exportImagesToPov()
-
-    def createPng(self):
-
-        datFile = os.path.join(LicConfig.datCachePath(), self.filename)
-
-        if not os.path.isfile(datFile):
-            fh = open(datFile, 'w')
-            for part in self.parts:
-                part.exportToLDrawFile(fh)
-            fh.close()
-
-        povFile = LicL3PWrapper.createPovFromDat(datFile)
-        pngFile = LicPovrayWrapper.createPngFromPov(povFile, self.width, self.height, self.center, PLI.defaultScale, PLI.defaultRotation)
-        self.pngImage = QImage(pngFile)
 
     def exportToLDrawFile(self, fh):
         for line in LDrawImporter.createSubmodelLines(self.filename):

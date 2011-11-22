@@ -390,13 +390,9 @@ class LicWindow(QMainWindow):
         self.snapToItems = settings.value("SnapToItems").toBool()
 
         LDrawPath = str(settings.value("LDrawPath").toString())
-        L3PPath = str(settings.value("L3PPath").toString())
-        POVRayPath = str(settings.value("POVRayPath").toString())
 
-        if LDrawPath and L3PPath and POVRayPath:
+        if LDrawPath:
             LicConfig.LDrawPath = LDrawPath
-            LicConfig.L3PPath = L3PPath 
-            LicConfig.POVRayPath = POVRayPath
             LicImporters.LDrawImporter.LDrawPath = LicConfig.LDrawPath
             self.needPathConfiguration = False
         else:
@@ -412,10 +408,7 @@ class LicWindow(QMainWindow):
         settings.setValue("PageView", QVariant(str(self.scene.pagesToDisplay)))
         settings.setValue("SnapToGuides", QVariant(str(self.scene.snapToGuides)))
         settings.setValue("SnapToItems", QVariant(str(self.scene.snapToItems)))
-
         settings.setValue("LDrawPath", QVariant(LicConfig.LDrawPath))
-        settings.setValue("L3PPath", QVariant(LicConfig.L3PPath))
-        settings.setValue("POVRayPath", QVariant(LicConfig.POVRayPath))
 
     def copySettingsToScene(self):
         self.scene.setPagesToDisplay(self.pagesToDisplay)
@@ -504,7 +497,7 @@ class LicWindow(QMainWindow):
         snapMenu.addAction(guideSnapAction)
         snapMenu.addAction(itemSnapAction)
 
-        setPathsAction = self.makeAction("Paths...", self.configurePaths, None, "Set paths to LDraw parts, L3p, POVRay, etc")
+        setPathsAction = self.makeAction("Paths...", self.configurePaths, None, "Set paths to LDraw parts library")
         editActions = (self.undoAction, self.redoAction, None, snapMenu, setPathsAction)
         self.addActions(editMenu, editActions)
 
@@ -542,9 +535,8 @@ class LicWindow(QMainWindow):
         self.exportMenu = menu.addMenu("E&xport")
         self.exportToImagesAction = self.makeAction("&Generate Final Images", self.exportImages, None, "Generate final images of each page in this Instruction book")
         self.exportToPDFAction = self.makeAction("Generate &PDF", self.exportToPDF, None, "Create a PDF from this instruction book")
-        self.exportToPOVAction = self.makeAction("NYI - Generate Images with Pov-Ray", self.exportToPOV, None, "Use Pov-Ray to generate final, ray-traced images of each page in this Instruction book")
         self.exportToMPDAction = self.makeAction("Generate &MPD", self.exportToMPD, None, "Generate an LDraw MPD file from the parts & steps in this Instruction book")
-        self.addActions(self.exportMenu, (self.exportToImagesAction, self.exportToPDFAction, self.exportToPOVAction, None, self.exportToMPDAction))
+        self.addActions(self.exportMenu, (self.exportToImagesAction, self.exportToPDFAction, None, self.exportToMPDAction))
 
     def zoom(self, factor):
         self.graphicsView.scaleView(factor)
@@ -904,10 +896,6 @@ class LicWindow(QMainWindow):
         self.glWidget.makeCurrent()
         self.statusBar().showMessage("Exported PDF to: " + filename)
                  
-    def exportToPOV(self):
-        self.instructions.exportToPOV()
-        self.statusBar().showMessage("NYI - POV Export is broken")
-
     def exportToMPD(self):
         f = self.filename if self.filename else self.instructions.getModelName()
         f = os.path.splitext(f)[0] + "_lic.mpd"

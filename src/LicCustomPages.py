@@ -34,9 +34,6 @@ class BasePage(GraphicsRoundRectItem):
     Resolution = 72.0          # Always pixels / inch
     NumberPos = 'right'        # One of 'left', 'right', 'oddRight', 'evenRight'
 
-    defaultPageSize = QSize(800, 600)
-    defaultResolution = 72.0
-
     margin = QPointF(15, 15)
 
     def __init__(self, instructions):
@@ -404,49 +401,6 @@ class Page(PageTreeManager, BasePage):
             self.submodelItem.changeScale(newScale)
             self.initLayout()
     
-    def renderFinalImageWithPov(self):
-
-        for step in self.steps:
-            step.csi.createPng()
-            
-            for callout in step.callouts:
-                for s in callout.steps:
-                    s.csi.createPng()
-                    
-            if step.hasPLI():
-                for item in step.pli.pliItems:
-                    item.createPng()
-
-        oldPos = self.pos()
-        self.setPos(0, 0)
-        image = QImage(self.rect().width(), self.rect().height(), QImage.Format_ARGB32)
-        painter = QPainter()
-        painter.begin(image)
-
-        items = self.getAllChildItems()
-        options = QStyleOptionGraphicsItem()
-        optionList = [options] * len(items)
-        self.scene().drawItems(painter, items, optionList)
-
-        for step in self.steps:
-            painter.drawImage(step.csi.scenePos(), step.csi.pngImage)
-                
-            for callout in step.callouts:
-                for s in callout.steps:
-                    painter.drawImage(s.csi.scenePos(), s.csi.pngImage)
-            
-            if step.hasPLI():
-                for item in step.pli.pliItems:
-                    painter.drawImage(item.scenePos(), item.pngImage)
-
-        if self.submodelItem:
-            painter.drawImage(self.submodelItem.pos() + PLI.margin, self.submodel.pngImage)
-
-        painter.end()
-        newName = os.path.join(LicConfig.finalImageCachePath(), "Page_%d.png" % self.number)
-        image.save(newName)
-        self.setPos(oldPos)
-
     def drawGLItems(self, rect):
         
         LicGLHelpers.pushAllGLMatrices()

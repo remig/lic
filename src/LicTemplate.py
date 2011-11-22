@@ -413,7 +413,7 @@ class TemplatePage(TemplateRectItem, Page):
     def setBackgroundColor(self):
         originalColor = self.getSettings().backgroundColor
         newColor = QColorDialog.getColor(originalColor, self.scene().views()[0])
-        if newColor.isValid(): 
+        if newColor.isValid():
             self.scene().undoStack.push(SetPageBackgroundColorCommand(self, originalColor, newColor))
     
     def setBackgroundNone(self):

@@ -20,18 +20,14 @@
 
 from LicCommonImports import *
 
-# Path to LDraw, L3P and PovRay.  These are set by user through PathsDialog below.
+# Path to LDraw library.  These are set by user through PathsDialog below.
 # Contents below are just some brain-dead default settings for a very first run of Lic. 
 
 if sys.platform.startswith('win'):
     LDrawPath = "C:\\LDraw"
-    L3PPath = "C:\\LDraw\\Apps\\L3p"
-    POVRayPath = "C:\\Program Files\\POV-Ray\\bin"
 else:
     root = os.path.expanduser('~')
     LDrawPath = os.path.join(root, 'LDraw')
-    L3PPath = os.path.join(LDrawPath, 'Apps', 'L3p')
-    POVRayPath = os.path.join(root, 'Applications', 'POV-Ray')
 
 class PathsDialog(QDialog):
 
@@ -41,8 +37,6 @@ class PathsDialog(QDialog):
         self.setWindowTitle(self.tr("Set paths to files and applications"))
 
         ldrawLabel, self.ldrawEdit, ldrawButton = self.makeLabelEditButton("L&Draw:", LDrawPath, self.browseForLDraw)
-        #l3pLabel, self.l3pEdit, l3pButton = self.makeLabelEditButton("&L3P:", L3PPath, self.browseForL3P)
-        #povLabel, self.povEdit, povButton = self.makeLabelEditButton("&POVRay:", POVRayPath, self.browseForPOV)
 
         buttons = QDialogButtonBox.Ok if hideCancelButton else QDialogButtonBox.Ok | QDialogButtonBox.Cancel
         buttonBox = QDialogButtonBox(buttons, Qt.Horizontal)
@@ -53,12 +47,6 @@ class PathsDialog(QDialog):
         grid.addWidget(ldrawLabel, 0, 0)
         grid.addWidget(self.ldrawEdit, 0, 1)
         grid.addWidget(ldrawButton, 0, 2)
-        #grid.addWidget(l3pLabel, 1, 0)
-        #grid.addWidget(self.l3pEdit, 1, 1)
-        #grid.addWidget(l3pButton, 1, 2)
-        #grid.addWidget(povLabel, 2, 0)
-        #grid.addWidget(self.povEdit, 2, 1)
-        #grid.addWidget(povButton, 2, 2)
         grid.addWidget(buttonBox, 3, 1, 1, 2)
         self.setLayout(grid)
 
@@ -79,24 +67,6 @@ class PathsDialog(QDialog):
             return "LDraw path must contain 'PARTS' and 'P' folders"
         return ""
 
-    def browseForL3P(self):
-        title = "Path to L3P (must contain 'l3p.exe')"
-        self.browse(title, L3PPath, self.l3pEdit, self.validateL3PPath)
-
-    def validateL3PPath(self, path):
-        if not os.path.isfile(os.path.join(path, "l3p.exe")):
-            return "L3P path must contain l3p.exe"
-        return ""
-
-    def browseForPOV(self):
-        title = "Path to POVRay (must contain 'pvengine.exe')"
-        self.browse(title, POVRayPath, self.povEdit, self.validatePOVPath)
-
-    def validatePOVPath(self, path):
-        if not os.path.isfile(os.path.join(path, "pvengine.exe")):
-            return "POVRay path must contain pvengine.exe"
-        return ""
-
     def browse(self, title, defaultPath, target, validator):
         path = str(QFileDialog.getExistingDirectory(self, title, defaultPath, QFileDialog.ShowDirsOnly))
         if path != "":
@@ -108,17 +78,11 @@ class PathsDialog(QDialog):
 
     def accept(self):
         res = self.validateLDrawPath(str(self.ldrawEdit.text()))
-        #if res == "":
-        #    res = self.validateL3PPath(str(self.l3pEdit.text()))
-        #if res == "":
-        #    res = self.validatePOVPath(str(self.povEdit.text()))
         if res:
             QMessageBox.warning(self, "Invalid path", res)
         else:
-            global LDrawPath, L3PPath, POVRayPath
+            global LDrawPath
             LDrawPath = str(self.ldrawEdit.text())
-            L3PPath = str(self.l3pEdit.text())
-            POVRayPath = str(self.povEdit.text())
             QDialog.accept(self)
 
 filename = ""  # Set when a file is loaded
@@ -138,9 +102,6 @@ def modelCachePath():
 
 def datCachePath():
     return checkPath('DATs')
-
-def povCachePath():
-    return checkPath('POVs')
 
 def pngCachePath():
     return checkPath('PNGs')

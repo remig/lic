@@ -82,7 +82,7 @@ class GraphicsRoundRectItem(QGraphicsRectItem):
         QGraphicsRectItem.__init__(self, parent)
         
     def getSettings(self):
-        return self.getPage().instructions.templateSettings.__getattribute__(self.itemClassName) 
+        return self.getAllSettings().__getattribute__(self.itemClassName) 
 
     def paint(self, painter, option, widget = None):
 
@@ -270,8 +270,9 @@ QGraphicsPixmapItem.rect = genericRect
 QGraphicsItem.contextMenuEvent = lambda self, event: event.ignore()
 
 QGraphicsItem.getPage = lambda self: self.parentItem().getPage()
-QGraphicsItem.getInstructions = lambda self: self.parentItem().getPage().instructions
-QGraphicsItem.getContext = lambda self: self.getPage().instructions.glContext
+QGraphicsItem.getInstructions = lambda self: self.getPage().instructions
+QGraphicsItem.getAllSettings = lambda self: self.getInstructions().templateSettings
+QGraphicsItem.getContext = lambda self: self.getInstructions().glContext
 QGraphicsItem.getSceneCorners = genericGetSceneCorners
 QGraphicsItem.getSceneCornerList = genericGetSceneCornerList
 QGraphicsItem.getOrderedCorners = genericGetOrderedCornerList

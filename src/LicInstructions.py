@@ -34,13 +34,12 @@ class Instructions(QObject):
     def __init__(self, parent, scene, glWidget):
         QObject.__init__(self, parent)
 
-        self.templateSettings = TemplateSettings()
-        
         self.scene = scene
         self.mainModel = None
         self.colorDict = LicColorDict()  # Dict of all valid LicColor instances for this particular model, indexed by LDraw color code
         self.partDictionary = {}      # x = AbstractPart("3005.dat"); partDictionary[x.filename] == x
-
+        self.templateSettings = TemplateSettings()
+        
         self.glContext = glWidget
         self.glContext.makeCurrent()
 
@@ -62,8 +61,6 @@ class Instructions(QObject):
 
         self.mainModel = None
         self.partDictionary = {}
-        Page.PageSize = Page.defaultPageSize
-        Page.Resolution = Page.defaultResolution
         CSI.defaultScale = PLI.defaultScale = SubmodelPreview.defaultScale = 1.0
         CSI.defaultRotation = [20.0, 45.0, 0.0]
         PLI.defaultRotation = [20.0, -45.0, 0.0]
@@ -285,14 +282,6 @@ class Instructions(QObject):
 
         self.glContext.makeCurrent()
 
-    def exportToPOV(self):  # TODO: Fix POV Export so it works with the last year's worth of updates
-        #global submodelDictionary
-        #for model in submodelDictionary.values():
-        #    if model.used:
-        #        model.createPng()
-        self.mainModel.createPng()
-        self.mainModel.exportImagesToPov()
-        
     def exportImages(self, scaleFactor = 1.0):
         
         pagesToDisplay = self.scene.pagesToDisplay
