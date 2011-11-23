@@ -61,13 +61,12 @@ class Instructions(QObject):
 
         self.mainModel = None
         self.partDictionary = {}
-        CSI.defaultScale = PLI.defaultScale = SubmodelPreview.defaultScale = 1.0
-        CSI.defaultRotation = [20.0, 45.0, 0.0]
-        PLI.defaultRotation = [20.0, -45.0, 0.0]
         CSI.highlightNewParts = False
-        SubmodelPreview.defaultRotation = [20.0, 45.0, 0.0]
         LicGLHelpers.resetLightParameters()
         self.glContext.makeCurrent()
+        
+    def resetTemplateSettings(self):
+        self.templateSettings = TemplateSettings()
 
     def importModel(self, filename):
 
@@ -178,7 +177,7 @@ class Instructions(QObject):
 
         if part.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             part.createGLDisplayList()
-            part.resetPixmap(self.glContext)
+            part.resetPixmap(self.glContext, self.templateSettings)
             
         return part
 
@@ -217,7 +216,7 @@ class Instructions(QObject):
             # Render each image and calculate their sizes
             for abstractPart in partList:
 
-                if abstractPart.initSize(size, pBuffer):  # Draw image and calculate its size:                    
+                if abstractPart.initSize(size, pBuffer, self.templateSettings):  # Draw image and calculate its size:                    
                     currentPartCount += 1
                     if not currentPartCount % partDivCount:
                         currentPartCount = 0

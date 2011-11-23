@@ -55,7 +55,7 @@ __version__ = "0.6.0"
 _debug = True
 
 MagicNumber = 0x14768126
-FileVersion = 20
+FileVersion = 22
 
 if _debug:
     from modeltest import ModelTest
@@ -296,6 +296,7 @@ class LicTreeWidget(QWidget):
 class LicWindow(QMainWindow):
 
     defaultTemplateFilename = "default_template.lit"
+    defaultTemplateSettingsFilename = "default_template_settings.lit"
 
     def __init__(self, parent = None):
         QMainWindow.__init__(self, parent)
@@ -337,6 +338,8 @@ class LicWindow(QMainWindow):
         self.treeModel = LicTreeModel.LicTreeModel(self.treeWidget.tree)
         if _debug:
             self.modelTest = ModelTest(self.treeModel, self)
+            
+        self.loadDefaultLicTemplateSettings()
         
         self.selectionModel = QItemSelectionModel(self.treeModel)  # MUST keep own reference to selection model here
         self.treeWidget.configureTree(self.scene, self.treeModel, self.selectionModel)
@@ -462,14 +465,15 @@ class LicWindow(QMainWindow):
         self.fileSaveAsAction = self.makeAction("Save &As...", self.fileSaveAs, None, "Save the Instruction book using a new filename")
         fileImportAction = self.makeAction("&Import Model", self.fileImport, None, "Import an existing Model into a new Instruction book")
 
-        self.fileSaveTemplateAction = self.makeAction("Save Template", self.fileSaveTemplate, None, "Save only the Template")
-        self.fileSaveTemplateAsAction = self.makeAction("Save Template As...", self.fileSaveTemplateAs, None, "Save only the Template using a new filename")
-        self.fileLoadTemplateAction = self.makeAction("Load Template", self.fileLoadTemplate, None, "Discard the current Template and apply a new one")
+        fileSaveTemplateAction = self.makeAction("Save Template", self.fileSaveTemplate, None, "Save only the Template")
+        fileSaveTemplateAsAction = self.makeAction("Save Template As...", self.fileSaveTemplateAs, None, "Save only the Template using a new filename")
+        fileLoadTemplateAction = self.makeAction("Load Template", self.fileLoadTemplate, None, "Discard the current Template and apply a new one")
+        fileResetTemplateAction = self.makeAction("Reset Template", lambda: self.loadDefaultLicTemplateSettings(), None, "Discard the current Template and apply the default one")
         fileExitAction = self.makeAction("E&xit", SLOT("close()"), "Ctrl+Q", "Exit Lic")
 
         self.fileMenuActions = (fileOpenAction, self.fileOpenRecentMenu, self.fileCloseAction, None, 
                                 self.fileSaveAction, self.fileSaveAsAction, fileImportAction, None, 
-                                self.fileSaveTemplateAction, self.fileSaveTemplateAsAction, self.fileLoadTemplateAction, None,
+                                fileSaveTemplateAction, fileSaveTemplateAsAction, fileLoadTemplateAction, fileResetTemplateAction, None,
                                 fileExitAction)
         
         # Edit Menu - undo / redo is generated dynamically in updateEditMenu()
@@ -553,7 +557,7 @@ class LicWindow(QMainWindow):
         
         recentFiles = []
         for filename in self.recentFiles:
-            if filename != QString(self.filename) and QFile.exists(filename):
+            if filename != QString(self.filename) and not filename[:2] == '//' and QFile.exists(filename):
                 recentFiles.append(filename)
                 
         if recentFiles:
@@ -743,14 +747,17 @@ class LicWindow(QMainWindow):
         progress.setValue(progress.maximum())
         #endTime = time.time()
         #print "Total load time: %.2f" % (endTime - startTime)
+        
+    def loadDefaultLicTemplateSettings(self):
+        try:
+            LicBinaryReader.loadLicTemplateSettings(self.defaultTemplateSettingsFilename, self.instructions, FileVersion, MagicNumber)
+        except IOError, unused:
+            self.instructions.resetTemplateSettings()
 
     def enableMenus(self, enabled):
         self.fileCloseAction.setEnabled(enabled)
         self.fileSaveAction.setEnabled(enabled)
         self.fileSaveAsAction.setEnabled(enabled)
-        self.fileSaveTemplateAction.setEnabled(enabled)
-        self.fileSaveTemplateAsAction.setEnabled(enabled)
-        self.fileLoadTemplateAction.setEnabled(enabled)
         self.viewMenu.setEnabled(enabled)
         self.exportMenu.setEnabled(enabled)
         self.treeWidget.treeToolBar.setEnabled(enabled)
@@ -798,7 +805,7 @@ class LicWindow(QMainWindow):
         return False
 
     def fileSaveTemplate(self):
-        template = self.instructions.template
+        template = self.instructions.templateSettings
         if template.filename == "":
             return self.fileSaveTemplateAs()
 
@@ -809,13 +816,13 @@ class LicWindow(QMainWindow):
                 return
 
         try:
-            LicBinaryWriter.saveLicTemplate(template, FileVersion, MagicNumber)
+            LicBinaryWriter.saveLicTemplateSettings(template, FileVersion, MagicNumber)
             self.statusBar().showMessage("Saved Template to: " + template.filename)
         except (IOError, OSError), e:
             QMessageBox.warning(self, "Lic - Save Error", "Failed to save %s: %s" % (template.filename, e))
     
     def fileSaveTemplateAs(self):
-        template = self.instructions.template
+        template = self.instructions.templateSettings
         f = template.filename if template.filename else "template.lit"
 
         filename = unicode(QFileDialog.getSaveFileName(self, "Lic - Save Template As", f, "Lic Template files (*.lit)"))
@@ -824,20 +831,21 @@ class LicWindow(QMainWindow):
             return self.fileSaveTemplate()
     
     def fileLoadTemplate(self):
-        templateName = self.instructions.template.filename
+        templateName = self.instructions.templateSettings.filename
         folder = os.path.dirname(templateName) if templateName != "" else "."  # TODO: Check what happens if templateName has no path
         newFilename = unicode(QFileDialog.getOpenFileName(self, "Lic - Load Template", folder, "Lic Template files (*.lit)"))
         if newFilename and os.path.basename(newFilename) != templateName:
             try:
-                newTemplate = LicBinaryReader.loadLicTemplate(newFilename, self.instructions, FileVersion, MagicNumber)
+                LicBinaryReader.loadLicTemplateSettings(newFilename, self.instructions, FileVersion, MagicNumber)
             except IOError, e:
                 QMessageBox.warning(self, "Lic - Load Template Error", "Failed to open %s: %s" % (newFilename, e))
             else:
-                self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-                self.scene.removeItem(self.instructions.template)
-                self.instructions.template = newTemplate
-                newTemplate.applyFullTemplate(True)
-                self.scene.emit(SIGNAL("layoutChanged()"))
+                #self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+                #self.scene.removeItem(self.instructions.template)
+                #self.instructions.template = newTemplate
+                #newTemplate.applyFullTemplate(True)
+                #self.scene.emit(SIGNAL("layoutChanged()"))
+                self.scene.update()
                 self.setWindowModified(True)
     
     def fileOpen(self, filename = None):

@@ -50,14 +50,10 @@ QDataStream.readQSize = ro(QSize)
 # Having these global here avoids having to pass them as arguments to every single method in here
 partDict = {}
 colorDict = None
-FileVersion = None
 
-def loadLicFile(filename, instructions, fileVersion, MagicNumber):
+def loadLicFile(filename, instructions, FileVersion, MagicNumber):
     
-    global FileVersion
-    FileVersion = fileVersion
-
-    fh, stream = __createStream(filename, MagicNumber)
+    fh, stream = __createStream(filename, FileVersion, MagicNumber)
 
     if stream.licFileVersion >= 14:
         yield stream.readInt32()
@@ -81,19 +77,23 @@ def loadLicFile(filename, instructions, fileVersion, MagicNumber):
     if fh is not None:
         fh.close()
 
-def loadLicTemplate(filename, instructions, fileVersion, MagicNumber):
+def loadLicTemplate(filename, instructions, FileVersion, MagicNumber):
 
-    global FileVersion
-    FileVersion = fileVersion
-
-    fh, stream = __createStream(filename, MagicNumber, True)
+    fh, stream = __createStream(filename, FileVersion, MagicNumber, True)
     template = __readTemplate(stream, instructions)
     if fh is not None:
         fh.close()
 
     return template
 
-def __createStream(filename, MagicNumber, template = False):
+def loadLicTemplateSettings(filename, instructions, FileVersion, MagicNumber):
+
+    fh, stream = __createStream(filename, FileVersion, MagicNumber, True)
+    instructions.templateSettings.readFromStream(stream)
+    if fh is not None:
+        fh.close()
+
+def __createStream(filename, FileVersion, MagicNumber, template = False):
 
     fh = QFile(filename)
     if not fh.open(QIODevice.ReadOnly):
@@ -137,7 +137,7 @@ def __readTemplate(stream, instructions):
             pass
         t = template.staticInfo = T()
         t.page, t.csi, t.pli, t.smp = T(), T(), T(), T()
-        __readStaticInfo(stream, t.page, t.csi, t.pli, t.smp)
+        __readStaticInfo(stream, instructions, t.page, t.csi, t.pli, t.smp)
 
     if stream.licFileVersion >= 5:
         values = []
@@ -162,25 +162,24 @@ def __readTemplate(stream, instructions):
     template.submodelItem.setAbstractPart(template.submodelPart)
     template.postLoadInit(filename)
 
-    if stream.licFileVersion >= 20:
-        template.instructions.templateSettings.readFromStream(stream)
-
     return template
 
-def __readStaticInfo(stream, page, csi, pli, smp):
+def __readStaticInfo(stream, instructions, page, csi, pli, smp):
 
     page.PageSize = stream.readQSize()
     page.Resolution = stream.readFloat()
     if stream.licFileVersion >= 11:
         page.NumberPos = stream.readQString()
 
-    csi.defaultScale = stream.readFloat()
-    pli.defaultScale = stream.readFloat()
-    smp.defaultScale = stream.readFloat()
-
-    csi.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
-    pli.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
-    smp.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+    if stream.licFileVersion < 21:
+        settings = instructions.templateSettings
+        settings.CSI.scale = stream.readFloat()
+        settings.PLI.scale = stream.readFloat()
+        settings.SubmodelPreview.scale = stream.readFloat()
+    
+        settings.CSI.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+        settings.PLI.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+        settings.SubmodelPreview.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
 
 def __readInstructions(stream, instructions):
 
@@ -191,7 +190,7 @@ def __readInstructions(stream, instructions):
     filename = str(stream.readQString())
     instructions.filename = filename
 
-    __readStaticInfo(stream, LicCustomPages.Page, CSI, PLI, SubmodelPreview)
+    __readStaticInfo(stream, instructions, LicCustomPages.Page, CSI, PLI, SubmodelPreview)
 
     for unused in __readPartDictionary(stream, instructions):
         yield

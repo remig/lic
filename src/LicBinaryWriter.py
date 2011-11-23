@@ -48,6 +48,15 @@ def saveLicTemplate(template, FileVersion, MagicNumber):
     if fh is not None:
         fh.close()
 
+def saveLicTemplateSettings(templateSettings, FileVersion, MagicNumber):
+
+    fh, stream = __createStream(templateSettings.filename, FileVersion, MagicNumber)
+
+    templateSettings.writeToStream(stream)
+
+    if fh is not None:
+        fh.close()
+
 def __createStream(filename, FileVersion, MagicNumber):
     
     fh = QFile(filename)
@@ -81,29 +90,11 @@ def __writeTemplate(stream, template):
     stream.writeInt32(len(values))
     for v in values:
         stream.writeFloat(v)
-        
-    template.instructions.templateSettings.writeToStream(stream)
 
 def __writeStaticInfo(stream):
     stream << Page.PageSize
     stream.writeFloat(Page.Resolution)
     stream << QString(Page.NumberPos)
-
-    stream.writeFloat(CSI.defaultScale)
-    stream.writeFloat(PLI.defaultScale)
-    stream.writeFloat(SubmodelPreview.defaultScale)
-    
-    stream.writeFloat(CSI.defaultRotation[0])
-    stream.writeFloat(CSI.defaultRotation[1])
-    stream.writeFloat(CSI.defaultRotation[2])
-        
-    stream.writeFloat(PLI.defaultRotation[0])
-    stream.writeFloat(PLI.defaultRotation[1])
-    stream.writeFloat(PLI.defaultRotation[2])
-
-    stream.writeFloat(SubmodelPreview.defaultRotation[0])
-    stream.writeFloat(SubmodelPreview.defaultRotation[1])
-    stream.writeFloat(SubmodelPreview.defaultRotation[2])
 
 def __writeInstructions(stream, instructions):
 

@@ -874,13 +874,14 @@ class ScaleDefaultItemCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, target, templateItem, oldScale, newScale):
+    def __init__(self, templateItem, oldScale, newScale):
         QUndoCommand.__init__(self, "Change default %s Scale" % templateItem.itemClassName)
-        self.target, self.templateItem = target, templateItem
+        self.templateItem = templateItem
         self.oldScale, self.newScale = oldScale, newScale
 
     def doAction(self, redo):
-        self.target.defaultScale = self.newScale if redo else self.oldScale
+        scale = self.newScale if redo else self.oldScale
+        self.templateItem.changeDefaultScale(scale)
         self.resetGLItem(self.templateItem)
         self.templateItem.update()  # Need this to force full redraw
             
@@ -888,13 +889,14 @@ class RotateDefaultItemCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, target, templateItem, oldRotation, newRotation):
+    def __init__(self, templateItem, oldRotation, newRotation):
         QUndoCommand.__init__(self, "Change default %s rotation" % templateItem.itemClassName)
-        self.target, self.templateItem = target, templateItem
+        self.templateItem = templateItem
         self.oldRotation, self.newRotation = oldRotation, newRotation
 
     def doAction(self, redo):
-        self.target.defaultRotation = list(self.newRotation) if redo else list(self.oldRotation)
+        rotation = list(self.newRotation) if redo else list(self.oldRotation)
+        self.templateItem.changeDefaultRotation(rotation)
         self.resetGLItem(self.templateItem)
 
 class SetPageNumberPosCommand(QUndoCommand):

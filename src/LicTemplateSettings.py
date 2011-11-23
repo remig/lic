@@ -24,10 +24,13 @@ __all__ = ["TemplateSettings"]
 
 class TemplateSettings(object):
     def __init__(self):
+        self.filename = ""
         self.Page = PageSettings()
-        self.SubmodelPreview = PenAndBrush()
+        self.SubmodelPreview = TransformAndBorder()
         self.TitleSubmodelPreview = PenAndBrush()
-        self.PLI = PenAndBrush()
+        self.CSI = RotateAndScale()
+        self.PLI = TransformAndBorder()
+        self.PLI.rotation = [20.0, -45.0, 0.0]
         self.PartListPLI = PenAndBrush()
         self.Callout = CalloutSettings()
         self.GraphicsRotateArrowItem = RotateIconSettings()
@@ -51,8 +54,8 @@ class TemplateSettings(object):
         self.GraphicsRotateArrowItem.readFromStream(stream)
 
 class PenAndBrush(object):
-    def __init__(self):
-        self.pen = QPen(Qt.NoPen)
+    def __init__(self, pen = Qt.black):
+        self.pen = QPen(pen)
         self.pen.cornerRadius = 0
         self.brush = QBrush(Qt.NoBrush)
         
@@ -65,10 +68,38 @@ class PenAndBrush(object):
         self.pen = stream.readQPen()
         self.pen.cornerRadius = stream.readInt16()
         self.brush = stream.readQBrush()
+        
+class RotateAndScale(object):
+    def __init__(self):
+        self.rotation = [20.0, 45.0, 0.0]
+        self.scale = 1.0
+
+    def writeToStream(self, stream):
+        stream.writeFloat(self.rotation[0])
+        stream.writeFloat(self.rotation[1])
+        stream.writeFloat(self.rotation[2])
+        stream.writeFloat(self.scale)
+        
+    def readFromStream(self, stream):
+        self.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+        self.scale = stream.readFloat()
+        
+class TransformAndBorder(PenAndBrush, RotateAndScale):
+    def __init__(self):
+        PenAndBrush.__init__(self)
+        RotateAndScale.__init__(self)
+        
+    def writeToStream(self, stream):
+        PenAndBrush.writeToStream(self, stream)
+        RotateAndScale.writeToStream(self, stream)
+        
+    def readFromStream(self, stream):
+        PenAndBrush.readFromStream(self, stream)
+        RotateAndScale.readFromStream(self, stream)
 
 class PageSettings(PenAndBrush):
     def __init__(self):
-        PenAndBrush.__init__(self)
+        PenAndBrush.__init__(self, Qt.NoPen)
         self.backgroundColor = QColor(Qt.white)
     
     def writeToStream(self, stream):

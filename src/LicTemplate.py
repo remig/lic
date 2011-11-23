@@ -99,32 +99,34 @@ class TemplateRotateScaleSignalItem(object):
 
     def rotateDefaultSignal(self):
         parentWidget = self.scene().views()[0]
-        dialog = LicDialogs.RotationDialog(parentWidget, self.target.defaultRotation)
+        dialog = LicDialogs.RotationDialog(parentWidget, self.getClassSettings().rotation)
         parentWidget.connect(dialog, SIGNAL("changeRotation"), self.changeDefaultRotation)
         parentWidget.connect(dialog, SIGNAL("acceptRotation"), self.acceptDefaultRotation)
         dialog.exec_()
 
     def changeDefaultRotation(self, rotation):
-        self.target.defaultRotation = list(rotation)
+        settings = self.getClassSettings()
+        settings.rotation = list(rotation)
         self.resetPixmap()
 
     def acceptDefaultRotation(self, oldRotation):
-        action = RotateDefaultItemCommand(self.target, self, oldRotation, self.target.defaultRotation)
+        action = RotateDefaultItemCommand(self, oldRotation, self.getClassSettings().rotation)
         self.scene().undoStack.push(action)
 
     def scaleDefaultSignal(self):
         parentWidget = self.scene().views()[0]
-        dialog = LicDialogs.ScaleDlg(parentWidget, self.target.defaultScale)
+        dialog = LicDialogs.ScaleDlg(parentWidget, self.getClassSettings().scale)
         parentWidget.connect(dialog, SIGNAL("changeScale"), self.changeDefaultScale)
         parentWidget.connect(dialog, SIGNAL("acceptScale"), self.acceptDefaultScale)
         dialog.exec_()
     
     def changeDefaultScale(self, newScale):
-        self.target.defaultScale = newScale
+        settings = self.getClassSettings()
+        settings.scale = newScale
         self.resetPixmap()
     
     def acceptDefaultScale(self, originalScale):
-        action = ScaleDefaultItemCommand(self.target, self, originalScale, self.target.defaultScale)
+        action = ScaleDefaultItemCommand(self, originalScale, self.getClassSettings().scale)
         self.scene().undoStack.push(action)
 
 class TemplatePage(TemplateRectItem, Page):
@@ -161,6 +163,10 @@ class TemplatePage(TemplateRectItem, Page):
         self.addMissingElements()  # For backwards compatibility, add missing template features
 
         stack = self.scene().undoStack
+
+        # Set all page elements so they can't move
+        for item in self.getAllChildItems():
+            item.setFlags(NoMoveFlags)
 
         # Promote page members to appropriate Template subclasses, and initialize if necessary
         step = self.steps[0]
@@ -205,14 +211,11 @@ class TemplatePage(TemplateRectItem, Page):
         if step.hasPLI():
             for item in step.pli.pliItems:
                 item.__class__ = TemplatePLIItem
+                item.setFlags(NoFlags)
                 item.numberItem.setAllFonts = lambda oldFont, newFont: stack.push(SetItemFontsCommand(self, oldFont, newFont, 'PLIItem'))
                 item.numberItem.contextMenuEvent = lambda event, i = item: self.fontMenuEvent(event, i.numberItem)
                 if item.lengthIndicator:
                     item.lengthIndicator.__class__ = TemplateCircleLabel
-
-        # Set all page elements so they can't move
-        for item in self.getAllChildItems():
-            item.setFlags(NoMoveFlags)
 
         if step.callouts:
             step.callouts[0].arrow.tipRect.setFlags(NoFlags)
@@ -284,7 +287,7 @@ class TemplatePage(TemplateRectItem, Page):
             pBuffer.makeCurrent()
 
             # Render CSI and calculate its size
-            if part.initSize(size, pBuffer):
+            if part.initSize(size, pBuffer, self.getAllSettings()):
                 break
         glContext.makeCurrent()
 
@@ -305,27 +308,12 @@ class TemplatePage(TemplateRectItem, Page):
 
         if hasattr(self, 'staticInfo'):
             s = self.staticInfo
-            SMP = SubmodelPreview
 
             if (Page.PageSize != s.page.PageSize) or (Page.Resolution != s.page.Resolution):
                 stack.push(ResizePageCommand(self, Page.PageSize, s.page.PageSize, Page.Resolution, s.page.Resolution, False))
             if Page.NumberPos != s.page.NumberPos:
                 stack.push(SetPageNumberPosCommand(self, Page.NumberPos, s.page.NumberPos))
 
-            if CSI.defaultScale != s.csi.defaultScale:
-                stack.push(ScaleDefaultItemCommand(CSI, step.csi, CSI.defaultScale, s.csi.defaultScale))
-            if PLI.defaultScale != s.pli.defaultScale:
-                stack.push(ScaleDefaultItemCommand(PLI, step.pli, PLI.defaultScale, s.pli.defaultScale))
-            if SMP.defaultScale != s.smp.defaultScale:
-                stack.push(ScaleDefaultItemCommand(SMP, self.submodelItem, SMP.defaultScale, s.smp.defaultScale))
-            
-            if CSI.defaultRotation != s.csi.defaultRotation:
-                stack.push(RotateDefaultItemCommand(CSI, step.csi, CSI.defaultRotation, s.csi.defaultRotation))
-            if PLI.defaultRotation != s.pli.defaultRotation:
-                stack.push(RotateDefaultItemCommand(PLI, step.pli, PLI.defaultRotation, s.pli.defaultRotation))
-            if SMP.defaultRotation != s.smp.defaultRotation:
-                stack.push(RotateDefaultItemCommand(SMP, self.submodelItem, SMP.defaultRotation, s.smp.defaultRotation))
-            
         stack.push(SetItemFontsCommand(self, originalPage.numberItem.font(), self.numberItem.font(), 'Page'))
         stack.push(SetItemFontsCommand(self, originalPage.steps[0].numberItem.font(), step.numberItem.font(), 'Step'))
         pliItem = self.instructions.mainModel.getFirstPLIItem()
@@ -411,17 +399,17 @@ class TemplatePage(TemplateRectItem, Page):
         menu.exec_(event.screenPos())
 
     def setBackgroundColor(self):
-        originalColor = self.getSettings().backgroundColor
+        originalColor = self.getClassSettings().backgroundColor
         newColor = QColorDialog.getColor(originalColor, self.scene().views()[0])
         if newColor.isValid():
             self.scene().undoStack.push(SetPageBackgroundColorCommand(self, originalColor, newColor))
     
     def setBackgroundNone(self):
-        originalBrush = self.getSettings().brush
+        originalBrush = self.getClassSettings().brush
         self.scene().undoStack.push(SetPageBackgroundBrushCommand(self, originalBrush, QBrush(Qt.NoBrush)))
         
     def setBackgroundGradient(self):
-        g = self.getSettings().brush.gradient()
+        g = self.getClassSettings().brush.gradient()
         dialog = LicGradientDialog.GradientDialog(self.scene().views()[0], Page.PageSize, g)
         if dialog.exec_():
             self.scene().undoStack.push(SetPageBackgroundBrushCommand(self, self.brush(), QBrush(dialog.getGradient())))
@@ -439,8 +427,8 @@ class TemplatePage(TemplateRectItem, Page):
             return
 
         stack = self.scene().undoStack
-        originalColor = self.getSettings().backgroundColor
-        originalBrush = self.getSettings().brush
+        originalColor = self.getClassSettings().backgroundColor
+        originalBrush = self.getClassSettings().brush
         dialog = LicDialogs.BackgroundImagePropertiesDlg(parentWidget, image, originalColor, originalBrush, Page.PageSize)
         action = lambda image: stack.push(SetPageBackgroundBrushCommand(self, originalBrush, QBrush(image) if image else None))
         parentWidget.connect(dialog, SIGNAL("changed"), action)
@@ -504,18 +492,16 @@ class TemplatePage(TemplateRectItem, Page):
         if not self.submodelItem:
             print "NO SUBMODEL ITEM TO SCALE"
             return
-        
-        oldScale = CSI.defaultScale
+
+        settings = self.getAllSettings()
         self.steps[0].csi.changeDefaultScale(newScale)
-        self.steps[0].csi.acceptDefaultScale(oldScale)
+        self.steps[0].csi.acceptDefaultScale(settings.CSI.scale)
 
-        oldScale = PLI.defaultScale
         self.steps[0].pli.changeDefaultScale(newScale)
-        self.steps[0].pli.acceptDefaultScale(oldScale)
+        self.steps[0].pli.acceptDefaultScale(settings.PLI.scale)
 
-        oldScale = SubmodelPreview.defaultScale
         self.submodelItem.changeDefaultScale(newScale)
-        self.submodelItem.acceptDefaultScale(oldScale)
+        self.submodelItem.acceptDefaultScale(settings.SubmodelPreview.scale)
 
     def changeLighting(self):
         parentWidget = self.scene().views()[0]
@@ -539,21 +525,21 @@ class TemplateCalloutArrow(TemplateLineItem, CalloutArrow):
         menu.addAction("Format Border", lambda: self.formatBorder(self.brush().color()))
         menu.exec_(event.screenPos())
         
-    def getSettings(self):
+    def getClassSettings(self):
         return self.getPage().instructions.templateSettings.Callout.arrow
     
     def pen(self):
-        return self.getSettings().pen
+        return self.getClassSettings().pen
     
     def setPen(self, newPen):
-        settings = self.getSettings()
+        settings = self.getClassSettings()
         settings.pen = newPen
 
     def brush(self):
-        return self.getSettings().brush
+        return self.getClassSettings().brush
         
     def setBrush(self, newBrush):
-        settings = self.getSettings()
+        settings = self.getClassSettings()
         settings.brush = newBrush
 
 class TemplateCallout(TemplateRectItem, Callout):
@@ -693,7 +679,7 @@ class TemplateRotateIcon(TemplateRectItem, GraphicsRotateArrowItem):
         
         self.setSelected(False)  # Deselect to better see new border changes
         parentWidget = self.scene().views()[0]
-        pen = self.getSettings().arrowPen
+        pen = self.getClassSettings().arrowPen
         dialog = LicDialogs.PenDlg(parentWidget, pen, False, None)
 
         parentWidget.connect(dialog, SIGNAL("changePen"), self.changeArrowPen)
@@ -703,12 +689,12 @@ class TemplateRotateIcon(TemplateRectItem, GraphicsRotateArrowItem):
         dialog.exec_()
 
     def changeArrowPen(self, newPen, newBrush = None):
-        settings = self.getSettings()
+        settings = self.getClassSettings()
         settings.arrowPen = newPen
         self.update()
 
     def acceptArrowPen(self, oldPen, oldBrush):
-        pen = self.getSettings().arrowPen
+        pen = self.getClassSettings().arrowPen
         self.scene().undoStack.push(SetPenCommand(self, oldPen, pen, "changeArrowPen"))
 
     def contextMenuEvent(self, event):

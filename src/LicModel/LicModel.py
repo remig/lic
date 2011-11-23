@@ -655,8 +655,8 @@ class Callout(CalloutTreeManager, GraphicsRoundRectItem):
             GraphicsRoundRectItem.paint(self, painter, option, widget)
             return
 
-        painter.setPen(self.getSettings().pen)
-        painter.setBrush(self.getSettings().brush)
+        painter.setPen(self.getClassSettings().pen)
+        painter.setBrush(self.getClassSettings().brush)
 
         # Get tight border polygon
         cornerRadius = self.pen().cornerRadius
@@ -1239,8 +1239,6 @@ class RotateScaleSignalItem(object):
 class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateScaleSignalItem):
     itemClassName = "SubmodelPreview"
 
-    defaultScale = 1.0
-    defaultRotation = [20.0, 45.0, 0.0]
     fixedSize = True
 
     def __init__(self, parent, abstractPart):
@@ -1257,7 +1255,7 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
 
     def resetPixmap(self):
         glContext = self.getPage().instructions.glContext
-        self.abstractPart.resetPixmap(glContext, self.rotation, self.scaling)
+        self.abstractPart.resetPixmap(glContext, self.getAllSettings(), self.rotation, self.scaling)
         self.abstractPart.center /= self.scaling
         self.resetRect()
         
@@ -1281,7 +1279,7 @@ class SubmodelPreview(SubmodelPreviewTreeManager, GraphicsRoundRectItem, RotateS
     def paintGL(self, f = 1.0):
         dx = self.pos().x() + PLI.margin.x() + (self.abstractPart.width / 2.0)
         dy = -self.getPage().PageSize.height() + self.pos().y() + PLI.margin.y() + (self.abstractPart.height / 2.0)
-        self.abstractPart.paintGL(dx * f, dy * f, self.rotation, self.scaling * f)
+        self.abstractPart.paintGL(dx * f, dy * f, self.getAllSettings(), self.rotation, self.scaling * f)
 
     def initLayout(self, destRect = None):
         if destRect:
@@ -1440,7 +1438,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.abstractPart.width / 2.0)
         dy = -self.getPage().PageSize.height() + pos.y() + (self.abstractPart.height / 2.0)
-        self.abstractPart.paintGL(dx * f, dy * f, scaling = f, color = self.color)
+        self.abstractPart.paintGL(dx * f, dy * f, self.getAllSettings(), scaling = f, color = self.color)
 
     """
     def paint(self, painter, option, widget = None):
@@ -1449,7 +1447,7 @@ class PLIItem(PLIItemTreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     """
 
     def resetPixmap(self):
-        self.abstractPart.resetPixmap(self.getContext())
+        self.abstractPart.resetPixmap(self.getContext(), self.getAllSettings())
         self.parentItem().initLayout()
         
     def contextMenuEvent(self, event):
@@ -1466,8 +1464,6 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
     """ Parts List Image.  Includes border and layout info for a list of parts in a step. """
     itemClassName = "PLI"
 
-    defaultScale = 1.0
-    defaultRotation = [20.0, -45.0, 0.0]
     margin = QPointF(15, 15)
 
     def __init__(self, parent):
@@ -1525,8 +1521,9 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
     
     def resetPixmap(self):
         glContext = self.getPage().instructions.glContext
+        settings = self.getAllSettings()
         for part in set([item.abstractPart for item in self.pliItems]):
-            part.resetPixmap(glContext)
+            part.resetPixmap(glContext, settings)
         self.initLayout()
     
     def initLayout(self):
@@ -1644,8 +1641,6 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
     """ Construction Step Image.  Includes border and positional info. """
     itemClassName = "CSI"
 
-    defaultScale = 1.0
-    defaultRotation = [20.0, 45.0, 0.0]
     highlightNewParts = False
 
     def __init__(self, step):
@@ -1694,10 +1689,11 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
 
         LicGLHelpers.pushAllGLMatrices()
 
+        settings = self.getAllSettings()
         pos = self.mapToItem(self.getPage(), self.mapFromParent(self.pos()))
         dx = pos.x() + (self.rect().width() / 2.0) + self.center.x()
         dy = -self.getPage().PageSize.height() + pos.y() + (self.rect().height() / 2.0) + self.center.y()
-        LicGLHelpers.rotateToView(CSI.defaultRotation, CSI.defaultScale * self.scaling * f, dx * f, dy * f, 0.0)
+        LicGLHelpers.rotateToView(settings.CSI.rotation, settings.CSI.scale * self.scaling * f, dx * f, dy * f, 0.0)
         LicGLHelpers.rotateView(*self.rotation)
 
         GL.glCallList(self.glDispID)
@@ -1817,7 +1813,8 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         if not self.parts:
             return result  # A CSI with no parts is already initialized
 
-        params = LicGLHelpers.initImgSize(size, self.glDispID, filename, CSI.defaultScale * self.scaling, CSI.defaultRotation, self.rotation)
+        settings = self.getAllSettings()
+        params = LicGLHelpers.initImgSize(size, self.glDispID, filename, settings.CSI.scale * self.scaling, settings.CSI.rotation, self.rotation)
         if params is None:
             return False
 
@@ -2053,7 +2050,7 @@ class AbstractPart(object):
                 part.abstractPart.buildSubAbstractPartDict(partDict)
         partDict[self.filename] = self
 
-    def resetPixmap(self, glContext, extraRotation = None, extraScale = None, skipPartInit = False):
+    def resetPixmap(self, glContext, templateSettings, extraRotation = None, extraScale = None, skipPartInit = False):
 
         glContext.makeCurrent()
         self.createGLDisplayList(skipPartInit)
@@ -2068,12 +2065,12 @@ class AbstractPart(object):
 
             rotation = extraRotation if extraRotation else self.pliRotation
             scaling = extraScale if extraScale else self.pliScale
-            if self.initSize(size, pBuffer, rotation, scaling):
+            if self.initSize(size, pBuffer, templateSettings, rotation, scaling):
                 break
 
         glContext.makeCurrent()
 
-    def initSize(self, size, pBuffer, extraRotation = [0.0, 0.0, 0.0], extraScale = 1.0):
+    def initSize(self, size, pBuffer, templateSettings, extraRotation = [0.0, 0.0, 0.0], extraScale = 1.0):
         """
         Initialize this part's display width, height, empty corner insets and center point.
         To do this, draw this part to the already initialized GL buffer.
@@ -2088,8 +2085,8 @@ class AbstractPart(object):
         """
 
         # TODO: If a part is rendered at a size > 256, draw it smaller in the PLI - this sounds like a great way to know when to shrink a PLI image...
-        rotation = SubmodelPreview.defaultRotation if self.isSubmodel else PLI.defaultRotation
-        scaling = SubmodelPreview.defaultScale if self.isSubmodel else PLI.defaultScale
+        rotation = templateSettings.SubmodelPreview.rotation if self.isSubmodel else templateSettings.PLI.rotation
+        scaling = templateSettings.SubmodelPreview.scale if self.isSubmodel else templateSettings.PLI.scale
         params = LicGLHelpers.initImgSize(size, self.glDispID, self.filename, scaling * extraScale, rotation, extraRotation)
         if params is None:
             return False
@@ -2097,12 +2094,12 @@ class AbstractPart(object):
         self.width, self.height, self.center, self.leftInset, self.bottomInset = params
         return True
 
-    def paintGL(self, dx, dy, rotation = [0.0, 0.0, 0.0], scaling = 1.0, color = None):
+    def paintGL(self, dx, dy, templateSettings, rotation = [0.0, 0.0, 0.0], scaling = 1.0, color = None):
 
         LicGLHelpers.pushAllGLMatrices()
 
-        dr = SubmodelPreview.defaultRotation if self.isSubmodel else PLI.defaultRotation
-        ds = SubmodelPreview.defaultScale if self.isSubmodel else PLI.defaultScale
+        dr = templateSettings.SubmodelPreview.rotation if self.isSubmodel else templateSettings.PLI.rotation
+        ds = templateSettings.SubmodelPreview.scale if self.isSubmodel else templateSettings.PLI.scale
 
         dx += self.center.x() * scaling
         dy += self.center.y() * scaling
@@ -3215,7 +3212,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
 
             self.abstractPart.parts.append(part)
     
-        self.abstractPart.resetPixmap(self.getContext(), skipPartInit = True)
+        self.abstractPart.resetPixmap(self.getContext(), self.getAllSettings(), skipPartInit = True)
         page.instructions.updateMainModel()
         page.updateSubmodel()
 

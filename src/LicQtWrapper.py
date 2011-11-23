@@ -81,12 +81,9 @@ class GraphicsRoundRectItem(QGraphicsRectItem):
     def __init__(self, parent):
         QGraphicsRectItem.__init__(self, parent)
         
-    def getSettings(self):
-        return self.getAllSettings().__getattribute__(self.itemClassName) 
-
     def paint(self, painter, option, widget = None):
 
-        settings = self.getSettings()
+        settings = self.getClassSettings()
         painter.setPen(settings.pen)
         painter.setBrush(settings.brush)
 
@@ -100,17 +97,17 @@ class GraphicsRoundRectItem(QGraphicsRectItem):
             painter.drawSelectionRect(self.rect(), settings.pen.cornerRadius)
     
     def pen(self):
-        return self.getSettings().pen
+        return self.getClassSettings().pen
     
     def setPen(self, newPen):
-        settings = self.getSettings()
+        settings = self.getClassSettings()
         settings.pen = newPen
 
     def brush(self):
-        return self.getSettings().brush
+        return self.getClassSettings().brush
         
     def setBrush(self, newBrush):
-        settings = self.getSettings()
+        settings = self.getClassSettings()
         settings.brush = newBrush
     
 class GraphicsCircleLabelItem(QGraphicsEllipseItem):
@@ -169,7 +166,7 @@ class GraphicsRotateArrowItem(GraphicsRoundRectItem):
     def paint(self, painter, option, widget = None):
         painter.setRenderHint(QPainter.Antialiasing)
         GraphicsRoundRectItem.paint(self, painter, option, widget)
-        painter.setPen(self.getSettings().arrowPen)
+        painter.setPen(self.getClassSettings().arrowPen)
         painter.setBrush(QBrush(Qt.transparent))
         
         w, h2 = self.rect().width(), self.rect().height() / 2.0
@@ -190,7 +187,7 @@ class GraphicsRotateArrowItem(GraphicsRoundRectItem):
 
         painter.drawPath(path)
 
-        painter.setBrush(QBrush(self.getSettings().arrowPen.color()))
+        painter.setBrush(QBrush(self.getClassSettings().arrowPen.color()))
         painter.save()
         painter.translate(w - inset, h2 - inset)
         painter.rotate(-135)
@@ -272,6 +269,7 @@ QGraphicsItem.contextMenuEvent = lambda self, event: event.ignore()
 QGraphicsItem.getPage = lambda self: self.parentItem().getPage()
 QGraphicsItem.getInstructions = lambda self: self.getPage().instructions
 QGraphicsItem.getAllSettings = lambda self: self.getInstructions().templateSettings
+QGraphicsItem.getClassSettings = lambda self: self.getAllSettings().__getattribute__(self.itemClassName)
 QGraphicsItem.getContext = lambda self: self.getInstructions().glContext
 QGraphicsItem.getSceneCorners = genericGetSceneCorners
 QGraphicsItem.getSceneCornerList = genericGetSceneCornerList
