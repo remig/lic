@@ -669,7 +669,20 @@ class LicWindow(QMainWindow):
         progress.setValue(2)  # Try and force dialog to show up right away
 
         loader = self.instructions.importModel(filename)
-        progress.setMaximum(loader.next())  # First value yielded after load is # of progress steps
+        try:
+            progress.setMaximum(loader.next())  # First value yielded after load is # of progress steps
+        except IOError as e:
+            # Failed to import model.  Usually means a bad path to LDraw.  Signal user & abort
+            progress.cancel()
+            loader.close()
+            s = "Failed to import %s:\n%s\n\nThis might mean a corrupt Lic config file.\nDo you want to recreate it?" % (os.path.basename(filename), e)
+            reply = QMessageBox.critical(self, "Lic - Import Error", s, QMessageBox.Yes | QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                settings = self.getSettingsFile()
+                settings.clear()
+                settings.sync()
+                exit(1)
+            return
 
         for label in loader:
             if progress.wasCanceled():
