@@ -49,6 +49,7 @@ class LicColor(object):
     def red():
         return LicColor(0.77, 0.00, 0.15, 1.0, 'Red')
     
+# Dictionary subclass that returns the color black for any missing lookups
 class LicColorDict(dict):
     def __missing__(self, k):
         print "Could not find LDraw Color: %d - Using Black." % k

@@ -883,12 +883,16 @@ class PositionRotationDlg(QDialog):
 
 class LightingDialog(QDialog):
 
-    def __init__(self, parent, ambient, shine, lineWidth):
+    def __init__(self, parent, ambient, shine, lineWidth, disableLight):
         QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setWindowTitle(self.tr("Change 3D Lighting"))
 
-        self.values = [ambient, shine, lineWidth]
+        self.values = [ambient, shine, lineWidth, disableLight]
+
+        self.disableLightCheckbox = QCheckBox("&Disable Lighting")
+        self.disableLightCheckbox.setChecked(disableLight)
+        self.connect(self.disableLightCheckbox, SIGNAL("stateChanged(int)"), self.valueChanged)
 
         ambientLabel, self.ambientSpinBox = self.makeLabelSpinBox("&Ambient:", ambient * 100.0, 0.0, 100.0, self.valueChanged)
         shineLabel, self.shineSpinBox = self.makeLabelSpinBox("&Shininess:", shine, 0.0, 100.0, self.valueChanged)
@@ -896,10 +900,11 @@ class LightingDialog(QDialog):
         buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
 
         grid = QGridLayout()
-        grid.addWidgetRow(0, (ambientLabel, self.ambientSpinBox))
+        grid.addWidget(self.disableLightCheckbox, 0, 0, 1, 2)
+        grid.addWidgetRow(1, (ambientLabel, self.ambientSpinBox))
         #grid.addWidgetRow(1, (shineLabel, self.shineSpinBox))
-        grid.addWidgetRow(1, (lwLabel, self.lwSpinBox))
-        grid.addWidget(buttonBox, 2, 0, 1, 2)
+        grid.addWidgetRow(2, (lwLabel, self.lwSpinBox))
+        grid.addWidget(buttonBox, 3, 0, 1, 2)
         self.setLayout(grid)
 
         self.connect(buttonBox, SIGNAL("accepted()"), self, SLOT("accept()"))
@@ -907,7 +912,7 @@ class LightingDialog(QDialog):
         self.ambientSpinBox.selectAll()
 
     def valueChanged(self):
-        newValues = [self.ambientSpinBox.value() / 100.0, self.shineSpinBox.value(), (self.lwSpinBox.value() / 10.0) + 1]
+        newValues = [self.ambientSpinBox.value() / 100.0, self.shineSpinBox.value(), (self.lwSpinBox.value() / 10.0) + 1, self.disableLightCheckbox.isChecked()]
         self.emit(SIGNAL("changeValues"), newValues)
 
     def accept(self):

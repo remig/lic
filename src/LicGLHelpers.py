@@ -69,19 +69,21 @@ def drawCoordLines(length = 20.0):
 __LIC_GL_AMBIENT_LEVEL = 0.4
 __LIC_GL_SHINE_LEVEL = 64
 __LIC_GL_LINE_THICKNESS = 1.0
+__LIC_GL_DISABLE_LIGHT = True
 
 def getLightParameters():
-    global __LIC_GL_AMBIENT_LEVEL, __LIC_GL_SHINE_LEVEL, __LIC_GL_LINE_THICKNESS
-    return (__LIC_GL_AMBIENT_LEVEL, __LIC_GL_SHINE_LEVEL, __LIC_GL_LINE_THICKNESS)
+    global __LIC_GL_AMBIENT_LEVEL, __LIC_GL_SHINE_LEVEL, __LIC_GL_LINE_THICKNESS, __LIC_GL_DISABLE_LIGHT
+    return (__LIC_GL_AMBIENT_LEVEL, __LIC_GL_SHINE_LEVEL, __LIC_GL_LINE_THICKNESS, __LIC_GL_DISABLE_LIGHT)
 
-def setLightParameters(ambient, shine, lineWidth):
-    global __LIC_GL_AMBIENT_LEVEL, __LIC_GL_SHINE_LEVEL, __LIC_GL_LINE_THICKNESS
+def setLightParameters(ambient, shine, lineWidth, disableLight = True):
+    global __LIC_GL_AMBIENT_LEVEL, __LIC_GL_SHINE_LEVEL, __LIC_GL_LINE_THICKNESS, __LIC_GL_DISABLE_LIGHT
     __LIC_GL_AMBIENT_LEVEL = ambient
     __LIC_GL_SHINE_LEVEL = shine
     __LIC_GL_LINE_THICKNESS = lineWidth
+    __LIC_GL_DISABLE_LIGHT = disableLight
 
 def resetLightParameters():
-    setLightParameters(0.4, 64, 1.0)
+    setLightParameters(0.4, 64, 1.0, True)
 
 def setupLight(light):
     glLightfv(light, GL_SPECULAR, [1.0, 1.0, 0.0, 1.0])
@@ -90,10 +92,10 @@ def setupLight(light):
     glEnable(light)
 
 def setupLighting():
-    global __LIC_GL_AMBIENT_LEVEL
+    global __LIC_GL_AMBIENT_LEVEL, __LIC_GL_DISABLE_LIGHT
 
     glDisable(GL_NORMALIZE)
-    a = __LIC_GL_AMBIENT_LEVEL
+    a = 1.0 if __LIC_GL_DISABLE_LIGHT else __LIC_GL_AMBIENT_LEVEL
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [a, a, a, 1.0])
     glEnable(GL_LIGHTING)
     
@@ -101,7 +103,8 @@ def setupLighting():
     for i in range(0, maxLights):
         glDisable(GL_LIGHT0 + i)
 
-    setupLight(GL_LIGHT0)
+    if not __LIC_GL_DISABLE_LIGHT:
+        setupLight(GL_LIGHT0)
     glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 1.0)
     glLightf(GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.0)
     glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.0)
