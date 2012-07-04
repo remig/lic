@@ -3100,7 +3100,7 @@ class Part(PartTreeManager, QGraphicsRectItem):
         
     def callFullGLDisplayList(self, useDisplacement = False, greyedOut = False):
         self.callGLDisplayList(useDisplacement, greyedOut)
-        self.callEdgeGLDisplayList(greyedOut)
+        self.callEdgeGLDisplayList(useDisplacement, greyedOut)
         
     def callEdgeGLDisplayList(self, useDisplacement = False, greyedOut = False):
 

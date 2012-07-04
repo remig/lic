@@ -271,7 +271,6 @@ def __readLicColor(stream):
             dictColor = colorDict.get(code)
             if dictColor and dictColor != newColor:
                 logging.debug('Loading a color that does not match colorDict:\n\tdict: %s\n\tload: %s', dictColor, newColor)
-                print dictColor
             return dictColor if dictColor else newColor  #  PROBLEM: what if a loaded color matches (by code) a color in the dict, but has different rgb values?
         return None
     return colorDict[stream.readInt32()]
