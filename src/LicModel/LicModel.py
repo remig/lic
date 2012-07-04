@@ -1738,7 +1738,7 @@ class CSI(CSITreeManager, QGraphicsRectItem, RotateScaleSignalItem):
         # Draw all the parts in this CSI
         for partItem in self.parts:
             for part in partItem.parts:
-                part.callGLDisplayList(isCurrent, greyedOut)
+                part.callFullGLDisplayList(isCurrent, greyedOut)
 
     def createGLDisplayList(self):
         """
@@ -1974,7 +1974,9 @@ class AbstractPart(object):
         self.winding = GL.GL_CCW
         self.parts = []
         self.primitives = []
+        self.edges = []
         self.glDispID = LicGLHelpers.UNINIT_GL_DISPID
+        self.glEdgeDispID = LicGLHelpers.UNINIT_GL_DISPID
         self.notCurrentDispID = LicGLHelpers.UNINIT_GL_DISPID
         self.isPrimitive = False  # primitive here means sub-part or part that's internal to another part
         self.isSubmodel = False
@@ -1986,6 +1988,12 @@ class AbstractPart(object):
         self.width = self.height = -1
         self.leftInset = self.bottomInset = -1
         self.center = QPointF()
+        
+    def addPrimitive(self, primitive):
+        if primitive.type == GL.GL_LINES:
+            self.edges.append(primitive)
+        else:
+            self.primitives.append(primitive)
 
     def duplicate(self):
         newPart = AbstractPart(self.filename)
@@ -1994,6 +2002,8 @@ class AbstractPart(object):
         newPart.parts = list(self.parts)
         newPart.primitives = list(self.primitives)
         newPart.glDispID = self.glDispID
+        newPart.glEdgeDispID = self.glEdgeDispID
+        newPart.notCurrentDispID = self.notCurrentDispID
         newPart.isPrimitive = self.isPrimitive
         newPart.isSubmodel = self.isSubmodel
         newPart._boundingBox = self._boundingBox.duplicate() if self._boundingBox else None
@@ -2012,6 +2022,7 @@ class AbstractPart(object):
                 if part.abstractPart.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
                     part.abstractPart.createGLDisplayList()
 
+        # Create a display list for this part's sub-parts and polygons (everything but edges)
         if self.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             self.glDispID = GL.glGenLists(1)
         GL.glNewList(self.glDispID, GL.GL_COMPILE)
@@ -2021,6 +2032,19 @@ class AbstractPart(object):
 
         for primitive in self.primitives:
             primitive.callGLDisplayList(greyedOut = False)
+            
+        GL.glEndList()
+        
+        # Create a display list for this part's edges
+        if self.glEdgeDispID == LicGLHelpers.UNINIT_GL_DISPID:
+            self.glEdgeDispID = GL.glGenLists(1)
+        GL.glNewList(self.glEdgeDispID, GL.GL_COMPILE)
+
+        for part in self.parts:
+            part.callEdgeGLDisplayList(greyedOut = False)
+
+        for edge in self.edges:
+            edge.callGLDisplayList(greyedOut = False)
 
         GL.glEndList()
 
@@ -2111,13 +2135,14 @@ class AbstractPart(object):
         LicGLHelpers.rotateView(*rotation)
 
         if color is not None:
-
             LicGLHelpers.rotateView(*self.pliRotation)
-            
-            if color is not None:
-                GL.glColor4fv(color.rgba)
-
+            GL.glColor4fv(color.rgba)
         GL.glCallList(self.glDispID)
+        
+        if color is not None and hasattr(color, 'edgeColor'):
+            GL.glColor4fv(color.edgeColor.rgba)
+        GL.glCallList(self.glEdgeDispID)
+
         LicGLHelpers.popAllGLMatrices()
 
     def getBoundingBox(self):
@@ -3072,6 +3097,46 @@ class Part(PartTreeManager, QGraphicsRectItem):
     def toBlack(self):
         self.color = LicHelpers.LicColor.black()
         self.isBlackened = True
+        
+    def callFullGLDisplayList(self, useDisplacement = False, greyedOut = False):
+        self.callGLDisplayList(useDisplacement, greyedOut)
+        self.callEdgeGLDisplayList(greyedOut)
+        
+    def callEdgeGLDisplayList(self, useDisplacement = False, greyedOut = False):
+
+        colorIsSet = False
+        greyedOut = False
+
+        if self.color is not None and hasattr(self.color, 'edgeColor'):
+            GL.glPushAttrib(GL.GL_CURRENT_BIT)
+            GL.glColor4fv(self.color.edgeColor.rgba)
+            colorIsSet = True
+        elif self.color is not None:
+            return
+
+        if self.inverted:
+            GL.glPushAttrib(GL.GL_POLYGON_BIT)
+            GL.glFrontFace(GL.GL_CW)
+
+        if self.matrix:
+            matrix = list(self.matrix)
+            if useDisplacement and self.displacement:
+                matrix[12] += self.displacement[0]
+                matrix[13] += self.displacement[1]
+                matrix[14] += self.displacement[2]
+            GL.glPushMatrix()
+            GL.glMultMatrixf(matrix)
+
+        GL.glCallList(self.abstractPart.glEdgeDispID)
+
+        if self.matrix:
+            GL.glPopMatrix()
+
+        if self.inverted:
+            GL.glPopAttrib()
+
+        if colorIsSet:
+            GL.glPopAttrib()
 
     def callGLDisplayList(self, useDisplacement = False, greyedOut = False):
 
@@ -3777,17 +3842,10 @@ class Primitive(object):
         if self.type == GL.GL_LINES:
             if len(self.points) > 6:  # This is a conditional line
                 return
-
-            GL.glPushAttrib(GL.GL_CURRENT_BIT)
-            if greyedOut:
-                GL.glColor4f(1.0, 1.0, 1.0, 1.0)
-            else:
-                GL.glColor4f(0.0, 0.0, 0.0, 1.0)
             GL.glBegin(self.type)
             GL.glVertex3f(p[0], p[1], p[2])
             GL.glVertex3f(p[3], p[4], p[5])
             GL.glEnd()
-            GL.glPopAttrib()
             return
 
         if self.color is not None:

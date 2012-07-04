@@ -19,6 +19,7 @@
 """
 
 from LicCommonImports import *
+from collections import OrderedDict
 
 def makeLabelSpinBox(self, text, value, min, max, signal = None, double = False, percent = False):
     
@@ -129,6 +130,142 @@ class LDrawColorDialog(QDialog):
         
     def reject(self):
         self.emit(SIGNAL('changeColor'), self.originalColor)
+        QDialog.reject(self)
+
+class LicColorConfigDialog(QDialog):
+
+    def __init__(self, parent, colorDict):
+        QDialog.__init__(self, parent,  Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle(self.tr("Configure Brick Colors"))
+        
+        colorList = [i for i in colorDict.values() if i is not None]
+        cols = OrderedDict([['Color', 40], ['Name', 110], ['Internal r,g,b,a' if colorDict.licColors else 'LDConfig r,g,b,a', 120], ['Custom r,g,b,a:', 120], ['Edge r,g,b,a:', 120]])
+
+        table = self.table = QTableWidget(len(colorList), len(cols))
+        table.verticalHeader().hide()
+        table.setHorizontalHeaderLabels(cols.keys())
+        table.setMinimumWidth(sum(cols.values()) + 20)  # 20 for vertical scroll bar
+
+        for i, v in enumerate(cols.values()):
+            table.setColumnWidth(i, v)
+
+        def buildRowItem(flags = Qt.ItemIsEnabled, text = "", color = None, align = Qt.AlignLeft | Qt.AlignVCenter):
+            item = QTableWidgetItem(text)
+            item.setTextAlignment(align)
+            item.setFlags(flags)
+            if color:
+                item.setBackgroundColor(QColor.fromRgbF(*color.rgba))
+                item.licColor = color
+            return item;
+
+        def rgbaToStr(rgba):
+            return ', '.join([str(int(x * 255)) for x in rgba])
+        
+        editFlags = Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable
+        for r, color in enumerate(sorted(colorList, key = lambda k: k.name)):
+            table.setItem(r, 0, buildRowItem(color = color, align = Qt.AlignCenter))
+            table.setItem(r, 1, buildRowItem(text = color.name, align = Qt.AlignCenter))
+            table.setItem(r, 2, buildRowItem(text = rgbaToStr(color.originalRGBA)))
+            table.setItem(r, 3, buildRowItem(flags = editFlags, text = rgbaToStr(color.rgba) if color.rgba != color.originalRGBA else ''))
+            table.setItem(r, 4, buildRowItem(flags = editFlags, text = rgbaToStr(color.edgeColor.rgba)))
+
+        self.connect(table, SIGNAL('cellChanged(int, int)'), self.cellEdited)
+
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, Qt.Horizontal)
+        self.connect(buttonBox, SIGNAL('accepted()'), self, SLOT('accept()'))
+        self.connect(buttonBox, SIGNAL('rejected()'), self, SLOT('reject()'))
+
+        if (LicConfig.filename):  # If there's an open instruction book, add an apply button to see new colors immediately.
+            btn = buttonBox.addButton(QDialogButtonBox.Apply)
+            self.connect(btn, SIGNAL('clicked()'), self.apply)
+
+        if (colorDict.licColors):
+            text = "Could not find LDConfig.ldr. Color information loaded from Lic's internal color table."
+        else:
+            text = "Color information loaded from: %s\\LDConfig.ldr" % LicConfig.LDrawPath
+        
+        text += "\nTo have Lic use different colors, edit the 'Custom' and 'Edge' columns."
+
+        box = QBoxLayout(QBoxLayout.TopToBottom, self)
+        box.addWidget(QLabel(text))
+        box.addWidget(table)
+        box.addWidget(buttonBox)
+        
+    def cellRGBA(self, row, col):
+        text = str(self.table.item(row, col).text())
+        if text:
+            rgba = text.split(',')
+            rgba = (rgba + ['255']) if len(rgba) == 3 else rgba
+            rgba = [min(max(int(x.strip()), 0), 255) / 255.0 for x in rgba]
+            if len(rgba) < 4:
+                raise ValueError
+            return rgba
+        return []
+
+    def cellEdited(self, row, col):
+        if col < 3:
+            return
+        colorCell = self.table.item(row, 0)
+        colorCell.setIcon(QIcon())
+        try:
+            rgba = self.cellRGBA(row, col)
+            if col == 3:
+                colorCell.setBackgroundColor(QColor.fromRgbF(*(rgba if rgba else colorCell.licColor.originalRGBA)))
+            elif col == 4 and not rgba:
+                self.table.item(row, 4).setText('0, 0, 0, 255')
+        except ValueError:
+            w, h = self.table.columnWidth(0), self.table.rowHeight(row)
+            pixmap = QPixmap(w, h)
+            pixmap.fill(Qt.white)
+            painter = QPainter(pixmap)
+            painter.setPen(QPen(QBrush(Qt.black), 2))
+            painter.drawLine(0, 0, w, h)
+            painter.drawLine(0, h, w, 0)
+            painter.end()
+            colorCell.setBackgroundColor(Qt.white)
+            colorCell.setIcon(QIcon(pixmap))
+
+    def apply(self):
+        # Build & return list of changed colors & edges
+        change = False
+        for row in range(self.table.rowCount()):
+            color = self.table.item(row, 0).licColor
+            try:
+                licRGBA = self.cellRGBA(row, 3)
+                edgeRGBA = self.cellRGBA(row, 4)
+            except ValueError as e:
+                # Hit an error parsing user's input: warn user & abort the apply
+                col = 4 if licRGBA == [] else 3
+                text = str(self.table.item(row, col).text())
+                QMessageBox.warning(self, "Lic - Color Error", "Cannot convert \"%s\" into red, green, blue and alpha values." % text)
+                self.table.setCurrentCell(row, col)
+                return False
+            
+            if licRGBA and licRGBA != color.rgba:
+                color.rgba = licRGBA
+                change = True
+            elif not licRGBA and color.rgba != color.originalRGBA:
+                color.rgba = color.originalRGBA
+                change = True
+
+            if edgeRGBA and edgeRGBA != color.edgeColor.rgba:
+                color.edgeColor.rgba = edgeRGBA
+                change = True
+            elif not edgeRGBA and color.edgeColor.rgba != [0, 0, 0, 1]:
+                color.edgeColor.rgba = [0, 0, 0, 1]
+                change = True
+
+        if change:
+            self.emit(SIGNAL('acceptColor'))
+
+        return True
+
+    def accept(self):
+        if self.apply():
+            QDialog.accept(self)
+        
+    def reject(self):
         QDialog.reject(self)
 
 class PageSizeDlg(QDialog):

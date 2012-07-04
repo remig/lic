@@ -18,6 +18,8 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
+import logging
+
 from LicCommonImports import *
 
 from LicModel import *
@@ -260,7 +262,17 @@ def __readLicColor(stream):
         if stream.readBool():
             r, g, b, a = stream.readFloat(), stream.readFloat(), stream.readFloat(), stream.readFloat()
             name = str(stream.readQString())
-            return LicHelpers.LicColor(r, g, b, a, name)
+            if (stream.licFileVersion >= 23):
+                code = stream.readInt32()
+            else:
+                color = next((x for x in colorDict.values() if hasattr(x, 'name') and x.name == name), None)
+                code = color.ldrawCode if color else 16
+            newColor = LicHelpers.LicColor(r, g, b, a, name, code)
+            dictColor = colorDict.get(code)
+            if dictColor and dictColor != newColor:
+                logging.debug('Loading a color that does not match colorDict:\n\tdict: %s\n\tload: %s', dictColor, newColor)
+                print dictColor
+            return dictColor if dictColor else newColor  #  PROBLEM: what if a loaded color matches (by code) a color in the dict, but has different rgb values?
         return None
     return colorDict[stream.readInt32()]
 
@@ -308,7 +320,7 @@ def __readAbstractPart(stream, createSubmodel = False, createMainmodel = False):
 
     for unused in range(stream.readInt32()):
         p = __readPrimitive(stream)
-        part.primitives.append(p)
+        part.addPrimitive(p)
 
     for unused in range(stream.readInt32()):
         p = __readPart(stream)

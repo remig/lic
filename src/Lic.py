@@ -55,7 +55,7 @@ __version__ = "0.6.0"
 _debug = True
 
 MagicNumber = 0x14768126
-FileVersion = 22
+FileVersion = 23
 
 if _debug:
     from modeltest import ModelTest
@@ -335,6 +335,12 @@ class LicWindow(QMainWindow):
         self.initToolBars()
 
         self.instructions = LicInstructions.Instructions(self, self.scene, self.glWidget)
+        for k, v in self.tmpCustomColors.items():
+            if v['rgba']:
+                self.instructions.colorDict[k].rgba = v['rgba']
+            if v['edge']:
+                self.instructions.colorDict[k].edgeColor.rgba = v['edge']
+        
         self.treeModel = LicTreeModel.LicTreeModel(self.treeWidget.tree)
         if _debug:
             self.modelTest = ModelTest(self.treeModel, self)
@@ -400,6 +406,20 @@ class LicWindow(QMainWindow):
             self.needPathConfiguration = False
         else:
             self.needPathConfiguration = True
+
+        size = settings.beginReadArray("CustomColors")
+        self.tmpCustomColors = {}
+        for i in range(size):
+            settings.setArrayIndex(i)
+            code = settings.value("colorCode").toInt()[0]
+            rgba = str(settings.value("rgba", '').toString())
+            if rgba:
+                rgba = [min(max(int(x.strip()), 0), 255) / 255.0 for x in rgba.split(',')]
+            edge = str(settings.value("edge", '').toString())
+            if edge:
+                edge = [min(max(int(x.strip()), 0), 255) / 255.0 for x in edge.split(',')]
+            self.tmpCustomColors[code] = {'rgba': rgba, 'edge': edge}
+        settings.endArray()
     
     def saveSettings(self):
         settings = self.getSettingsFile()
@@ -412,6 +432,22 @@ class LicWindow(QMainWindow):
         settings.setValue("SnapToGuides", QVariant(str(self.scene.snapToGuides)))
         settings.setValue("SnapToItems", QVariant(str(self.scene.snapToItems)))
         settings.setValue("LDrawPath", QVariant(LicConfig.LDrawPath))
+        
+        customColorList = [x for x in self.instructions.colorDict.values() if x and (x.rgba != x.originalRGBA or x.edgeColor.rgba != [0,0,0,1])]
+        settings.beginWriteArray("CustomColors", len(customColorList))
+        for i, color in enumerate(customColorList):
+            settings.setArrayIndex(i)
+            settings.setValue("colorCode", QVariant(str(color.ldrawCode)))
+            if color.rgba == color.originalRGBA:
+                settings.setValue("rgba", QVariant(''))
+            else:
+                settings.setValue("rgba", QVariant(','.join([str(int(x * 255)) for x in color.rgba])))
+                
+            if (color.edgeColor.rgba == [0,0,0,1]):
+                settings.setValue("edge", QVariant(''))
+            else:
+                settings.setValue("edge", QVariant(','.join([str(int(x * 255)) for x in color.edgeColor.rgba])))
+        settings.endArray()
 
     def copySettingsToScene(self):
         self.scene.setPagesToDisplay(self.pagesToDisplay)
@@ -422,6 +458,20 @@ class LicWindow(QMainWindow):
         dialog = LicConfig.PathsDialog(self, hideCancelButton)
         dialog.exec_()
         LicImporters.LDrawImporter.LDrawPath = LicConfig.LDrawPath
+        
+    def configureColors(self):
+        
+        def changeColors(self):
+            self.instructions.setAllCSIDirty()
+            self.instructions.updateMainModel()
+            self.instructions.template.resetAllPixmaps()
+            [page.updateSubmodel() for page in self.instructions.getPageList()]
+            self.scene.refreshView()
+            
+        colorDict = self.instructions.colorDict
+        dialog = LicDialogs.LicColorConfigDialog(self, colorDict)
+        self.connect(dialog, SIGNAL('acceptColor'), lambda: changeColors(self))
+        dialog.exec_()
 
     def __getFilename(self):
         return self.__filename
@@ -502,7 +552,9 @@ class LicWindow(QMainWindow):
         snapMenu.addAction(itemSnapAction)
 
         setPathsAction = self.makeAction("Paths...", self.configurePaths, None, "Set paths to LDraw parts library")
-        editActions = (self.undoAction, self.redoAction, None, snapMenu, setPathsAction)
+        setColorsAction = self.makeAction("Brick &Colors...", self.configureColors, None, "Change the Colors Lic uses for each element")
+
+        editActions = (self.undoAction, self.redoAction, None, snapMenu, None, setPathsAction, setColorsAction)
         self.addActions(editMenu, editActions)
 
         # View Menu
@@ -631,7 +683,7 @@ class LicWindow(QMainWindow):
         self.treeModel.reset()
         self.treeModel.root = None
         self.scene.clear()
-        self.filename = ""
+        self.filename = LicConfig.filename = ""
         self.scene.emit(SIGNAL("layoutChanged()"))
         return True
 
@@ -672,10 +724,10 @@ class LicWindow(QMainWindow):
         try:
             progress.setMaximum(loader.next())  # First value yielded after load is # of progress steps
         except IOError as e:
-            # Failed to import model.  Usually means a bad path to LDraw.  Signal user & abort
+            # Failed to import model.  Usually means a bad path to LDraw.  Signal user & abort.
             progress.cancel()
             loader.close()
-            s = "Failed to import %s:\n%s\n\nThis might mean a corrupt Lic config file.\nDo you want to recreate it?" % (os.path.basename(filename), e)
+            s = "Failed to import %s:\n%s\n\nThis could mean a corrupt Lic config file.\nDo you want to recreate it?" % (os.path.basename(filename), e)
             reply = QMessageBox.critical(self, "Lic - Import Error", s, QMessageBox.Yes | QMessageBox.No)
             if reply == QMessageBox.Yes:
                 settings = self.getSettingsFile()
@@ -739,7 +791,6 @@ class LicWindow(QMainWindow):
         progress.setMaximum(count)  # First value yielded after load is # of progress steps, +3 because we start at 2, and have to load colors
 
         self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
-        self.instructions.loadLDrawColors()
         progress.incr()
         
         for unused in loader:

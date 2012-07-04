@@ -30,10 +30,18 @@ class LicColor(object):
 
     def __eq__(self, other):
         return self.rgba == other.rgba and self.name == other.name
+    
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
+    def set(self, licColor):
+        self.rgba = licColor.rgba
+        self.name = licColor.name
+        self.ldrawCode = licColor.ldrawCode
+        
     def duplicate(self):
         r, g, b, a = self.rgba
-        return LicColor(r, g, b, a, self.name)
+        return LicColor(r, g, b, a, self.name, self.ldrawCode)
     
     def sortKey(self):
         return sum(self.rgba)
@@ -41,13 +49,16 @@ class LicColor(object):
     def isBlack(self):
         return self.ldrawCode == 0
     
+    def __str__(self):
+        return 'LicColor %s, code: %d, r: %.2f, g: %.2f, b: %.2f, a: %.2f' % tuple([self.name, self.ldrawCode] + self.rgba)
+    
     @staticmethod
     def black():
-        return LicColor(0.0, 0.0, 0.0, 1.0, 'Black')
+        return LicColor(0.0, 0.0, 0.0, 1.0, 'True Black', 999)
 
     @staticmethod
     def red():
-        return LicColor(0.77, 0.00, 0.15, 1.0, 'Red')
+        return LicColor(0.77, 0.00, 0.15, 1.0, 'Red', 4)
     
 # Dictionary subclass that returns the color black for any missing lookups
 class LicColorDict(dict):

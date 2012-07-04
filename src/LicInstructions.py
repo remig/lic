@@ -22,11 +22,12 @@ from LicCommonImports import *
 
 import Image
 
+from LicTemplateSettings import TemplateSettings
 from LicHelpers import LicColor, LicColorDict
 from LicCustomPages import Page, TitlePage
 from LicModel import *
 import LicImporters
-from LicTemplateSettings import TemplateSettings
+import LDrawColors
 
 class Instructions(QObject):
     itemClassName = "Instructions"
@@ -42,6 +43,8 @@ class Instructions(QObject):
         
         self.glContext = glWidget
         self.glContext.makeCurrent()
+
+        self.__loadLDrawColors()
 
     def __getTemplate(self):
         return self.mainModel.template
@@ -232,9 +235,10 @@ class Instructions(QObject):
                 partList2 = []
 
     def setAllCSIDirty(self):
-        csiList = self.mainModel.getCSIList()
-        for csi in csiList:
-            csi.isDirty = True
+        if (self.mainModel):
+            csiList = self.mainModel.getCSIList()
+            for csi in csiList:
+                csi.isDirty = True
 
     def updateMainModel(self, updatePartList = True):
         if self.mainModel.hasTitlePage():
@@ -402,9 +406,20 @@ class Instructions(QObject):
         if self.mainModel:
             self.mainModel.updatePageNumbers(newNumber, increment)
 
-    def loadLDrawColors(self):
+    def __loadLDrawColors(self):
         self.colorDict = LicColorDict()
-        LicImporters.LDrawImporter.importColorFile(self.getProxy())
+        try:
+            LicImporters.LDrawImporter.importColorFile(self.getProxy())
+            self.colorDict.licColors = False;
+        except IOError as e:
+            # Could not load LDConfig.ldr.  Fall back to internal color definitions from LDrawColors.py (TODO: update those colors!)
+            self.colorDict.licColors = True;
+            for colorCode, color in LDrawColors.colors.iteritems():
+                newColor = None if color[0] is None else LicColor(*color)
+                self.colorDict[colorCode] = newColor
+                if (newColor):
+                    newColor.originalRGBA = list(newColor.rgba)
+                    newColor.edgeColor = LicColor.black()
 
 class InstructionsProxy(object):
 
@@ -441,8 +456,11 @@ class InstructionsProxy(object):
         return part
 
     def addColor(self, colorCode, r = 1.0, g = 1.0, b = 1.0, a = 1.0, name = 'Black'):
-        cd = self.__instructions.colorDict
-        cd[colorCode] = None if r is None else LicColor(r, g, b, a, name)
+        newColor = None if r is None else LicColor(r, g, b, a, name, colorCode)
+        self.__instructions.colorDict[colorCode] = newColor
+        if (newColor):
+            newColor.originalRGBA = list(newColor.rgba)
+            newColor.edgeColor = LicColor.black()
 
     def addPart(self, part, parent = None):
         if parent is None:
@@ -466,7 +484,7 @@ class InstructionsProxy(object):
             parent = self.__instructions.mainModel
         color = self.__instructions.colorDict[colorCode]
         primitive = Primitive(color, points, shape, parent.winding)
-        parent.primitives.append(primitive)
+        parent.addPrimitive(primitive)
 
     def addBlankPage(self, parent):
         if parent is None:

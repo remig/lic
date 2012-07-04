@@ -142,6 +142,7 @@ def __writeLicColor(stream, licColor):
         for v in licColor.rgba:
             stream.writeFloat(v)
         stream << QString(licColor.name)
+        stream.writeInt32(licColor.ldrawCode)
     else:
         stream.writeBool(False)
 
@@ -172,8 +173,10 @@ def __writeAbstractPart(stream, part):
     stream.writeFloat(part.pliRotation[1])
     stream.writeFloat(part.pliRotation[2])
     
-    stream.writeInt32(len(part.primitives))
+    stream.writeInt32(len(part.primitives) + len(part.edges))
     for primitive in part.primitives:
+        __writePrimitive(stream, primitive)
+    for primitive in part.edges:
         __writePrimitive(stream, primitive)
         
     stream.writeInt32(len(part.parts))

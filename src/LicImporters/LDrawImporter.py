@@ -39,8 +39,6 @@ class LDrawImporter(object):
         self.filename = filename
         self.instructions = instructions
 
-        self.loadLDConfig(instructions)
-
         ldrawFile = LDrawFile(filename)
         self.lineList = ldrawFile.lineList
         self.submodels = ldrawFile.getSubmodels(filename)
@@ -138,6 +136,7 @@ class LDrawImporter(object):
                 name = l[2].replace('_', ' ')
                 instructions.addColor(code, r, g, b, a, name)
         instructions.addColor(16, None)  # Set special 'CurrentColor' to None
+        instructions.addColor(999, 0, 0, 0, 1.0, 'True Black')  # Special color for edges and stud side coloring
 
 Comment = '0'
 PartCommand = '1'

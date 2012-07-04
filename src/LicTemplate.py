@@ -338,6 +338,14 @@ class TemplatePage(TemplateRectItem, Page):
         
         if useUndo:
             stack.endMacro()
+            
+    def resetAllPixmaps(self):
+        self.steps[0].csi.isDirty = True
+        for callout in self.steps[0].callouts:
+            for step in callout.steps:
+                step.csi.isDirty = True
+        self.submodelItem.resetPixmap()
+        self.update()
 
     def getStepByNumber(self, number):
         return self.steps[0] if number == 0 else None
