@@ -4,8 +4,9 @@ Lic is a cross-platform, Python, OpenGL & Qt powered desktop application for cre
 
 Highlights:
 
-A rich, WYSIWYG UI editor, which provides a fully interactive preview window along side a drag & drop-enabled navigation tree, to help organize and layout your book.
-Automatically divide your model into steps. Add a list of parts needed for each step, and auto-layout multiple steps per page for a best fit. Auto-generate a title page and part list pages.
+- A rich, WYSIWYG UI editor, which provides a fully interactive preview window along side a drag & drop-enabled navigation tree, to help organize and layout your book.
+- Automatically divide your model into steps. Add a list of parts needed for each step, and auto-layout multiple steps per page for a best fit. Auto-generate a title page and part list pages.
+ 
 So far, Lic can import any LDraw model, but its dynamic importer makes it easy to add an importer for any 3D file type, and create instructions for that model. A Lego Digital Designer (LDD) importer is coming soon.
 
 When you're done, Lic can export a final instruction book as a series of images or as a high resolution PDF.
