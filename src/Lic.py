@@ -51,7 +51,7 @@ except ImportError:
     except:
         pass # Ignore missing Resource bundle silently - better to run without icons then to crash entirely
 
-__version__ = "0.6.0"
+__version__ = "0.6.5"
 _debug = True
 
 MagicNumber = 0x14768126

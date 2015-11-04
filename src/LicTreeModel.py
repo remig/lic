@@ -319,7 +319,7 @@ class StepTreeManager(BaseTreeManager):
         return rows
 
     def data(self, index):
-        return "Step %d" % self._number
+        return "Step %d - %d parts" % (self._number, self.csi.partCount())
 
     def getChildRow(self, child):
         if child is self.csi:

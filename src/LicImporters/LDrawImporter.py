@@ -221,6 +221,9 @@ def lineToConditionalLine(line):
     d['control points'] = [float(x) for x in line[9:]]
     return d
 
+def isCommentLine(line):
+    return (len(line) > 1) and (line[1] == Comment)
+
 def isFileLine(line):
     return (len(line) > 2) and (line[1] == Comment) and (line[2] == FileCommand)
 
