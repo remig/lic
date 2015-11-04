@@ -18,7 +18,7 @@
     along with this program.  If not, see http://www.gnu.org/licenses/
 """
 
-import Image, ImageChops
+from PIL import Image, ImageChops
 
 # Optimization: turn off PyOpenGL error checking, which is a major source of slowdown
 #import OpenGL

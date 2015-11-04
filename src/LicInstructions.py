@@ -20,7 +20,7 @@
 
 from LicCommonImports import *
 
-import Image
+from PIL import Image
 
 from LicTemplateSettings import TemplateSettings
 from LicHelpers import LicColor, LicColorDict
@@ -411,7 +411,7 @@ class Instructions(QObject):
         try:
             LicImporters.LDrawImporter.importColorFile(self.getProxy())
             self.colorDict.licColors = False;
-        except IOError as e:
+        except:
             # Could not load LDConfig.ldr.  Fall back to internal color definitions from LDrawColors.py (TODO: update those colors!)
             self.colorDict.licColors = True;
             for colorCode, color in LDrawColors.colors.iteritems():

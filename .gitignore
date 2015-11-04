@@ -1,0 +1,3 @@
+*.pyc
+src/Lic.ini
+src/lic_errors.log
