@@ -307,7 +307,7 @@ def _getBounds(size, glDispID, filename, scale, rotation, partRotation):
 
     # Use PIL to find the image's bounding box (sweet)
     pixels = glReadPixels(0, 0, size, size, GL_RGB,  GL_UNSIGNED_BYTE)
-    img = Image.fromstring("RGB", (size, size), pixels)
+    img = Image.frombytes("RGB", (size, size), pixels)
     
     bg = bgCache.setdefault(size, Image.new("RGB", img.size, (255, 255, 255)))
     box = ImageChops.difference(img, bg).getbbox()

@@ -323,7 +323,7 @@ class Instructions(QObject):
                 data = bufferManager.readFB()
 
                 # Create an image from raw pixels and save to disk - would be nice to create QImage directly here
-                image = Image.fromstring("RGBA", (w, h), data)
+                image = Image.frombytes("RGBA", (w, h), data)
                 image = image.transpose(Image.FLIP_TOP_BOTTOM)
                 image.save(exportedFilename)
 
