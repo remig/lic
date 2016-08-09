@@ -1,34 +1,69 @@
 """
-    Lic - Instruction Book Creation software
+    LIC - Instruction Book Creation software
     Copyright (C) 2010 Remi Gagne
+    Copyright (C) 2015 Jeremy Czajkowski
 
-    This file (LicQtWrapper.py) is part of Lic.
+    This file (LicQtWrapper.py) is part of LIC.
 
-    Lic is free software: you can redistribute it and/or modify
+    This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
-
-    Lic is distributed in the hope that it will be useful,
+   
+    This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
-
+   
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see http://www.gnu.org/licenses/
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from LicCommonImports import *
+import os 
+from subprocess import Popen
 
-NoFlags = QGraphicsItem.GraphicsItemFlags()
-NoMoveFlags = QGraphicsItem.ItemIsSelectable | QGraphicsItem.ItemIsFocusable
-AllFlags = NoMoveFlags | QGraphicsItem.ItemIsMovable
+from PyQt4.Qt import QGraphicsItem
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
 
-__all__ = ["NoFlags", "NoMoveFlags", "AllFlags",
-           "GraphicsRoundRectItem", "GraphicsCircleLabelItem",
-           "GraphicsRotateArrowItem"]
+import LicLayout
 
-def genericNormalizePosition(self, childrenToSkip = []):
+
+class ExtendedLabel(QLabel):
+    _state = {}
+    _switched = False
+ 
+    def __init(self, parent=None):
+        QLabel.__init__(self, parent=None)
+ 
+    def __setSwitched(self, state):
+        self._switched = state
+        
+    def __getSwitched(self):
+        return self._switched
+    
+    switched = property(__getSwitched, __setSwitched)
+    
+    def setSwitchablePixmap(self , stateOn=None , stateOff=None):
+        self._state = {}
+        if isinstance(stateOn, QPixmap) and isinstance(stateOff, QPixmap):
+            self._state = { True: stateOn , False: stateOff }
+        
+    def enterEvent(self, *args, **kwargs):
+        self.setCursor(Qt.PointingHandCursor)
+        return QLabel.enterEvent(self, *args, **kwargs)
+
+    def leaveEvent(self, *args, **kwargs):
+        self.unsetCursor()
+        return QLabel.leaveEvent(self, *args, **kwargs)    
+    
+    def mouseReleaseEvent(self, event):
+        if {} != self._state:
+            self.setPixmap(self._state[self.switched])
+        self.switched = not self.switched
+        self.emit(SIGNAL('clicked()'))
+
+def genericNormalizePosition(self, childrenToSkip=[]):
     x, y = self.rect().topLeft()
     if x == 0 and y == 0:
         return
@@ -62,7 +97,7 @@ def genericGetOrientedSize(self, orientation):
 
 QRectF.getOrientedSize = genericGetOrientedSize
 
-def genericDrawSelectionRect(self, rect, cornerRadius = 0):
+def genericDrawSelectionRect(self, rect, cornerRadius=0):
     self.save()
     pen = QPen(Qt.DashLine)
     pen.setWidth(2)
@@ -78,38 +113,36 @@ QPainter.drawSelectionRect = genericDrawSelectionRect
 
 class GraphicsRoundRectItem(QGraphicsRectItem):
     
+    defaultPen = QPen(Qt.black)
+    defaultBrush = QBrush(Qt.white)
+    
     def __init__(self, parent):
         QGraphicsRectItem.__init__(self, parent)
+        self.cornerRadius = 10
+        self.setPen(self.defaultPen)
+        self.setBrush(self.defaultBrush)
+       
+    def paint(self, painter, option, widget=None):
         
-    def paint(self, painter, option, widget = None):
-
-        settings = self.getClassSettings()
-        painter.setPen(settings.pen)
-        painter.setBrush(settings.brush)
-
-        if settings.pen.cornerRadius:
-            painter.setRenderHint(QPainter.Antialiasing)
-            painter.drawRoundedRect(self.rect(), settings.pen.cornerRadius, settings.pen.cornerRadius)
+        if self.cornerRadius:
+            painter.setPen(self.pen())
+            painter.setBrush(self.brush())
+            painter.drawRoundedRect(self.rect(), self.cornerRadius, self.cornerRadius)
+            if self.isSelected():
+                painter.drawSelectionRect(self.rect(), self.cornerRadius)
         else:
-            painter.drawRect(self.rect())
-
-        if self.isSelected():
-            painter.drawSelectionRect(self.rect(), settings.pen.cornerRadius)
+            QGraphicsRectItem.paint(self, painter, option, widget)
     
     def pen(self):
-        return self.getClassSettings().pen
-    
-    def setPen(self, newPen):
-        settings = self.getClassSettings()
-        settings.pen = newPen
+        pen = QGraphicsRectItem.pen(self)
+        pen.cornerRadius = self.cornerRadius
+        return pen
 
-    def brush(self):
-        return self.getClassSettings().brush
-        
-    def setBrush(self, newBrush):
-        settings = self.getClassSettings()
-        settings.brush = newBrush
-    
+    def setPen(self, newPen):
+        QGraphicsRectItem.setPen(self, newPen)
+        if hasattr(newPen, "cornerRadius"):  # Need this check because some setPen() calls come from Qt directly
+            self.cornerRadius = newPen.cornerRadius
+
 class GraphicsCircleLabelItem(QGraphicsEllipseItem):
 
     itemClassName = "GraphicsCircleLabelItem"
@@ -118,7 +151,7 @@ class GraphicsCircleLabelItem(QGraphicsEllipseItem):
     defaultFont = QFont("Arial", 8)
     defaultDiameter = 18
 
-    def __init__(self, parent, length = "10"):
+    def __init__(self, parent, length="10"):
         QGraphicsEllipseItem.__init__(self, 0, 0, self.defaultDiameter, self.defaultDiameter, parent)
         self.setPen(self.defaultPen)
         self.setBrush(self.defaultBrush)
@@ -126,10 +159,10 @@ class GraphicsCircleLabelItem(QGraphicsEllipseItem):
         self._row = 1
         self.setFont(self.defaultFont)
         self.lengthText = length
-        self.labelColor = QColor(Qt.black)  # TODO: implement Part length label color
+        self.labelColor = QColor(Qt.black)  #TODO: implement Part length label color
         self.data = lambda index: "Length Indicator (%s)" % length
 
-    def paint(self, painter, option, widget = None):
+    def paint(self, painter, option, widget=None):
         QGraphicsEllipseItem.paint(self, painter, option, widget)
         painter.setPen(QPen(self.labelColor))
         painter.setFont(self.font())
@@ -151,6 +184,8 @@ class GraphicsCircleLabelItem(QGraphicsEllipseItem):
 class GraphicsRotateArrowItem(GraphicsRoundRectItem):
 
     itemClassName = "GraphicsRotateArrowItem"
+
+    defaultArrowPen = QPen(Qt.blue, 0, Qt.SolidLine, Qt.SquareCap, Qt.MiterJoin)
     arrowTipLength = 9.0
     arrowTipHeight = 4.0
     ArrowHead = QPolygonF([QPointF(),
@@ -160,13 +195,19 @@ class GraphicsRotateArrowItem(GraphicsRoundRectItem):
 
     def __init__(self, parent):
         GraphicsRoundRectItem.__init__(self, parent)
+        self.cornerRadius = 6
+
+        self.arrowPen = self.defaultArrowPen
         self.data = lambda index: "Rotation Icon"
         self.setRect(0, 0, 50, 50)
 
-    def paint(self, painter, option, widget = None):
-        painter.setRenderHint(QPainter.Antialiasing)
+    def changeArrowPen(self, newPen):
+        self.arrowPen = newPen
+        self.update()
+
+    def paint(self, painter, option, widget=None):
         GraphicsRoundRectItem.paint(self, painter, option, widget)
-        painter.setPen(self.getClassSettings().arrowPen)
+        painter.setPen(self.arrowPen)
         painter.setBrush(QBrush(Qt.transparent))
         
         w, h2 = self.rect().width(), self.rect().height() / 2.0
@@ -187,17 +228,17 @@ class GraphicsRotateArrowItem(GraphicsRoundRectItem):
 
         painter.drawPath(path)
 
-        painter.setBrush(QBrush(self.getClassSettings().arrowPen.color()))
+        painter.setBrush(QBrush(self.arrowPen.color()))
         painter.save()
         painter.translate(w - inset, h2 - inset)
         painter.rotate(-135)
-        painter.drawPolygon(GraphicsRotateArrowItem.ArrowHead)
+        painter.drawPolygon(self.ArrowHead)
         painter.restore()
 
         painter.save()
         painter.translate(inset, h2 + inset)
         painter.rotate(45)
-        painter.drawPolygon(GraphicsRotateArrowItem.ArrowHead)
+        painter.drawPolygon(self.ArrowHead)
         painter.restore()
 
 # Make QPoint iterable: p[0] is p.x, p[1] is p.y.  Useful for easily unpacking x & y.
@@ -240,7 +281,7 @@ QPointF.__str__ = betterToString
 QRectF.__str__ = betterToString
 
 def genericGetSceneCorners(self):
-    topLeft = self.mapToScene(self.mapFromParent(self.pos())) # pos is in item.parent coordinates
+    topLeft = self.mapToScene(self.mapFromParent(self.pos()))  # pos is in item.parent coordinates
     bottomRight = topLeft + QPointF(self.boundingRect().width(), self.boundingRect().height())
     return topLeft, bottomRight
 
@@ -248,11 +289,17 @@ def genericGetSceneCornerList(self):
     tl, br = self.getSceneCorners()
     return [tl.x(), tl.y(), br.x(), br.y()]
 
-def genericGetOrderedCornerList(self, margin = None):
+def genericGetOrderedCornerList(self, margin=None):
     r, pos = self.rect(), self.pos()
     if margin:
         r.adjust(-margin.x(), -margin.y(), margin.x(), margin.y())
     return [r.topLeft() + pos, r.topRight() + pos, r.bottomRight() + pos, r.bottomLeft() + pos]
+
+def genericGetPage(self):
+    if hasattr(self.parentItem(), "getPage"):
+        return self.parentItem().getPage()
+    
+    return None
 
 def genericRect(self):
     return self.boundingRect()
@@ -266,11 +313,7 @@ QGraphicsPixmapItem.rect = genericRect
 # parameters when passing one where another is expected though (like TreeView.contextMenuEvent)
 QGraphicsItem.contextMenuEvent = lambda self, event: event.ignore()
 
-QGraphicsItem.getPage = lambda self: self.parentItem().getPage()
-QGraphicsItem.getInstructions = lambda self: self.getPage().instructions
-QGraphicsItem.getAllSettings = lambda self: self.getInstructions().templateSettings
-QGraphicsItem.getClassSettings = lambda self: self.getAllSettings().__getattribute__(self.itemClassName)
-QGraphicsItem.getContext = lambda self: self.getInstructions().glContext
+QGraphicsItem.getPage = genericGetPage
 QGraphicsItem.getSceneCorners = genericGetSceneCorners
 QGraphicsItem.getSceneCornerList = genericGetSceneCornerList
 QGraphicsItem.getOrderedCorners = genericGetOrderedCornerList
@@ -291,9 +334,8 @@ def genericMouseMoveEvent(className):
         if event.buttons() == Qt.RightButton or self.oldPos is None:
             return
         className.mouseMoveEvent(self, event)
-        if self.parentItem() and (self.flags() & QGraphicsItem.ItemIsMovable) == QGraphicsItem.ItemIsMovable:
+        if (self.flags() & QGraphicsItem.ItemIsMovable) == QGraphicsItem.ItemIsMovable:
             self.scene().snap(self)
-        #snapToGrid(self)
     return _tmp
     
 def genericMouseReleaseEvent(className):
@@ -312,7 +354,7 @@ def genericMouseReleaseEvent(className):
     return _tmp
 
 QGraphicsItem.oldPos = None  # Give all items an oldPos; saves a hasAttr check in mouseRelease
-QGraphicsItem.fixedSize = False # Give all items an unset FixedSize 
+QGraphicsItem.fixedSize = False  # Give all items an unset FixedSize 
 
 QGraphicsLineItem.mousePressEvent = genericMousePressEvent(QGraphicsItem)
 QGraphicsLineItem.mouseMoveEvent = genericMouseMoveEvent(QGraphicsItem)
@@ -340,6 +382,12 @@ def getFilename(self):
     filename = str(self.data("text/uri-list"))
     if len(filename) < 10 or filename[:8] != 'file:///':
         return None
-    return filename[8:].strip() # trim off leading 'file:///' from uri
+    return filename[8:].strip()  # trim off leading 'file:///' from uri
 
 QMimeData.getFilename = getFilename
+
+def startfile(filename):
+    try:
+        os.startfile(filename)
+    except:
+        Popen(['xdg-open', filename])

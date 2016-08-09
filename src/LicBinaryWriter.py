@@ -1,32 +1,34 @@
 """
-    Lic - Instruction Book Creation software
+    LIC - Instruction Book Creation software
     Copyright (C) 2010 Remi Gagne
+    Copyright (C) 2015 Jeremy Czajkowski
+    
+    This file (LicBinaryWriter.py) is part of LIC.
 
-    This file (LicBinaryWriter.py) is part of Lic.
-
-    Lic is free software: you can redistribute it and/or modify
+    This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
-
-    Lic is distributed in the hope that it will be useful,
+   
+    This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
-
+   
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see http://www.gnu.org/licenses/
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from LicCommonImports import *
+from PyQt4.QtCore import *
 
-from LicCustomPages import Page
-from LicTemplate import TemplatePage, TemplatePLI
-from LicModel import Arrow, CSI, PLI, SubmodelPreview
+from LicCustomPages import *
+import LicGLHelpers
+from LicModel import *
 
-def saveLicFile(filename, instructions, FileVersion, MagicNumber):
 
-    fh, stream = __createStream(filename, FileVersion, MagicNumber)
+def saveLicFile(filename, instructions):
+
+    fh, stream = __createStream(filename)
 
     # Need to explicitly de-select parts so they refresh the CSI pixmap
     instructions.scene.clearSelectedParts()
@@ -39,25 +41,17 @@ def saveLicFile(filename, instructions, FileVersion, MagicNumber):
     if fh is not None:
         fh.close()
         
-def saveLicTemplate(template, FileVersion, MagicNumber):
+def saveLicTemplate(template):
     
-    fh, stream = __createStream(template.filename, FileVersion, MagicNumber)
+    fh, stream = __createStream(template.filename)
 
     __writeTemplate(stream, template)
 
     if fh is not None:
         fh.close()
 
-def saveLicTemplateSettings(templateSettings, FileVersion, MagicNumber):
-
-    fh, stream = __createStream(templateSettings.filename, FileVersion, MagicNumber)
-
-    templateSettings.writeToStream(stream)
-
-    if fh is not None:
-        fh.close()
-
-def __createStream(filename, FileVersion, MagicNumber):
+def __createStream(filename):
+    global FileVersion, MagicNumber
     
     fh = QFile(filename)
     if not fh.open(QIODevice.WriteOnly):
@@ -69,6 +63,7 @@ def __createStream(filename, FileVersion, MagicNumber):
     stream.writeInt16(FileVersion)
     return fh, stream
 
+
 def __writeTemplate(stream, template):
 
     # Build part dictionary, since it's not implicitly stored anywhere
@@ -78,8 +73,7 @@ def __writeTemplate(stream, template):
             part.abstractPart.buildSubAbstractPartDict(partDictionary)
 
     stream << QString(os.path.basename(template.filename))
-    stream.writeBool(TemplatePage.separatorsVisible)
-    stream.writeBool(TemplatePLI.includeSubmodels)
+    stream.writeBool(template.separatorsVisible)
     __writePartDictionary(stream, partDictionary)
     __writeSubmodel(stream, template.submodelPart)
     __writePage(stream, template)
@@ -95,6 +89,22 @@ def __writeStaticInfo(stream):
     stream << Page.PageSize
     stream.writeFloat(Page.Resolution)
     stream << QString(Page.NumberPos)
+
+    stream.writeFloat(CSI.defaultScale)
+    stream.writeFloat(PLI.defaultScale)
+    stream.writeFloat(SubmodelPreview.defaultScale)
+    
+    stream.writeFloat(CSI.defaultRotation[0])
+    stream.writeFloat(CSI.defaultRotation[1])
+    stream.writeFloat(CSI.defaultRotation[2])
+        
+    stream.writeFloat(PLI.defaultRotation[0])
+    stream.writeFloat(PLI.defaultRotation[1])
+    stream.writeFloat(PLI.defaultRotation[2])
+
+    stream.writeFloat(SubmodelPreview.defaultRotation[0])
+    stream.writeFloat(SubmodelPreview.defaultRotation[1])
+    stream.writeFloat(SubmodelPreview.defaultRotation[2])
 
 def __writeInstructions(stream, instructions):
 
@@ -142,7 +152,6 @@ def __writeLicColor(stream, licColor):
         for v in licColor.rgba:
             stream.writeFloat(v)
         stream << QString(licColor.name)
-        stream.writeInt32(licColor.ldrawCode)
     else:
         stream.writeBool(False)
 
@@ -173,10 +182,8 @@ def __writeAbstractPart(stream, part):
     stream.writeFloat(part.pliRotation[1])
     stream.writeFloat(part.pliRotation[2])
     
-    stream.writeInt32(len(part.primitives) + len(part.edges))
+    stream.writeInt32(len(part.primitives))
     for primitive in part.primitives:
-        __writePrimitive(stream, primitive)
-    for primitive in part.edges:
         __writePrimitive(stream, primitive)
         
     stream.writeInt32(len(part.parts))
@@ -238,16 +245,11 @@ def __writePage(stream, page):
     stream.writeInt32(page.number)
     stream.writeInt32(page._row)
     
-    stream << page.pos() << page.rect()
+    __writeRoundedRectItem(stream, page)
+    stream << page.color
 
     stream.writeInt32(page.layout.orientation)
     stream << page.numberItem.pos() << page.numberItem.font()
-
-    if page.numberItem and page.numberItem._customNumber:
-        stream.writeBool(True)
-        stream.writeInt32(page.numberItem._customNumber)
-    else:
-        stream.writeBool(False)
 
     # Write out each step in this page
     stream.writeInt32(len(page.steps))
@@ -266,7 +268,7 @@ def __writePage(stream, page):
     for separator in page.separators:
         stream.writeInt32(separator.row())
         stream << separator.pos() << separator.rect() << separator.pen()
-        stream.writeBool(separator.enabled)
+        stream.writeBool(separator.isVisible())
 
     __writeAnnotationSet(stream, page)
 
@@ -277,7 +279,8 @@ def __writeTitlePage(stream, page):
         return
     
     stream.writeBool(True)
-    stream << page.pos() << page.rect()
+    __writeRoundedRectItem(stream, page)
+    stream << page.color
 
     if page.submodelItem:
         stream.writeBool(True)
@@ -295,7 +298,9 @@ def __writePartListPage(stream, page):
     stream.writeInt32(page.number)
     stream.writeInt32(page._row)
 
-    stream << page.pos() << page.rect()
+    __writeRoundedRectItem(stream, page)
+    stream << page.color
+
     stream << page.numberItem.pos() << page.numberItem.font()
 
     __writePLI(stream, page.pli)
@@ -307,7 +312,6 @@ def __writeStep(stream, step):
     stream.writeBool(True if step.pli else False)
     stream.writeBool(True if step.numberItem else False)
     
-    assert(step.maxRect is not None)
     stream << step.pos() << step.rect() << step.maxRect
     
     __writeCSI(stream, step.csi)
@@ -325,13 +329,8 @@ def __writeStep(stream, step):
 
     if step.rotateIcon:
         stream.writeBool(True)
-        stream << step.rotateIcon.pos() << step.rotateIcon.rect()
-    else:
-        stream.writeBool(False)
-        
-    if step.numberItem and step.numberItem._customNumber:
-        stream.writeBool(True)
-        stream.writeInt32(step.numberItem._customNumber)
+        __writeRoundedRectItem(stream, step.rotateIcon)
+        stream << step.rotateIcon.arrowPen
     else:
         stream.writeBool(False)
 
@@ -340,10 +339,10 @@ def __writeCallout(stream, callout):
     stream.writeBool(callout.showStepNumbers)
     stream.writeInt32(callout.borderFit)
 
-    stream << callout.pos() << callout.rect()
-
+    __writeRoundedRectItem(stream, callout)
     stream << callout.arrow.tipRect.point
     stream << callout.arrow.baseRect.point
+    stream << callout.arrow.pen() << callout.arrow.brush()
     
     stream.writeBool(True if callout.qtyLabel else False)
     if callout.qtyLabel:
@@ -361,7 +360,7 @@ def __writeCallout(stream, callout):
 
 def __writeSubmodelItem(stream, submodelItem):
     stream.writeInt32(submodelItem.row())
-    stream << submodelItem.pos() << submodelItem.rect()
+    __writeRoundedRectItem(stream, submodelItem)
 
     stream.writeFloat(submodelItem.scaling)
     stream.writeFloat(submodelItem.rotation[0])
@@ -378,11 +377,6 @@ def __writeSubmodelItem(stream, submodelItem):
         stream << submodelItem.numberItem.pos() << submodelItem.numberItem.font()
     else:
         stream.writeBool(False)
-        
-    stream.writeInt32(submodelItem.abstractPart.width)
-    stream.writeInt32(submodelItem.abstractPart.height)
-    stream.writeInt32(submodelItem.abstractPart.center.x())
-    stream.writeInt32(submodelItem.abstractPart.center.y())
 
 def __writeCSI(stream, csi):
     stream << csi.pos()
@@ -396,7 +390,7 @@ def __writeCSI(stream, csi):
     stream.writeFloat(csi.rotation[2])
 
 def __writePLI(stream, pli):
-    stream << pli.pos() << pli.rect()
+    __writeRoundedRectItem(stream, pli)
     stream.writeInt32(len(pli.pliItems))
     for item in pli.pliItems:
         __writePLIItem(stream, item)
@@ -414,3 +408,8 @@ def __writePLIItem(stream, pliItem):
         stream << li.pos() << li.rect() << li.font() << QString(li.lengthText) << li.labelColor << li.pen() << li.brush()
     else:
         stream.writeBool(False)
+
+def __writeRoundedRectItem(stream, parent):
+    stream << parent.pos() << parent.rect() << parent.pen() << parent.brush()
+    stream.writeInt16(parent.cornerRadius)
+

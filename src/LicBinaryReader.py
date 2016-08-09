@@ -1,48 +1,50 @@
 """
-    Lic - Instruction Book Creation software
+    LIC - Instruction Book Creation software
     Copyright (C) 2010 Remi Gagne
+    Copyright (C) 2015 Jeremy Czajkowski
 
-    This file (LicBinaryReader.py) is part of Lic.
+    This file (LicBinaryReader.py) is part of LIC.
 
-    Lic is free software: you can redistribute it and/or modify
+    This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
-
-    Lic is distributed in the hope that it will be useful,
+   
+    This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
-
+   
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see http://www.gnu.org/licenses/
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import logging
+from PyQt4.QtCore import *
 
-from LicCommonImports import *
+import LicGLHelpers
+import LicHelpers
 
 from LicModel import *
-import LicTemplate
-import LicCustomPages
+from LicTemplate import *
+from LicCustomPages import *
 
-def ro(targetType):
-    def tmp(self):
-        c = targetType()
-        self >> c
-        return c
-    return tmp
 
-QDataStream.readQPixmap = ro(QPixmap)
-QDataStream.readQColor = ro(QColor)
-QDataStream.readQBrush = ro(QBrush)
-QDataStream.readQFont = ro(QFont)
-QDataStream.readQPen = ro(QPen)
-QDataStream.readQRectF = ro(QRectF)
-QDataStream.readQPointF = ro(QPointF)
-QDataStream.readQString = ro(QString)
-QDataStream.readQSizeF = ro(QSizeF)
-QDataStream.readQSize = ro(QSize)
+
+def ro(self, targetType):
+    c = targetType()
+    self >> c
+    return c
+
+QDataStream.readQPixmap = lambda self: ro(self, QPixmap)
+QDataStream.readQColor = lambda self: ro(self, QColor)
+QDataStream.readQBrush = lambda self: ro(self, QBrush)
+QDataStream.readQFont = lambda self: ro(self, QFont)
+QDataStream.readQPen = lambda self: ro(self, QPen)
+QDataStream.readQRectF = lambda self: ro(self, QRectF)
+QDataStream.readQPointF = lambda self: ro(self, QPointF)
+QDataStream.readQString = lambda self: ro(self, QString)
+QDataStream.readQSizeF = lambda self: ro(self, QSizeF)
+QDataStream.readQSize = lambda self: ro(self, QSize)
 
 # To check file version:
 #    if stream.licFileVersion >= 6:
@@ -53,18 +55,19 @@ QDataStream.readQSize = ro(QSize)
 partDict = {}
 colorDict = None
 
-def loadLicFile(filename, instructions, FileVersion, MagicNumber):
-    
-    fh, stream = __createStream(filename, FileVersion, MagicNumber)
+def loadLicFile(filename, instructions):
+
+    fh, stream = __createStream(filename)
 
     if stream.licFileVersion >= 14:
         yield stream.readInt32()
     else:
-        yield 500  # Some entirely arbitrary, made up sky number, for older files
+        # Some entirely arbitrary, made up sky number, for older files
+        yield 500  
 
     template = __readTemplate(stream, instructions)
     yield
-
+    
     for unused in __readInstructions(stream, instructions):
         yield
 
@@ -72,30 +75,24 @@ def loadLicFile(filename, instructions, FileVersion, MagicNumber):
 
     if template:
         template.submodel = instructions.mainModel
-
+    
     template.lockIcon.resetPosition()
     instructions.mainModel.template = template
 
     if fh is not None:
         fh.close()
 
-def loadLicTemplate(filename, instructions, FileVersion, MagicNumber):
+def loadLicTemplate(filename, instructions):
 
-    fh, stream = __createStream(filename, FileVersion, MagicNumber, True)
+    fh, stream = __createStream(filename, True)
     template = __readTemplate(stream, instructions)
     if fh is not None:
         fh.close()
 
     return template
 
-def loadLicTemplateSettings(filename, instructions, FileVersion, MagicNumber):
-
-    fh, stream = __createStream(filename, FileVersion, MagicNumber, True)
-    instructions.templateSettings.readFromStream(stream)
-    if fh is not None:
-        fh.close()
-
-def __createStream(filename, FileVersion, MagicNumber, template = False):
+def __createStream(filename, template=False):
+    global FileVersion, MagicNumber
 
     fh = QFile(filename)
     if not fh.open(QIODevice.ReadOnly):
@@ -111,17 +108,14 @@ def __createStream(filename, FileVersion, MagicNumber, template = False):
 
     stream.licFileVersion = stream.readInt16()
     if stream.licFileVersion > FileVersion:
-        raise IOError, "Cannot read file %s. It was created with a newer version of Lic (%d) than you're using (%d)." % (filename, stream.licFileVersion, FileVersion)
+        raise IOError, "Cannot read file %s. It was created with a newer version of LIC(%d) than you're using (%d)." % (filename, stream.licFileVersion, FileVersion)
     return fh, stream
-    
+   
 def __readTemplate(stream, instructions):
 
-    filename = str(stream.readQString())
+    filename = unicode(stream.readQString())
     if stream.licFileVersion >= 15:
-        LicTemplate.TemplatePage.separatorsVisible = stream.readBool()
-
-    if stream.licFileVersion >= 16:
-        LicTemplate.TemplatePLI.includeSubmodels = stream.readBool()
+        TemplatePage.separatorsVisible = stream.readBool()
 
     # Read in the entire abstractPart dictionary
     global partDict, colorDict
@@ -139,7 +133,7 @@ def __readTemplate(stream, instructions):
             pass
         t = template.staticInfo = T()
         t.page, t.csi, t.pli, t.smp = T(), T(), T(), T()
-        __readStaticInfo(stream, instructions, t.page, t.csi, t.pli, t.smp)
+        __readStaticInfo(stream, t.page, t.csi, t.pli, t.smp)
 
     if stream.licFileVersion >= 5:
         values = []
@@ -148,7 +142,10 @@ def __readTemplate(stream, instructions):
         LicGLHelpers.setLightParameters(*values)
 
     for part in template.submodelPart.parts:
-        part.abstractPart = partDict[part.filename]
+        if partDict.has_key(part.filename):
+            part.abstractPart = partDict[part.filename]
+        else:
+            part.abstractPart = AbstractPart(part.filename)
 
         template.steps[0].csi.addPart(part)
 
@@ -163,25 +160,22 @@ def __readTemplate(stream, instructions):
     template.submodelPart.createGLDisplayList()
     template.submodelItem.setAbstractPart(template.submodelPart)
     template.postLoadInit(filename)
-
     return template
 
-def __readStaticInfo(stream, instructions, page, csi, pli, smp):
+def __readStaticInfo(stream, page, csi, pli, smp):
 
     page.PageSize = stream.readQSize()
     page.Resolution = stream.readFloat()
     if stream.licFileVersion >= 11:
         page.NumberPos = stream.readQString()
 
-    if stream.licFileVersion < 21:
-        settings = instructions.templateSettings
-        settings.CSI.scale = stream.readFloat()
-        settings.PLI.scale = stream.readFloat()
-        settings.SubmodelPreview.scale = stream.readFloat()
-    
-        settings.CSI.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
-        settings.PLI.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
-        settings.SubmodelPreview.rotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+    csi.defaultScale = stream.readFloat()
+    pli.defaultScale = stream.readFloat()
+    smp.defaultScale = stream.readFloat()
+
+    csi.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+    pli.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
+    smp.defaultRotation = [stream.readFloat(), stream.readFloat(), stream.readFloat()]
 
 def __readInstructions(stream, instructions):
 
@@ -189,10 +183,10 @@ def __readInstructions(stream, instructions):
     partDict = instructions.partDictionary
     colorDict = instructions.colorDict
 
-    filename = str(stream.readQString())
+    filename = unicode(stream.readQString())
     instructions.filename = filename
 
-    __readStaticInfo(stream, instructions, LicCustomPages.Page, CSI, PLI, SubmodelPreview)
+    __readStaticInfo(stream, Page, CSI, PLI, SubmodelPreview)
 
     for unused in __readPartDictionary(stream, instructions):
         yield
@@ -223,8 +217,10 @@ def __readInstructions(stream, instructions):
         elif submodel._parent == filename:
             submodel._parent = instructions.mainModel
         else:
-            submodel._parent = partDict[submodel._parent]
-
+            key = os.path.basename(submodel._parent)
+            if partDict.has_key(key):
+                submodel._parent = partDict[key]
+            
     for unused in instructions.initGLDisplayLists():
         yield
 
@@ -232,7 +228,7 @@ def __readInstructions(stream, instructions):
         item = instructions.mainModel.titlePage.submodelItem
         item.abstractPart.createGLDisplayList(False)
 
-def __readSubmodel(stream, instructions, createMainmodel = False):
+def __readSubmodel(stream, instructions, createMainmodel=False):
 
     submodel = __readAbstractPart(stream, True, createMainmodel)
     submodel.instructions = instructions
@@ -244,15 +240,15 @@ def __readSubmodel(stream, instructions, createMainmodel = False):
     submodel.submodelNames = []
     for unused in range(stream.readInt32()):
         if stream.licFileVersion < 6:
-            filename = str(stream.readQString())
+            filename = unicode(stream.readQString())
             model = partDict[filename]
             model.used = True
             submodel.submodels.append(model)
         else:
-            submodel.submodelNames.append(str(stream.readQString()))
+            submodel.submodelNames.append( unicode(stream.readQString()) )
 
     submodel._row = stream.readInt32()
-    submodel._parent = str(stream.readQString())
+    submodel._parent = unicode(stream.readQString())
     submodel.isSubAssembly = stream.readBool()
 
     return submodel
@@ -261,17 +257,8 @@ def __readLicColor(stream):
     if stream.licFileVersion >= 13:
         if stream.readBool():
             r, g, b, a = stream.readFloat(), stream.readFloat(), stream.readFloat(), stream.readFloat()
-            name = str(stream.readQString())
-            if (stream.licFileVersion >= 23):
-                code = stream.readInt32()
-            else:
-                color = next((x for x in colorDict.values() if hasattr(x, 'name') and x.name == name), None)
-                code = color.ldrawCode if color else 16
-            newColor = LicHelpers.LicColor(r, g, b, a, name, code)
-            dictColor = colorDict.get(code)
-            if dictColor and dictColor != newColor:
-                logging.debug('Loading a color that does not match colorDict:\n\tdict: %s\n\tload: %s', dictColor, newColor)
-            return dictColor if dictColor else newColor  #  PROBLEM: what if a loaded color matches (by code) a color in the dict, but has different rgb values?
+            name = unicode(stream.readQString())            
+            return LicHelpers.LicColor(r, g, b, a, name)
         return None
     return colorDict[stream.readInt32()]
 
@@ -292,10 +279,10 @@ def __readPartDictionary(stream, instructions):
     # Each AbstractPart can contain several Parts, but those Parts do
     # not yet have valid AbstractParts of their own.  Create those now.
     for abstractPart in partDict.values():
-        for part in abstractPart.parts:
+        for part in abstractPart.parts:           
             part.abstractPart = partDict[part.filename]
 
-def __readAbstractPart(stream, createSubmodel = False, createMainmodel = False):
+def __readAbstractPart(stream, createSubmodel=False, createMainmodel=False):
 
     if createMainmodel:
         part = Mainmodel()
@@ -304,8 +291,8 @@ def __readAbstractPart(stream, createSubmodel = False, createMainmodel = False):
     else:
         part = AbstractPart()
 
-    part.filename = str(stream.readQString())
-    part.name = str(stream.readQString())
+    part.filename = unicode(stream.readQString())
+    part.name = unicode(stream.readQString())
 
     part.isPrimitive = stream.readBool()
     part.width = stream.readInt32()
@@ -319,33 +306,33 @@ def __readAbstractPart(stream, createSubmodel = False, createMainmodel = False):
 
     for unused in range(stream.readInt32()):
         p = __readPrimitive(stream)
-        part.addPrimitive(p)
+        part.primitives.append(p)
 
     for unused in range(stream.readInt32()):
-        p = __readPart(stream)
+        p = __readPart(stream)       
         part.parts.append(p)
     return part
 
 def __readPrimitive(stream):
     color = __readLicColor(stream)
-    type = stream.readInt16()
+    gl_type = stream.readInt16()
     winding = stream.readInt32()
     
-    if type == GL.GL_LINES:
+    if gl_type == GL.GL_LINES:
         count = 6
-    elif type == GL.GL_TRIANGLES:
+    elif gl_type == GL.GL_TRIANGLES:
         count = 9 
-    elif type == GL.GL_QUADS:
+    elif gl_type == GL.GL_QUADS:
         count = 12
     
     points = []
     for unused in range(count):
         points.append(stream.readFloat())
-    return Primitive(color, points, type, winding)
+    return Primitive(color, points, gl_type, winding)
 
 def __readPart(stream):
     
-    filename = str(stream.readQString())
+    filename = unicode(stream.readQString())
     invert = stream.readBool()
     color = __readLicColor(stream)
     matrix = []
@@ -398,9 +385,9 @@ def __readPart(stream):
 def __readAnnotationSet(stream, page):
     for unused in range(stream.readInt32()):
         pixmap = stream.readQPixmap()
-        filename = str(stream.readQString())
+        filename = unicode(stream.readQString())
         pos = stream.readQPointF()
-        annotation = LicCustomPages.PageAnnotation(page, pixmap, filename, pos)
+        annotation = PageAnnotation(page, pixmap, filename, pos)
         page.annotations.append(annotation)
         page.addChild(len(page.children), annotation)
 
@@ -408,32 +395,23 @@ def __readAnnotationSet(stream, page):
             annotation.isAnnotation = stream.readBool()
             annotation.setZValue(stream.readInt32())
 
-def __readPage(stream, parent, instructions, templateModel = None):
+def __readPage(stream, parent, instructions, templateModel=None):
 
     number = stream.readInt32()
     row = stream.readInt32()
     
     if templateModel:
-        page = LicTemplate.TemplatePage(parent, instructions)
+        page = TemplatePage(parent, instructions)
         if page.submodel is None:
             page.submodel = templateModel
     else:
-        page = LicCustomPages.Page(parent, instructions, number, row)
+        page = Page(parent, instructions, number, row)
 
     __readRoundedRectItem(stream, page)
-    if stream.licFileVersion < 20:
-        page.color = stream.readQColor()
-
-    if templateModel and stream.licFileVersion < 20:
-        instructions.templateSettings.Page.backgroundColor = QColor(page.color);
-        
+    page.color = stream.readQColor()
     page.layout.orientation = stream.readInt32()
     page.numberItem.setPos(stream.readQPointF())
     page.numberItem.setFont(stream.readQFont())
-
-    if stream.licFileVersion >= 17:
-        if stream.readBool():
-            page.numberItem._customNumber = stream.readInt32()
 
     # Read in each step in this page
     for unused in range(stream.readInt32()):
@@ -444,22 +422,14 @@ def __readPage(stream, parent, instructions, templateModel = None):
         page.submodelItem = __readSubmodelItem(stream, page)
         page.addChild(page.submodelItem._row, page.submodelItem)
 
-    if templateModel and stream.licFileVersion < 20:
-        step = page.steps[0]
-        arrow = step.callouts[0].arrow
-        instructions.templateSettings.Callout.arrow.pen = QPen(arrow.pen())
-        instructions.templateSettings.Callout.arrow.pen.cornerRadius = 0
-        instructions.templateSettings.Callout.arrow.brush = QBrush(arrow.brush())
-        instructions.templateSettings.GraphicsRotateArrowItem.arrowPen = QPen(step.rotateIcon.arrowPen)
-
     # Read in any page separator lines
     for unused in range(stream.readInt32()):
-        separator = page.addStepSeparator(stream.readInt32(), signal = False)
+        separator = page.addStepSeparator(stream.readInt32())
         separator.setPos(stream.readQPointF())
         separator.setRect(stream.readQRectF())
         separator.setPen(stream.readQPen())
         if stream.licFileVersion >= 15:
-            separator.enabled = stream.readBool()
+            separator.setVisible(stream.readBool())
         separator.normalizePosition()
 
     if stream.licFileVersion >= 8:
@@ -471,19 +441,19 @@ def __readTitlePage(stream, instructions):
     if not stream.readBool():
         return None
 
-    page = LicCustomPages.TitlePage(instructions)
+    page = TitlePage(instructions)
 
     __readRoundedRectItem(stream, page)
-    if stream.licFileVersion < 20:
-        page.color = stream.readQColor()
+    page.color = stream.readQColor()
 
     if stream.readBool():
         page.submodelItem = __readSubmodelItem(stream, page)
         page.submodelItem.itemClassName = "TitleSubmodelPreview"  # Override regular name so we don't set this in any template action
 
     for unused in range(stream.readInt32()):
-        page.addNewLabel(stream.readQPointF(), stream.readQFont(), str(stream.readQString()))
+        page.addNewLabel(stream.readQPointF(), stream.readQFont(), unicode(stream.readQString()) )
 
+        
     if stream.licFileVersion >= 8:
         __readAnnotationSet(stream, page)
 
@@ -491,11 +461,10 @@ def __readTitlePage(stream, instructions):
 
 def __readPartListPage(stream, instructions):
 
-    page = LicCustomPages.PartListPage(instructions, stream.readInt32(), stream.readInt32())
+    page = PartListPage(instructions, stream.readInt32(), stream.readInt32())
 
     __readRoundedRectItem(stream, page)
-    if stream.licFileVersion < 20:
-        page.color = stream.readQColor()
+    page.color = stream.readQColor()
 
     page.numberItem.setPos(stream.readQPointF())
     page.numberItem.setFont(stream.readQFont())
@@ -540,12 +509,7 @@ def __readStep(stream, parent):
         if stream.readBool():
             step.addRotateIcon()
             __readRoundedRectItem(stream, step.rotateIcon)
-            if stream.licFileVersion < 20:
-                step.rotateIcon.arrowPen = stream.readQPen()
-
-    if stream.licFileVersion >= 17:
-        if stream.readBool():
-            step.numberItem._customNumber = stream.readInt32()
+            step.rotateIcon.arrowPen = stream.readQPen()
 
     return step
 
@@ -557,9 +521,8 @@ def __readCallout(stream, parent):
     
     callout.arrow.tipRect.point = stream.readQPointF()
     callout.arrow.baseRect.point = stream.readQPointF()
-    if stream.licFileVersion < 20:
-        callout.arrow.setPen(stream.readQPen())
-        callout.arrow.setBrush(stream.readQBrush())
+    callout.arrow.setPen(stream.readQPen())
+    callout.arrow.setBrush(stream.readQBrush())
 
     if stream.readBool():  # has quantity label
         callout.addQuantityLabel(stream.readQPointF(), stream.readQFont())
@@ -571,7 +534,8 @@ def __readCallout(stream, parent):
 
     for unused in range(stream.readInt32()):
         part = __readPart(stream)
-        part.abstractPart = partDict[part.filename]
+        part.abstractPart= partDict[part.filename]
+        part.calloutPart = part
         step = callout.getStepByNumber(part.stepNumber)
         step.addPart(part)
 
@@ -600,12 +564,6 @@ def __readSubmodelItem(stream, page):
         part.width *= scale
         part.height *= scale
 
-    if stream.licFileVersion >= 18:
-        submodelItem.abstractPart.width = stream.readInt32()
-        submodelItem.abstractPart.height = stream.readInt32()
-        submodelItem.abstractPart.center.setX(stream.readInt32())
-        submodelItem.abstractPart.center.setY(stream.readInt32())
-
     return submodelItem
 
 def __readCSI(stream, step):
@@ -622,10 +580,10 @@ def __readCSI(stream, step):
 
     return csi
 
-def __readPLI(stream, parent, makePartListPLI = False):
+def __readPLI(stream, parent, makePartListPLI=False):
 
     if makePartListPLI:
-        pli = LicCustomPages.PartListPLI(parent)
+        pli = PartListPLI(parent)
     else:
         pli = PLI(parent)
     __readRoundedRectItem(stream, pli)
@@ -638,8 +596,11 @@ def __readPLI(stream, parent, makePartListPLI = False):
 
 def __readPLIItem(stream, pli):
 
-    filename = str(stream.readQString())
-    abstractPart = partDict[filename]
+    filename = unicode(stream.readQString())
+    if partDict.has_key(filename):
+        abstractPart = partDict[filename]
+    else:
+        abstractPart = AbstractPart(filename)
     color = __readLicColor(stream)
 
     pliItem = PLIItem(pli, abstractPart, color, stream.readInt32())
@@ -655,7 +616,7 @@ def __readPLIItem(stream, pli):
             li.setPos(stream.readQPointF())
             li.setRect(stream.readQRectF())
             li.setFont(stream.readQFont())
-            li.lengthText = str(stream.readQString())
+            li.lengthText = unicode(stream.readQString())
             li.labelColor = stream.readQColor()
             li.setPen(stream.readQPen())
             li.setBrush(stream.readQBrush())
@@ -665,19 +626,21 @@ def __readPLIItem(stream, pli):
 def __readRoundedRectItem(stream, parent):
     parent.setPos(stream.readQPointF())
     parent.setRect(stream.readQRectF())
-    
-    if stream.licFileVersion < 20:
-        pen = stream.readQPen()
-        parent.setBrush(stream.readQBrush())
-        pen.cornerRadius = stream.readInt16()
-        parent.setPen(pen)
+    parent.setPen(stream.readQPen())
+    parent.setBrush(stream.readQBrush())
+    parent.cornerRadius = stream.readInt16()
 
 def __linkModelPartNames(model):
-
     for modelName in model.submodelNames:
-        newSubmodel = partDict[modelName]
-        newSubmodel.used = True
-        model.submodels.append(newSubmodel)
+        newSubmodel = None 
+        if partDict.has_key(modelName):
+            newSubmodel = partDict[modelName]
+        elif partDict.has_key(modelName+".dat"):
+            newSubmodel = partDict[modelName+".dat"]
+
+        if newSubmodel:
+            newSubmodel.used = True
+            model.submodels.append(newSubmodel)
 
     for m in model.submodels:
         __linkModelPartNames(m)
@@ -687,18 +650,20 @@ def __linkModelPartNames(model):
         if part.abstractPart.isSubmodel:
             part.abstractPart.used = True
 
-    for part in model.parts:
+    for part in model.parts:                 
         if part.pageNumber >= 0 and part.stepNumber >= 0:
             page = model.getPage(part.pageNumber)
-            csi = page.getStepByNumber(part.stepNumber).csi
-            csi.addPart(part)
-
+            if page:
+                csi = page.getStepByNumber(part.stepNumber).csi
+                csi.addPart(part)
+            
     # Associate each part that has a matching part in a callout to that matching part, and vice versa
     for part in [p for p in model.parts if p.inCallout]:
         for callout in part.getStep().callouts:
-            for calloutPart in callout.getPartList():
-                if (calloutPart.filename == part.filename) and (calloutPart.matrix == part.matrix) and (calloutPart.color == part.color):
-                    part.calloutPart = calloutPart
-                    calloutPart.originalPart = part
-                    break
-
+            for cPart in callout.getPartList():
+                if (cPart.filename == part.filename) and (cPart.matrix == part.matrix) and (cPart.color == part.color):
+                    part.calloutPart = cPart
+                    cPart.originalPart= part
+                    break               
+            
+            

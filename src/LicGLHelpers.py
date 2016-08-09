@@ -1,55 +1,53 @@
 """
-    Lic - Instruction Book Creation software
+    LIC - Instruction Book Creation software
     Copyright (C) 2010 Remi Gagne
+    Copyright (C) 2015 Jeremy Czajkowski
 
-    This file (LicGLHelpers.py) is part of Lic.
+    This file (LicGLHelpers.py) is part of LIC.
 
-    Lic is free software: you can redistribute it and/or modify
+    This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
-
-    Lic is distributed in the hope that it will be useful,
+   
+    This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
-
+   
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see http://www.gnu.org/licenses/
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from PIL import Image, ImageChops
-
-# Optimization: turn off PyOpenGL error checking, which is a major source of slowdown
-#import OpenGL
-#OpenGL.ERROR_CHECKING = False
-#OpenGL.ERROR_LOGGING = False
-
 from OpenGL.GL import *
-from OpenGL.GLU import *
-
-from OpenGL.GL.EXT.framebuffer_object import *
-from OpenGL.GL.EXT.framebuffer_multisample import *
 from OpenGL.GL.EXT.framebuffer_blit import *
-
+from OpenGL.GL.EXT.framebuffer_multisample import *
+from OpenGL.GL.EXT.framebuffer_object import *
+from OpenGL.GLU import *
 from PyQt4.QtCore import QPointF
 from PyQt4.QtOpenGL import QGLFormat, QGL
 
+
+# Optimization: turn off PyOpenGL error checking, which is a major source of slowdown
+# import OpenGL
+# OpenGL.ERROR_CHECKING = False
+# OpenGL.ERROR_LOGGING = False
 UNINIT_GL_DISPID = -1
 
 def IdentityMatrix():
-    return [1.0, 0.0, 0.0, 0.0,  
+    return [1.0, 0.0, 0.0, 0.0,
             0.0, 1.0, 0.0, 0.0,
             0.0, 0.0, 1.0, 0.0,
             0.0, 0.0, 0.0, 1.0]
 
 def getGLFormat():
-    format = QGLFormat(QGL.SampleBuffers)
-    format.setSamples(8)
-    return format
+    glformat = QGLFormat(QGL.SampleBuffers)
+    glformat.setSamples(8)
+    return glformat
 
-def drawCoordLines(length = 20.0):
-    glPushAttrib(GL_CURRENT_BIT)
+def drawCoordLines(length=20.0):
+    glPushAttrib(GL.GL_CURRENT_BIT)
     
     glBegin(GL_LINES)
     glColor4f(1.0, 0.0, 0.0, 1.0)
@@ -69,21 +67,19 @@ def drawCoordLines(length = 20.0):
 __LIC_GL_AMBIENT_LEVEL = 0.4
 __LIC_GL_SHINE_LEVEL = 64
 __LIC_GL_LINE_THICKNESS = 1.0
-__LIC_GL_DISABLE_LIGHT = True
 
 def getLightParameters():
-    global __LIC_GL_AMBIENT_LEVEL, __LIC_GL_SHINE_LEVEL, __LIC_GL_LINE_THICKNESS, __LIC_GL_DISABLE_LIGHT
-    return (__LIC_GL_AMBIENT_LEVEL, __LIC_GL_SHINE_LEVEL, __LIC_GL_LINE_THICKNESS, __LIC_GL_DISABLE_LIGHT)
+    global __LIC_GL_AMBIENT_LEVEL, __LIC_GL_SHINE_LEVEL, __LIC_GL_LINE_THICKNESS
+    return (__LIC_GL_AMBIENT_LEVEL, __LIC_GL_SHINE_LEVEL, __LIC_GL_LINE_THICKNESS)
 
-def setLightParameters(ambient, shine, lineWidth, disableLight = True):
-    global __LIC_GL_AMBIENT_LEVEL, __LIC_GL_SHINE_LEVEL, __LIC_GL_LINE_THICKNESS, __LIC_GL_DISABLE_LIGHT
+def setLightParameters(ambient, shine, lineWidth):
+    global __LIC_GL_AMBIENT_LEVEL, __LIC_GL_SHINE_LEVEL, __LIC_GL_LINE_THICKNESS
     __LIC_GL_AMBIENT_LEVEL = ambient
     __LIC_GL_SHINE_LEVEL = shine
     __LIC_GL_LINE_THICKNESS = lineWidth
-    __LIC_GL_DISABLE_LIGHT = disableLight
 
 def resetLightParameters():
-    setLightParameters(0.4, 64, 1.0, True)
+    setLightParameters(0.4, 64, 1.0)
 
 def setupLight(light):
     glLightfv(light, GL_SPECULAR, [1.0, 1.0, 0.0, 1.0])
@@ -92,10 +88,10 @@ def setupLight(light):
     glEnable(light)
 
 def setupLighting():
-    global __LIC_GL_AMBIENT_LEVEL, __LIC_GL_DISABLE_LIGHT
+    global __LIC_GL_AMBIENT_LEVEL
 
     glDisable(GL_NORMALIZE)
-    a = 1.0 if __LIC_GL_DISABLE_LIGHT else __LIC_GL_AMBIENT_LEVEL
+    a = __LIC_GL_AMBIENT_LEVEL
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [a, a, a, 1.0])
     glEnable(GL_LIGHTING)
     
@@ -103,8 +99,7 @@ def setupLighting():
     for i in range(0, maxLights):
         glDisable(GL_LIGHT0 + i)
 
-    if not __LIC_GL_DISABLE_LIGHT:
-        setupLight(GL_LIGHT0)
+    setupLight(GL_LIGHT0)
     glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 1.0)
     glLightf(GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.0)
     glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.0)
@@ -138,20 +133,20 @@ def initFreshContext(doClear):
         glClearColor(0.0, 0.0, 0.0, 0.0)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-    #glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
+    # glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
     glLineWidth(__LIC_GL_LINE_THICKNESS)
     glDepthFunc(GL_LEQUAL)
     glEnable(GL_DEPTH_TEST)
     glEnable(GL_NORMALIZE)
-    #glEnable(GL_POLYGON_OFFSET_FILL)
-    #glPolygonOffset(-1.0, -1.0)
+    # glEnable(GL_POLYGON_OFFSET_FILL)
+    # glPolygonOffset(-1.0, -1.0)
 
 def setupForQtPainter():
     glShadeModel(GL_FLAT)
     glDisable(GL_LIGHTING)
     glDisable(GL_DEPTH_TEST)
 
-def adjustGLViewport(x, y, width, height, scale = 1.0, altOrtho = False):
+def adjustGLViewport(x, y, width, height, scale=1.0, altOrtho=False):
     x = int(x * scale)
     y = int(y * scale)
     width = int(width * scale)
@@ -162,11 +157,11 @@ def adjustGLViewport(x, y, width, height, scale = 1.0, altOrtho = False):
 
     # Viewing box (left, right) (bottom, top), (near, far)
     if altOrtho:
-        glOrtho(0, width, 0, height, -3000, 3000 )
+        glOrtho(0, width, 0, height, -3000, 3000)
     else:
         width = max(1, width / 2)
         height = max(1, height / 2)
-        glOrtho(-width, width, -height, height, -3000, 3000 )
+        glOrtho(-width, width, -height, height, -3000, 3000)
         
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
@@ -176,9 +171,9 @@ def rotateView(x, y, z):
     glRotatef(y, 0.0, 1.0, 0.0)
     glRotatef(z, 0.0, 0.0, 1.0)
 
-def rotateToView(rotation, scale, x = 0.0, y = 0.0, z = 0.0):
+def rotateToView(rotation, scale, x=0.0, y=0.0, z=0.0):
     # position (x,y,z), look at (x,y,z), up vector (x,y,z)
-    gluLookAt(x, y, -1000.0,  x, y, z,  0.0, 1.0, 0.0)
+    gluLookAt(x, y, -1000.0, x, y, z, 0.0, 1.0, 0.0)
     glRotatef(180.0, 0.0, 0.0, 1.0)
     glScalef(scale, scale, scale)
     rotateView(*rotation)
@@ -306,7 +301,7 @@ def _getBounds(size, glDispID, filename, scale, rotation, partRotation):
     glCallList(glDispID)
 
     # Use PIL to find the image's bounding box (sweet)
-    pixels = glReadPixels(0, 0, size, size, GL_RGB,  GL_UNSIGNED_BYTE)
+    pixels = glReadPixels(0, 0, size, size, GL_RGB, GL_UNSIGNED_BYTE)
     img = Image.frombytes("RGB", (size, size), pixels)
     
     bg = bgCache.setdefault(size, Image.new("RGB", img.size, (255, 255, 255)))
@@ -353,8 +348,8 @@ def initImgSize(size, glDispID, filename, scale, rotation, partRotation):
     imgWidth = right - left + 1
     imgHeight = bottom - top
     
-    w = (left + (imgWidth/2)) - (size/2)
-    h = (top + (imgHeight/2)) - (size/2)
+    w = (left + (imgWidth / 2)) - (size / 2)
+    h = (top + (imgHeight / 2)) - (size / 2)
     imgCenter = QPointF(-w, h - 1)
 
     return (imgWidth, imgHeight, imgCenter, leftInset, bottomInset)

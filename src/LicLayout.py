@@ -1,28 +1,34 @@
 """
-    Lic - Instruction Book Creation software
+    LIC - Instruction Book Creation software
     Copyright (C) 2010 Remi Gagne
+    Copyright (C) 2015 Jeremy Czajkowski
 
-    This file (LicLayout.py) is part of Lic.
+    This file (LicLayout.py) is part of LIC.
 
-    Lic is free software: you can redistribute it and/or modify
+    This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
-
-    Lic is distributed in the hope that it will be useful,
+   
+    This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
-
+   
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see http://www.gnu.org/licenses/
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import math
+
 from PyQt4.QtCore import *
+
 
 Horizontal = 0
 Vertical = 1
+AutoLayout = 2
+PageDefaultMargin = 15
+PARTS_PER_STEP_MAX = 15
 
 def maxSafe(s):
     return max(s) if s else 0.0
@@ -34,7 +40,7 @@ class GridLayout(object):
     
     margin = 15
     
-    def __init__(self, rowCount = -1, colCount = -1, orientation = Vertical):
+    def __init__(self, rowCount=-1, colCount=-1, orientation=Vertical):
         self.colCount = rowCount
         self.rowCount = colCount
         self.orientation = orientation
@@ -78,7 +84,7 @@ class GridLayout(object):
         # -2- -0- -1-
         # -7- -4- -8-
         
-        indices = [(1,1), (1,2), (1,0), (0,1), (2,1), (0,0), (0,2), (2,0), (2,2)]
+        indices = [(1, 1), (1, 2), (1, 0), (0, 1), (2, 1), (0, 0), (0, 2), (2, 0), (2, 2)]
         rowHeights, colWidths = [[], [], []], [[], [], []]
         
         # Store the size of each memeber in the appropriate row col spot
@@ -118,33 +124,43 @@ class GridLayout(object):
         # Sets position of each member into a grid
         # MemberList is a list of any objects that have rect(), setPos() and moveBy() methods
 
-        rows, cols = self.getRowColCount(memberList)
+        rows, unused = self.getRowColCount(memberList)
         rowHeights, colWidths = [], []
-
+        
         # Build a table of each row's height and column's width
         for i in range(0, rows):
-            maxSize = maxSafe([x.rect().height() for x in memberList[i::rows]])
-            rowHeights.append(maxSize)
+            if self.orientation == Horizontal:
+                maxSize = maxSafe([x.rect().width() for x in memberList[i::rows]])  # 0, 3, 6...
+                colWidths.append(maxSize)
+            else:
+                maxSize = maxSafe([x.rect().height() for x in memberList[i::rows]])
+                rowHeights.append(maxSize)
 
-        for i in range(0, cols):
-            maxSize = maxSafe([x.rect().width() for x in memberList[i * rows: (i * rows) + rows]])
-            colWidths.append(maxSize)
-
+        for i in range(0, rows):
+            if self.orientation == Horizontal:
+                maxSize = maxSafe([x.rect().height() for x in memberList[i * rows: (i * rows) + rows]])  # 0, 1, 2...
+                rowHeights.append(maxSize)
+            else:
+                maxSize = maxSafe([x.rect().width() for x in memberList[i * rows: (i * rows) + rows]])
+                colWidths.append(maxSize)
+        
         # Position each member in the center of its cell
         for i, member in enumerate(memberList):
             row, col = i % rows, i // rows
-
+            if self.orientation == Horizontal:
+                row, col = col, row
+                
             # Position at top left of cell
             width = sum(colWidths[:col]) + (self.margin * (col + 1)) 
             height = sum(rowHeights[:row]) + (self.margin * (row + 1))
             member.setPos(width, height)
-
+            
             # Move to center of cell, if necessary
             dx = (colWidths[col] - member.rect().width()) / 2.0
             dy = (rowHeights[row] - member.rect().height()) / 2.0
             if dx > 0 or dy > 0:
                 member.moveBy(dx, dy)
-
+    
     def _adjustRow(self, rowMembers, length, size, startPoint):
 
         fixedCount = 0
@@ -152,7 +168,8 @@ class GridLayout(object):
             length -= member.rect().getOrientedSize(self.orientation) + (self.margin * 2)
             fixedCount += 1;
 
-        length = length / (len(rowMembers) - fixedCount)
+        count = (len(rowMembers) - fixedCount)
+        length= length / count if count > 0 else length / 1
 
         if self.orientation == Vertical:
             length, size = size, length
@@ -170,9 +187,9 @@ class GridLayout(object):
         # Move each rect over so it's beside its predecessor
         for i, member in enumerate(rowMembers[1:]):
             if self.orientation == Horizontal:
-                destRects[i+1].moveLeft(destRects[i].right())
+                destRects[i + 1].moveLeft(destRects[i].right())
             else:
-                destRects[i+1].moveTop(destRects[i].bottom())
+                destRects[i + 1].moveTop(destRects[i].bottom())
 
         # Now, shrink each member by margin, then do layout
         for i, member in enumerate(rowMembers):
@@ -197,14 +214,12 @@ class GridLayout(object):
 
         return sizeList
 
-    def initGridLayout(self, rect, memberList, rows = None, cols = None):
+    def initGridLayout(self, rect, memberList):
         # Divides rect into equally sized rows & columns, and sizes each member to fit inside.
         # If row / col count are -1 (unset), will be set to something appropriate.
         # MemberList is a list of any objects that have an initLayout(rect) method
 
-        if rows == None and cols == None:
-            rows, cols = self.getRowColCount(memberList)
-
+        rows, cols = self.getRowColCount(memberList)
         startPoint = rect.topLeft()
         self.separators = []
 

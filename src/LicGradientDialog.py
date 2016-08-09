@@ -1,35 +1,37 @@
 """
-    Lic - Instruction Book Creation software
+    LIC - Instruction Book Creation software
     Copyright (C) 2010 Remi Gagne
+    Copyright (C) 2015 Jeremy Czajkowski
 
-    This file (LicGradientDialog.py) is part of Lic.
+    This file (LicGradientDialog.py) is part of LIC.
 
-    Lic is free software: you can redistribute it and/or modify
+    This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
-
-    Lic is distributed in the hope that it will be useful,
+   
+    This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
-
+   
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see http://www.gnu.org/licenses/
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
 
+
 class HoverPoints(QObject):
     
     CircleShape = 1
     RectangleShape = 2
 
-    LockToLeft   = 0x01
-    LockToRight  = 0x02
-    LockToTop    = 0x04
+    LockToLeft = 0x01
+    LockToRight = 0x02
+    LockToTop = 0x04
     LockToBottom = 0x08
 
     NoSort = 0
@@ -62,8 +64,8 @@ class HoverPoints(QObject):
         self.m_editable = True
         self.m_enabled = True
     
-    def eventFilter(self, object, event):
-        if (object != self.m_widget or not self.m_enabled):
+    def eventFilter(self, qtobject, event):
+        if (qtobject != self.m_widget or not self.m_enabled):
             return False
     
         if (event.type() == QEvent.MouseButtonPress):
@@ -132,7 +134,7 @@ class HoverPoints(QObject):
         elif (event.type() == QEvent.Paint):
             that_widget = self.m_widget
             self.m_widget = 0
-            QApplication.sendEvent(object, event)
+            QApplication.endEvent(qtobject, event)
             self.m_widget = that_widget
             self.paintPoints()
             return True
@@ -259,9 +261,9 @@ class HoverPoints(QObject):
                 oldCurrent = self.m_points[self.m_currentIndex]
 
             if (self.m_sortType == HoverPoints.XSort):
-                self.m_points.sort(key = lambda p: p.x())
+                self.m_points.sort(key=lambda p: p.x())
             elif (self.m_sortType == HoverPoints.YSort):
-                self.m_points.sort(key = lambda p: p.y())
+                self.m_points.sort(key=lambda p: p.y())
     
             if (self.m_currentIndex != -1):
                 for i in range(0, len(self.m_points)):
@@ -278,7 +280,7 @@ class HoverPoints(QObject):
         else:
             return self.m_bounds
 
-    def movePoint(self, index, point, emitUpdate = True):
+    def movePoint(self, index, point, emitUpdate=True):
         self.m_points[index] = self.bound_point(point, self.boundingRect(), self.m_locks[index])
         if emitUpdate:
             self.firePointChange()
@@ -290,10 +292,10 @@ class ShadeWidget(QWidget):
     BlueShade = 3
     ARGBShade = 4
     
-    def __init__(self, type, parent):
+    def __init__(self, shade_type, parent):
         QWidget.__init__(self, parent)
         
-        self.m_shade_type = type
+        self.m_shade_type = shade_type
         self.m_shade = QImage()
         self.m_alpha_gradient = QLinearGradient(0, 0, 0, 0)
 
@@ -559,11 +561,11 @@ class GradientEditor(QWidget):
         points += self.m_blue_shade.points()
         points += self.m_alpha_shade.points()
 
-        points.sort(key = lambda p: p.x())
+        points.sort(key=lambda p: p.x())
 
         for i in range(0, len(points)):
             x = points[i].x()
-            if (i < len(points) - 1 and x == points[i+1].x()):
+            if (i < len(points) - 1 and x == points[i + 1].x()):
                 continue
             color = QColor((0x00ff0000 & self.m_red_shade.colorAt(x)) >> 16,
                            (0x0000ff00 & self.m_green_shade.colorAt(x)) >> 8,
@@ -606,7 +608,7 @@ class GradientEditor(QWidget):
 
 class GradientDialog(QDialog):
 
-    def __init__(self, parent, pageSize, initialGradient = None):
+    def __init__(self, parent, pageSize, initialGradient=None):
         QDialog.__init__(self, parent)
         self.setAttribute(Qt.WA_DeleteOnClose)
 

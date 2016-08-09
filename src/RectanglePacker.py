@@ -1,4 +1,5 @@
-"""This library is free software; you can redistribute it and/or
+"""
+This library is free software; you can redistribute it and/or
 modify it under the terms of the IBM Common Public License as
 published by the IBM Corporation; either version 1.0 of the
 License, or (at your option) any later version.
@@ -12,7 +13,8 @@ You should have received a copy of the IBM Common Public
 License along with this library
 """
 from bisect import bisect_left
- 
+
+
 class OutOfSpaceError(Exception): pass
  
 class Point(object):
@@ -89,7 +91,7 @@ class CygonRectanglePacker(RectanglePacker):
         self.heightSlices = []
  
         # At the beginning, the packing area is a single slice of height 0
-        self.heightSlices.append(Point(0,0))
+        self.heightSlices.append(Point(0, 0))
  
     def TryPack(self, rectangleWidth, rectangleHeight):
         """Tries to allocate space for a rectangle in the packing area
@@ -125,8 +127,8 @@ class CygonRectanglePacker(RectanglePacker):
         be found, otherwise returns None"""
         # Slice index, vertical position and score of the best placement we
         # could find
-        bestSliceIndex = -1 # Slice index where the best placement was found
-        bestSliceY = 0 # Y position of the best placement found
+        bestSliceIndex = -1  # Slice index where the best placement was found
+        bestSliceY = 0  # Y position of the best placement found
         # lower == better!
         bestScore = self.packingAreaWidth * self.packingAreaHeight 
  
@@ -206,7 +208,7 @@ class CygonRectanglePacker(RectanglePacker):
             # We scored a direct hit, so we can replace the slice we have hit
             firstSliceOriginalHeight = self.heightSlices[startSlice].y
             self.heightSlices[startSlice] = Point(left, bottom)
-        else: # No direct hit, slice starts inside another slice
+        else:  # No direct hit, slice starts inside another slice
             # Add a new slice after the slice in which we start
             startSlice = ~startSlice
             firstSliceOriginalHeight = self.heightSlices[startSlice - 1].y
@@ -225,14 +227,14 @@ class CygonRectanglePacker(RectanglePacker):
             # to return to the original height at the end of the rectangle.
             if right < self.packingAreaWidth:
                 self.heightSlices.append(Point(right, firstSliceOriginalHeight))
-        else: # The rectangle doesn't start on the last slice
-            endSlice = bisect_left(self.heightSlices, Point(right,0), \
+        else:  # The rectangle doesn't start on the last slice
+            endSlice = bisect_left(self.heightSlices, Point(right, 0), \
             startSlice, len(self.heightSlices))
  
             # Another direct hit on the final slice's end?
             if endSlice > 0:
                 del self.heightSlices[startSlice:endSlice]
-            else: # No direct hit, rectangle ends inside another slice
+            else:  # No direct hit, rectangle ends inside another slice
                 # Make index from negative bisect_left() result
                 endSlice = ~endSlice
  

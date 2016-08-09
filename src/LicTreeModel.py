@@ -1,24 +1,30 @@
 """
-    Lic - Instruction Book Creation software
+    LIC - Instruction Book Creation software
     Copyright (C) 2010 Remi Gagne
+    Copyright (C) 2015 Jeremy Czajkowski
 
-    This file (LicTreeModel.py) is part of Lic.
+    This file (LicTreeModel.py) is part of LIC.
 
-    Lic is free software: you can redistribute it and/or modify
+    This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
-
-    Lic is distributed in the hope that it will be useful,
+   
+    This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
-
+   
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see http://www.gnu.org/licenses/
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from LicCommonImports import *
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
+
+import LicHelpers
+from LicImporters.LDrawImporter import LDrawFile
+
 
 class LicTreeModel(QAbstractItemModel):
 
@@ -27,12 +33,16 @@ class LicTreeModel(QAbstractItemModel):
         
         self.root = None
 
-    def data(self, index, role = Qt.DisplayRole):
-        if role != Qt.DisplayRole or not index.isValid():
-            return QVariant()
-
+    def data(self, index, role=Qt.DisplayRole):
         item = index.internalPointer()
-        return QVariant(item.data(0))
+
+        if item is not None and index.isValid():
+            if role == Qt.WhatsThisRole:
+                return QVariant(item.__class__.__name__)
+            elif role == Qt.DisplayRole:
+                return QVariant(item.data(Qt.DisplayRole))
+        
+        return QVariant()
 
     def rowCount(self, parent):
 
@@ -76,7 +86,7 @@ class LicTreeModel(QAbstractItemModel):
             return False
 
         targetItem = parent.internalPointer()  # item that dragged items were dropped on
-        #target = self.index(row, column, parent) if row > 0 else parent  # TODO: Handle row argument
+        # target = self.index(row, column, parent) if row > 0 else parent  #TODO: Handle row argument
         
         dragItems = []
         stringData = str(data.data("application/x-rowlist"))
@@ -98,8 +108,8 @@ class LicTreeModel(QAbstractItemModel):
             return targetItem.acceptDragAndDropList(dragItems, row)
         return False
     
-    def removeRows(self, row, count, parent = None):
-        return False # Needed because otherwise the super gets called, but we handle all in dropMimeData
+    def removeRows(self, row, count, parent=None):
+        return False  # Needed because otherwise the super gets called, but we handle all in dropMimeData
         
     def flags(self, index):
         if not index.isValid():
@@ -134,13 +144,14 @@ class LicTreeModel(QAbstractItemModel):
 
         childItem = index.internalPointer()
         parentItem = childItem.parent()
+        row = parentItem.row() if hasattr(parentItem, "row") else 0
 
         if parentItem is self.root:
             return QModelIndex()
+            
+        return self.createIndex(row, 0, parentItem)
 
-        return self.createIndex(parentItem.row(), 0, parentItem)
-
-    def headerData(self, section, orientation, role = Qt.DisplayRole):
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
         return QVariant("Instruction Book")
 
     def updatePersistentIndices(self):
@@ -148,30 +159,42 @@ class LicTreeModel(QAbstractItemModel):
             item = index.internalPointer()
             if item is None:
                 continue  # Happens whenever we delete a persistent index (below)
+            
             newIndex = QModelIndex()
-            if item and item.parent():
-                newIndex = self.createIndex(item.row(), 0, item)
+            try:
+                if item.parent():
+                    newIndex = self.createIndex(item.row(), 0, item)
+            except Exception, ex:
+                pass
+            
             self.changePersistentIndex(index, newIndex)
 
     def deletePersistentItem(self, item):
-        if isinstance(item, BaseTreeManager) and self.persistentIndexList():
-            index = self.createIndex(item.row(), 0, item)
+        if self.persistentIndexList():
+            index = self.createIndex(item.row() if item.row() else -1, 0, item)
             self.changePersistentIndex(index, QModelIndex())
 
+
 class BaseTreeManager(object):
-    
+     
     def parent(self):
         return self.parentItem()
 
     def row(self):
         if hasattr(self, '_row'):
             return self._row
-        return self.parentItem().getChildRow(self)
-
+        if self.parentItem():
+            return self.parentItem().getChildRow(self)
+        
+        return -1
+        
+            
 QGraphicsSimpleTextItem.__bases__ += (BaseTreeManager,)
 QGraphicsEllipseItem.__bases__ += (BaseTreeManager,)
 QGraphicsRectItem.__bases__ += (BaseTreeManager,)
+QGraphicsLineItem.__bases__ += (BaseTreeManager,)
 QGraphicsPixmapItem.__bases__ += (BaseTreeManager,)
+
 
 class PageTreeManager(BaseTreeManager):
 
@@ -193,7 +216,10 @@ class PageTreeManager(BaseTreeManager):
         return self.children.index(child)
     
     def data(self, index):
-        return "Page %d" % self._number
+        if index in [Qt.WhatsThisRole, Qt.AccessibleTextRole]:
+            return self.__class__.__name__
+        else:        
+            return "Page %d" % self._number
 
     def dragDropFlags(self):
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDropEnabled
@@ -205,7 +231,10 @@ class PartListPageTreeManager(BaseTreeManager):
             return self.numberItem
         if row == 1:
             return self.pli
-        return self.annotations[row - 2]
+        try:
+            return self.annotations[row - 2]
+        except IndexError:
+            return None
 
     def rowCount(self):
         return 2 + len(self.annotations)
@@ -218,7 +247,10 @@ class PartListPageTreeManager(BaseTreeManager):
         return 2 + self.annotations.index(child)
 
     def data(self, index):
-        return "Part List Page %d" % (self.submodel.partListPages.index(self) + 1)
+        if index in [Qt.WhatsThisRole, Qt.AccessibleTextRole]:
+            return self.__class__.__name__
+        else:        
+            return "Part List Page %d" % (self.submodel.partListPages.index(self) + 1)
 
 class TitlePageTreeManager(BaseTreeManager):
 
@@ -227,7 +259,10 @@ class TitlePageTreeManager(BaseTreeManager):
             return self.submodelItem
         if row <= len(self.labels):
             return self.labels[row - 1]
-        return self.annotations[row - len(self.labels) - 1]
+        try:
+            return self.annotations[row - len(self.labels) - 1]
+        except IndexError:
+            return None
 
     def rowCount(self):
         return 1 + len(self.labels) + len(self.annotations)
@@ -240,7 +275,10 @@ class TitlePageTreeManager(BaseTreeManager):
         return 1 + len(self.labels) + self.annotations.index(child)
 
     def data(self, index):
-        return "Title Page"
+        if index in [Qt.WhatsThisRole, Qt.AccessibleTextRole]:
+            return self.__class__.__name__
+        else:  
+            return "Title Page"
 
 class CalloutArrowTreeManager(BaseTreeManager):
 
@@ -274,7 +312,10 @@ class CalloutTreeManager(BaseTreeManager):
             return self.steps.index(child) + offset
 
     def data(self, index):
-        return "Callout %d - %d step%s" % (self.number, len(self.steps), 's' if len(self.steps) > 1 else '')
+        if index in [Qt.WhatsThisRole, Qt.AccessibleTextRole]:
+            return self.__class__.__name__
+        else:     
+            return "Callout %d - %d step%s" % (self.number, len(self.steps), 's' if len(self.steps) > 1 else '')
 
 class StepTreeManager(BaseTreeManager):
     
@@ -284,7 +325,7 @@ class StepTreeManager(BaseTreeManager):
         return StepTreeManager._showCSI or hasattr(self, "postLoadInit")  # Always show CSIs in Templates
 
     showCSI = property(getShowCSI)
-    
+     
     def child(self, row):
         if row == 0 and self.showCSI:
             return self.csi
@@ -319,7 +360,10 @@ class StepTreeManager(BaseTreeManager):
         return rows
 
     def data(self, index):
-        return "Step %d - %d parts" % (self._number, self.csi.partCount())
+        if index in [Qt.WhatsThisRole, Qt.AccessibleTextRole]:
+            return self.__class__.__name__
+        else:        
+            return "Step %d" % self._number
 
     def getChildRow(self, child):
         if child is self.csi:
@@ -370,7 +414,10 @@ class SubmodelPreviewTreeManager(BaseTreeManager):
         return None
 
     def data(self, index):
-        return "Sub-Assembly" if self.isSubAssembly else "Submodel Preview"
+        if index in [Qt.WhatsThisRole]:
+            return self.__class__.__name__
+        else:        
+            return "Sub-Assembly" if self.isSubAssembly else "Submodel Preview"
 
 class PLIItemTreeManager(BaseTreeManager):
     
@@ -388,7 +435,28 @@ class PLIItemTreeManager(BaseTreeManager):
         return self.parentItem().pliItems.index(self)
 
     def data(self, index):
-        return "%s - %s" % (self.abstractPart.name, self.color.name)
+        if index in [Qt.WhatsThisRole, Qt.AccessibleTextRole]:
+            return self.__class__.__name__
+        elif index == Qt.AccessibleDescriptionRole:
+            designation = self.abstractPart.name.strip()
+            if designation.startswith("~Move"):
+                # after split, the result is in example: ['~Moved', 'to', '30027a']
+                # get absolute path to part plain text file
+                filepath = LDrawFile.getPartFilePath(designation.split(" ")[2] + ".dat")
+                designation = ""
+                if filepath:
+                    # read and parse first line in file or pass silently
+                    f = open(filepath,"r")
+                    try:
+                        designation = f.readline().strip().replace('0 ','').replace('  ',' ')
+                    except (IOError, OSError):
+                        designation = ""
+                        pass    
+                    f.close()
+            return designation        
+        else:      
+            colorName = self.color.name if self.color else "Unnamed"
+            return "%s - %s" % (self.abstractPart.name, colorName)
 
 class PLITreeManager(BaseTreeManager):
 
@@ -418,7 +486,10 @@ class CSITreeManager(BaseTreeManager):
     
     def child(self, row):
         if CSITreeManager.showPartGroupings:
-            return self.parts[row]
+            try:
+                return self.parts[row]
+            except IndexError:
+                return None
         return self.getPartList()[row]
 
     def rowCount(self):
@@ -447,7 +518,10 @@ class SubmodelTreeManager(BaseTreeManager):
         return len(self.pages) + len(self.submodels)
 
     def data(self, index):
-        return "Submodel: %s" % self.getSimpleName()
+        if index in [Qt.WhatsThisRole, Qt.AccessibleTextRole]:
+            return self.__class__.__name__
+        else:       
+            return "Submodel: %s" % self.getSimpleName()
 
 class MainModelTreeManager(SubmodelTreeManager):
 
@@ -493,10 +567,13 @@ class PartTreeItemTreeManager(BaseTreeManager):
         return self.parentItem() if step.showCSI else step
 
     def data(self, index):
-        if self._dataString:
+        if index in [Qt.WhatsThisRole, Qt.AccessibleTextRole]:
+            return self.__class__.__name__
+        else:        
+            if self._dataString:
+                return self._dataString
+            self._dataString = "%s - x%d" % (self.name, len(self.parts))
             return self._dataString
-        self._dataString = "%s - x%d" % (self.name, len(self.parts))
-        return self._dataString
 
 class PartTreeManager(BaseTreeManager):
 
@@ -510,18 +587,39 @@ class PartTreeManager(BaseTreeManager):
         self._dataString = None
 
     def data(self, index):
-        if self._dataString:
+        if index in [Qt.WhatsThisRole, Qt.AccessibleTextRole]:
+            return self.__class__.__name__
+        elif index == Qt.AccessibleDescriptionRole:
+            designation = self.abstractPart.name.strip()
+            if designation.startswith("~Move"):
+                # after split, the result is in example: ['~Moved', 'to', '30027a']
+                # get absolute path to part plain text file
+                partname = designation.split(" ")[2]
+                filepath = LDrawFile.getPartFilePath(partname + ".dat")
+                designation = ""
+                if filepath:
+                    # read and parse first line in file or pass silently
+                    f = open(filepath,"r")
+                    try:
+                        designation = f.readline().strip().replace('0 ','').replace('  ',' ')
+                    except (IOError, OSError):
+                        pass    
+                    f.close()
+                else:
+                    LicHelpers.writeLogEntry("Can not find %s in LDraw library" % partname)
+            return designation
+        else:        
+            if self._dataString:
+                return self._dataString
+    
+            colorName = self.color.name if self.color else "Unnamed"
+            if CSITreeManager.showPartGroupings:
+                x, y, z = LicHelpers.GLMatrixToXYZ(self.matrix)
+                self._dataString = "%s - (%.1f, %.1f, %.1f)" % (colorName, x, y, z)
+            else:
+                self._dataString = "%s - %s" % (self.abstractPart.name, colorName)
+    
             return self._dataString
-
-        colorName = self.color.name
-        if CSITreeManager.showPartGroupings:
-            x, y, z = LicHelpers.GLMatrixToXYZ(self.matrix)
-            self._dataString = "%s - (%.1f, %.1f, %.1f)" % (colorName, x, y, z)
-            #self._dataString = "%s - (%s)" % (colorName, self.getPartBoundingBox())
-        else:
-            self._dataString = "%s - %s" % (self.abstractPart.name, colorName)
-
-        return self._dataString
     
     def dragDropFlags(self):
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled

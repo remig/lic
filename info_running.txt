@@ -1,28 +1,23 @@
 """
-    Lic - Instruction Book Creation software
+    LIC - Instruction Book Creation software
     Copyright (C) 2010 Remi Gagne
+    Copyright (C) 2015 Jeremy Czajkowski
 
-    This file (info_running.txt) is part of Lic.
+    This file (info_running.txt) is part of LIC.
 
-    Lic is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    Lic is distributed in the hope that it will be useful,
+    lic is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see http://www.gnu.org/licenses/
+    You should have received a copy of the Creative Commons License
+    along with this program.  If not, see http://creativecommons.org/licenses/by-sa/3.0/
 """
 
-** Requirements for running Lic from source: **
+** Requirements for running LIC from source: **
 
 - Python, any version *before* 3.0
 
-- Qt version 4.6.3 or greater.  There's a bug in Qt 4.6.2 and earlier that make Lic *not* work:
+- Qt version 4.6.3 or greater.  There's a bug in Qt 4.6.2 and earlier that make LIC *not* work:
 http://bugreports.qt.nokia.com/browse/QTBUG-7880
 
 - PyQt, any version that works with the above Python & Qt.
@@ -48,18 +43,23 @@ one 'thing' within in an instruction book (Step, CSI, PLI, etc).
 
 LicBinaryReader & Writer contain all of the binary load / save stuff.
 
-LicGraphicsWidget contains the important QGraphicScene subclass, which is
+LicGraphicsWidget.py contains the important QGraphicScene subclass, which is
 responsible for the physical display of an instruction book on a portion of the
 application window.
 
-LicTreeModel contains the QAbstractItemModel subclass which tracks the data
-model for the navigation tree.  The tree widget itself is trivial, and lives in
-Lic.py
+LicTreeModel.py contains the QAbstractItemModel subclass which tracks the data
+model for the navigation tree.  The tree widget itself is trivial, and lives 
+in Lic.py
 
-LicUndoActions holds - you guessed it - all of the code for each custom
+LicUndoActions.py holds - you guessed it - all of the code for each custom
 undo / redo action.
 
-LicDialogs contains every single dialog subclass used by Lic.  I like all that
+LicDialogs.py contains every single dialog subclass used by Lic.  I like all that
 nasty UI widget code in one spot.
 
+LicAssistantWidget.py Each individual class fully support one job, assigned to it
+
+
 Remi
+Jeremy
+

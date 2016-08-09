@@ -1,25 +1,27 @@
 """
-    Lic - Instruction Book Creation software
+    LIC - Instruction Book Creation software
     Copyright (C) 2010 Remi Gagne
+    Copyright (C) 2015 Jeremy Czajkowski
 
-    This file (Importers.LDrawImporter.py) is part of Lic.
+    This file (Importers.LDrawImporter.py) is part of lIC.
 
-    Lic is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    Lic is distributed in the hope that it will be useful,
+    LIC is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see http://www.gnu.org/licenses/
+    You should have received a copy of the Creative Commons License
+    along with this program.  If not, see http://creativecommons.org/licenses/by-sa/3.0/
 """
 
+import code
+import logging
 import os.path
+
 from OpenGL import GL
+
+import LDrawColors
+from LicHelpers import LicColor
+
 
 LDrawPath = None  # This will be set by the object calling this importer
 
@@ -34,12 +36,15 @@ def importColorFile(instructions):
 
 class LDrawImporter(object):
     
-    def __init__(self, filename, instructions, parent = None):
+    def __init__(self, filename, instructions, parent=None):
 
         self.filename = filename
         self.instructions = instructions
 
-        ldrawFile = LDrawFile(filename)
+        self.loadLDConfig(instructions)
+
+        filepath  = instructions.partImportDirectory if hasattr(instructions, "partImportDirectory") else instructions.partimportdirectory
+        ldrawFile = LDrawFile(filename,filepath)
         self.lineList = ldrawFile.lineList
         self.submodels = ldrawFile.getSubmodels(filename)
         if parent:
@@ -47,15 +52,20 @@ class LDrawImporter(object):
 
         self.loadAbstractPartFromStartStop(parent, *self.submodels[self.filename])
 
+    def writeLogEntry(self, message):
+        logging.warning('------------------------------------------------------\n LDrawImporter => %s' % message)
+
     def createNewPartFromLine(self, line, parent):
 
-        filename, color, matrix = lineToPart(line)
+        filename, color, matrix, rgba = lineToPart(line)
 
         if (filename not in self.submodels) and (LDrawFile.getPartFilePath(filename) is None):
-            print "Could not find Part File - ignoring: " + filename
+            error_message = "Could not find Part File - ignoring: " + filename
+            self.writeLogEntry(error_message)
+            print error_message
             return None
 
-        part = self.instructions.createPart(filename, color, matrix)
+        part = self.instructions.createPart(filename, color, matrix, False, rgba)
 
         if part.abstractPart is None:
             if filename in self.submodels:
@@ -81,15 +91,12 @@ class LDrawImporter(object):
     
         for line in lineList:
     
-            if isFileLine(line): # A FILE line means we're finished loading this part
+            if isFileLine(line):  # A FILE line means we're finished loading this part
                 return
     
             elif isStepLine(line):
                 self.instructions.addBlankPage(parentPart)
 
-            elif isRotStepLine(line):
-                pass
-            
             elif isPartLine(line):
                 newPart = self.createNewPartFromLine(line, parentPart)
                 if newPart is not None:
@@ -120,8 +127,6 @@ class LDrawImporter(object):
             part.toBlack()
         elif fn == "stud4.dat" and pn == "4-4cyli.dat" and invertNext:
             part.toBlack()
-        elif fn == "6541.dat" and pn == "4-4cyli.dat":
-            part.toBlack()
 
     @staticmethod
     def loadLDConfig(instructions):
@@ -131,12 +136,14 @@ class LDrawImporter(object):
                 l = l.split()
                 code = int(l[4])
                 rgb = l[6].replace('#', '')
-                r, g, b = [float(i)/256 for i in [int(rgb[0:2], 16), int(rgb[2:4], 16), int(rgb[4:6], 16)]]
-                a = float(l[10])/256 if (len(l) > 10 and l[9] == 'ALPHA') else 1.0
+                r, g, b = [float(i) / 256 for i in [int(rgb[0:2], 16), int(rgb[2:4], 16), int(rgb[4:6], 16)]]
+                a = float(l[10]) / 256 if (len(l) > 10 and l[9] == 'ALPHA') else 1.0
                 name = l[2].replace('_', ' ')
                 instructions.addColor(code, r, g, b, a, name)
+                if not LDrawColors.colors.has_key(code):
+                    LDrawColors.colors[ code ] = (r, g, b, a, name)
+                    
         instructions.addColor(16, None)  # Set special 'CurrentColor' to None
-        instructions.addColor(999, 0, 0, 0, 1.0, 'True Black')  # Special color for edges and stud side coloring
 
 Comment = '0'
 PartCommand = '1'
@@ -146,7 +153,6 @@ QuadCommand = '4'
 ConditionalLineCommand = '5'
 
 StepCommand = 'STEP'
-RotStepCommand = 'ROTSTEP'
 FileCommand = 'FILE'
 BFCCommand = 'BFC'
 lineTerm = '\n'
@@ -160,7 +166,8 @@ def GLToLDMatrix(matrix):
     return [m[12], m[13], m[14], m[0], m[4], m[8], m[1], m[5], m[9], m[2], m[6], m[10]]
 
 def createPartLine(color, matrix, filename):
-    l = [PartCommand, str(color)]
+    lDrawCode = color.code() if color else LicColor.black().code()
+    l = [PartCommand, str(lDrawCode)]
     m = GLToLDMatrix(matrix)
     l += [str(x)[:-2] if str(x).endswith(".0") else str(x) for x in m]
     l.append(filename)
@@ -171,10 +178,26 @@ def isPartLine(line):
     return (len(line) > 15) and (line[1] == PartCommand)
 
 def lineToPart(line):
+    """  
+    If you don't specify base=0, python defaults to base=10 which gets your error. 
+    This is desired, so say int('077') == 77 ('077' is interpreted as decimal), 
+    while int('077',0) == 63 (interpreted as try guessing the base from the string so its octal)
+    
+    Apparently, int("0xdeadbeef", 0) works only if you have exactly 10 characters in the string; 
+    for instance, I get: "ValueError: invalid literal for int() with base 10: '0x1630'", 
+    if I don't specify base 16.
+    """
     filename = ' '.join(line[15:])
-    color = int(line[2])
+
+    rgba = ()
+    color = 16
+    if line[2].startswith("0x"):
+        rgba = LicColor.RGBAfromCustom(line[2])
+    else:
+        color = int(line[2] , base=0)
+    
     matrix = LDToGLMatrix(line[3:15])
-    return (filename, color, matrix)
+    return (filename, color, matrix, rgba)
 
 def createSubmodelLines(filename):
     filename = os.path.basename(filename)
@@ -198,7 +221,7 @@ def isPrimitiveLine(line):
 
 def lineToPrimitive(line):
     shape = lineTypeToGLShape(line[1])
-    color = int(line[2])
+    color = int(line[2] , base=0)
     points = [float(x) for x in line[3:]]
     return (shape, color, points)
 
@@ -221,9 +244,6 @@ def lineToConditionalLine(line):
     d['control points'] = [float(x) for x in line[9:]]
     return d
 
-def isCommentLine(line):
-    return (len(line) > 1) and (line[1] == Comment)
-
 def isFileLine(line):
     return (len(line) > 2) and (line[1] == Comment) and (line[2] == FileCommand)
 
@@ -233,12 +253,9 @@ def isStepLine(line):
 def createStepLine():
     return ' '.join([Comment, StepCommand]) + lineTerm
 
-def isRotStepLine(line):
-    return (len(line) > 3) and (line[1] == Comment) and (line[2] == RotStepCommand)
-
 class LDrawFile(object):
 
-    def __init__(self, filename):
+    def __init__(self, filename, filepath = ""):
         """
         Create a new LDrawFile instance based on the passed in LDraw file string.
         
@@ -246,9 +263,10 @@ class LDrawFile(object):
             filename: dat | ldr | mpd filename (string) to load into this LDrawFile.  Do not include any path
         """
         
-        self.filename = filename      # filename, like 3057.dat
-        self.name = ""                # coloquial name, like 2 x 2 brick
-        self.isPrimitive = False      # Anything in the 'P' or 'Parts\S' directories
+        self.filename = filename  # filename, like 3057.dat
+        self.name = ""  # coloquial name, like 2 x 2 brick
+        self.filepath = filepath  # custom additional lookup path  
+        self.isPrimitive = False  # Anything in the 'P' or 'Parts\S' directories
         
         self.lineList = []
         self.readFileToLineList()  # Read the file from disk, and copy it to the line list
@@ -263,10 +281,12 @@ class LDrawFile(object):
             filename = os.path.join('48', filename[3:])
 
         # Build list of possible lookup paths
-        pathList = [filename, 
-                    os.path.join(LDrawPath, 'MODELS', filename),
-                    os.path.join(LDrawPath, 'PARTS', filename),
-                    os.path.join(LDrawPath, 'P', filename)]
+        pathList = [filename
+                    ,os.path.join(LDrawPath, 'MODELS', filename)
+                    ,os.path.join(LDrawPath, 'UNOFFICIAL', 'PARTS', filename)
+                    ,os.path.join(LDrawPath, 'UNOFFICIAL', 'P', filename)
+                    ,os.path.join(LDrawPath, 'PARTS', filename)
+                    ,os.path.join(LDrawPath, 'P', filename)]
 
         for p in pathList:
             if os.path.isfile(p):
@@ -274,23 +294,27 @@ class LDrawFile(object):
         return None
     
     def readFileToLineList(self):
-
+        # Check if part is in LDraw library locations or in custom location
         fullPath = LDrawFile.getPartFilePath(self.filename)
-        f = file(fullPath)
-
+        if not fullPath:
+            fullPath = os.path.join(self.filepath,self.filename)
+            
+        if fullPath:
+            f = file(fullPath)
+        
         # Check if this part is an LDraw primitive
-        sep = os.path.sep
-        if (sep + 's' + sep in fullPath) or (sep + 'P' + sep in fullPath):
-            self.isPrimitive = True
+            sep = os.path.sep
+            if (sep + 's' + sep in fullPath) or (sep + 'P' + sep in fullPath):
+                self.isPrimitive = True
 
         # Copy the file into an internal array, for easier access
-        i = 1
-        for l in f:
-            self.lineList.append([i] + l.split())
-            i += 1
-        f.close()
+            i = 1
+            for l in f:
+                self.lineList.append([i] + l.split())
+                i += 1
+            f.close()
         
-        self.name = ' '.join(self.lineList[0][2:])
+            self.name = ' '.join(self.lineList[0][2:]).decode("utf8" , "replace")
 
     def getSubmodels(self, filename):
         
@@ -298,11 +322,11 @@ class LDrawFile(object):
         submodels = [(filename, 0)]
         for i, l in enumerate(self.lineList[1:]):
             if isFileLine(l):
-                submodels.append((' '.join(l[3:]), i+1))  # + 1 because we start at line 1 not 0
+                submodels.append((' '.join(l[3:]), i + 1))  # + 1 because we start at line 1 not 0
         
         # Fixup submodel list by calculating the ending line number from the file
-        for i in range(0, len(submodels)-1):
-            submodels[i] = (submodels[i][0], [submodels[i][1], submodels[i+1][1]])
+        for i in range(0, len(submodels) - 1):
+            submodels[i] = (submodels[i][0], [submodels[i][1], submodels[i + 1][1]])
         
         # Last submodel is special case: its ending line is end of file array
         submodels[-1] = (submodels[-1][0], [submodels[-1][1], len(self.lineList)])

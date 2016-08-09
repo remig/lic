@@ -1,24 +1,31 @@
 """
-    Lic - Instruction Book Creation software
+    LIC - Instruction Book Creation software
     Copyright (C) 2010 Remi Gagne
+    Copyright (C) 2015 Jeremy Czajkowski
 
-    This file (LicUndoActions.py) is part of Lic.
+    This file (LicUndoActions.py) is part of LIC.
 
-    Lic is free software: you can redistribute it and/or modify
+    This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
-
-    Lic is distributed in the hope that it will be useful,
+   
+    This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
-
+   
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see http://www.gnu.org/licenses/
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from LicCommonImports import *
+from PyQt4.QtCore import SIGNAL, QPointF ,Qt
+from PyQt4.QtGui import QUndoCommand, QPixmap
+
+import LicGLHelpers
+import LicHelpers
+import LicLayout
+
 
 def resetGLItem(self, templateItem):
     instructions = templateItem.getPage().instructions
@@ -36,7 +43,7 @@ def resetGLItem(self, templateItem):
         instructions.mainModel.initAllPLILayouts()
 
     elif templateItem.itemClassName == "SubmodelPreview":
-        instructions.mainModel.initSubmodelImages()  # TODO: Template rotate Submodel Image is broken for nested submodels (viper.lic)
+        instructions.mainModel.initSubmodelImages()  
 
 NextCommandID = 122
 def getNewCommandID():
@@ -59,7 +66,8 @@ class MoveCommand(QUndoCommand):
     _id = getNewCommandID()
     
     def __init__(self, itemList):
-        QUndoCommand.__init__(self, "move Page Object")
+        cnt = itemList.__len__()
+        QUndoCommand.__init__(self, "move %d Page Object%s" % (cnt ,"s" if cnt > 1 else ""))
 
         self.itemList = []
         for item in itemList:
@@ -89,13 +97,15 @@ class ResizeCommand(QUndoCommand):
         else:
             self.item.setRect(rect)
 
-class LayoutItemCommand(QUndoCommand):  # TODO: Should be able to undo Step Layouts (for Create Callout, etc)
+class LayoutItemCommand(QUndoCommand):
 
     _id = getNewCommandID()
+    _names = {0:"horizontal ", 1:"vertical ", 2:"auto-"}
 
-    def __init__(self, target, originalLayout):
-        QUndoCommand.__init__(self, "auto-layout")
+    def __init__(self, target, originalLayout, layoutType=2):
+        QUndoCommand.__init__(self, "{0}layout".format(self._names[layoutType] if self._names.has_key(layoutType) else self._names[2]))
         self.target, self.originalLayout = target, originalLayout
+        self.target.layout.orientation = layoutType 
 
     def doAction(self, redo):
         if redo:
@@ -117,7 +127,7 @@ class CalloutArrowMoveCommand(QUndoCommand):
         self.arrow.parentItem().internalPoints = []
         self.arrow.update()
 
-class SetTextCommand(QUndoCommand):
+class CalloutBorderFitCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
@@ -130,7 +140,7 @@ class SetTextCommand(QUndoCommand):
         self.label.setText(text)
         self.label.data = lambda index: "Label: " + text
 
-class CalloutBorderFitCommand(QUndoCommand):
+class SetTextCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
@@ -181,7 +191,7 @@ class BeginEndDisplacementCommand(QUndoCommand):
     
     _id = getNewCommandID()
 
-    def __init__(self, part, direction, end = False):
+    def __init__(self, part, direction, end=False):
         if end:
             QUndoCommand.__init__(self, "Remove Part displacement")
             self.undo, self.redo = self.redo, self.undo
@@ -191,12 +201,16 @@ class BeginEndDisplacementCommand(QUndoCommand):
 
     def doAction(self, redo):
         part = self.part
+        backupPos = part.getCSI().pos()
         part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         part.addNewDisplacement(self.direction) if redo else part.removeDisplacement()
         part.scene().emit(SIGNAL("layoutChanged()"))
         part.getCSI().resetPixmap()
-        if part.originalPart: # Part is in Callout - resize Callout
+        if part.originalPart:  # Part is in Callout - resize Callout
             part.getStep().resetRect()
+            
+        part.getCSI().setPos(backupPos)
+            
 
 class ResizePageCommand(QUndoCommand):
 
@@ -243,7 +257,7 @@ class MoveStepToPageCommand(QUndoCommand):
     _id = getNewCommandID()
 
     def __init__(self, stepSet):
-        QUndoCommand.__init__(self, "move Step to Page")
+        QUndoCommand.__init__(self, "move Step%s to Page" % ("s" if stepSet.__len__() > 1 else ""))
         self.stepSet = stepSet
 
     def doAction(self, redo):
@@ -366,36 +380,6 @@ class AddRemoveLabelCommand(QUndoCommand):
             self.page.labels.remove(self.label)
             self.label.setParentItem(None)
 
-class ShowHideSubmodelsInPLICommand(QUndoCommand):
-
-    _id = getNewCommandID()
-
-    def __init__(self, templatePLI, show):
-        QUndoCommand.__init__(self, "%s Submodels in PLI" % ("show" if show else "remove"))
-        self.templatePLI, self.show = templatePLI, show
-
-    def doAction(self, redo):
-        self.templatePLI.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
-        show = (redo and self.show) or (not redo and not self.show)
-        self.templatePLI.__class__.includeSubmodels = show
-
-        for page in self.templatePLI.getPage().instructions.getPageList():
-            for step in page.steps:
-                for part in [p for p in step.csi.getPartList() if p.isSubmodel]:
-                    if show:
-                        step.enablePLI()
-                        if not part.isInPLI:
-                            step.pli.addPart(part)
-                    else:
-                        if part.isInPLI:
-                            step.pli.removePart(part)
-                        if step.pli.isEmpty():
-                            step.disablePLI()
-                    part.isInPLI = show
-                step.initLayout()
-
-        self.templatePLI.scene().emit(SIGNAL("layoutChanged()"))
-
 class ShowHideStepSeparatorCommand(QUndoCommand):
 
     _id = getNewCommandID()
@@ -405,14 +389,13 @@ class ShowHideStepSeparatorCommand(QUndoCommand):
         self.template, self.show = template, show
 
     def doAction(self, redo):
+        self.template.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         show = (redo and self.show) or (not redo and not self.show)
-        self.template.__class__.separatorsVisible = show
-
-        for s in self.template.separators:
-            s.enabled = show
-
+        self.template.separatorsVisible = show
+        [sep.setVisible(show) for sep in self.template.separators]
         for page in self.template.instructions.getPageList():
             page.showHideSeparators(show)
+        self.template.scene().emit(SIGNAL("layoutChanged()"))
 
 class AddRemoveRotateIconCommand(QUndoCommand):
 
@@ -491,7 +474,8 @@ class AddRemovePageCommand(QUndoCommand):
 
     def doAction(self, redo):
         page = self.page
-        self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        if self.scene:
+            self.scene.emit(SIGNAL("layoutAboutToBeChanged()"))
 
         if (redo and self.addPage) or (not redo and not self.addPage):
             page.submodel.addPage(page)
@@ -500,8 +484,9 @@ class AddRemovePageCommand(QUndoCommand):
             page.submodel.deletePage(page)
             number = page.number - 1
 
-        self.scene.emit(SIGNAL("layoutChanged()"))
-        self.scene.selectPage(number)
+        if self.scene:
+            self.scene.emit(SIGNAL("layoutChanged()"))
+            self.scene.selectPage(number)
         
 class AddRemoveTitlePageCommand(QUndoCommand):
     
@@ -548,9 +533,23 @@ class AddRemoveGuideCommand(QUndoCommand):
         if (redo and self.addGuide) or (not redo and not self.addGuide):
             self.scene.guides.append(self.guide)
             self.scene.addItem(self.guide)
+            
+            if self.scene.guides.__len__() > 1:
+                cg = self.guide.pos() 
+                for g in self.scene.guides:
+                    lg = g.pos()  
+                    if self.guide.orientation == g.orientation:
+                        if g.orientation == LicLayout.Horizontal:
+                            if cg[1] == lg[1]:
+                                cg = QPointF(cg[0], cg[1] + LicLayout.PageDefaultMargin)
+                        elif g.orientation == LicLayout.Vertical:
+                            if cg[0] == lg[0]:
+                                cg = QPointF(cg[0] + LicLayout.PageDefaultMargin, cg[1])
+                self.guide.setPos(cg)
         else:
             self.scene.removeItem(self.guide)
             self.scene.guides.remove(self.guide)
+    
 
 class AddRemoveAnnotationCommand(QUndoCommand):
 
@@ -585,13 +584,14 @@ class AddRemovePartToPLICommand(QUndoCommand):
     def doAction(self, redo):
 
         part, step = self.part, self.part.getStep()
+        if step.isInCallout():
+            step = step.parentItem().parentItem()  # Callout->Step
         pli = step.pli
 
         part.scene().emit(SIGNAL("layoutAboutToBeChanged()"))
         if (redo and self.addPart) or (not redo and not self.addPart):
             step.enablePLI()
             pli.addPart(part)
-            part.isInPLI = True
         else:
             pli.removePart(part)
             if pli.isEmpty():
@@ -606,7 +606,7 @@ class MovePartsToStepCommand(QUndoCommand):
     _id = getNewCommandID()
 
     def __init__(self, partList, newStep):
-        QUndoCommand.__init__(self, "move Part to Step")
+        QUndoCommand.__init__(self, "move Part%s to Step" % ("s" if partList.__len__() > 1 else ""))
         self.newStep = newStep
         self.partListStepPairs = [(p, p.getStep()) for p in partList]
 
@@ -623,20 +623,21 @@ class MovePartsToStepCommand(QUndoCommand):
                 continue
             startStep = oldStep if redo else step
             endStep = step if redo else oldStep
-            
-            part.setParentItem(None) # Temporarily set part's parent, so it doesn't get deleted by Qt
+             
+        # Temporarily set part's parent, so it doesn't get deleted by Qt
+            part.setParentItem(None)
             startStep.removePart(part)
             endStep.addPart(part)
-                
-            if part.isSubmodel:
+                 
+            if part.isSubmodel():
                 redoSubmodelOrder = True
             stepsToReset.add(oldStep.number)
-
+            
         if redoSubmodelOrder:
             mainModel = step.getPage().instructions.mainModel
             mainModel.reOrderSubmodelPages()
             mainModel.syncPageNumbers()
-        
+       
         step.scene().emit(SIGNAL("layoutChanged()"))
 
         # Need to refresh each step between the lowest and highest numbers
@@ -680,6 +681,7 @@ class RemovePartsFromCalloutCommand(QUndoCommand):
 
         for part, step in self.partStepList:
             if redo:
+                part.setParentItem(None)
                 self.callout.removePart(part)
             else:
                 self.callout.addPart(part, step)
@@ -736,7 +738,7 @@ class SwitchToNextCalloutBase(QUndoCommand):
         if (redo and self.doSwitch) or (not redo and not self.doSwitch):
             newCallout = self.callout.mergedCallouts.pop(0)
             parent.addCallout(newCallout)
-            newCallout.mergeCallout(self.callout, append = True)
+            newCallout.mergeCallout(self.callout, append=True)
         else:
             newCallout = self.callout.mergedCallouts.pop()
             parent.addCallout(newCallout)
@@ -759,6 +761,7 @@ class ChangeAnnotationPixmap(QUndoCommand):
     def doAction(self, redo):
         filename = self.newFilename if redo else self.oldFilename
         self.annotation.setPixmap(QPixmap(filename))
+        self.annotation.adjustToPageSize()
 
 class ToggleAnnotationOrderCommand(QUndoCommand):
 
@@ -849,11 +852,13 @@ class ScaleItemCommand(QUndoCommand):
     _id = getNewCommandID()
 
     def __init__(self, target, oldScale, newScale):
-        QUndoCommand.__init__(self, "Item Scale")
+        role = target.data(Qt.AccessibleTextRole)
+        role = role.toPyObject() if hasattr(role, "toPyObject") else role
+        QUndoCommand.__init__(self, "%s scale" % role)
         self.target, self.oldScale, self.newScale = target, oldScale, newScale
 
     def doAction(self, redo):
-        self.target.scaling = self.newScale if redo else self.oldScale
+        self.target.scaling = self.oldScale if redo else self.newScale
         self.target.resetPixmap() 
         self.target.getPage().initLayout()
 
@@ -862,11 +867,13 @@ class RotateItemCommand(QUndoCommand):
     _id = getNewCommandID()
 
     def __init__(self, target, oldRotation, newRotation):
-        QUndoCommand.__init__(self, "Item rotation")
+        role = target.data(Qt.AccessibleTextRole)
+        role = role.toPyObject() if hasattr(role, "toPyObject") else role        
+        QUndoCommand.__init__(self, "%s rotation" % role)
         self.target, self.oldRotation, self.newRotation = target, oldRotation, newRotation
-
+        
     def doAction(self, redo):
-        self.target.rotation = list(self.newRotation) if redo else list(self.oldRotation)
+        self.target.rotation = list(self.oldRotation) if redo else list(self.newRotation)
         self.target.resetPixmap() 
         self.target.getPage().initLayout()
 
@@ -874,29 +881,25 @@ class ScaleDefaultItemCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, templateItem, oldScale, newScale):
+    def __init__(self, target, templateItem, oldScale, newScale):
         QUndoCommand.__init__(self, "Change default %s Scale" % templateItem.itemClassName)
-        self.templateItem = templateItem
+        self.target, self.templateItem = target, templateItem
         self.oldScale, self.newScale = oldScale, newScale
 
     def doAction(self, redo):
-        scale = self.newScale if redo else self.oldScale
-        self.templateItem.changeDefaultScale(scale)
-        self.resetGLItem(self.templateItem)
-        self.templateItem.update()  # Need this to force full redraw
+        self.target.defaultScale = self.oldScale if redo else self.newScale
             
 class RotateDefaultItemCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, templateItem, oldRotation, newRotation):
+    def __init__(self, target, templateItem, oldRotation, newRotation):
         QUndoCommand.__init__(self, "Change default %s rotation" % templateItem.itemClassName)
-        self.templateItem = templateItem
+        self.target, self.templateItem = target, templateItem
         self.oldRotation, self.newRotation = oldRotation, newRotation
 
     def doAction(self, redo):
-        rotation = list(self.newRotation) if redo else list(self.oldRotation)
-        self.templateItem.changeDefaultRotation(rotation)
+        self.target.defaultRotation = list(self.oldRotation) if redo else list(self.newRotation)
         self.resetGLItem(self.templateItem)
 
 class SetPageNumberPosCommand(QUndoCommand):
@@ -923,7 +926,11 @@ class SetPageBackgroundColorCommand(QUndoCommand):
 
     def doAction(self, redo):
         color = self.newColor if redo else self.oldColor
-        self.template.instructions.templateSettings.Page.backgroundColor = color
+        self.template.setColor(color)
+        self.template.update()
+        for page in self.template.instructions.getPageList():
+            page.color = color
+            page.update()
 
 class SetPageBackgroundBrushCommand(QUndoCommand):
 
@@ -935,33 +942,51 @@ class SetPageBackgroundBrushCommand(QUndoCommand):
 
     def doAction(self, redo):
         brush = self.newBrush if redo else self.oldBrush
-        self.template.instructions.templateSettings.Page.brush = brush
+        self.template.setBrush(brush)
+        self.template.update()
+        for page in self.template.instructions.getPageList():
+            page.setBrush(brush)
+            page.update()
 
 class SetPenCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, target, oldPen, newPen = None, penSetter = "setPen"):
+    def __init__(self, target, oldPen, newPen=None, penSetter="setPen"):
         QUndoCommand.__init__(self, "change Border")
         self.target, self.oldPen, self.penSetter = target, oldPen, penSetter
         self.newPen = newPen if newPen else target.pen()
+        self.template = target.getPage()
 
     def doAction(self, redo):
         pen = self.newPen if redo else self.oldPen
         self.target.__getattribute__(self.penSetter)(pen)
+        self.target.update()
+        for page in self.template.instructions.getPageList():
+            for child in page.getAllChildItems():
+                if self.target.itemClassName == child.itemClassName:
+                    child.__getattribute__(self.penSetter)(pen)
+                    child.update()
 
 class SetBrushCommand(QUndoCommand):
 
     _id = getNewCommandID()
 
-    def __init__(self, target, oldBrush, newBrush = None, text = "change Fill"):
+    def __init__(self, target, oldBrush, newBrush=None, text="change Fill"):
         QUndoCommand.__init__(self, text)
         self.target, self.oldBrush = target, oldBrush
         self.newBrush = newBrush if newBrush else target.brush()
+        self.template = target.getPage()
 
     def doAction(self, redo):
         brush = self.newBrush if redo else self.oldBrush
         self.target.setBrush(brush)
+        self.target.update()
+        for page in self.template.instructions.getPageList():
+            for child in page.getAllChildItems():
+                if self.target.itemClassName == child.itemClassName:
+                    child.setBrush(brush)
+                    child.update()
     
 class SetItemFontsCommand(QUndoCommand):
 
@@ -977,7 +1002,7 @@ class SetItemFontsCommand(QUndoCommand):
             self.template.numberItem.setFont(font)
             for page in self.template.instructions.getPageList():
                 page.numberItem.setFont(font)
-
+                
         elif self.target == 'Step':
             self.template.steps[0].numberItem.setFont(font)
             for page in self.template.instructions.getPageList():
@@ -1006,23 +1031,6 @@ class SetItemFontsCommand(QUndoCommand):
             for page in self.template.instructions.getPageList():
                 if page.submodelItem and page.submodelItem.hasQuantity():
                     page.submodelItem.numberItem.setFont(font)
-
-        elif self.target == 'Callout Step':
-            self.template.steps[0].callouts[0].steps[0].numberItem.setFont(font)
-            for page in self.template.instructions.getPageList():
-                for step in page.steps:
-                    for callout in step.callouts:
-                        for step in callout.steps:
-                            if step.numberItem is not None:
-                                step.numberItem.setFont(font)
-
-        elif self.target == 'Callout Quantity':
-            self.template.steps[0].callouts[0].qtyLabel.setFont(font)
-            for page in self.template.instructions.getPageList():
-                for step in page.steps:
-                    for callout in step.callouts:
-                        if callout.qtyLabel is not None:
-                            callout.qtyLabel.setFont(font)
 
 class TogglePLIs(QUndoCommand):
 
@@ -1134,77 +1142,70 @@ class SubmodelToCalloutCommand(QUndoCommand):
         
     def redo(self):
         # Convert a Submodel into a Callout
-
+        
         self.targetStep = self.parentModel.findSubmodelStep(self.submodel)
-        instructions = self.targetStep.getPage().instructions
-        
-        targetModel = self.submodel._parent
-        
         scene = self.targetStep.scene()
         scene.clearSelection()
         scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        scene.lockApp(True)
         
         self.targetCallout = self.targetStep.addBlankCalloutSignal(False, False)
+        self.targetCallout.submodelname = self.submodel.getSimpleName()
 
-        # Find each instance of this submodel on the target page
-        self.submodelInstanceList = []
-        self.addedParts = []
+        # Find each instance of this submodel on the target page   
+        self.submodelInstanceList = []   
         for part in self.targetStep.csi.getPartList():
             if part.abstractPart == self.submodel:
-                part.setParentItem(None) # Temporarily set part's parent, so it doesn't get deleted by Qt
-                self.targetStep.removePart(part)
-                targetModel.parts.remove(part)
                 self.submodelInstanceList.append(part)
-
+                part.setParentItem(None)
+                self.targetStep.removePart(part)
+                
+        self.addedParts = []
         calloutDone = False
         for submodelPart in self.submodelInstanceList:
             for page in self.submodel.pages:
                 for step in page.steps:
                     for part in step.csi.getPartList():
-                        newPart = part.duplicate()
-                        originalMatrix = newPart.matrix
-                        newPart.matrix = LicHelpers.multiplyMatrices(newPart.matrix, submodelPart.matrix)
-                        self.addedParts.append(newPart)
-                        targetModel.parts.append(newPart)
-                        
-                        self.targetStep.addPart(newPart)
-                        if not calloutDone:
-                            calloutPart = newPart.duplicate()
-                            calloutPart.matrix = list(originalMatrix)
-                            self.targetCallout.addPart(calloutPart)
+                        part.matrix = LicHelpers.multiplyMatrices(part.matrix, submodelPart.matrix)
+                        self.addedParts.append(part)
+                        self.targetStep.addPart(part)
 
+                        if not calloutDone:
+                            self.targetCallout.addPart(part)
+                            
                     if step != page.steps[-1] and not calloutDone:
                         self.targetCallout.addBlankStep(False)
                             
             calloutDone = True
-        
+                        
         if len(self.submodelInstanceList) > 1:
             self.targetCallout.setQuantity(len(self.submodelInstanceList))
             
         for step in self.targetCallout.steps:
-            step.csi.resetPixmap()
+            step.csi.resetPixmap()      
+        
         self.targetStep.initLayout()
         self.targetCallout.initLayout()
-                    
+        
         self.parentModel.removeSubmodel(self.submodel)
-        instructions.partDictionary.pop(self.submodel.filename)
         scene.emit(SIGNAL("layoutChanged()"))
-
-        instructions.updateMainModel()
-
+        scene.lockApp(False)
+        
         scene.selectPage(self.targetStep.parentItem().number)
         self.targetCallout.setSelected(True)
         scene.emit(SIGNAL("sceneClick"))
-        
+ 
     def undo(self):
         # Convert a Callout into a Submodel
         # For now, assume this really is an undo, and we have a fully defined self.submodel, targetStep and targetCallout 
         
         scene = self.targetStep.scene()
         scene.clearSelection()
-        scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        scene.emit(SIGNAL("layoutAboutToBeChanged()"))      
+        scene.lockApp(True)  
         
         for part in self.addedParts:
+            part.setParentItem(None)
             self.targetStep.removePart(part)
 
         for submodel in self.submodelInstanceList:
@@ -1215,11 +1216,12 @@ class SubmodelToCalloutCommand(QUndoCommand):
         self.targetStep.removeCallout(self.targetCallout)
         self.targetStep.initLayout()
         scene.emit(SIGNAL("layoutChanged()"))
+        scene.lockApp(False)
 
         scene.selectPage(self.submodel.pages[0].number)
         self.submodel.pages[0].setSelected(True)
         scene.emit(SIGNAL("sceneClick"))
-
+        
 class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
 
     _id = getNewCommandID()
@@ -1233,6 +1235,7 @@ class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
         scene = callout.scene()
         scene.clearSelection()
         scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        scene.lockApp(True)
 
         partList = callout.getOriginalPartList()
         self.targetStep = callout.parentItem()
@@ -1245,11 +1248,11 @@ class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
             submodel.pages[0].steps[0].addPart(part)
             self.targetStep.removePart(part)
 
-        submodel.addInitialPagesAndSteps()
+        submodel.addInitialPagesAndSteps(False)
         submodel.mergeInitialPages()
         if submodel.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
             submodel.createGLDisplayList()
-#        submodel.resetPixmap(callout.getContext(), True)
+        submodel.resetPixmap(callout.getPage().instructions.glContext)
 
         self.newPart = submodel.createBlankPart()
         self.newPart.abstractPart = submodel
@@ -1262,6 +1265,7 @@ class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
         self.submodel = submodel
 
         scene.emit(SIGNAL("layoutChanged()"))
+        scene.lockApp(False)
 
         scene.selectPage(submodel.pages[0].number)
         submodel.pages[0].setSelected(True)
@@ -1271,6 +1275,7 @@ class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
         scene = self.targetStep.scene()
         scene.clearSelection()
         scene.emit(SIGNAL("layoutAboutToBeChanged()"))
+        scene.lockApp(True)
 
         self.targetStep.removePart(self.newPart)
         self.parentModel.removeSubmodel(self.submodel)
@@ -1282,6 +1287,8 @@ class CalloutToSubmodelCommand(SubmodelToCalloutCommand):
         self.callout.initLayout()
 
         scene.emit(SIGNAL("layoutChanged()"))
+        scene.lockApp(False)
+        
         scene.selectPage(self.targetStep.parentItem().number)
         self.callout.setSelected(True)
         scene.emit(SIGNAL("sceneClick"))
@@ -1330,7 +1337,7 @@ class ClonePageStepsFromSubmodel(QUndoCommand):
         for page in list(dest.pages):
             dest.deletePage(page)
 
-        # Now have totally empty dest, and submodel with lots of pages & steps
+        # Now have toally empty dest, and submodel with lots of pages & steps
         # Add the right number of blank pages and steps
         for page in self.target.pages:
             dest.appendBlankPage()
@@ -1354,13 +1361,14 @@ class ClonePageStepsFromSubmodel(QUndoCommand):
                 # Remove all parts in submodel's current Step from the list of parts to be moved to next step
                 partList = currentStep.csi.getPartList()
                 for part in step.csi.getPartList():
-                    matchList = [(p.getPositionMatch(part),  p) for p in partList if p.color == part.color and p.filename == part.filename]
+                    matchList = [(p.getPositionMatch(part), p) for p in partList if p.color == part.color and p.filename == part.filename]
                     if matchList:
                         partList.remove(max(matchList)[1])
                     else:  # Try finding a match by ignoring color 
-                        matchList = [(p.getPositionMatch(part),  p) for p in partList if p.filename == part.filename]
+                        matchList = [(p.getPositionMatch(part), p) for p in partList if p.filename == part.filename]
                         if matchList:
-                            partList.remove(max(matchList)[1])  # no match list means submodel has part not in dest, which we ignore utterly, which is fine
+                            # no match list means submodel has part not in dest, which we ignore utterly, which is fine
+                            partList.remove(max(matchList)[1])
 
                 for part in partList:  # Move all parts to the next step
                     part.setParentItem(nextStep)

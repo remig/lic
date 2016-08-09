@@ -1,0 +1,182 @@
+3.0.000-------------------------------------------------------------------------------------------
+:: Fix dialog position of MessageDlg
+:: Fix displaying content in LicModelBoxAssistant
+:: Using Image.frombytes instead of Image.fromstring
+:: support -ldd option in L3P execution
+:: Migrate writing command line arguments of L3P and POV-Ray into activity.log 
+:: On Windows operating system using %APPDATA%, in other case use os.getcwd method
+:: Ability to set the network address of which are to be downloaded additional files
+:: LicBinaryReader support Unicode characters
+:: Fix contextMenuEvent method for QGraphicsSimpleTextItem  /LicTreeView/
+:: Resolve updatePersistentIndices method warnings and disable monitoring  /LicTreeModel/
+:: Rename 'Auto Layout' menu option on 'Reset Layout'
+:: Fix file name of exported Submodel
+:: Fix getCSI method  /Part/
+:: Can move up to 3 parts at once from multiple steps to dedicated step  /LicPlacementAssistant/
+:: Added 'calculate Quantity' ,'select Sibling' to PLIItem context menu
+:: OSX system not supported by build.py script
+:: Rename LicWindow.showAssistant on LicWindow.toggleShortcutsDialog
+:: Improved setItemtoMove method  /LicPlacementAssistant/
+:: Can change multiple parts color at once
+:: Fix AttributeError in snap method  /LicGraphicsScene/
+:: Added new possibilities for removal of guidelines
+:: Can put in line selected parts on part list
+:: Changed exportToPOV method
+:: Added exception handling to drawOneItem  /LicGraphicsScene/
+2.1.109-------------------------------------------------------------------------------------------
+:: Remove menu option "Restore Original"
+:: Fix AttributeError issue in ColorButton
+:: Added support of AccessibleDescriptionRole in data method  /LicTreeModel,PLIItemTreeManager/
+:: Improved selectNextPart method
+:: For first run can automatically check for database updates
+:: Adds timestamp of last successful update
+:: Added acceleration for slow points in PyOpenGL  /pyopengl-accelerate-3.1.0/
+:: Fix MemoryError in _getBounds method  /LicGLHelpers/
+:: Zoom work when only vertical ScrollBar is showed
+:: Improved MessageDlg
+:: Fix thread issues in LicWorker
+:: Can set what part must be excluded when measuring main model
+:: Added base plates code as array BASEPLATES_FILE  /LicHelpers/
+:: determinePartCode method are now case insensitivity  /LicHelpers/ 
+:: Improved LicDownloadAssistant
+:: Can display informations about main model and subordinate models geometry
+:: Can import file without extension with Import Wizard
+:: Can save|restore tree view options
+:: 'Expand' action from tool bar not work on 'Template' node  /LicTreeView/
+:: Remember now latest import location for new parts
+:: Can import new part to instruction book from custom additional directory
+:: Develop lockApp method for long & lazy operations  /LicGraphicsWidget/
+:: calloutPart attribute be set properly by __readCallout method  /LicBinaryReader/ 
+:: Fix getOriginalPartList method  /Callout/
+:: Remember subordinate model name when convert Callout <=> Submodel
+:: Fix ZeroDivisionError in _adjustRow method  /GridLayout/
+:: Fix KeyError in __readInstructions method for partDict  /LicBinaryReader/
+:: AddRemovePartToPLICommand support correctly parts in callout
+:: PARTS_PER_STEP_MAX moved to LicLayout from LicModel.Step
+:: Fix 'Assigment to reserved built-in symbol' warning
+:: MovePartsToStepCommand do not loose elements size before|after operation 
+:: Can export single subordinate model to external file
+:: updatePersistentIndices method monitoring error to event log file  /LicTreeModel/
+:: Added support of logging  /build.py/
+2.0.039-------------------------------------------------------------------------------------------
+:: Do some issue ScaleDefaultItemCommand not use full draw 
+:: Handle NoneType for deletePersistentItem
+:: Fix RuntimeError of wrapped C/C++ object for SubmodelToCalloutCommand /LicUndoActions/
+:: Fix KeyError into __readTemplate and __readPLIItem /LicBinaryReader/
+:: clearSelection do not infect saveSelection and restoreSelection /LicGraphicsScene/
+:: Layout orientation actually remember in undo stack
+:: Can change layout orientation for selected pages in one time
+:: Can remove empty|blank pages automatically 
+:: Can expand only children of selected node in tree view 
+:: Added new shortcuts
+:: Improve LicJumper
+:: Change tool bar icon size to 18 pixels
+:: Re-grouped tool bar actions
+:: Lock icon use SmoothTransformation and ItemIgnoresTransformations flags now
+:: NOTE: build.py on windows use now PYTHONHOME environment variable
+2.0.016-------------------------------------------------------------------------------------------
+:: Fix TypeError and AttributeError for CalloutToSubmodelCommand
+:: Fix bugs and Improved scaling and rotation
+:: Fix child method /CSITreeManager/
+:: Added labels to AdjustAreaDialog
+:: Added new shortcuts
+:: Added new actions to PLIItem's context menu  
+:: Added ability to jump to selected step or page with construction steps
+1.0.155-------------------------------------------------------------------------------------------
+:: Enabled point finder tool when Adjust view
+:: Fix some major bugs
+:: getCodesFile use grayscalePath and moved to LicHelpers
+:: Improve usability of LicPlacementAssistant
+:: Unknown design number is reported to log file
+:: NOTE: build.py use now absolute path of own location as root directory
+1.0.105-------------------------------------------------------------------------------------------
+:: Fix Part List Image and Construction Step Image area and position on import
+:: When height and width of preview of submodel less that 100px, set both as 300px
+:: Fix usage of keyS: PageDown, PageUp, Home, End
+:: Added LicWorker.terminate method
+:: Disabled point finder tool when Adjust view
+1.0.000-------------------------------------------------------------------------------------------
+:: Improved positioning of preview of submodel /add margins, etc./
+:: Improved usability of guide lines
+:: Introduce utility for clean-up of instruction book
+:: Handling QThread class to stop freezing application one some behaviors 
+:: Handling AttributeError exception in BaseTreeManager 
+:: Re-organize imports
+:: Added PageDefaultMargin variable into LicLayout
+:: Assign SubmodelPreview._margin variable to LicLayout.PageDefaultMargin
+:: Assign EditableTextItem._margin variable to LicLayout.PageDefaultMargin
+:: Added ability to show | hide margins of page
+:: Added SUBWINDOW_BACKGROUND variable for Assistants
+:: Added topIndex read-only property for LicTreeView
+:: Remember now latest selected page ,step oor other element on scene 
+:: Custom color 0x04 recognized now as opaque, not transparent dither
+:: Export support custom colors as string containing an integer as hexadecimal
+:: Added notification when export collection of Multi-Part LDraw Files is done
+:: Handling AttributeError for duplicate method of Part class
+:: Turn off context menu for multiple selection on LicTreeView
+:: Added shortcut to explore cache directory
+:: Improved adjusting the amount of the displacement of a part 
+:: Assistant has a length established by the number of typed shortcuts
+:: Added surfix 'Log' to L3PAccess and POVAccess name in configuration file
+:: Cleaned all instance of contextMenuEvent
+:: Added ability to move one part between step of different pages
+:: Added ability to show | hide design number of parts
+:: Improved usability of annotation
+:: Change restore path to cache model directory, for handling IOError exception
+:: Re-opening ability available only on saved instruction
+:: Added function that adjust view so that all elements are visible /PLIItem ,etc./
+:: Fix group of miscellaneous bugs
+:: Update placeholder when the has unsaved changes on scene /LicWindow.fileSave/
+:: Added ExtendedLabel.setSwitchablePixmap method
+:: Added ExtendedLabel.switched property
+:: Set cursor on PointingHandCursor for ExtendedLabel 
+:: Set the value of step to ten for XYZWidget
+:: Move SUBWINDOW_BACKGROUND from LicAssistantWidget to LicHelpers
+:: Added LicGraphicsScene.catchTheMouse property
+:: SubmodelPreview.moveTo connected to undo stack
+:: LicUndoActions.MoveCommand use Qt.AccessibleTextRole or the number of objects
+:: Changed StaticGuide on FixedGuide
+:: Changed menu item label "Toggle Margins" on "Show Margins" and set as checkable
+:: Merge setAlignLeftSignal, setAlignRightSignal, setAlignHCentreSignal into setAlign /EditableTextItem/
+:: Connect EditableTextItem.setAlign to undo stack
+:: Added support of Qt.WhatsThisRole | Qt.AccessibleTextRole role
+:: Added horizontal and vertical ruler
+:: Resolve saveSelection, restoreSelection method /LicGraphicsScene/
+:: Supplemented descriptions for items in main menu
+:: NOTE: Template elements are no longer movable
+0.9.002-------------------------------------------------------------------------------------------
+:: Set minimum size of width and height of application 
+:: Assistant now display properly 
+:: Fix group of miscellaneous bugs
+:: Key TAB can now work in loop
+:: Added ability to re-opening current Instruction book
+:: Disable real-time preview for speed-up and avoid crash situation
+:: Added the ability to positioning the preview of sub-model from then menu
+:: LicColor class can now use colors from LDConfig.ldr file
+:: Remember now latest import location
+:: Re-organize configuration file
+:: Added switch options to monitoring L3P ,POV-Ray activities
+:: Added option to restore data source of imported model
+:: Added delimitation of the notification area for tool-tip and other 
+:: Added information about value of current zoom
+:: Handling AttributeError exception for: 
+:: - getPartBoundingBox
+:: - callGLDisplayList
+:: - renderFinalImageWithPov 
+:: - updatePersistentIndices 
+:: Rewritten LicPovrayWrapper class
+:: Provided information about license and author 
+:: Support of custom colors of user /0x, opaque; 0x02, opaque; 0x03, 50% Alpha/
+:: Support of invisible color /0x07, 10% Alpha/
+:: NOTICE: POV-Ray calls work only on instruction without submodels
+0.8.501-------------------------------------------------------------------------------------------
+:: Added support of import models created by SR 3DBuilder
+:: Fix some major bugs when generate images with POV-Ray
+:: Major improvements in error handling
+:: Support technique of DRag & DRop for open|import models 
+:: Upgrade user interface
+:: Create Assistant
+:: Fix group of miscellaneous bugs
+:: Implemented information about estimated time of loading model
+:: Support of command line arguments
+:: Re-arrange __main__ executing 

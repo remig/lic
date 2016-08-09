@@ -1,33 +1,31 @@
 """
-    Lic - Instruction Book Creation software
+    LIC - Instruction Book Creation software
     Copyright (C) 2010 Remi Gagne
+    Copyright (C) 2015 Jeremy Czajkowski
 
-    This file (LicInstructions.py) is part of Lic.
+    This file (LicInstructions.py) is part of LIC.
 
-    Lic is free software: you can redistribute it and/or modify
+    This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
-
-    Lic is distributed in the hope that it will be useful,
+   
+    This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
-
+   
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see http://www.gnu.org/licenses/
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from LicCommonImports import *
+import sys
 
-from PIL import Image
+from PyQt4.QtCore import *
 
-from LicTemplateSettings import TemplateSettings
-from LicHelpers import LicColor, LicColorDict
-from LicCustomPages import Page, TitlePage
+from LicCustomPages import *
 from LicModel import *
-import LicImporters
-import LDrawColors
+
 
 class Instructions(QObject):
     itemClassName = "Instructions"
@@ -37,14 +35,17 @@ class Instructions(QObject):
 
         self.scene = scene
         self.mainModel = None
-        self.colorDict = LicColorDict()  # Dict of all valid LicColor instances for this particular model, indexed by LDraw color code
-        self.partDictionary = {}      # x = AbstractPart("3005.dat"); partDictionary[x.filename] == x
-        self.templateSettings = TemplateSettings()
-        
+        # Dict of all valid LicColor instances for this particular model, indexed by LDraw color code
+        self.colorDict = LicHelpers.LicColorDict()  
+        # x = AbstractPart("3005.dat"); partDictionary[x.filename] == x
+        self.partDictionary = {}    
+        # custom Directory from which we import parts
+        self.partImportDirectory = "."  
+
         self.glContext = glWidget
         self.glContext.makeCurrent()
-
-        self.__loadLDrawColors()
+        
+        self.setOriginalContent()
 
     def __getTemplate(self):
         return self.mainModel.template
@@ -53,8 +54,12 @@ class Instructions(QObject):
         if (self.mainModel.template is None):
             self.mainModel.incrementRows(1)
         self.mainModel.template = template
+        
+    def __getModelcontent(self):
+        return self.__modelcontent
 
     template = property(__getTemplate, __setTemplate)
+    modelcontent = property(__getModelcontent)
 
     def clear(self):
 
@@ -64,29 +69,34 @@ class Instructions(QObject):
 
         self.mainModel = None
         self.partDictionary = {}
+        Page.PageSize = Page.defaultPageSize
+        Page.Resolution = Page.defaultResolution
+        CSI.defaultScale = PLI.defaultScale = SubmodelPreview.defaultScale = 1.0
+        CSI.defaultRotation = [20.0, 45.0, 0.0]
+        PLI.defaultRotation = [20.0, -45.0, 0.0]
         CSI.highlightNewParts = False
+        SubmodelPreview.defaultRotation = [20.0, 45.0, 0.0]
         LicGLHelpers.resetLightParameters()
         self.glContext.makeCurrent()
-        
-    def resetTemplateSettings(self):
-        self.templateSettings = TemplateSettings()
 
     def importModel(self, filename):
 
+        # Create and fill with data main model instance
         self.mainModel = Mainmodel(self, self, filename)
         self.mainModel.appendBlankPage()
         self.mainModel.importModel()
-        
+
+        # Initializing Pages and Steps
         self.mainModel.syncPageNumbers()
         self.mainModel.addInitialPagesAndSteps()
-        
+                    
         submodelCount = self.mainModel.submodelCount()
         pageList = self.mainModel.getPageList()
-        pageList.sort(key = lambda x: x._number)
+        pageList.sort(key=lambda x: x._number)
         totalCount = len(self.partDictionary) + len(self.mainModel.getCSIList()) + submodelCount  # Rough count only
 
         yield totalCount  # Special first value is maximum number of progression steps in load process
-
+        
         yield "Initializing GL display lists"
         for label in self.initGLDisplayLists():  # generate all part GL display lists on the general glWidget
             yield label
@@ -95,12 +105,12 @@ class Instructions(QObject):
             yield label
 
         yield "Initializing CSI Dimensions"
-        for label in self.initCSIDimensions():   # Calculate width and height of each CSI in this instruction book
+        for label in self.initCSIDimensions():  # Calculate width and height of each CSI in this instruction book
             yield label
 
         yield "Initializing Submodel Images"
         self.mainModel.addSubmodelImages()
-
+                
         yield "Laying out Pages"
         for page in pageList:
             page.initLayout()
@@ -160,31 +170,7 @@ class Instructions(QObject):
             csi.createGLDisplayList()
             i += 1
 
-    def getAbstractPart(self, filename):
-        pd = self.partDictionary
-        part = None
-
-        if filename in pd:
-            part = pd[filename]
-        elif filename.upper() in pd:
-            part = pd[filename.upper()]
-        else:
-            # Set up dynamic module to be used for import 
-            importerName = LicImporters.getImporter(os.path.splitext(filename)[1][1:])
-            importModule = __import__("LicImporters.%s" % importerName, fromlist = ["LicImporters"])
-            importModule.LDrawPath = LicConfig.LDrawPath
-
-            part = AbstractPart(filename)
-            importModule.importPart(filename, self.getProxy(), part)
-            pd[filename] = part
-
-        if part.glDispID == LicGLHelpers.UNINIT_GL_DISPID:
-            part.createGLDisplayList()
-            part.resetPixmap(self.glContext, self.templateSettings)
-            
-        return part
-
-    def getPartDimensionListAndCount(self, reset = False):
+    def getPartDimensionListAndCount(self, reset=False):
         if reset:
             partList = [part for part in self.partDictionary.values() if (not part.isPrimitive)]
         else:
@@ -195,7 +181,7 @@ class Instructions(QObject):
         partStepCount = int(len(partList) / partDivCount)
         return (partList, partStepCount, partDivCount)
     
-    def initPartDimensions(self, reset = False):
+    def initPartDimensions(self, reset=False):
         """
         Calculates each uninitialized part's display width and height.
         Creates GL buffer to render a temp copy of each part, then uses those raw pixels to determine size.
@@ -205,10 +191,11 @@ class Instructions(QObject):
         currentPartCount = currentCount = 0
 
         if not partList:
-            return    # If there's no parts to initialize, we're done here
+            return  # If there's no parts to initialize, we're done here
 
         partList2 = []
-        sizes = [128, 256, 512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
+        # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels
+        sizes = [128, 256, 512, 1024, 2048] 
 
         for size in sizes:
 
@@ -219,11 +206,11 @@ class Instructions(QObject):
             # Render each image and calculate their sizes
             for abstractPart in partList:
 
-                if abstractPart.initSize(size, pBuffer, self.templateSettings):  # Draw image and calculate its size:                    
+                if abstractPart.initSize(size, pBuffer):  # Draw image and calculate its size:                    
                     currentPartCount += 1
                     if not currentPartCount % partDivCount:
                         currentPartCount = 0
-                        currentCount +=1
+                        currentCount += 1
                         yield "Initializing Part Dimensions (%d/%d)" % (currentCount, partStepCount)
                 else:
                     partList2.append(abstractPart)
@@ -235,18 +222,22 @@ class Instructions(QObject):
                 partList2 = []
 
     def setAllCSIDirty(self):
-        if (self.mainModel):
-            csiList = self.mainModel.getCSIList()
-            for csi in csiList:
-                csi.isDirty = True
-
-    def updateMainModel(self, updatePartList = True):
+        csiList = self.mainModel.getCSIList()
+        for csi in csiList:
+            csi.isDirty = True
+    
+    def setOriginalContent(self , name="", content=[]):
+        self.__modelcontent = {}
+        self.__modelcontent["name"] = name
+        self.__modelcontent["content"] = content
+        
+    def updateMainModel(self, updatePartList=True):
         if self.mainModel.hasTitlePage():
             self.mainModel.titlePage.submodelItem.resetPixmap()
         if updatePartList:
             self.mainModel.updatePartList()
 
-    def initCSIDimensions(self, repositionCSI = False):
+    def initCSIDimensions(self, repositionCSI=False):
 
         self.glContext.makeCurrent()
 
@@ -255,7 +246,9 @@ class Instructions(QObject):
             return  # All CSIs initialized - nothing to do here
 
         csiList2 = []
-        sizes = [512, 1024, 2048] # Frame buffer sizes to try - could make configurable by user, if they've got lots of big submodels or steps
+        # Frame buffer sizes to try - could make configurable by user, 
+        # if they've got lots of big submodels or steps
+        sizes = [512, 1024, 2048] 
 
         for size in sizes:
 
@@ -280,12 +273,17 @@ class Instructions(QObject):
             if len(csiList2) < 1:
                 break  # All images initialized successfully
             else:
-                csiList = csiList2  # Some images rendered out of frame - loop and try bigger frame
+                # Some images rendered out of frame - loop and try bigger frame
+                csiList = csiList2  
                 csiList2 = []
 
         self.glContext.makeCurrent()
 
-    def exportImages(self, scaleFactor = 1.0):
+    def exportToPOV(self):
+        self.mainModel.createPng()
+        self.mainModel.exportImagesToPov()
+        
+    def exportImages(self, scaleFactor=1.0):
         
         pagesToDisplay = self.scene.pagesToDisplay
         self.scene.clearSelection()
@@ -294,8 +292,8 @@ class Instructions(QObject):
 
         # Build the list of pages that need to be exported
         pageList = self.mainModel.getFullPageList()
-        pageList.sort(key = lambda x: x._number)
-        yield len(pageList) # Special first value is number of steps in export process
+        pageList.sort(key=lambda x: x._number)
+        yield len(pageList)  # Special first value is number of steps in export process
 
         currentPageNumber = self.scene.currentPage._number  # Store this so we can restore selection later
         bufferManager = None
@@ -312,8 +310,7 @@ class Instructions(QObject):
             for page in pageList:
 
                 page.lockIcon.hide()
-
-                exportedFilename = os.path.join(LicConfig.glImageCachePath(), "Page_%d.png" % page.number)
+                exportedFilename = page.getGLImageFilename()
 
                 bufferManager.bindMSFB()
                 LicGLHelpers.initFreshContext(True)
@@ -344,14 +341,8 @@ class Instructions(QObject):
                 self.scene.render(painter, QRectF(0, 0, w, h))
     
                 painter.end()
-
-                newName = os.path.join(LicConfig.finalImageCachePath(), "Page_%d.png" % page.number)
+                newName = page.getExportFilename()
                 image.save(newName)
-
-                # Need to re-open file to set DPI with PIL.  WTF Qt QImage?!
-                # TODO: when we have proper page size & resolution export dialogs, enable this
-                #image = Image.open(newName)
-                #image.save(newName, "PNG", dpi=(300, 300))
 
                 yield newName
                 page.lockIcon.show()    
@@ -367,8 +358,7 @@ class Instructions(QObject):
     def exportToPDF(self):
 
         # Create an image for each page
-        # TODO: Connect PDF export to page resolution settings
-        filename = os.path.join(LicConfig.pdfCachePath(), os.path.basename(self.mainModel.filename)[:-3] + "pdf")
+        filename = os.path.join(config.pdfCachePath(), os.path.basename(self.mainModel.filename)[:-3] + "pdf")
         yield filename
 
         if sys.platform.startswith('darwin'):  # Temp workaround to PDF crash on OSX
@@ -378,6 +368,7 @@ class Instructions(QObject):
 
         yield 2 * exporter.next()
 
+        # Create Document settings
         printer = QPrinter(QPrinter.HighResolution)
         printer.setOutputFileName(filename)
         printer.setOutputFormat(QPrinter.PdfFormat)
@@ -385,12 +376,14 @@ class Instructions(QObject):
         printer.setResolution(Page.Resolution)
         printer.setPaperSize(QSizeF(Page.PageSize), QPrinter.DevicePixel)
 
+        # Rendering
         pageFilenameList = []
         for pageFilename in exporter:
             fn = os.path.splitext(os.path.basename(pageFilename))[0].replace('_', ' ')
             yield "Rendering " + fn
             pageFilenameList.append(pageFilename)
 
+        # Adding
         painter = QPainter()
         painter.begin(printer)
         for pageFilename in pageFilenameList:
@@ -402,34 +395,33 @@ class Instructions(QObject):
                 printer.newPage()
         painter.end()
 
-    def updatePageNumbers(self, newNumber, increment = 1):
+    def updatePageNumbers(self, newNumber, increment=1):
         if self.mainModel:
             self.mainModel.updatePageNumbers(newNumber, increment)
 
-    def __loadLDrawColors(self):
-        self.colorDict = LicColorDict()
-        try:
-            LicImporters.LDrawImporter.importColorFile(self.getProxy())
-            self.colorDict.licColors = False;
-        except:
-            # Could not load LDConfig.ldr.  Fall back to internal color definitions from LDrawColors.py (TODO: update those colors!)
-            self.colorDict.licColors = True;
-            for colorCode, color in LDrawColors.colors.iteritems():
-                newColor = None if color[0] is None else LicColor(*color)
-                self.colorDict[colorCode] = newColor
-                if (newColor):
-                    newColor.originalRGBA = list(newColor.rgba)
-                    newColor.edgeColor = LicColor.black()
+    def loadLDrawColors(self):
+        self.colorDict = LicHelpers.LicColorDict()
+        LDrawImporter.importColorFile(self.getProxy())
 
 class InstructionsProxy(object):
 
     def __init__(self, instructions):
         self.__instructions = instructions
 
-    def createPart(self, fn, colorCode, matrix, invert = False):
+    def __getPartImportDirectory(self):
+        return self.__instructions.partImportDirectory
+
+    partimportdirectory  = property(__getPartImportDirectory)
+    
+    def createPart(self, fn, colorCode, matrix, invert=False, rgba=()):
 
         partDictionary = self.__instructions.partDictionary
-        color = self.__instructions.colorDict[colorCode]
+    # assigned custom color data <tuple>(r,g,b,a) ,otherwise stay <integer>colorCode AS IS
+        if 16 == colorCode and rgba:
+            color = LicColor(rgba[0], rgba[1], rgba[2], rgba[3] , "Custom")
+        else:
+            color = self.__instructions.colorDict[colorCode]
+        
         part = Part(fn, color, matrix, invert)
 
         if fn in partDictionary:
@@ -445,7 +437,7 @@ class InstructionsProxy(object):
         partDictionary[fn] = AbstractPart(fn)
         return partDictionary[fn]
 
-    def createAbstractSubmodel(self, fn, parent = None):
+    def createAbstractSubmodel(self, fn, parent=None):
 
         partDictionary = self.__instructions.partDictionary
         if parent is None:
@@ -455,14 +447,11 @@ class InstructionsProxy(object):
         part.appendBlankPage()
         return part
 
-    def addColor(self, colorCode, r = 1.0, g = 1.0, b = 1.0, a = 1.0, name = 'Black'):
-        newColor = None if r is None else LicColor(r, g, b, a, name, colorCode)
-        self.__instructions.colorDict[colorCode] = newColor
-        if (newColor):
-            newColor.originalRGBA = list(newColor.rgba)
-            newColor.edgeColor = LicColor.black()
+    def addColor(self, colorCode, r=1.0, g=1.0, b=1.0, a=1.0, name='Black'):
+        cd = self.__instructions.colorDict
+        cd[colorCode] = None if r is None else LicColor(r, g, b, a, name, colorCode)
 
-    def addPart(self, part, parent = None):
+    def addPart(self, part, parent=None):
         if parent is None:
             parent = self.__instructions.mainModel
 
@@ -479,12 +468,12 @@ class InstructionsProxy(object):
                 parent.pages[-1]._row += 1
                 parent.submodels.append(p)
 
-    def addPrimitive(self, shape, colorCode, points, parent = None):
+    def addPrimitive(self, shape, colorCode, points, parent=None):
         if parent is None:
             parent = self.__instructions.mainModel
         color = self.__instructions.colorDict[colorCode]
         primitive = Primitive(color, points, shape, parent.winding)
-        parent.addPrimitive(primitive)
+        parent.primitives.append(primitive)
 
     def addBlankPage(self, parent):
         if parent is None:
