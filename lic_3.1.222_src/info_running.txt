@@ -1,0 +1,65 @@
+"""
+    LIC - Instruction Book Creation software
+    Copyright (C) 2010 Remi Gagne
+    Copyright (C) 2015 Jeremy Czajkowski
+
+    This file (info_running.txt) is part of LIC.
+
+    lic is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+
+    You should have received a copy of the Creative Commons License
+    along with this program.  If not, see http://creativecommons.org/licenses/by-sa/3.0/
+"""
+
+** Requirements for running LIC from source: **
+
+- Python, any version *before* 3.0
+
+- Qt version 4.6.3 or greater.  There's a bug in Qt 4.6.2 and earlier that make LIC *not* work:
+http://bugreports.qt.nokia.com/browse/QTBUG-7880
+
+- PyQt, any version that works with the above Python & Qt.
+
+- PyOpenGL, any version
+
+- Python Image Libary (PIL), any version
+
+The source includes a PyDev .project file, if you have Eclipse & PyDev handy.
+
+** Source tree overview **
+
+Lic.py contains the main entry point and window application code.
+
+LicInstructions.py contains the main Instructions class, which maintains the
+state of a single instruction book.
+
+LicCustomPages.py contains the important Page class, plus TitlePage and
+PartListPage subclasses.
+
+LicModel.py contains the other basic classes you'd expect, which each represent
+one 'thing' within in an instruction book (Step, CSI, PLI, etc).
+
+LicBinaryReader & Writer contain all of the binary load / save stuff.
+
+LicGraphicsWidget.py contains the important QGraphicScene subclass, which is
+responsible for the physical display of an instruction book on a portion of the
+application window.
+
+LicTreeModel.py contains the QAbstractItemModel subclass which tracks the data
+model for the navigation tree.  The tree widget itself is trivial, and lives 
+in Lic.py
+
+LicUndoActions.py holds - you guessed it - all of the code for each custom
+undo / redo action.
+
+LicDialogs.py contains every single dialog subclass used by Lic.  I like all that
+nasty UI widget code in one spot.
+
+LicAssistantWidget.py Each individual class fully support one job, assigned to it
+
+
+Remi
+Jeremy
+

@@ -1,0 +1,288 @@
+int32 magic number
+int8  file version
+Template
+Instructions
+eof
+
+-----------------------
+
+Template:
+
+  QString filename
+  bool showSeparators
+  partDictionary (from page.csi)
+  Page templatePage
+  Submodel template.subModelPart
+  
+Instructions:
+  QString imported filename
+  QSize Page.PageSize
+  float Page.Resolution
+  QString Page.NumberPos
+  
+  float CSI.scale
+  float PLI.scale
+  float SubmodelPreview.scale
+
+  float CSI.defaultRotation x, y, z
+  float PLI.defaultRotation x, y, z
+  float SubmodelPreview.defaultRotation x, y, z
+  
+  partDictionary (global)
+ 
+  int32 length of submodel dictionary, if v < 6
+  ... Submodel 0..n ...
+ 
+  Mainmodel instructions.mainModel
+  
+  int32 length of mainModel.partListPages
+  ... PartListPage 0..n ...
+ 
+  int32 length of scene.guides 
+  ... QPointF guide.pos ...
+  ... int32 guide.orientation ...
+
+Submodel:
+  PartOGL self
+  int32 length of pages
+  ... Page 0..n ...
+  int32 length of submodels
+  ... Submodel filename 0..n ...
+  int32 _row
+  QString parent (filename of model using this submodel, ie _parent.filename)
+  bool isSubAssembly
+
+licColor:
+  bool color is not None
+  float r, g, b, a
+  QString colorName
+  
+partDictionary:
+  int32 length of part dictionary (minus submodels if v6)
+  ... PartOGL 0..n ...
+
+  int32 length of part dictionary (only submodels if v6
+  ... Submodel 0..n ...
+
+PartOGL:
+  QString filename
+  QString name
+  bool isPrimitive
+  int32 width
+  int32 height
+  int32 leftInset
+  int32 bottomInset
+  QPointF center
+  
+  float pliScale
+  float pliRotation x, y, z
+  
+  int32 number of primitives
+  ... Primitive 0..n ...
+  int32 number of parts
+  ... Part 0..n ...
+  
+Primitive:  # 9 points for triangle, 12 points for quad
+  licColor color
+  int8 type
+  int32 winding
+  
+  float points[0]
+  ...
+  float points[8]  # for triangle
+  ...
+  float points[11] # for quad
+  
+Part:
+  QString filename  (links this to a partOGL)
+  bool inverted
+  licColor color
+  float matrix[0] 
+  ... 
+  float matrix[15]
+  
+  int32 page
+  int32 step
+  bool isInPLI v7
+  
+  bool inCallout
+  bool useDisplacement # if displacement
+
+  if useDisplacement:
+    float displacement[0] # x
+    float displacement[1] # y
+    float displacement[2] # z
+    int32 displaceDir
+    int32 number of arrows   v4
+    ... Part arrow 0..n ...  v4
+
+  if part is also Arrow:
+    int32 arrow.length
+    float arrow.axisRotation
+
+Page:
+  int32 number
+  int32 _row
+  
+  RoundedRectItem pos, rect, pen, brush, cornerRadius
+  QColor color
+  int32 layout.orientation
+  
+  QPointF number.pos
+  QFont number.font
+
+  int32 number of Steps
+  ... Step 0..n ...
+
+  bool hasSubmodelItem
+  SubmodelItem submodelItem, if it exists
+
+  int32 number of step separators
+  ... StepSeparator 0..n ...
+
+  int32 number of annotations  v8
+  ... Annotation 0..n ...
+
+TitlePage:
+  bool hasTitlePage (return if False)
+  RoundedRectItem pos, rect, pen, brush, cornerRadius
+  QColor color
+
+  bool hasSubmodelItem
+  SubmodelItem submodelItem, if it exists
+
+  int32 number of labels
+     ... for label 0..n:
+     QPointF label.pos
+     QFont label.font
+     QString label.text
+
+  int32 number of annotations  v8
+  ... Annotation 0..n ...
+
+PartListPage:
+  int32 number
+  int32 _row
+  
+  RoundedRectItem pos, rect, pen, brush, cornerRadius
+  QColor color
+
+  QPointF number.pos
+  QFont number.font
+
+  PLI pli
+
+  int32 number of annotations  v8
+  ... Annotation 0..n ...
+
+Annotation:
+  QPixmap annotation.pixmap
+  QString annotation.filename
+  QPointF annotation.pos
+  bool annotation.isAnnotation v10
+  int32 annotation.zValue v10
+    
+StepSeparator:
+  int32 child row
+  QPointF pos
+  QRectF rect
+  QPen pen
+  bool visible
+
+Step:
+  int32 number
+  bool hasPLI
+  bool hasNumberItem
+  
+  QPointF pos
+  QRectF rect
+  QRectF maxRect
+
+  CSI csi
+  PLI pli, if hasPLI
+    
+  QPointF number.pos, if hasNumberItem
+  QFont number.font, if hasNumberItem
+
+  int32 number of Callouts
+  ... Callout 0..n ...
+ 
+  bool hasRotateIcon  v3
+  RoundedRectItem icon.pos, icon.rect, icon.pen, icon.brush, icon.cornerRadius
+  QPen icon.arrowPen
+
+Callout:
+  int32 number
+  bool showStepNumbers
+  in32 borderFit
+  
+  RoundedRectItem pos, rect, pen, brush, cornerRadius
+  
+  QPointF callout.arrow.tipRect.point
+  QPointF callout.arrow.baseRect.point
+  QPen callout.arrow.pen
+  QBrush callout.arrow.brush
+  
+  bool hasQuantityLabel
+  QPointF qtyLabel.pos, if hasQuantityLabel
+  QFont qtyLabel.font, if hasQuantityLabel
+  int32 quantity, if hasQuantityLabel
+
+  int32 number of Steps
+  ... Step 0..n ...
+  
+  int32 number of Parts in entire Callout
+  ... Part 0..n ...
+
+SubmodelItem:
+  int32 row
+  RoundedRectItem pos, rect, pen, brush, cornerRadius
+  
+  float scale
+  float rotation x, y, z
+
+  bool isSubAssembly
+  PLI self.pli, if isSubAssembly
+  
+  bool hasNumberItem v9
+    int32 quantity
+    QPointF numberItem.pos
+    QFont numberItem.font
+  
+CSI:
+  QPointF pos
+  int32 rect.width
+  int32 rect.height
+  QPointF center
+
+  float scale
+  float rotation x, y, z
+
+PLI:
+  RoundedRectItem pos, rect, pen, brush, cornerRadius
+  int32 number of pliItems
+  ... PLIItem 0..n ...
+
+PLIItem:
+  QString filename
+  licColor color
+  int32 quantity
+  QPointF pos
+  QRectF rect
+  QPointF numberItem.pos
+  QFont numberItem.font
+
+  bool hasLengthIndicator v2
+    QPointF lengthIndicator.pos
+    QRectF lengthIndicator.rect
+    QFont lengthIndicator.font
+    QString lengthIndicator.lengthText
+    QColor lengthIndicator.labelColor
+  
+RoundedRectItem:
+  QPointF pos
+  QRectF rect
+  QPen pen
+  QBrush brush
+  int16 cornerRadius
+  

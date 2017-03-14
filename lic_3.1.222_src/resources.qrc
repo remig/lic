@@ -1,0 +1,29 @@
+<!DOCTYPE RCC><RCC version = "1.0">
+<qresource>
+  <file alias = "lic_logo">images/lic_logo.ico</file>
+  <file alias = "lic_progressbar">images/lic_progressbar.bmp</file>
+  
+  <file alias = "emmet">images/emmet_with_suit.png</file>
+
+  <file alias = "lock_open">images/lock_open.png</file>
+  <file alias = "lock_close">images/lock_close.png</file>
+  <file alias = "lock_grey_open">images/lock_grey_open.png</file>
+  <file alias = "lock_grey_close">images/lock_grey_close.png</file>
+  
+  <file alias = "link">images/link.png</file>
+  <file alias = "link_break">images/link_break.png</file>
+  
+  <file alias = "find">images/find.png</file>
+  <file alias = "warning">images/warning.png</file>
+  
+  <file alias = "collapse">images/collapse.png</file>
+  <file alias = "expand">images/expand.png</file>
+  <file alias = "expand_current">images/go_inside.png</file>
+  <file alias = "down_arrow">images/down_arrow.png</file>
+  
+  <file alias = "blank">images/blank.png</file>
+  <file alias = "no_pli">images/no_pli.png</file>
+  <file alias = "default_template">src/default_template.lit</file>
+  
+</qresource>
+</RCC>

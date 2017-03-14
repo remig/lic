@@ -1,9 +1,0 @@
-('F:\\Workspace\\eclipse\\licreator\\dist\\licreator.exe',
- False,
- False,
- 'F:\\Workspace\\eclipse\\licreator\\lic_3.0_src\\images\\lic_logo.ico',
- None,
- [],
- None,
- False,
- 1470759677L)
