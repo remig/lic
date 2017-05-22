@@ -87,7 +87,6 @@ class ResizeCommand(QUndoCommand):
 
     def __init__(self, item, oldRect, newRect):
         QUndoCommand.__init__(self, "resize Item")
-
         self.item, self.oldRect, self.newRect = item, oldRect, newRect
 
     def doAction(self, redo):
@@ -96,6 +95,18 @@ class ResizeCommand(QUndoCommand):
             self.item.initLayout(rect)
         else:
             self.item.setRect(rect)
+
+class RenameCommand(QUndoCommand):
+
+    _id = getNewCommandID()
+
+    def __init__(self, item, oldName, newName):
+        QUndoCommand.__init__(self, "rename Item")
+        self.item, self.oldName, self.newName = item, oldName, newName    
+        
+    def doAction(self, redo):
+        name = self.newName if redo else self.oldName
+        self.item.name = str(name)
 
 class LayoutItemCommand(QUndoCommand):
 

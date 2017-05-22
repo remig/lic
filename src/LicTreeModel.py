@@ -19,11 +19,14 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import os
+
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 import LicHelpers
 from LicImporters.LDrawImporter import LDrawFile
+import LicAssistantWidget
 
 
 class LicTreeModel(QAbstractItemModel):
@@ -86,7 +89,7 @@ class LicTreeModel(QAbstractItemModel):
             return False
 
         targetItem = parent.internalPointer()  # item that dragged items were dropped on
-        # target = self.index(row, column, parent) if row > 0 else parent  #TODO: Handle row argument
+        # target = self.index(row, column, parent) if row > 0 else parent  
         
         dragItems = []
         stringData = str(data.data("application/x-rowlist"))
@@ -176,6 +179,20 @@ class LicTreeModel(QAbstractItemModel):
 
 
 class BaseTreeManager(object):
+
+    _dialog = None
+     
+    def _setDialog(self, dialog):
+        if self._dialog:
+            self._dialog.close()
+            self._dialog = None
+            
+        self._dialog = dialog
+
+    def _getDialog(self):
+        return self._dialog
+
+    dialog = property(_getDialog, _setDialog)     
      
     def parent(self):
         return self.parentItem()
@@ -384,6 +401,10 @@ class StepTreeManager(BaseTreeManager):
         if child is self.rotateIcon:
             return row + len(self.callouts)
         return row + len(self.callouts) + self.csi._subChildRow(child)  # Showing Parts directly in Step
+
+    def moveToPageSignal(self):
+        self.dialog = LicAssistantWidget.LicMovingStepAssistant(self)
+        self.dialog.show()
         
     def dragDropFlags(self):
         return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
@@ -516,6 +537,17 @@ class SubmodelTreeManager(BaseTreeManager):
         
     def rowCount(self):
         return len(self.pages) + len(self.submodels)
+
+    def getSimpleName(self):
+        name = os.path.splitext(os.path.basename(self.name))[0]
+        return name.replace('_', ' ')
+
+    def renameSignal(self):
+        ## SubmodelTreeManager => Submodel => Instructions => LicGraphicsScene
+        scene = self.parent().instructions.scene 
+            
+        self.dialog = LicAssistantWidget.LicRefactorAssistant(scene ,self)
+        self.dialog.show()
 
     def data(self, index):
         if index in [Qt.WhatsThisRole, Qt.AccessibleTextRole]:

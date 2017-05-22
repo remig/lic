@@ -8,6 +8,7 @@ __version__ = '1.0.20070915'
 
 import colorsys, math
 
+
 class GimpGradient:
     """ 
      Read and interpret a Gimp .ggr gradient file.

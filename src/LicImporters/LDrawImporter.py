@@ -51,6 +51,7 @@ class LDrawImporter(object):
         self.loadLDConfig(instructions)
 
         ldrawFile = LDrawFile(filename,self.custompath)
+        
         self.lineList = ldrawFile.lineList
         self.submodels = ldrawFile.getSubmodels(filename)
         if parent:
@@ -61,15 +62,21 @@ class LDrawImporter(object):
     def createNewPartFromLine(self, line, parent):
 
         filename, color, matrix, rgba = lineToPart(line)
-
-        if (filename not in self.submodels) and (LDrawFile.getPartFilePath(filename ,self.custompath) is None):
+        
+        isSubmodel = False
+        for key in self.submodels.keys():
+            isSubmodel = key.lower() == filename.lower()
+            if isSubmodel:
+                filename = key
+                break
+        
+        if (not isSubmodel) and (LDrawFile.getPartFilePath(filename ,self.custompath) is None):
             error_message = "Could not find Part File - ignoring: %s" % filename
             LDrawImporter.writeLogEntry(error_message)
             print error_message
             return None
 
         part = self.instructions.createPart(filename, color, matrix, False, rgba)
-
         if part.abstractPart is None:
             if filename in self.submodels:
                 part.abstractPart = self.instructions.createAbstractSubmodel(filename, parent)
@@ -321,7 +328,10 @@ class LDrawFile(object):
                 i += 1
             f.close()
         
-            self.name = ' '.join(self.lineList[0][2:]).decode("utf8" , "replace")
+            if self.lineList:
+                self.name = ' '.join(self.lineList[0][2:]).decode("utf8" , "replace")
+            else:
+                self.name = ' '
         else:
             error_message = "Could not check correctly Model File: %s" % self.filename
             LDrawImporter.writeLogEntry(error_message)
@@ -329,7 +339,6 @@ class LDrawFile(object):
             return None            
 
     def getSubmodels(self, filename):
-        
         # Loop through the file array searching for sub model FILE declarations
         submodels = [(filename, 0)]
         for i, l in enumerate(self.lineList[1:]):

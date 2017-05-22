@@ -24,11 +24,31 @@ import math
 from PyQt4.QtCore import *
 
 
+# Dictionary that stores values for each International Paper Size code
+# in format [width,height,resolution,inch=0|centimeter=1]
+# in vertical orientation
+PAGE_SIZE = {
+        "A5":[21.0,14.8,72.0,1]
+        ,"A6":[14.8,10.5,72.0,1]      
+        ,"A7":[10.5,7.4,72.0,1]    
+        ,"B5":[25.0,17.6,72.0,1]
+        ,"B6":[17.6,12.5,72.0,1]
+        # PDF to Book Specifications - Blurb Books
+        ,"Small Landscape":[25.0,20.0,72.0,1] # 10x8 inches
+        ,"Large Landscape":[33.0,28.0,72.0,1] # 13x11 inches
+        ,"Small Square":[30.0,30.0,72.0,1] # 12x12 inches
+        ,"Trade Books #1":[20.0,13.0,72.0,1] # 8x5 inches
+        ,"Trade Books #2":[23.0,15.0,72.0,1] # 9x6 inches
+        
+}
+
 Horizontal = 0
 Vertical = 1
 AutoLayout = 2
 PageDefaultMargin = 15
-PARTS_PER_STEP_MAX = 15
+PARTS_PER_STEP_MAX_LV1 = 15
+PARTS_PER_STEP_MAX_LV2 = 100
+
 
 def maxSafe(s):
     return max(s) if s else 0.0

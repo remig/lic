@@ -24,6 +24,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 import LicHelpers
+from LicLayout import PAGE_SIZE
 from LicQtWrapper import ExtendedLabel
 
 
@@ -210,7 +211,7 @@ class MessageDlg(QWidget):
         # create main UI
         hbox = QHBoxLayout()
         hbox.addWidget(self._icon, 0, Qt.AlignTop)
-        hbox.addWidget(self._message, 1, Qt.AlignLeft)
+        hbox.addWidget(self._message, 0, Qt.AlignLeft)
         hbox.addSpacing(10)
         hbox.addLayout(self.centreLayout , 1)
         hbox.addSpacing(10)
@@ -390,11 +391,11 @@ class PageSizeDlg(QDialog):
         self.originalPageSize = pageSize
         self.notifySizeChange = True
         
-        pixelWidthLabel, self.pixelWidthSpinBox, = self.makeLabelSpinBox("&Width:", pageSize.width(), 1, 50000, self.pixelWidthChanged)
-        pixelHeightLabel, self.pixelHeightSpinBox = self.makeLabelSpinBox("&Height:", pageSize.height(), 1, 50000, self.pixelHeightChanged)
+        pixelWidthLabel, self.pixelWidthSpinBox, = self.makeLabelSpinBox("&Width:", pageSize.width(), 1, 10000, self.pixelWidthChanged)
+        pixelHeightLabel, self.pixelHeightSpinBox = self.makeLabelSpinBox("&Height:", pageSize.height(), 1, 10000, self.pixelHeightChanged)
         self.pixelFormatComboBox = QComboBox()
         self.pixelFormatComboBox.addItems(["pixels", "percent"])
-
+        
         grid = QGridLayout()
         grid.addWidget(pixelWidthLabel, 0, 0, Qt.AlignRight)
         grid.addWidget(self.pixelWidthSpinBox, 0, 1)
@@ -403,7 +404,7 @@ class PageSizeDlg(QDialog):
         grid.addWidget(self.pixelFormatComboBox, 0, 2, 2, 1, Qt.AlignVCenter)
         self.setGridSize(grid)
         
-        self.pixelGroupBox = QGroupBox("Image Size:", self)
+        self.pixelGroupBox = QGroupBox("Image Size", self)
         self.pixelGroupBox.setCheckable(True)
         self.pixelGroupBox.setChecked(True)
         self.pixelGroupBox.setLayout(grid)
@@ -411,11 +412,16 @@ class PageSizeDlg(QDialog):
         docWidthLabel, self.docWidthSpinBox = self.makeLabelSpinBox("Wi&dth:", pageSize.width() / float(resolution), 0.1, 1000.0, self.docWidthChanged, True)
         docHeightLabel, self.docHeightSpinBox = self.makeLabelSpinBox("Hei&ght:", pageSize.height() / float(resolution), 0.1, 1000.0, self.docHeightChanged, True)
         self.docFormatComboBox = QComboBox()
-        self.docFormatComboBox.addItems(["inches", "cm"])
+        self.docFormatComboBox.addItems(["inches", "centimeter"])
         
         resLabel, self.resSpinBox = self.makeLabelSpinBox("&Resolution:", resolution, 1, 50000, self.resolutionChanged)
         self.resFormatLabel = QLabel(self.tr("pixels/inch"))
 
+        self.predefinedFormatComboBox = QComboBox()
+        self.predefinedFormatComboBox.addItem("Choose size")
+        for label ,size in sorted(PAGE_SIZE.items()):
+            self.predefinedFormatComboBox.addItem(label ,userData=size)
+            
         grid = QGridLayout()
         grid.addWidget(docWidthLabel, 0, 0, Qt.AlignRight)
         grid.addWidget(self.docWidthSpinBox, 0, 1)
@@ -425,13 +431,14 @@ class PageSizeDlg(QDialog):
         grid.addWidget(resLabel, 2, 0, Qt.AlignRight)
         grid.addWidget(self.resSpinBox, 2, 1)
         grid.addWidget(self.resFormatLabel, 2, 2, Qt.AlignLeft)
+        grid.addWidget(self.predefinedFormatComboBox, 3, 1)
         self.setGridSize(grid)
         
-        self.docGroupBox = QGroupBox("Printed Document Size:")
+        self.docGroupBox = QGroupBox("Printed Document Size")
         self.docGroupBox.setCheckable(True)
         self.docGroupBox.setChecked(False)
         self.docGroupBox.setLayout(grid)
-        
+            
         self.rescaleCheckBox = QCheckBox("Rescale all &Page Elements")
         self.aspectRatioCheckBox = QCheckBox("&Keep Page Aspect Ratio")
         self.aspectRatioCheckBox.setChecked(True)
@@ -451,6 +458,8 @@ class PageSizeDlg(QDialog):
 
         self.connect(self.pixelFormatComboBox, SIGNAL("currentIndexChanged(int)"), lambda index: self.pixelComboChange(index))
         self.connect(self.docFormatComboBox, SIGNAL("currentIndexChanged(int)"), lambda index: self.docComboChange(index))
+        self.connect(self.predefinedFormatComboBox, SIGNAL("currentIndexChanged(int)"), lambda index: self.predefinedComboChange(index))
+        
         self.connect(self.pixelGroupBox, SIGNAL("clicked(bool)"), lambda checked: self.docGroupBox.setChecked(not checked))
         self.connect(self.docGroupBox, SIGNAL("clicked(bool)"), lambda checked: self.pixelGroupBox.setChecked(not checked))
         self.connect(self.aspectRatioCheckBox, SIGNAL("stateChanged(int)"), self.aspectRatioClick)
@@ -490,7 +499,7 @@ class PageSizeDlg(QDialog):
         if isDocWidth:
             if self.docFormatComboBox.currentIndex() == 0:  # inch
                 newPixelWidth = int(width * res)
-            else:  # cm
+            else:  # centimeter
                 newPixelWidth = int(width * res / 2.54)
             if self.pixelFormatComboBox.currentIndex() == 1:  # percent
                 newPixelWidth = int(100.0 * newPixelWidth / oldWidth)
@@ -528,7 +537,7 @@ class PageSizeDlg(QDialog):
         if isDocHeight:
             if self.docFormatComboBox.currentIndex() == 0:  # inch
                 newPixelHeight = int(height * res)
-            else:  # cm
+            else:  # centimeter
                 newPixelHeight = int(height * res / 2.54)
             if self.pixelFormatComboBox.currentIndex() == 1:  # percent
                 newPixelHeight = int(100.0 * newPixelHeight / oldHeight)
@@ -556,6 +565,26 @@ class PageSizeDlg(QDialog):
     
         self.notifySizeChange = True
 
+    def predefinedComboChange(self, index):
+        '''
+         We load data in the reverse order, because we first need to set the unit of measure,
+         that we will use. This property determines the rest. Then the resolution.
+         In the end, what matters most - width and height.         
+        ''' 
+        data = self.predefinedFormatComboBox.itemData(index)
+        aList= LicHelpers.VariantToFloatList(data)
+        if aList:
+            self.aspectRatioCheckBox.setChecked(False)
+                
+            self.docFormatComboBox.setCurrentIndex(aList[3])
+            self.resSpinBox.setValue(aList[2])
+            self.docWidthSpinBox.setValue(aList[0])
+            self.docHeightSpinBox.setValue(aList[1])
+            
+            self.setWidth(aList[0], True)
+            self.setHeight(aList[1], True)
+            
+        
     def pixelComboChange(self, index):
         
         self.notifySizeChange = False
@@ -588,10 +617,10 @@ class PageSizeDlg(QDialog):
         
         if index == 0:  # to inches
             res *= 2.54
-            self.resFormatLabel.setText("pixels/inch")
-        else:  # to cm
+            self.resFormatLabel.setText("px/inch")
+        else:  # to centimeter
             res /= 2.54
-            self.resFormatLabel.setText("pixels/cm")
+            self.resFormatLabel.setText("px/cm")
             
         self.resSpinBox.setValue(int(round(res)))
 

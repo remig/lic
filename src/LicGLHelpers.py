@@ -19,7 +19,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from PIL import Image, ImageChops
+import OpenGL
 from OpenGL.GL import *
 from OpenGL.GL.EXT.framebuffer_blit import *
 from OpenGL.GL.EXT.framebuffer_multisample import *
@@ -28,9 +28,10 @@ from OpenGL.GLU import *
 from PyQt4.QtCore import QPointF
 from PyQt4.QtOpenGL import QGLFormat, QGL
 
+from PIL import Image, ImageChops
+
 
 # Optimization: turn off PyOpenGL error checking, which is a major source of slowdown
-import OpenGL
 OpenGL.ERROR_CHECKING = False
 OpenGL.ERROR_LOGGING = False
 UNINIT_GL_DISPID = -1

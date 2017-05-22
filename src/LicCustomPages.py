@@ -601,7 +601,7 @@ class Page(PageTreeManager, GraphicsRoundRectItem):
         if filename:
             pixmap = QPixmap(filename)
             if pixmap.isNull():
-                QMessageBox.information(self.scene().views()[0], "LIC", "Cannot load " + filename)
+                QMessageBox.information(self.scene().views()[0], "LICreator", "Cannot load " + filename)
             else:
                 item = PageAnnotation(self, pixmap, filename, pos)
                 self.scene().undoStack.push(AddRemoveAnnotationCommand(self, item, True))
@@ -1007,7 +1007,7 @@ class EditableTextItem(QGraphicsSimpleTextItem):
         newText, ok = QInputDialog.getText(self.scene().views()[0], "Set Text", "New Text:",
                                            QLineEdit.Normal, self.text(), Qt.CustomizeWindowHint | Qt.WindowTitleHint)
         if ok:
-            self.scene().undoStack.push(CalloutBorderFitCommand(self, self.text(), newText))
+            self.scene().undoStack.push(SetTextCommand(self, self.text(), newText))
 
     def setAlign(self, direction):
         ptF = QPointF()

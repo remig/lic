@@ -533,7 +533,8 @@ def __readCallout(stream, parent):
         part.abstractPart= partDict[part.filename]
         part.calloutPart = part
         step = callout.getStepByNumber(part.stepNumber)
-        step.addPart(part)
+        if step:
+            step.addPart(part)
 
     return callout
 

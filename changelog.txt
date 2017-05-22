@@ -1,3 +1,43 @@
+3.2.153-------------------------------------------------------------------------------------------
+:: Add installedVersion property to configuration file  /liceator.ini/
+:: Added the possibility of moving parts to the step within the a single page via contextmenu
+:: Added .getContextMenu .restoreScale .restoreRotation method  /RotateScaleSignalItem/
+:: Added .VariantToIntList .partlist_sortify method  /LicHelpers/
+:: Added RenameCommand class  /LicUndoActions/
+:: Added StepTreeManager.moveToPageSignal method
+:: Added dialog property  /BaseTreeManager/
+:: Fix PLI/Part List Images/ background fill issue
+:: Fix WindowError of setupExceptionLogger method
+:: Fix applying rotation and scale data from template file in applyFullTemplate method
+:: Handle NoneType in __readCallout method come from getStepByNumber /LicBinaryReader/
+:: Update contextMenuEvent method of successors of RotateScaleSignalItem class
+:: Can restore scale|rotation from template for PLIItem ,CSI ,SubmodelPreview classes
+:: Ability to pre-define custom page sizes in configuration file  /liceator.ini/
+:: Can change and restore submodel display name
+:: Change messages for LicDownloadAssistant class
+:: Make createNewPartFromLine method insensitive to case sensitive  /LDrawImporter/
+:: Move fnList argument from __init__ to start method  /LicWorker/
+:: Upgrade LicDownloadAssistant class
+:: Disable stretching for default message area  /MessageDlg/
+:: Rename Submodel.export method on exportSignal and Upgrade it
+:: Rename grayscalePath method on partsCachePath 
+:: Rename PARTS_PER_STEP_MAX on PARTS_PER_STEP_MAX_LV1  /LicLayout/
+:: migrate Submodel.getSimpleName method to SubmodelTreeManager class
+:: migrate %approot%/default_template.lit to %appdata%/default_template.lit
+:: auto-restore tree view options be removed due to unexpected behavior
+:: Correct licence in build.py file
+:: setTextSignal method back to handle correct undo command  /EditableTextItem/
+:: Make context menu options more accurate when parts quantity is more than 100
+:: SelectPart submenu of CSI contextmenu, displays only the first hundred of parts
+:: Update out-of-date info_running.txt file
+:: Normalize the case of a pathname into PathsDialog ,createPngFromPov ,createPovFromDat
+:: Locations of tools stored in configuration file need full path with basename of existing file
+:: Use LicGraphicsScene.lockApp method now on start and finish task
+:::: TemplatePage.applyFullTemplate 
+:::: Submodel.removeAllPagesAndSteps 
+:: Remember the location of the last used template
+:: Action Step.splitParts method based on the sorted list with respect to the coordinate on the Y axis
+:: Remove .contextMenuEvent .addPoint method  /CalloutArrow/
 3.1.222-------------------------------------------------------------------------------------------
 :: Added InstructionsProxy.getStepByNumber method
 :: Added Page.isBlank method
@@ -106,7 +146,7 @@
 :: Change tool bar icon size to 18 pixels
 :: Re-grouped tool bar actions
 :: Lock icon use SmoothTransformation and ItemIgnoresTransformations flags now
-:: NOTE: build.py on windows use now PYTHONHOME environment variable
+:: NOTE: build.py on windows use now PYTHON_HOME environment variable
 2.0.016-------------------------------------------------------------------------------------------
 :: Fix TypeError and AttributeError for CalloutToSubmodelCommand
 :: Fix bugs and Improved scaling and rotation

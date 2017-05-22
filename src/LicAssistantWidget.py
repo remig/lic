@@ -18,6 +18,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+from copy import deepcopy
 import shutil
 import string
 import thread
@@ -33,8 +34,9 @@ from LicLayout import AutoLayout, Horizontal
 from LicModel import Step, PLIItem, Part, PLI
 from LicQtWrapper import ExtendedLabel
 from LicUndoActions import MovePartsToStepCommand , AddRemovePageCommand, \
-    LayoutItemCommand, MoveCommand
+    LayoutItemCommand, MoveCommand, RenameCommand , MoveStepToPageAtRowCommand
 import config
+import LicCustomPages
 
 
 shortcuts = {
@@ -63,18 +65,19 @@ class LicWorker(QObject):
     If you have background work to do, then move background worker to other thread, and not the user interface.
     """       
     
-    def __init__(self ,fnList=[]):
+    def __init__(self):
         QObject.__init__(self)  
         
         self._counter = 0
-        self._fn = fnList
+        self._fn = []
         
         self._workerThread = QThread()        
         self._workerThread.started.connect(self._doLongWork)   
         self._workerThread.finished.connect(self._doFinishWork)             
         self._workerThread.terminated.connect(self._doFinishWork)             
     
-    def start(self):
+    def start(self ,fnList=[]):
+        self._fn = fnList
         self._workerThread.start()
         
     def terminate(self):
@@ -103,6 +106,28 @@ class LicWorker(QObject):
             else:
                 self._doLongWork(self._counter)
 
+class LicRefactorAssistant(MessageDlg):
+    def __init__(self ,scene ,entrusted):
+        MessageDlg.__init__(self, scene.views()[0])    
+        
+        self._entrusted = entrusted
+        self._scene = scene
+        
+        self.setText("Rename to:")
+        self.setToolTip("Select new name for %s. Old will be preserved." % entrusted.__class__.__name__)
+        self.setAcceptAction(self.acceptValue)
+        
+        self.textField = QLineEdit()
+        if entrusted:
+            self.textField.setText(entrusted.name)
+        
+        hbox = self.centreLayout
+        hbox.addWidget(self.textField , 1)
+        
+    def acceptValue(self):
+        if self._entrusted and self._scene:
+            self._scene.undoStack.push(RenameCommand(self._entrusted ,self._entrusted.name ,self.textField.text()))
+            self.close()
 
 class LicModelBoxAssistant(MessageDlg):
     def __init__(self ,parent, modelBoxDict):
@@ -163,6 +188,28 @@ class LicModelBoxAssistant(MessageDlg):
                                        
             return QWidget.showEvent(self, event)
 
+class LicMovingStepAssistant(MessageDlg):
+    def __init__(self , step):
+        MessageDlg.__init__(self , step.scene().views()[0])
+        
+        self._step = step
+        
+        self.pageComboBox = QComboBox()
+        self.centreLayout.addWidget(self.pageComboBox , 0)
+        
+        pageList = step.parent().submodel.pages
+        for page in sorted(pageList ,key=lambda i: i.number):
+            if not page == step.parent():
+                if not page.isLocked() and not page.isEmpty():
+                    self.pageComboBox.addItem(page.data(Qt.DisplayRole) ,userData=page)          
+        
+        self.setText("Move to:")
+        self.setAcceptAction(self.acceptValue)
+        
+    def acceptValue(self):
+        index= self.pageComboBox.currentIndex()
+        data = self.pageComboBox.itemData(index)
+        self._step.scene().undoStack.push(MoveStepToPageAtRowCommand(data.toPyObject() ,self._step ,0))
 
 class LicJumper(MessageDlg):
     def __init__(self , scene):
@@ -245,8 +292,9 @@ class LicJumper(MessageDlg):
 
 
 class LicDownloadAssistant(MessageDlg):
-    fileToDownload = ["codes.ini","weights.ini","parts.zip"]
+    fileToDownload = ['default_template.lit','codes.ini','weights.ini','parts.zip']
     iniGroup = {'codes.ini':'Design','weights.ini':'Part'}
+    fileToPath = {}
     
     hasConnection = False
     hasSuccess = False
@@ -260,6 +308,11 @@ class LicDownloadAssistant(MessageDlg):
         
         self.worker = None
         self.location = lic_repository
+        
+        for key in self.fileToDownload:
+            self.fileToPath[key] = config.partsCachePath()
+        self.fileToPath['default_template.lit'] = config.appDataPath()
+
 
     def showEvent(self, event):
         self.init_download()
@@ -272,9 +325,9 @@ class LicDownloadAssistant(MessageDlg):
         self.hasSuccess = False
         try:
             del self.worker
-            self.worker = LicWorker([self.job_1S ,self.job_1 ,self.job_2 ,self.job_3 ,self.job_3S])
+            self.worker = LicWorker()
         finally:
-            self.worker.start()        
+            self.worker.start([self.job_1S ,self.job_1 ,self.job_2 ,self.job_3 ,self.job_4 ,self.job_4S])        
         
     @staticmethod
     def internet_on(address):
@@ -308,10 +361,6 @@ class LicDownloadAssistant(MessageDlg):
         localFile.close()
         return localFile.name
     
-    @staticmethod
-    def basetempname(filename, surfix):
-        return os.path.basename(filename).replace(surfix,'')
-
     def job_1S(self):
         self.setText("Waiting for connection...") 
         self.button1.hide()
@@ -329,19 +378,18 @@ class LicDownloadAssistant(MessageDlg):
         """
          Download file from server to target location with temporary name.
         """
-        destfile = ""
         if self.hasConnection:
             for srcfile in self.fileToDownload:
                 try:
-                    destfile = self.download_file(self.location + srcfile.strip() ,config.grayscalePath() ,self._tempsurfix)
+                    self.setText("Downloading %s" % srcfile)
+                    self.download_file(self.location + srcfile.strip() ,self.fileToPath[srcfile] ,self._tempsurfix)
                 except Exception as error:
                     logging.exception(error)
-                    self.setText("Failed to download %s" % self.basetempname(srcfile ,self._tempsurfix))
+                    self.setText("Failed to download %s" % srcfile)
                     self.hasSuccess = False
                     self.button1.show()
                     return
                 else:
-                    self.setText("Downloaded %s" % self.basetempname(destfile ,self._tempsurfix))
                     self.hasSuccess = True
                     
     def job_3(self):
@@ -349,8 +397,9 @@ class LicDownloadAssistant(MessageDlg):
          If destination not exist rename temporary file, in other case add only new entries.
         """
         self.counter = 0
+        fileToRename = deepcopy(self.fileToDownload)
         for filename ,groupname in self.iniGroup.iteritems():
-            destFile = os.path.join(config.grayscalePath() ,filename)
+            destFile = os.path.join(self.fileToPath[filename] ,filename)
             tempFile = destFile +self._tempsurfix
             
             if not os.path.isfile(destFile):
@@ -370,28 +419,40 @@ class LicDownloadAssistant(MessageDlg):
                             self.counter += 1
                 self.newDB.endGroup()
             
+            if filename in fileToRename:
+                fileToRename.remove(filename)
+            
             os.unlink(tempFile)
             
+        for filename in fileToRename:
+            destFile = os.path.join(self.fileToPath[filename] ,filename)
+            tempFile = destFile +self._tempsurfix
+            if os.path.exists(destFile):
+                os.unlink(destFile)
+            os.rename(tempFile, destFile)
+        
+    def job_4(self):       
         """
          Unpack archive that contains part's images
         """
-        tempFile = os.path.join(config.grayscalePath() ,self.fileToDownload[2]) +self._tempsurfix
-        if os.path.exists(tempFile):    
-            self.setText("Extracting archive %s" % self.basetempname(tempFile ,self._tempsurfix))   
+        archivename = 'parts.zip'
+        destFile = os.path.join(self.fileToPath[archivename] ,archivename)
+        
+        if os.path.exists(destFile):    
+            self.setText("Extracting archive %s" % archivename)   
             try:      
-                with ZipFile(tempFile ,"r" ,ZIP_DEFLATED) as myzip:
+                with ZipFile(destFile ,"r" ,ZIP_DEFLATED) as myzip:
                     for zib_e in myzip.namelist():
                         filename = os.path.basename(zib_e)
                         if not filename:
                             continue
-                        myzip.extract(zib_e ,config.grayscalePath())
+                        myzip.extract(zib_e ,self.fileToPath[archivename])
                     myzip.close()
             except Exception as error:
                 logging.exception(error)
             
-            self.setText("")            
         
-    def job_3S(self):
+    def job_4S(self):
         """
          Display post-processing information to user
         """
@@ -401,7 +462,8 @@ class LicDownloadAssistant(MessageDlg):
             self.setText('Done. %s' % self._message.text())
             
         if self.hasSuccess:
-            self.emit(SIGNAL('success(int)') , self.counter)    
+            self.emit(SIGNAL('success(int)') , self.counter)
+        return    
         
 
 class LicShortcutAssistant(QWidget):
@@ -446,7 +508,7 @@ class LicLayoutAssistant(MessageDlg):
         
         self.scene = scene
         
-        self.setText("Change to")
+        self.setText("Change to:")
         self.setStatusTip("Enter the page numbers separated by commas")
         
         self.nTextField = QLineEdit()
@@ -534,6 +596,7 @@ class LicPlacementAssistant(QWidget):
         
         self._thumbnailbox = QHBoxLayout()
         self._warning = QLabel("")
+        self._worker = LicWorker()
         
         self._thumbnailbox.setSpacing(0)
         
@@ -617,13 +680,11 @@ class LicPlacementAssistant(QWidget):
                     message = self._noSpecialPage
                  
                 if canMove:        
-                    self._worker = LicWorker([self.job_1S , self.job_2 , self.job_3])
-                    self._worker.start()
+                    self._worker.start([self.job_1S , self.job_2 , self.job_3])
                 
             if message:
                 self._warning.setText(string.rjust(message, self._thumbSize))
-   
-                              
+                                 
     def setItemtoMove(self , part=None):
         self.destItem = None
         self._item = part
@@ -659,7 +720,7 @@ class LicPlacementAssistant(QWidget):
                 if isinstance(pItem, (Part, PLIItem)):
                     a = pItem.abstractPart
                     filename = os.path.splitext(a.filename)[0] + ".png"
-                    filepath = os.path.join(config.grayscalePath() ,filename ).lower()
+                    filepath = os.path.join(config.partsCachePath() ,filename ).lower()
                     if os.path.exists(filepath):
                         image.load(filepath,"LA")
                     else:
@@ -677,7 +738,6 @@ class LicPlacementAssistant(QWidget):
                 thumb.setGeometry(sRect);
                 thumb.setPixmap(QPixmap.fromImage(image))
                 self._thumbnailbox.addWidget(thumb)
-
 
     def paintEvent(self, event):
     # prepare canvas
@@ -701,8 +761,7 @@ class LicPlacementAssistant(QWidget):
         self.partList = []     
     # take action
         return QWidget.closeEvent(self, event)
-        
-                    
+                            
     def job_1S(self):
         if self.destItem:
             self._warning.setText( string.rjust(self._processingText, self._thumbSize) )
@@ -824,6 +883,8 @@ class LicCleanupAssistant(QDialog):
         self._dirtypages = []
         self._pages = pages
         self._pixmap = QCommonStyle().standardIcon (QStyle.SP_DialogApplyButton).pixmap(self._iconsize , self._iconsize)
+        
+        
         grid = QGridLayout()
         for s in (self._steps):
             icon_box = QLabel()
@@ -836,17 +897,18 @@ class LicCleanupAssistant(QDialog):
         self._icons[0].setPixmap(self._pixmap)
         self._icons[0].setMask(self._pixmap.mask())
         
-        self.worker = LicWorker([self.job_1S, self.job_1, self.job2S, self.job_2, self.job_3S, self.job_4, self.job_postProcessed])
+        self.worker = LicWorker()
+        self._jobs = [self.job_1S, self.job_1, self.job2S, self.job_2, self.job_3S, self.job_4, self.job_5]
         
     def showEvent(self, event):
-        thread.start_new_thread(self.worker.start , ())
+        thread.start_new_thread(self.worker.start , (self._jobs,))
         return QDialog.showEvent(self, event)
     
     def closeEvent(self, event):
         self.worker.terminate()
         return QDialog.closeEvent(self, event)
     
-    def job_postProcessed(self):
+    def job_5(self):
         # clean-up post processed actions
         self._pages = []
         self._dirtypages = []

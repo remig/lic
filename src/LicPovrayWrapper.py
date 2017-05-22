@@ -29,10 +29,12 @@ def boolToCommand(command, state):
     if state:
         return command
     return ''
+
+def isExists():
+    return os.path.exists(config.POVRayPath)
     
 def __getDefaultCommand():
     return dict({
-        'output type': 'N',
         'width': 512,
         'height': 512,
         'render': False,
@@ -68,13 +70,10 @@ povCommands = {
     'include' : ['+HI', str],  # Include any extra files - specify full filename
 }
 
-def isExists():
-    app = os.path.join(config.POVRayPath, 'pvengine.exe').replace("\\", "/")
-    return os.path.exists(app)
 
 def __runCommand(d):
     LogFile= open(os.path.join(config.appDataPath(),"activity.log"),"a")
-    POVRayApp = os.path.join(config.POVRayPath, 'pvengine.exe').replace("\\", "/")
+    POVRayApp = config.POVRayPath
     if not os.path.isfile(POVRayApp):
         error_message = "Error: Could not find Pov-Ray in %s - aborting image generation" % os.path.dirname(POVRayApp)
         LicHelpers.writeLogEntry(error_message)
@@ -192,10 +191,11 @@ def __fixPovFile(filename, imgWidth, imgHeight, offset, camera):
 
 def createPngFromPov(povFile, width, height, offset, scale, rotation):
 
+    povFile = os.path.normcase(povFile)
     rawFilename = os.path.splitext(os.path.basename(povFile))[0]
-    povFile = povFile.replace("\\", "/")
+    
     pngFile = os.path.join(config.pngCachePath(), rawFilename)
-    pngFile = "%s.png" % pngFile.replace("\\", "/")
+    pngFile = os.path.normcase("%s.png" % pngFile)
     
     if os.path.exists(povFile):
         if not os.path.isfile(pngFile):

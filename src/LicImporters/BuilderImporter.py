@@ -38,6 +38,7 @@ class BuilderImporter(LDrawImporter.LDrawImporter):
     
     def __init__(self, filename, instructions, parent=None):
         LDrawImporter.LDrawImporter.__init__(self, filename, instructions, parent)
+        print LDrawPath
 
     @staticmethod
     def writeLogEntry(message):

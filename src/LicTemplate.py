@@ -279,6 +279,7 @@ class TemplatePage(TemplateRectItem, Page):
         originalPage = self.instructions.mainModel.pages[0]
         step = self.steps[0]
         
+        self.scene().lockApp(True)
         if useUndo:
             stack = self.scene().undoStack
             stack.beginMacro("Apply Template")
@@ -299,18 +300,18 @@ class TemplatePage(TemplateRectItem, Page):
                 stack.push(SetPageNumberPosCommand(self, Page.NumberPos, s.page.NumberPos))
 
             if CSI.defaultScale != s.csi.defaultScale:
-                stack.push(ScaleDefaultItemCommand(CSI, step.csi, CSI.defaultScale, s.csi.defaultScale))
+                stack.push(ScaleDefaultItemCommand(CSI ,step.csi ,s.csi.defaultScale ,CSI.defaultScale))
             if PLI.defaultScale != s.pli.defaultScale:
-                stack.push(ScaleDefaultItemCommand(PLI, step.pli, PLI.defaultScale, s.pli.defaultScale))
+                stack.push(ScaleDefaultItemCommand(PLI ,step.pli ,s.pli.defaultScale ,PLI.defaultScale))
             if SMP.defaultScale != s.smp.defaultScale:
-                stack.push(ScaleDefaultItemCommand(SMP, self.submodelItem, SMP.defaultScale, s.smp.defaultScale))
+                stack.push(ScaleDefaultItemCommand(SMP ,self.submodelItem ,s.smp.defaultScale ,SMP.defaultScale))
             
             if CSI.defaultRotation != s.csi.defaultRotation:
-                stack.push(RotateDefaultItemCommand(CSI, step.csi, CSI.defaultRotation, s.csi.defaultRotation))
+                stack.push(RotateDefaultItemCommand(CSI ,step.csi ,s.csi.defaultRotation ,CSI.defaultRotation))
             if PLI.defaultRotation != s.pli.defaultRotation:
-                stack.push(RotateDefaultItemCommand(PLI, step.pli, PLI.defaultRotation, s.pli.defaultRotation))
+                stack.push(RotateDefaultItemCommand(PLI ,step.pli ,s.pli.defaultRotation ,PLI.defaultRotation))
             if SMP.defaultRotation != s.smp.defaultRotation:
-                stack.push(RotateDefaultItemCommand(SMP, self.submodelItem, SMP.defaultRotation, s.smp.defaultRotation))
+                stack.push(RotateDefaultItemCommand(SMP ,self.submodelItem ,s.smp.defaultRotation ,SMP.defaultRotation))
             
         stack.push(SetPageBackgroundColorCommand(self, originalPage.color, self.color))
         stack.push(SetPageBackgroundBrushCommand(self, originalPage.brush(), self.brush()))
@@ -358,6 +359,7 @@ class TemplatePage(TemplateRectItem, Page):
         if self.separators:
             stack.push(SetPenCommand(self.separators[0], StepSeparator.defaultPen))
         
+        self.scene().lockApp(False)
         if useUndo:
             stack.endMacro()
 
@@ -455,7 +457,7 @@ class TemplatePage(TemplateRectItem, Page):
         
         image = QImage(filename)
         if image.isNull():
-            QMessageBox.information(self.scene().views()[0], "LIC", "Cannot load " + filename)
+            QMessageBox.information(self.scene().views()[0], "LICreator", "Cannot load " + filename)
             return
 
         stack = self.scene().undoStack

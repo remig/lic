@@ -1,47 +1,23 @@
-missing module named pyimod03_importers - imported by G:\Python27\lib\site-packages\PyInstaller\loader\rthooks\pyi_rth_pkgres.py
 missing module named org - imported by copy
-missing module named pwd - imported by posixpath, getpass, shutil, tarfile, webbrowser, distutils.util, distutils.archive_util, CGIHTTPServer
-missing module named _sysconfigdata - imported by distutils.sysconfig, sysconfig
-missing module named grp - imported by shutil, tarfile, distutils.archive_util
-missing module named 'packaging.specifiers' - imported by pkg_resources
-missing module named packaging - imported by pkg_resources
-missing module named 'importlib.machinery' - imported by numpy.compat.py3k, pkg_resources
-missing module named 'urllib.parse' - imported by setuptools.compat, pkg_resources, numpy.lib._datasource
-missing module named _imp - imported by pkg_resources
-missing module named fcntl - imported by tempfile, subprocess
-missing module named 'org.python' - imported by pickle, setuptools.sandbox, xml.sax
-missing module named 'java.lang' - imported by platform, xml.sax._exceptions
-missing module named _xmlplus - imported by xml
-missing module named 'Carbon.File' - imported by plistlib
-missing module named 'Carbon.Files' - imported by plistlib
-missing module named Carbon - imported by plistlib
-missing module named readline - imported by cmd, pdb, code
-missing module named vms_lib - imported by platform
-missing module named java - imported by platform
-missing module named MacOS - imported by platform
-missing module named macresource - imported by MacOS
-missing module named gestalt - imported by platform
-missing module named winreg.OpenKeyEx - imported by winreg, platform
-missing module named winreg.HKEY_LOCAL_MACHINE - imported by winreg, platform
-missing module named winreg.QueryValueEx - imported by winreg, platform
-missing module named winreg.CloseKey - imported by winreg, platform
 missing module named riscosenviron - imported by os
 missing module named riscospath - imported by os
 missing module named riscos - imported by os
 missing module named ce - imported by os
 missing module named _emx_link - imported by os
 missing module named os2 - imported by os
+missing module named pwd - imported by posixpath, getpass, shutil, tarfile
 missing module named posix - imported by os
 missing module named resource - imported by posix
-missing module named 'win32com.gen_py' - imported by win32com, G:\Python27\lib\site-packages\PyInstaller\loader\rthooks\pyi_rth_win32comgenpy.py
 missing module named 'PySide.QtCore' - imported by PIL.ImageQt, G:\Python27\lib\site-packages\PyInstaller\loader\rthooks\pyi_rth_qt4plugins.py
-missing module named psyco - imported by F:\Workspace\eclipse\_python\licreator\lic_3.1.222_src\src\Lic.py
-missing module named OpenGL.platform.PLATFORM - imported by OpenGL.platform, OpenGL.raw.GL._types, OpenGL.GLU.quadrics, OpenGL.raw.GL._errors, OpenGL.GLU.tess, OpenGL.GLU.glunurbs
-missing module named OpenGL.GL.glGetIntegerv - imported by OpenGL.GL, OpenGL.raw.GL._lookupint, OpenGL.GL.pointers
-missing module named OpenGL.platform.createBaseFunction - imported by OpenGL.platform, OpenGL.GLU.quadrics, OpenGL.GLU.tess
-missing module named builtins.bool - imported by builtins, numpy.core.numerictypes, numpy.lib._iotools, numpy
-missing module named builtins.complex - imported by builtins, numpy.core.numerictypes, numpy.lib._iotools, numpy
-missing module named builtins.float - imported by builtins, numpy.core.numerictypes, numpy.lib._iotools, numpy
+missing module named psyco - imported by F:\Workspace\eclipse\_python\licreator\lic_3.2.153_src\src\Lic.py
+missing module named _sysconfigdata - imported by distutils.sysconfig, sysconfig
+missing module named grp - imported by shutil, tarfile
+missing module named readline - imported by cmd, pdb, code
+missing module named 'PyQt5.QtCore' - imported by PIL.ImageQt
+missing module named pathlib - imported by PIL.Image
+missing module named fcntl - imported by tempfile, subprocess
+missing module named cffi - imported by PIL.Image, PIL.PyAccess, PIL.ImageTk
+missing module named 'org.python' - imported by pickle, xml.sax
 missing module named 'dbm.ndbm' - imported by future.moves.dbm.ndbm
 missing module named gdbm - imported by anydbm, future.moves.dbm.gnu
 missing module named 'dbm.gnu' - imported by future.moves.dbm.gnu
@@ -51,77 +27,30 @@ missing module named _pybsddb - imported by bsddb, bsddb.db
 missing module named dbm - imported by future.standard_library, future.moves.dbm, whichdb, anydbm, future.moves.dbm.ndbm
 missing module named SOCKS - imported by ftplib
 missing module named _dummy_threading - imported by dummy_threading
+missing module named vms_lib - imported by platform
+missing module named 'java.lang' - imported by platform, xml.sax._exceptions
+missing module named java - imported by platform
+missing module named _xmlplus - imported by xml
+missing module named 'Carbon.File' - imported by plistlib
+missing module named 'Carbon.Files' - imported by plistlib
+missing module named Carbon - imported by plistlib
+missing module named MacOS - imported by platform
+missing module named macresource - imported by MacOS
+missing module named gestalt - imported by platform
+missing module named winreg.OpenKeyEx - imported by winreg, platform
+missing module named winreg.HKEY_LOCAL_MACHINE - imported by winreg, platform
+missing module named winreg.QueryValueEx - imported by winreg, platform
+missing module named winreg.CloseKey - imported by winreg, platform
 missing module named 'test.support' - imported by future.moves.test.support
 missing module named _scproxy - imported by urllib, future.backports.urllib.request
 missing module named EasyDialogs - imported by getpass
-missing module named termios - imported by getpass, tty
+missing module named termios - imported by getpass
 missing module named _datetime - imported by future.backports.datetime
 missing module named reprlib.recursive_repr - imported by reprlib, future.backports.misc
 missing module named _thread.get_ident - imported by _thread, future.backports.misc
-missing module named configparser - imported by setuptools.compat, numpy.distutils.system_info, numpy.distutils.npy_pkg_config
-missing module named _xmlrpclib - imported by xmlrpclib
-missing module named setuptools_svn - imported by setuptools.command.egg_info
-missing module named wincertstore - imported by setuptools.ssl_support
-missing module named 'backports.ssl_match_hostname' - imported by setuptools.ssl_support
-missing module named backports - imported by setuptools.ssl_support
-missing module named 'urllib.request' - imported by setuptools.compat, numpy.lib._datasource
-missing module named 'urllib.error' - imported by setuptools.compat, numpy.lib._datasource
-missing module named 'numpy_distutils.cpuinfo' - imported by numpy.f2py.diagnose
-missing module named 'numpy_distutils.fcompiler' - imported by numpy.f2py.diagnose
-missing module named 'numpy_distutils.command' - imported by numpy.f2py.diagnose
-missing module named numpy_distutils - imported by numpy.f2py.diagnose
-missing module named __svn_version__ - imported by numpy.f2py.__version__
-missing module named numarray - imported by numpy.distutils.system_info
-missing module named Numeric - imported by numpy.distutils.system_info
-missing module named _curses - imported by curses, curses.has_key
-missing module named 'nose.plugins' - imported by numpy.testing.noseclasses, numpy.testing.nosetester
-missing module named numpy.random.randn - imported by numpy.random, scipy
-missing module named numpy.random.rand - imported by numpy.random, scipy
-missing module named 'nose.util' - imported by numpy.testing.noseclasses
-missing module named nose - imported by numpy.testing.utils, numpy.testing.decorators, numpy.testing.noseclasses
-missing module named numpy.core.number - imported by numpy.core, numpy.testing.utils
-missing module named numpy.lib.iscomplexobj - imported by numpy.lib, numpy.testing.utils
-missing module named numpy.lib.imag - imported by numpy.lib, numpy.testing.utils
-missing module named numpy.lib.real - imported by numpy.lib, numpy.testing.utils
-missing module named numpy.core.signbit - imported by numpy.core, numpy.testing.utils
-missing module named numpy.core.float64 - imported by numpy.core, numpy.testing.utils
-missing module named numpy.core.isinf - imported by numpy.core, numpy.testing.utils
-missing module named numpy.core.isfinite - imported by numpy.core, numpy.testing.utils, numpy.linalg.linalg
-missing module named numpy.core.isnan - imported by numpy.core, numpy.testing.utils
-missing module named numpy.core.float32 - imported by numpy.core, numpy.testing.utils
-missing module named numpy.lib.i0 - imported by numpy.lib, numpy.dual
-missing module named numpy.linalg.inv - imported by numpy.linalg, numpy.matrixlib.defmatrix, numpy.lib.polynomial
-missing module named pathlib - imported by PIL.Image, numpy.compat.py3k
-missing module named numpy.core.integer - imported by numpy.core, numpy.fft.helper
-missing module named numpy.core.conjugate - imported by numpy.core, numpy.fft.fftpack
-missing module named numpy.core.sqrt - imported by numpy.core, numpy.fft.fftpack, numpy.linalg.linalg
-missing module named numpy.lib.triu - imported by numpy.lib, numpy.linalg.linalg
-missing module named numpy.core.intp - imported by numpy.core, numpy.linalg.linalg
-missing module named numpy.core.geterrobj - imported by numpy.core, numpy.linalg.linalg
-missing module named numpy.core.maximum - imported by numpy.core, numpy.linalg.linalg
-missing module named numpy.core.double - imported by numpy.core, numpy.linalg.linalg
-missing module named numpy.core.complexfloating - imported by numpy.core, numpy.linalg.linalg
-missing module named numpy.core.multiply - imported by numpy.core, numpy.linalg.linalg
-missing module named numpy.core.inexact - imported by numpy.core, numpy.linalg.linalg
-missing module named numpy.core.add - imported by numpy.core, numpy.linalg.linalg
-missing module named numpy.core.object_ - imported by numpy.core, numpy.linalg.linalg
-missing module named numpy.core.cdouble - imported by numpy.core, numpy.linalg.linalg
-missing module named numpy.core.single - imported by numpy.core, numpy.linalg.linalg
-missing module named numpy.core.longdouble - imported by numpy.core, numpy.linalg.linalg
-missing module named numpy.core.csingle - imported by numpy.core, numpy.linalg.linalg
-missing module named numpy.recarray - imported by numpy, numpy.ma.mrecords
-missing module named numpy.dtype - imported by numpy, numpy.ma.mrecords, numpy.ctypeslib
-missing module named numpy.expand_dims - imported by numpy, numpy.ma.core
-missing module named numpy.array - imported by numpy, numpy.ma.core, numpy.ma.extras, numpy.ma.mrecords, numpy.ctypeslib
-missing module named numpy.ndarray - imported by numpy, numpy.ma.core, numpy.ma.extras, numpy.ma.mrecords, numpy.ctypeslib
-missing module named numpy.amax - imported by numpy, numpy.ma.core
-missing module named numpy.iscomplexobj - imported by numpy, numpy.ma.core
-missing module named numpy.bool_ - imported by numpy, numpy.ma.core, numpy.ma.mrecords
-missing module named numpy.amin - imported by numpy, numpy.ma.core
-missing module named numpy.histogramdd - imported by numpy, numpy.lib.twodim_base
-missing module named numpy.eye - imported by numpy, numpy.core.numeric
+missing module named OpenGL.platform.PLATFORM - imported by OpenGL.platform, OpenGL.raw.GL._types, OpenGL.GLU.quadrics, OpenGL.raw.GL._errors, OpenGL.GLU.tess, OpenGL.GLU.glunurbs
+missing module named OpenGL.GL.glGetIntegerv - imported by OpenGL.GL, OpenGL.raw.GL._lookupint, OpenGL.GL.pointers
+missing module named OpenGL.platform.createBaseFunction - imported by OpenGL.platform, OpenGL.GLU.quadrics, OpenGL.GLU.tess
+missing module named numpy - imported by OpenGL.arrays.vbo, OpenGL.arrays.numpybuffers, OpenGL.arrays.numpymodule
 missing module named 'OpenGL_accelerate.numpy_formathandler' - imported by OpenGL.arrays.numpymodule
-missing module named 'PyQt5.QtCore' - imported by PIL.ImageQt
-missing module named _imaging_gif - imported by PIL.GifImagePlugin
-missing module named cffi - imported by PIL.Image, PIL.PyAccess
 missing module named rourl2path - imported by urllib

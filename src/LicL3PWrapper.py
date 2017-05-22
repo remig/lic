@@ -37,8 +37,7 @@ def boolToCommand(command, state):
     return ''
 
 def isExists():
-    app = os.path.join(config.L3PPath , 'l3p.exe').replace("\\", "/")
-    return os.path.exists(app)
+    return os.path.exists(config.L3PPath)
 
 def __getDefaultCommand():
     return dict({
@@ -70,16 +69,14 @@ l3pCommands = {
     'bumps' : ['', lambda b: boolToCommand('-bu', b)],  # Boolean
     'LGEO' : ['', lambda b: boolToCommand('-lgeo', b)],  # Boolean
 }
-
-os.environ['LDRAWDIR'] = config.LDrawPath
     
 # d: {'camera position' : [20,-45,0], 'inputFile' : 'hello.dat'}
 def __runCommand(d):
     LogFile= open(os.path.join(config.appDataPath(),"activity.log"),"a")
-    l3pApp = os.path.join(config.L3PPath , 'l3p.exe').replace("\\", "/")
+    l3pApp = config.L3PPath
     LibDir = '-ldd%s' % config.LDrawPath
     if not os.path.isfile(l3pApp):
-        error_message = "Error: Could not find L3P.exe in %s - aborting image generation" % os.path.dirname(l3pApp)
+        error_message = "Error: Could not find L3P in %s - aborting image generation" % os.path.dirname(l3pApp)
         LicHelpers.writeLogEntry(error_message)
         print error_message
         return
@@ -103,8 +100,11 @@ def __runCommand(d):
 
 def createPovFromDat(datFile, color=None):
     
+    datFile = os.path.normcase(datFile)
     rawFilename = os.path.splitext(os.path.basename(datFile))[0]
+    
     povFile = os.path.join(config.povCachePath(), rawFilename)
+    povFile = os.path.normcase(povFile)
     
     if color is None:
         povFile = "%s.pov" % povFile
@@ -113,8 +113,8 @@ def createPovFromDat(datFile, color=None):
     
     if not os.path.isfile(povFile):
         l3pCommand = __getDefaultCommand()
-        l3pCommand['inFile'] = "\"%s\"" % datFile.replace("\\", "/")
-        l3pCommand['outFile'] = "\"%s\"" % povFile.replace("\\", "/")
+        l3pCommand['inFile'] = "\"%s\"" % datFile
+        l3pCommand['outFile'] = "\"%s\"" % povFile
         l3pCommand['color'] = 83
         if color:
             lDrawCode = color.code()

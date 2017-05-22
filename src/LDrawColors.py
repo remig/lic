@@ -139,10 +139,11 @@ def isRealColor(LDrawColorCode):
     return False
 
 def convertToRGBA(LDrawColorCode):
+    #TODO: Handle compliment colors
     if LDrawColorCode == CurrentColor:
         return None
     if LDrawColorCode == ComplimentColor:
-        return None  #TODO: Handle compliment colors
+        return None 
     if LDrawColorCode not in colors:
         color_error = "Could not find LDraw Color: %d - Using Black" % LDrawColorCode
         LicHelpers.writeLogEntry(color_error , "convertToRGBA")
@@ -151,10 +152,11 @@ def convertToRGBA(LDrawColorCode):
     return LicHelpers.LicColor(*colors[LDrawColorCode])
         
 def getColorName(LDrawColorCode):
+    #TODO: Handle compliment colors
     if LDrawColorCode == CurrentColor:
         return None
     if LDrawColorCode == ComplimentColor:
-        return None  #TODO: Handle compliment colors
+        return None  
     if LDrawColorCode not in colors:
         color_error = "Could not find LDraw Color: %d - Using Black" % LDrawColorCode
         LicHelpers.writeLogEntry(color_error , "getColorName")

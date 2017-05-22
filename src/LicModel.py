@@ -22,7 +22,6 @@
 import collections
 import os  # for output path creation
 
-from PIL import Image
 from OpenGL import GL
 from OpenGL import GLU
 from PyQt4.QtCore import *
@@ -30,8 +29,6 @@ from PyQt4.QtGui import *
 from PyQt4.QtOpenGL import *
 
 import LicDialogs
-import LicGLHelpers
-import LicHelpers
 from LicImporters import LDrawImporter
 import LicImporters
 import LicL3PWrapper
@@ -42,6 +39,7 @@ from LicQtWrapper import *
 from LicTreeModel import *
 from LicUndoActions import *
 import LicUndoActions
+from PIL import Image
 import config  # for modelCachePath
 
 
@@ -248,14 +246,6 @@ class CalloutArrow(CalloutArrowTreeManager, QGraphicsRectItem):
             painter.drawSelectionRect(self.rect())
         painter.restore()
 
-    def contextMenuEvent(self, event):
-
-        menu = QMenu(self.scene().views()[0])
-        menu.addAction("Add Point", self.addPoint)
-        menu.exec_(event.screenPos())
-        
-    def addPoint(self):
-        print "NYI"
 
 class Callout(CalloutTreeManager, GraphicsRoundRectItem):
 
@@ -794,43 +784,60 @@ class Step(StepTreeManager, QGraphicsRectItem):
                 self.pli.setRect(0, 0, 0, 0)
                 self.pli.setPos(0, 0)
                 
-    def splitParts(self, maxParts):      
+    def splitParts(self, maxParts):  
+        def addNextPage(srcpage):
+            srcpage.addPageSignal(srcpage.number + 1, srcpage._row + 1)
+            neu = srcpage.nextPage()
+            neu.addBlankStepSignal()     
+            return neu       
+            
+            
+        # Get necessary page object handlers 
         cnt = self.csi.partCount()
         lst = self.csi.getPartList()
         stack = self.scene().undoStack
         scene = self.scene()
+        
+        LicHelpers.partlist_sortify(lst)
+        
+        # Split them into separated Pages    
+        # We reduce the precision of the number to increase the precision of stacking  
         if cnt > maxParts:
             scene.lockApp(True) 
             m = 1
             partList = []
             page = self.parentItem()
-            startNumber = page.number
-            
-            scene.saveSelection()
-            for n in range(maxParts, cnt):
+             
+            for n in range(cnt):
                 partList.append(lst[n])
                 m += 1
                 lst[n].setSelected(True)
                 if m > maxParts:
-                    stack.beginMacro("move Parts to new Step")
-                    page.addPageSignal(page.number + 1, page._row + 1)
-                    page = page.nextPage()
-                    page.addBlankStepSignal()
+                    stack.beginMacro("move %d Parts to new Step" % m)
                     
-                    scene.selectPage(startNumber)
-                    scene.clearSelectedParts()
-                    for p in partList:
-                        p.setSelected(True)
+                    prevpt = round(partList[0].y() ,3)
+                    selectedParts = []
                     
-                    p.moveToStepSignal(page.steps[0])
+                    for part in partList:
+                        selectedParts.append(part)
+                        
+                        if round(part.y() ,3) != prevpt:
+                            page = addNextPage(page)
+                            step = page.steps[0]
+                            
+                            stack.push(MovePartsToStepCommand(selectedParts, step))
+                            
+                            prevpt = round(part.y() ,3)
+                            selectedParts = []
+                      
                     stack.endMacro()
-                    
+                     
                     m = 1
                     partList = []
-                    
-            scene.restoreSelection()
+                     
             scene.lockApp(False) 
             scene.emit(SIGNAL("sceneClick"))
+            scene.removeBlankPages()
 
     def addCallout(self, callout):
         callout.setParentItem(self)
@@ -1128,10 +1135,14 @@ class Step(StepTreeManager, QGraphicsRectItem):
                 menu.addAction("Move to &Previous Page", lambda: self.moveToPrevOrNextPage(True))
             if parent.nextPage() and parent.steps[-1] is self:
                 menu.addAction("Move to &Next Page", lambda: self.moveToPrevOrNextPage(False))
+            if not self.isEmpty():
+                menu.addAction("Move to Page...", self.moveToPageSignal)
 
-        if self.csi.partCount() - LicLayout.PARTS_PER_STEP_MAX >= LicLayout.PARTS_PER_STEP_MAX:
-            menu.addSeparator()
-            menu.addAction("Split parts to new Stepts", lambda:self.splitParts(LicLayout.PARTS_PER_STEP_MAX))
+            halfMax = round(LicLayout.PARTS_PER_STEP_MAX_LV2/2)
+            nParts = halfMax if self.csi.partCount() > LicLayout.PARTS_PER_STEP_MAX_LV2 else LicLayout.PARTS_PER_STEP_MAX_LV1
+            if self.csi.partCount() - nParts > nParts:
+                menu.addSeparator()
+                menu.addAction("Split parts to new Steps", lambda:self.splitParts(int(nParts)))
 
         menu.addSeparator()
         if self.getPrevStep():
@@ -1243,6 +1254,30 @@ class RotateScaleSignalItem(object):
         
     def acceptScale(self, oldScale):
         self.scene().undoStack.push(ScaleItemCommand(self, oldScale, self.scaling))
+            
+    def restoreRotation(self):
+        stack = self.scene().undoStack
+        stack.push(RotateItemCommand(self ,[0.0, 0.0, 0.0] ,self.rotation))
+        
+    def restoreScale(self):
+        """
+         CSI and SubmodelPreview remember template scale|rotation setting by yourself
+         PLIItem must have get this values from his parent -v- instance of PLI 
+        """
+        if hasattr(self, "defaultScale"):
+            scale = self.defaultScale
+        else:
+            scale = self.parent().defaultScale() if hasattr(self.parent(), "defaultScale") else 1.0
+            
+        self.acceptScale(scale)
+            
+    def getContextMenu(self):
+        menu = QMenu(self.scene().views()[0])
+        menu.addAction("restore Rotation" ,self.restoreRotation )
+        menu.addAction("restore Scale" ,self.restoreScale )      
+        menu.addSeparator()
+        return menu
+    
 
 class SubmodelPreview(SubmodelPreviewTreeManager, RotateScaleSignalItem, GraphicsRoundRectItem):
     itemClassName = "SubmodelPreview"
@@ -1396,14 +1431,15 @@ class SubmodelPreview(SubmodelPreviewTreeManager, RotateScaleSignalItem, Graphic
         self.numberItem.data = lambda index: "Qty. Label (%dx)" % qty
 
     def contextMenuEvent(self, event):
-        menu = QMenu(self.scene().views()[0])
+        menu = RotateScaleSignalItem.getContextMenu(self)
+        
         menu.addAction("Rotate Submodel Image", self.rotateSignal)
         menu.addAction("Scale Submodel Image", self.scaleSignal)
         menu.addSeparator()
-        menu.addAction("Move in left-right corner on scene", self.moveTo)
+        menu.addAction("Move in left-top corner on scene", self.moveTo)
         menu.addAction("Move on centre of scene", lambda: self.moveTo(Qt.AlignCenter))
         menu.addSeparator()
-        menu.addAction("Adjust View", self.adjustRectSignal)
+        menu.addAction("Adjust View...", self.adjustRectSignal)
         menu.exec_(event.screenPos())
     
 class PLIItem(PLIItemTreeManager, RotateScaleSignalItem, QGraphicsRectItem):
@@ -1593,9 +1629,9 @@ class PLIItem(PLIItemTreeManager, RotateScaleSignalItem, QGraphicsRectItem):
 
     def contextMenuEvent(self, event):
         
-        menu = QMenu(self.scene().views()[0])
-        menu.addAction("rotate PLI Item", self.rotateSignal)
-        menu.addAction("scale PLI Item", self.scaleSignal)
+        menu = RotateScaleSignalItem.getContextMenu(self)
+        menu.addAction("rotate PLI Item...", self.rotateSignal)
+        menu.addAction("scale PLI Item...", self.scaleSignal)
         menu.addSeparator()
         menu.addAction("normalize View", self.normalizeView)
         menu.addSeparator()
@@ -1682,6 +1718,7 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
         This is the initial algorithm used to layout a PLI.
         """
 
+        self.setBrush(self.defaultBrush)
         self.setPos(0.0, 0.0)
 
         # If this PLI is empty, nothing to do here
@@ -1775,12 +1812,19 @@ class PLI(PLITreeManager, GraphicsRoundRectItem):
         menu = QMenu()
         
         if self.parent().__class__.__name__.lower() == "partlistpage": 
-            menu.addAction("&Repair" ,self.doOverflowLayout)
+            menu.addAction("&Restore" ,self.doOverflowLayout)
         else:
             menu.addAction("&Organize..." ,self.organizeSignal)
-            menu.addAction("&Repair" ,self.initLayout)
+            menu.addAction("&Restore" ,self.initLayout)
         
         menu.exec_(event.screenPos())
+        
+    def repairMe(self):
+        stock = self.scene().undoStack
+        
+        defaultBrush = self.getTemplate().steps[0].pli.brush()
+        
+        stock.push(SetBrushCommand(self ,self.brush() ,defaultBrush))
 
 class CSI(CSITreeManager, RotateScaleSignalItem, QGraphicsRectItem):
     """ Construction Step Image.  Includes border and positional info. """
@@ -2016,11 +2060,11 @@ class CSI(CSITreeManager, RotateScaleSignalItem, QGraphicsRectItem):
         self.resetArrow()
 
     def contextMenuEvent(self, event):
-        menu = QMenu(self.scene().views()[0])
-        menu.addAction("Rotate CSI", self.rotateSignal)
+        menu = RotateScaleSignalItem.getContextMenu(self)
+        menu.addAction("Rotate CSI...", self.rotateSignal)
         if self.rotation != [0.0, 0.0, 0.0]:
             menu.addAction("Remove Rotation", self.removeRotation)
-        menu.addAction("Scale CSI", self.scaleSignal)
+        menu.addAction("Scale CSI...", self.scaleSignal)
         
         if self.parentItem().getNextStep():
             if self.rotation != [0.0, 0.0, 0.0]:
@@ -2029,12 +2073,19 @@ class CSI(CSITreeManager, RotateScaleSignalItem, QGraphicsRectItem):
                 menu.addAction("Copy Scaling to next X CSIs...", lambda: self.copyRotationScaleToNextCSIs(False))
 
         menu.addSeparator()
-        arrowMenu = menu.addMenu("Select Part")
-        for part in self.getPartList():
-            colorName = part.color.name if part.color else "Unnamed"         
-            text = "%s - %s" % (part.abstractPart.name, colorName)
-            arrowMenu.addAction(text, lambda p=part: self.selectPart(p))
-        arrowMenu.addAction("Select All", self.selectAllParts)
+        
+        partList = self.getPartList()
+        if partList.__len__() == 1:
+            arrowMenu = menu.addAction("Select this Part", lambda p=partList[0]: self.selectPart(p))
+        else:
+            arrowMenu = menu.addMenu("Select Part")
+            for part in partList[:LicLayout.PARTS_PER_STEP_MAX_LV2]:
+                colorName = part.color.name if part.color else "Unnamed"         
+                text = "%s - %s" % (part.abstractPart.name, colorName)
+                arrowMenu.addAction(text, lambda p=part: self.selectPart(p))
+                
+            if partList.__len__() < LicLayout.PARTS_PER_STEP_MAX_LV2:
+                arrowMenu.addAction("Select All", self.selectAllParts)
         
         menu.exec_(event.screenPos())
         
@@ -2910,14 +2961,16 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         for submodel in self.submodels:
             submodel.exportToLDrawFile(fh)
 
-    def export(self):
+    def exportSignal(self):
         fpath = str(QFileDialog.getExistingDirectory(None, "Choose location", config.modelCachePath(), QFileDialog.ShowDirsOnly))
         if fpath:
             fhandle = open(os.path.join(fpath, os.path.splitext(self.filename)[0] +".mpd"), 'w')
             try:
                 self.exportToLDrawFile(fhandle)
             except (IOError, OSError), ex:
-                QMessageBox.warning(None, "Save Error", "Failed to save %s: %s" % (self.filename, ex.message))
+                QMessageBox.warning(None, "Export", "Failed to save %s: %s" % (self.filename, ex.message))
+            else:
+                QMessageBox.information(None, "Export", "Saved to: %s" % (fhandle.name))
             
             fhandle.close()
 
@@ -2933,7 +2986,8 @@ class Submodel(SubmodelTreeManager, AbstractPart):
 
         if self.isSubmodel:
             menu.addSeparator()
-            menu.addAction("Export Me", self.export)
+            menu.addAction("Export Me...", self.exportSignal)
+            menu.addAction("Rename Me...", self.renameSignal)
 
         selectedSubmodels = list(self.instructions.scene.selectedSubmodels)
         if len(selectedSubmodels) == 2 and self in selectedSubmodels:
@@ -2945,13 +2999,16 @@ class Submodel(SubmodelTreeManager, AbstractPart):
         menu.exec_(event.screenPos())
 
     def removeAllPagesAndSteps(self):
-        self.instructions.scene.undoStack.beginMacro("remove all Pages and Steps")
+        scene = self.instructions.scene
+        scene.lockApp(True)
+        scene.undoStack.beginMacro("remove all Pages and Steps")
         step = self.pages[0].steps[0]
         nextStep = step.getNextStep()
         while nextStep is not None:
             nextStep.mergeWithStepSignal(step)
             nextStep = step.getNextStep()
-        self.instructions.scene.undoStack.endMacro()
+        scene.undoStack.endMacro()
+        scene.lockApp(False)
 
     def cloneStepsFromSubmodel(self, submodel):
         action = ClonePageStepsFromSubmodel(submodel, self)
@@ -3395,8 +3452,6 @@ class Part(PartTreeManager, QGraphicsRectItem):
                 for callout in step.callouts:
                     subMenu.addAction("Callout %d" % callout.number, lambda x=callout: self.moveToCalloutSignal(x))
         
-        menu.addSeparator()
-
         needSeparator = False
         if step.getPrevStep() and not self.calloutPart:
             menu.addAction("Move to &Previous Step", lambda: self.moveToStepSignal(step.getPrevStep()))
@@ -3406,11 +3461,24 @@ class Part(PartTreeManager, QGraphicsRectItem):
             menu.addAction("Move to &Next Step", lambda: self.moveToStepSignal(step.getNextStep()))
             needSeparator = True
 
-        if not self.calloutPart:
-            menu.addAction("Mark to Move", lambda: self.scene().markToMoveSignal(self))
-        
         if needSeparator:
             menu.addSeparator()
+            
+        if not self.calloutPart:
+            menu.addAction("&Mark to Move...", lambda: self.scene().markToMoveSignal(self))
+            
+            stepList = self.getPage().steps
+            if stepList.__len__() > 2:
+                stepMenu = menu.addMenu("Move to")
+                for obj in stepList: 
+                    if obj.number == step.number:
+                        continue
+                    stepAction = stepMenu.addAction("Step %d" % obj.number)
+                    stepAction.setData(obj.number)
+                    
+                menu.connect(stepMenu ,SIGNAL("triggered(QAction *)") ,self.moveToStepNumberSignal)
+        
+        menu.addSeparator()
 
         if self.displacement:
             menu.addAction("&Increase displacement", lambda: self.displaceSignal(self.displaceDirection))
@@ -3439,7 +3507,17 @@ class Part(PartTreeManager, QGraphicsRectItem):
         
         menu.exec_(event.screenPos())        
 
-
+    def moveToStepNumberSignal(self, action):
+        stepNumber = action.data().toInt()
+        destStep = None
+        if stepNumber[1]:
+            for step in self.getPage().steps:
+                destStep = step
+                if step.number == stepNumber[0]:
+                    break 
+        if destStep:
+            self.moveToStepSignal(destStep)
+    
     def displacePartsSignal(self, direction):
         partList = [p for p in self.scene().selectedItems() if isinstance(p, Part)]
         stack = self.scene().undoStack
@@ -3824,7 +3902,7 @@ class Arrow(Part):
 
         menu = QMenu(self.scene().views()[0])
         
-        menu.addAction("&Change Position and Length", self.adjustDisplaceSignal)
+        menu.addAction("&Change Position and Length...", self.adjustDisplaceSignal)
         menu.addAction("&Remove", self.removeSignal)
         menu.exec_(event.screenPos())
 

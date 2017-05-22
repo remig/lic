@@ -121,7 +121,7 @@ class GraphicsRoundRectItem(QGraphicsRectItem):
         self.cornerRadius = 10
         self.setPen(self.defaultPen)
         self.setBrush(self.defaultBrush)
-       
+            
     def paint(self, painter, option, widget=None):
         
         if self.cornerRadius:
@@ -142,6 +142,7 @@ class GraphicsRoundRectItem(QGraphicsRectItem):
         QGraphicsRectItem.setPen(self, newPen)
         if hasattr(newPen, "cornerRadius"):  # Need this check because some setPen() calls come from Qt directly
             self.cornerRadius = newPen.cornerRadius
+
 
 class GraphicsCircleLabelItem(QGraphicsEllipseItem):
 

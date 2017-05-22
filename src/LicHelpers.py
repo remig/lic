@@ -30,7 +30,7 @@ from PyQt4.QtCore import Qt, QPointF, QString, QSettings
 from PyQt4.QtGui import QPainterPath
 
 import LDrawColors
-from config import grayscalePath
+from config import partsCachePath
 
 
 SUBWINDOW_BACKGROUND = "#FFFACD"
@@ -153,6 +153,9 @@ def makeFunc(func, arg):
     def f(): func(arg)
     return f
 
+def VariantToFloatList(v):
+    return [i.toFloat()[0] for i in v.toList()]
+
 def determinant3x3(m):
     # m must be in the form [[00, 01, 02], [10, 11, 12], [20, 21, 22]]
     d1 = m[0][0] * ((m[1][1] * m[2][2]) - (m[1][2] * m[2][1]))
@@ -184,11 +187,11 @@ def GLMatrixToXYZ(matrix):
     return [matrix[12], matrix[13], matrix[14]]
 
 def getCodesFile():
-    iniFile = os.path.join(grayscalePath(), 'codes.ini')
+    iniFile = os.path.join(partsCachePath(), 'codes.ini')
     return QSettings(QString(iniFile), QSettings.IniFormat)
 
 def getWeightsFile():
-    iniFile = os.path.join(grayscalePath(), 'weights.ini')
+    iniFile = os.path.join(partsCachePath(), 'weights.ini')
     return QSettings(QString(iniFile), QSettings.IniFormat)
 
 def determinePartCode(strdata):
@@ -368,6 +371,18 @@ def polygonToCurvedPath(polygon, radius):
     path.closeSubpath()
     return path
     
+def partlist_sortify(list_data):
+    """
+    Sort parts by y axis
+    
+    Reverse to sort in descending order,
+    when all values is smaller than 0 (zero)
+    to avoid  start "build in the air"
+    """
+    revTest = all( v.matrix[13] < 0 for v in list_data )
+    
+    list_data.sort(key=lambda i: i.y() ,reverse=revTest)      
+
 def slugify(value):
     """
     Normalizes string, converts to lowercase, removes non-alpha characters,

@@ -12,6 +12,8 @@
     You should have received a copy of the Creative Commons License
     along with this program.  If not, see http://creativecommons.org/licenses/by-sa/3.0/
 """
+__all__ = ['LDrawImporter','BuilderImporter']
+
 
 # Dictionary of all registered importers & the files they handle
 # Each entry is the name of the importer module and a tuple of the file types it supports.
@@ -20,7 +22,6 @@
 Importers = {
 "LDrawImporter": ("LDraw", "dat", "ldr", "mpd"),
 "BuilderImporter": ("3D Builder", "l3b"),
-# "ObjImporter":   ("Wavefront", "obj"),
 }
 
 def getImporter(fileType):

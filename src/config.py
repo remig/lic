@@ -65,7 +65,7 @@ class PathsDialog(QDialog):
         grid.addWidget(povLabel, 2, 0)
         grid.addWidget(self.povEdit, 2, 1)
         grid.addWidget(povButton, 2, 2)
-        grid.addWidget(buttonBox, 3, 1, 1, 2)
+        grid.addWidget(buttonBox, 4, 1, 1, 2)
         self.setLayout(grid)
 
     def makeLabelEditButton(self, text, path, slot):
@@ -78,37 +78,47 @@ class PathsDialog(QDialog):
         return label, edit, button
 
     def browseForLDraw(self):
-        self.browse("Path to LDraw library", LDrawPath, self.ldrawEdit, self.validateLDrawPath)
-
-    def validateLDrawPath(self, path):
-        if not (os.path.isdir(os.path.join(path, "PARTS")) and os.path.isdir(os.path.join(path, "P"))):
-            return "LDraw path must contain 'PARTS' and 'P' folders"
-        return ""
+        self.browse("Path to LDraw library", LDrawPath, self.ldrawEdit, self.validateLDrawPath, False)
 
     def browseForL3P(self):
         self.browse("Path to L3P", L3PPath, self.l3pEdit, self.validateL3PPath)
 
-    def validateL3PPath(self, path):
-        if not os.path.isfile(os.path.join(path, "l3p.exe")):
-            return "L3P path must contain l3p.exe file"
-        return ""
-
     def browseForPOV(self):
         self.browse("Path to POV-Ray", POVRayPath, self.povEdit, self.validatePOVPath)
 
-    def validatePOVPath(self, path):
-        if not os.path.isfile(os.path.join(path, "pvengine.exe")):
-            return "POV-Ray path must contain pvengine.exe file"
+    def validateLDrawPath(self, path):
+        p1 = os.path.normcase( os.path.join(path, "PARTS") )
+        p2 = os.path.normcase( os.path.join(path, "P") )
+        if not (os.path.isdir(p1) and os.path.isdir(p2)):
+            return "LDraw path must contain 'PARTS' and 'P' folders"
         return ""
 
-    def browse(self, title, defaultPath, target, validator):
-        path = str(QFileDialog.getExistingDirectory(self, title, defaultPath, QFileDialog.ShowDirsOnly))
+    def validateL3PPath(self, path):
+        return self.validate(path, "l3p")
+
+    def validatePOVPath(self, path):
+        return self.validate(path, "pvengine")
+
+    @staticmethod
+    def validate(path, prefix):
+        normpath = os.path.normcase(path)
+        surfix = ".exe" if os.name == 'nt' else ""  
+        if not os.path.isfile(normpath) or not os.path.basename(normpath).startswith(prefix):
+            return "Path must contain executable file with pattern %s*%s" % (prefix,surfix) 
+        return ""        
+
+    def browse(self, title, defaultPath, target, validator, singleFile=True):
+        if singleFile:
+            path = str(QFileDialog.getOpenFileName(self, title, defaultPath, "Executable (*.exe)" if os.name=="nt" else ""))
+        else:
+            path = str(QFileDialog.getExistingDirectory(None, title, defaultPath, QFileDialog.ShowDirsOnly))
+        
         if path != "":
             valid = validator(path)
             if valid != "":
                 QMessageBox.warning(self, "Invalid path", valid)
             else:
-                target.setText(path)
+                target.setText(os.path.normcase(path))
 
     def accept(self):
         res = self.validateLDrawPath(str(self.ldrawEdit.text()))
@@ -146,6 +156,18 @@ def rootCachePath():
 def modelCachePath():
     return checkPath(os.path.basename(filename), rootCachePath())
 
+def finalImageCachePath():
+    return checkPath('Final_Images')
+
+def glImageCachePath():
+    return checkPath('GL_Images')
+
+def partsCachePath():
+    return checkPath('parts', rootCachePath())
+
+def litCachePath():
+    return checkPath('templates', rootCachePath())
+
 def datCachePath():
     return checkPath('DATs')
 
@@ -155,14 +177,5 @@ def povCachePath():
 def pngCachePath():
     return checkPath('PNGs')
 
-def finalImageCachePath():
-    return checkPath('Final_Images')
-
-def glImageCachePath():
-    return checkPath('GL_Images')
-
 def pdfCachePath():
     return checkPath('PDFs')
-
-def grayscalePath():
-    return checkPath('parts', rootCachePath())
