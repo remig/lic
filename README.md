@@ -1,18 +1,7 @@
-# licreator
-LIC imports 3D models, organizes them into submodels, pages & steps, and exports the end result as images or PDF.
+# Lic
 
-LEGO Instruction Book Creator. In abbreviated LIC is a cross-platform, Python, OpenGL & Qt powered desktop application for creating and editing LEGO instruction books. 
+Lic has aged poorly; it has a few fundamental flaws running through its core that would require an almost complete rewrite in order to fix.  I started it when I was still in university and didn't know any better.  And distributing a python based desktop application is very frustrating.  And there are no unit tests of any kind.
 
-Highlights:
-:: A rich, WYSIWYG UI editor, which provides a fully interactive preview window along side a drag & drop-enabled navigation tree, to help organize and layout your book. 
-
-:: Automatically divide your model into steps. Add a list of parts needed for each step, and auto-layout multiple steps per page for a best fit. Auto-generate a title page and part list pages. 
-
-So far, LIC can import any LDraw model, but its dynamic importer makes it easy to add an importer for any 3D file type, and create instructions for that model. As SR 3D Builder (Sr3D) for example.
-
-When you're done, LIC can export a final instruction book as a series of images or as a high resolution PDF.
-
-This version has been tested against a handful of machines & video cards, and works well, but does require newer hardware. 
-Let me know if you have any problems via GitHub.
+For those reasons, this project is no longer maintained.  Instead, I have begun a complete rewrite, this time as a web / browser based application.  [Web Lic](https://github.com/remig/web_lic) is still in is infancy, but it's evolving a hundred times faster than old & busted Lic ever did.  See you there.
 
 LEGO® is a registered trademark of the LEGO Group, which does not sponsor, endorse, or authorize this software project. 
