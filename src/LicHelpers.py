@@ -61,8 +61,9 @@ BASEPLATES_FILE = [
 
 class LicColor(object):
 
-    def __init__(self, r=0.13, g=0.13, b=0.13, a=1.0, name='Black', ldrawCode=16):
+    def __init__(self, r=0.13, g=0.13, b=0.13, a=1.0, name='Unknwown', ldrawCode=16, er=None, eg=None, eb=None):
         self.rgba = [r, g, b, a]
+        self.edgeRgba = None if er is None else [er, eg, eb, a]
         self.name = name
         self.ldrawCode = ldrawCode
 
@@ -80,7 +81,7 @@ class LicColor(object):
     
     @staticmethod
     def black():
-        return LicColor(0.0, 0.0, 0.0, 1.0, 'Black')
+        return LicColor(0.0, 0.0, 0.0, 1.0, 'Black', 16, 0.34, 0.34, 0.34 )
 
     @staticmethod
     def red():

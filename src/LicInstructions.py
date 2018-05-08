@@ -447,9 +447,9 @@ class InstructionsProxy(object):
         part.appendBlankPage()
         return part
 
-    def addColor(self, colorCode, r=1.0, g=1.0, b=1.0, a=1.0, name='Black'):
+    def addColor(self, colorCode, r=1.0, g=1.0, b=1.0, a=1.0, name='Unknown', er=0.0, eg=0.0, eb=0.0):
         cd = self.__instructions.colorDict
-        cd[colorCode] = None if r is None else LicColor(r, g, b, a, name, colorCode)
+        cd[colorCode] = None if r is None else LicColor(r, g, b, a, name, colorCode, er, eg, eb)
 
     def addPart(self, part, parent=None):
         if parent is None:
