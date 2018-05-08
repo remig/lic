@@ -253,10 +253,23 @@ def __readLicColor(stream):
     if stream.licFileVersion >= 13:
         if stream.readBool():
             r, g, b, a = stream.readFloat(), stream.readFloat(), stream.readFloat(), stream.readFloat()
-            name = unicode(stream.readQString())            
-            return LicHelpers.LicColor(r, g, b, a, name)
+            name = unicode(stream.readQString())
+            
+            existing = __findExistingColor(name)
+            
+            if existing is not None and existing.edgeRgba is not None:
+                return LicHelpers.LicColor(r, g, b, a, name, existing.code, existing.edgeRgba[0], existing.edgeRgba[1], existing.edgeRgba[2])
+            else:
+                return LicHelpers.LicColor(r, g, b, a, name)
         return None
     return colorDict[stream.readInt32()]
+
+def __findExistingColor(name):
+    for key in colorDict:
+        color = colorDict[key]
+        if color is not None and color.name == name:
+            return color
+    return None
 
 def __readPartDictionary(stream, instructions):
 

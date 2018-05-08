@@ -152,9 +152,11 @@ class LDrawImporter(object):
                 code = int(l[4])
                 rgb = l[6].replace('#', '')
                 r, g, b = [float(i) / 256 for i in [int(rgb[0:2], 16), int(rgb[2:4], 16), int(rgb[4:6], 16)]]
+                rgb = l[8].replace('#', '')
+                er, eg, eb = [float(i) / 256 for i in [int(rgb[0:2], 16), int(rgb[2:4], 16), int(rgb[4:6], 16)]]
                 a = float(l[10]) / 256 if (len(l) > 10 and l[9] == 'ALPHA') else 1.0
                 name = l[2].replace('_', ' ')
-                instructions.addColor(code, r, g, b, a, name)
+                instructions.addColor(code, r, g, b, a, name, er, eg, eb)
                 if not LDrawColors.colors.has_key(code):
                     LDrawColors.colors[ code ] = (r, g, b, a, name)
                     
