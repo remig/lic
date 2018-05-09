@@ -1933,11 +1933,14 @@ class CSI(CSITreeManager, RotateScaleSignalItem, QGraphicsRectItem):
 
         # Draw all the parts in this CSI
         # First their edges
-        GL.glPushAttrib(GL.GL_CURRENT_BIT)
+        GL.glPushAttrib(GL.GL_CURRENT_BIT | GL_ENABLE_BIT)
         GL.glColor4f(0.0, 0.0, 0.0, 1.0)
+        GL.glDisable(GL_LIGHTING)
+        
         for partItem in self.parts:
             for part in partItem.parts:
                 part.callGLDisplayList(isCurrent, True)
+                
         GL.glPopAttrib()
         
         # Than their contents
@@ -2336,9 +2339,12 @@ class AbstractPart(object):
         if color is not None and color.edgeRgba is not None:
             GL.glColor4fv(color.edgeRgba)
             
+        GL.glPushAttrib(GL_ENABLE_BIT)
         GL.glDisable(GL_LIGHTING)
+        
         GL.glCallList(self.glEdgeDispID)
-        GL.glEnable(GL_LIGHTING)
+        
+        GL.glPopAttrib()
         
         #Than paint contents
         if color is not None:
@@ -3399,7 +3405,8 @@ class Part(PartTreeManager, QGraphicsRectItem):
             self.drawGLBoundingBox()
             GL.glPopAttrib()
 
-        GL.glPushAttrib(GL.GL_CURRENT_BIT)
+        if self.color is not None:
+            GL.glPushAttrib(GL.GL_CURRENT_BIT)
         
         if paintingEdge:
             if self.color is not None and self.color.edgeRgba is not None:
@@ -3408,9 +3415,8 @@ class Part(PartTreeManager, QGraphicsRectItem):
                     color[3] *= 0.6
                 GL.glColor4fv(color)
                     
-            GL.glDisable(GL_LIGHTING)
             GL.glCallList(self.abstractPart.glEdgeDispID)
-            GL.glEnable(GL_LIGHTING)
+
         else:
             if self.color is not None:
                 color = list(self.color.rgba)
@@ -3420,7 +3426,8 @@ class Part(PartTreeManager, QGraphicsRectItem):
     
             GL.glCallList(self.abstractPart.glDispID)
         
-        GL.glPopAttrib()
+        if self.color is not None:
+            GL.glPopAttrib()
         
         # self.abstractPart.drawConditionalLines()
 
