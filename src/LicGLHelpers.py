@@ -83,16 +83,22 @@ def resetLightParameters():
     setLightParameters(0.4, 64, 1.0)
 
 def setupLight(light):
-    glLightfv(light, GL_SPECULAR, [1.0, 1.0, 0.0, 1.0])
-    glLightfv(light, GL_DIFFUSE, [1.0, 1.0, 1.0])
-    glLightfv(light, GL_POSITION, [0.0, 100.0, 100.0])
+    glLightfv(light, GL_SPECULAR, [0.5, 0.5, 0.0, 0.5])
+    glLightfv(light, GL_DIFFUSE, [0.15, 0.15, 0.15])
+    glLightfv(light, GL_POSITION, [0.0, 200.0, 200.0])
+    glEnable(light)
+    
+def setupLight2(light):
+    glLightfv(light, GL_SPECULAR, [0.5, 0.5, 0.0, 0.5])
+    glLightfv(light, GL_DIFFUSE, [0.15, 0.15, 0.15])
+    glLightfv(light, GL_POSITION, [200.0, 0.0, 200.0])
     glEnable(light)
 
 def setupLighting():
     global __LIC_GL_AMBIENT_LEVEL
 
     glDisable(GL_NORMALIZE)
-    a = __LIC_GL_AMBIENT_LEVEL
+    a = __LIC_GL_AMBIENT_LEVEL * 2
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT, [a, a, a, 1.0])
     glEnable(GL_LIGHTING)
     
@@ -104,6 +110,11 @@ def setupLighting():
     glLightf(GL_LIGHT0, GL_CONSTANT_ATTENUATION, 1.0)
     glLightf(GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.0)
     glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.0)
+    
+    setupLight2(GL_LIGHT1)
+    glLightf(GL_LIGHT1, GL_CONSTANT_ATTENUATION, 1.0)
+    glLightf(GL_LIGHT1, GL_LINEAR_ATTENUATION, 0.0)
+    glLightf(GL_LIGHT1, GL_QUADRATIC_ATTENUATION, 0.0)
     
     glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, 1)
     
@@ -139,8 +150,9 @@ def initFreshContext(doClear):
     glDepthFunc(GL_LEQUAL)
     glEnable(GL_DEPTH_TEST)
     glEnable(GL_NORMALIZE)
-    # glEnable(GL_POLYGON_OFFSET_FILL)
-    # glPolygonOffset(-1.0, -1.0)
+    
+    glPolygonOffset(0.0, 500.0)
+    glEnable(GL_POLYGON_OFFSET_FILL)
 
 def setupForQtPainter():
     glShadeModel(GL_FLAT)
