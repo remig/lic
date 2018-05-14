@@ -1197,6 +1197,8 @@ class SubmodelToCalloutCommand(QUndoCommand):
         for step in self.targetCallout.steps:
             step.csi.resetPixmap()      
         
+        self.targetStep.enablePLI()
+        
         self.targetStep.initLayout()
         self.targetCallout.initLayout()
         

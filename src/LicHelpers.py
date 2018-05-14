@@ -74,7 +74,10 @@ class LicColor(object):
 
     def duplicate(self):
         r, g, b, a = self.rgba
-        return LicColor(r, g, b, a, self.name)
+        if self.edgeRgba is not None:
+            return LicColor(r, g, b, a, self.name, self.ldrawCode, self.edgeRgba[0], self.edgeRgba[1], self.edgeRgba[2])
+        else:
+            return LicColor(r, g, b, a, self.name, self.ldrawCode)
     
     def sortKey(self):
         return sum(self.rgba)
